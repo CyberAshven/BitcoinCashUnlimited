@@ -110,33 +110,9 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr> &vIP, unsign
         }
     }
 
-#ifdef HAVE_GETADDRINFO_A
-    struct in_addr ipv4_addr;
-#ifdef HAVE_INET_PTON
-    if (inet_pton(AF_INET, pszName, &ipv4_addr) > 0)
-    {
-        vIP.push_back(CNetAddr(ipv4_addr));
-        return true;
-    }
-
-    struct in6_addr ipv6_addr;
-    if (inet_pton(AF_INET6, pszName, &ipv6_addr) > 0)
-    {
-        vIP.push_back(CNetAddr(ipv6_addr));
-        return true;
-    }
-#else
-    ipv4_addr.s_addr = inet_addr(pszName);
-    if (ipv4_addr.s_addr != INADDR_NONE)
-    {
-        vIP.push_back(CNetAddr(ipv4_addr));
-        return true;
-    }
-#endif
-#endif
-
     struct addrinfo aiHint;
     memset(&aiHint, 0, sizeof(struct addrinfo));
+
     aiHint.ai_socktype = SOCK_STREAM;
     aiHint.ai_protocol = IPPROTO_TCP;
     aiHint.ai_family = AF_UNSPEC;
@@ -145,37 +121,8 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr> &vIP, unsign
 #else
     aiHint.ai_flags = fAllowLookup ? AI_ADDRCONFIG : AI_NUMERICHOST;
 #endif
-
-    struct addrinfo *aiRes = nullptr;
-#ifdef HAVE_GETADDRINFO_A
-    struct gaicb gcb, *query = &gcb;
-    memset(query, 0, sizeof(struct gaicb));
-    gcb.ar_name = pszName;
-    gcb.ar_request = &aiHint;
-    int nErr = getaddrinfo_a(GAI_NOWAIT, &query, 1, nullptr);
-    if (nErr)
-        return false;
-
-    do
-    {
-        // Should set the timeout limit to a reasonable value to avoid
-        // generating unnecessary checking call during the polling loop,
-        // while it can still response to stop request quick enough.
-        // 2 seconds looks fine in our situation.
-        struct timespec ts = {2, 0};
-        gai_suspend(&query, 1, &ts);
-        if (shutdown_threads.load() == true)
-        {
-            return false;
-        }
-
-        nErr = gai_error(query);
-        if (0 == nErr)
-            aiRes = query->ar_result;
-    } while (nErr == EAI_INPROGRESS);
-#else
-    int nErr = getaddrinfo(pszName, nullptr, &aiHint, &aiRes);
-#endif
+    struct addrinfo *aiRes = NULL;
+    int nErr = getaddrinfo(pszName, NULL, &aiHint, &aiRes);
     if (nErr)
         return false;
 
