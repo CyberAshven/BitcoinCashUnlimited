@@ -15,6 +15,7 @@
 #include "consensus/grouptokens.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
+#include "deltablocks.h"
 #include "dosman.h"
 #include "expedited.h"
 #include "index/txindex.h"
@@ -1523,7 +1524,7 @@ bool InvalidateBlock(CValidationState &state, const Consensus::Params &consensus
     }
 
     LimitMempoolSize(mempool, GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000,
-        GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+        GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 1000000);
 
     // The resulting new best tip may not be in setBlockIndexCandidates anymore, so
     // add it again.
@@ -3659,7 +3660,7 @@ bool ActivateBestChainStep(CValidationState &state,
     if (fBlocksDisconnected)
     {
         LimitMempoolSize(mempool, GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000,
-            GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+            GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 1000000);
     }
     mempool.check(pcoinsTip);
 
@@ -3880,7 +3881,8 @@ bool ProcessNewBlock(CValidationState &state,
         bool ret = AcceptBlock(*pblock, state, chainparams, &pindex, fRequested, dbp);
         if (pindex && pfrom)
         {
-            mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
+            const uint256 blockhash = pindex->GetBlockHash();
+            mapBlockSource[blockhash] = pfrom->GetId();
         }
         CheckBlockIndex(chainparams.GetConsensus());
 
@@ -3898,6 +3900,13 @@ bool ProcessNewBlock(CValidationState &state,
             requester.Received(inv, pfrom);
         }
     }
+    /*! FIXME: There is somewhat of a race here during regtesting: If
+      a lot of blocks are generated in one RPC call, parallel
+      validation will make the registration order arbitrary which
+      means delta blocks transmission and refering might sporadically
+      fail. */
+    CDeltaBlock::newStrong(pblock->GetHash());
+
     if (!ActivateBestChain(state, chainparams, pblock, fParallel))
     {
         if (state.IsInvalid() || state.IsError())

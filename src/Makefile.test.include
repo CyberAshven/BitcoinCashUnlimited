@@ -89,6 +89,7 @@ BITCOIN_TESTS =\
   test/deadlock_tests/test9.cpp \
   test/deadlock_tests/test10.cpp \
   test/deadlock_tests/suite.h \
+  test/deltablock_tests.cpp \
   test/DoS_tests.cpp \
   test/dstencode_tests.cpp \
   test/electrs_tests.cpp \
@@ -117,6 +118,7 @@ BITCOIN_TESTS =\
   test/netbase_tests.cpp \
   test/op_reversebytes_tests.cpp \
   test/opcodes_tests.cpp \
+  test/persistent_map_tests.cpp \
   test/pmt_tests.cpp \
   test/policyestimator_tests.cpp \
   test/pow_tests.cpp \

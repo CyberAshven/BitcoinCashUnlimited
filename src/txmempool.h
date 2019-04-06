@@ -92,7 +92,7 @@ private:
     CAmount nFee; //! Cached to avoid expensive parent-transaction lookups
     size_t nModSize; //! ... and modified size for priority
     size_t nUsageSize; //! ... and total memory usage
-    int64_t nTime; //! Local time when entering the mempool
+    int64_t nTimeMicros; //! Local time when entering the mempool
     double entryPriority; //! Priority when entering the mempool
     unsigned int entryHeight; //! Chain height when entering the mempool
     bool hadNoDependencies; //! Not dependent on any other txs when it entered the mempool
@@ -117,7 +117,7 @@ public:
     CTxMemPoolEntry();
     CTxMemPoolEntry(const CTransactionRef _tx,
         const CAmount &_nFee,
-        int64_t _nTime,
+        int64_t _nTimeMicros,
         double _entryPriority,
         unsigned int _entryHeight,
         bool poolHasNoInputsOf,
@@ -137,7 +137,7 @@ public:
     double GetPriority(unsigned int currentHeight) const;
     const CAmount &GetFee() const { return nFee; }
     size_t GetTxSize() const { return this->tx->GetTxSize(); }
-    int64_t GetTime() const { return nTime; }
+    int64_t GetTimeMicros() const { return nTimeMicros; }
     unsigned int GetHeight() const { return entryHeight; }
     bool WasClearAtEntry() const { return hadNoDependencies; }
     unsigned int GetSigOpCount() const { return sigOpCount; }
@@ -254,7 +254,10 @@ struct mempoolentry_txid
 class CompareTxMemPoolEntryByEntryTime
 {
 public:
-    bool operator()(const CTxMemPoolEntry &a, const CTxMemPoolEntry &b) const { return a.GetTime() < b.GetTime(); }
+    bool operator()(const CTxMemPoolEntry &a, const CTxMemPoolEntry &b) const
+    {
+        return a.GetTimeMicros() < b.GetTimeMicros();
+    }
 };
 
 class CompareTxMemPoolEntryByAncestorFee
@@ -308,7 +311,7 @@ struct TxMempoolInfo
     CTransactionRef tx;
 
     /** The time the transaction entered the mempool */
-    int64_t nTime;
+    int64_t nTimeMicros;
 
     /** The feerate of the transaction */
     CFeeRate feeRate;

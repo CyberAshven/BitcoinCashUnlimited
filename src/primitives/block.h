@@ -7,11 +7,13 @@
 #ifndef BITCOIN_PRIMITIVES_BLOCK_H
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
+#include "persistent_map.h"
 #include "primitives/transaction.h"
 #include "protocol.h"
 #include "serialize.h"
 #include "uint256.h"
 class arith_uint256;
+#include "util.h"
 
 const uint32_t BIP_009_MASK = 0x20000000;
 const uint32_t BASE_VERSION = 0x20000000;
@@ -88,9 +90,9 @@ class CBlock : public CBlockHeader
 private:
     // memory only
     mutable uint64_t nBlockSize; // Serialized block size in bytes
-
+protected:
     // network and disk
-    std::vector<CTransactionRef> vtx;
+    CPersistentTransactionMap mtx;
 
 public:
     // Xpress Validation: (memory only)
@@ -102,57 +104,31 @@ public:
     bool fXVal;
 
 public:
-    typedef std::vector<CTransactionRef>::const_iterator const_iterator;
+    typedef CPersistentMapBlockIterator const_iterator;
 
     // functions to access internal transaction data
-    const_iterator begin() const { return vtx.begin(); }
+    const_iterator begin() const { return const_iterator(mtx.begin()); }
     const_iterator begin_past_coinbase() const
     {
         const_iterator b = begin();
-        b++;
+        ++b;
         return b;
     }
-    const_iterator end() const { return vtx.end(); }
+    const_iterator end() const { return const_iterator(mtx.end()); }
     const CTransactionRef coinbase() const
     {
-        if (vtx.size())
-            return vtx[0];
+        if (mtx.size())
+            return *begin();
         else
             return nullptr;
     }
-    uint64_t numTransactions() const { return vtx.size(); }
+    uint64_t numTransactions() const { return mtx.size(); }
     bool empty() const { return numTransactions() == 0; }
-    void add(const CTransactionRef &txnref) { vtx.emplace_back(txnref); }
-    void setCoinbase(const CTransactionRef &txnref)
-    {
-        if (vtx.empty())
-            vtx.resize(1);
-        vtx[0] = txnref;
-    }
+    void add(const CTransactionRef &txnref) { mtx = mtx.insert(CTransactionSlot(txnref, mtx.size()), txnref); }
+    void setCoinbase(const CTransactionRef &txnref) { mtx = mtx.insert(CTransactionSlot(txnref, 0), txnref); }
     // sort block to be LTOR (leaves coinbase alone)
-    void sortLTOR();
-
-    //! DEPRECATED. This is solely here to aid for implementation/porting of
-    // existing (test) code and should NOT be used.
-    CTransactionRef by_pos(size_t index) const
-    {
-        if (index < vtx.size())
-            return vtx[index];
-        else
-            return nullptr;
-    }
-
-    // sort block to be LTOR (leaves coinbase alone)
-    void sortLTOR();
-
-    CTransactionRef by_pos(size_t index) const
-    {
-        if (index < vtx.size())
-            return vtx[index];
-        else
-            return nullptr;
-    }
-
+    void sortLTOR(const bool no_dups = false);
+    const CTransactionRef by_pos(size_t index) const { return mtx.by_rank(index).value_ptr(); }
     // memory only
     // 0.11: mutable std::vector<uint256> vMerkleTree;
     mutable bool fChecked;
@@ -185,8 +161,24 @@ public:
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
         READWRITE(*(CBlockHeader *)this);
-        READWRITE(vtx);
+        READWRITE(mtx);
     }
+
+    /*
+    template <typename Stream>
+    void Serialize(Stream &s) const
+    {
+        (CBlockHeader*)(this) -> Serialize(s);
+        Serialize(s, mtx);
+    }
+
+    template <typename Stream>
+    void Unserialize(Stream &s)
+    {
+        (CBlockHeader*)(this) -> Unserialize(s);
+        Unserialize(s, mtx);
+        }*/
+
 
     uint64_t GetHeight() const // Returns the block's height as specified in its coinbase transaction
     {
@@ -210,7 +202,7 @@ public:
     void SetNull()
     {
         CBlockHeader::SetNull();
-        vtx.clear();
+        mtx = CPersistentTransactionMap();
         fChecked = false;
         fExcessive = false;
         fXVal = false;
@@ -236,6 +228,10 @@ public:
     uint64_t GetBlockSize() const;
 
     size_t RecursiveDynamicUsage() const;
+
+
+    //! Maximum depth of underlying binary tree to store transaction set
+    size_t treeMaxDepth() const { return mtx.max_depth(); }
 };
 
 /**
