@@ -7,6 +7,7 @@
 
 #include "base58.h"
 #include "blockrelay/graphene.h"
+#include "blockrelay/netdeltablocks.h"
 #include "blockrelay/thinblock.h"
 #include "blockstorage/blockstorage.h"
 #include "cashaddrenc.h"
@@ -50,6 +51,7 @@
 
 #include <atomic>
 #include <boost/lexical_cast.hpp>
+//#include <coz.h>
 #include <inttypes.h>
 #include <iomanip>
 #include <limits>

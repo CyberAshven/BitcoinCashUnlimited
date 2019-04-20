@@ -21,6 +21,7 @@
 #include "config.h"
 #include "connmgr.h"
 #include "consensus/validation.h"
+#include "deltablocks.h"
 #include "dosman.h"
 #include "electrum/electrumserver.h"
 #include "forks_csv.h"
@@ -1103,6 +1104,11 @@ bool AppInit2(Config &config)
     // we use extversion by default
     if (GetBoolArg("-use-extversion", DEFAULT_USE_EXTVERSION))
         nLocalServices |= NODE_EXTVERSION;
+
+    // support for receiving and sending weak blocks with less than
+    // full POW
+    // FIXME: depend on deltablocks enable flag
+    nLocalServices |= NODE_DELTABLOCKS;
 
     nMaxTipAge = GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
 

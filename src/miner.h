@@ -7,6 +7,7 @@
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
+#include "deltablocks.h"
 #include "primitives/block.h"
 #include "txmempool.h"
 
@@ -43,9 +44,11 @@ int32_t UtilMkBlockTmplVersionBits(int32_t version,
 
 struct CBlockTemplate
 {
-    CBlock block;
+    CBlockRef block;
+    CDeltaBlockRef delta_block;
     std::vector<CAmount> vTxFees;
     std::vector<int64_t> vTxSigOps;
+    CBlockTemplate() : block(new CBlock()) {}
 };
 
 
@@ -88,7 +91,7 @@ private:
     uint64_t nBlockTx;
     unsigned int nBlockSigOps;
     CAmount nFees;
-    CTxMemPool::setEntries inBlock;
+    std::set<uint256> inBlock;
 
     // Chain context for the block
     int nHeight;
@@ -107,11 +110,17 @@ public:
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
 
 private:
+    // delta block template which is used to create the block
+    CDeltaBlockRef best_delta_template;
+
     // utility functions
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
     /** Add a tx to the block */
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter);
+
+    // incomplete, only used for delta blocks
+    void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on tx "priority" */

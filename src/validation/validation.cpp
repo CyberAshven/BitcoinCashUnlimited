@@ -15,6 +15,7 @@
 #include "consensus/grouptokens.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
+#include "deltablocks.h"
 #include "dosman.h"
 #include "expedited.h"
 #include "index/txindex.h"
@@ -3879,7 +3880,8 @@ bool ProcessNewBlock(CValidationState &state,
         bool ret = AcceptBlock(*pblock, state, chainparams, &pindex, fRequested, dbp);
         if (pindex && pfrom)
         {
-            mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
+            const uint256 blockhash = pindex->GetBlockHash();
+            mapBlockSource[blockhash] = pfrom->GetId();
         }
         CheckBlockIndex(chainparams.GetConsensus());
 
@@ -3897,6 +3899,13 @@ bool ProcessNewBlock(CValidationState &state,
             requester.Received(inv, pfrom);
         }
     }
+    /*! FIXME: There is somewhat of a race here during regtesting: If
+      a lot of blocks are generated in one RPC call, parallel
+      validation will make the registration order arbitrary which
+      means delta blocks transmission and refering might sporadically
+      fail. */
+    CDeltaBlock::newStrong(pblock->GetHash());
+
     if (!ActivateBestChain(state, chainparams, pblock, fParallel))
     {
         if (state.IsInvalid() || state.IsError())

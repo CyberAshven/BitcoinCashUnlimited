@@ -13,6 +13,7 @@
 #include "serialize.h"
 #include "uint256.h"
 class arith_uint256;
+#include "util.h"
 
 const uint32_t BIP_009_MASK = 0x20000000;
 const uint32_t BASE_VERSION = 0x20000000;
@@ -126,9 +127,8 @@ public:
     void add(const CTransactionRef &txnref) { mtx = mtx.insert(CTransactionSlot(txnref, mtx.size()), txnref); }
     void setCoinbase(const CTransactionRef &txnref) { mtx = mtx.insert(CTransactionSlot(txnref, 0), txnref); }
     // sort block to be LTOR (leaves coinbase alone)
-    void sortLTOR();
-
-    CTransactionRef by_pos(size_t index) const { return mtx.at_ptr(index); }
+    void sortLTOR(const bool no_dups = false);
+    const CTransactionRef by_pos(size_t index) const { return mtx.by_rank(index).value_ptr(); }
     // memory only
     // 0.11: mutable std::vector<uint256> vMerkleTree;
     mutable bool fChecked;
@@ -203,7 +203,6 @@ public:
     {
         CBlockHeader::SetNull();
         mtx = CPersistentTransactionMap();
-        // vMerkleTree.clear();
         fChecked = false;
         fExcessive = false;
         fXVal = false;
@@ -229,6 +228,10 @@ public:
     uint64_t GetBlockSize() const;
 
     size_t RecursiveDynamicUsage() const;
+
+
+    //! Maximum depth of underlying binary tree to store transaction set
+    size_t treeMaxDepth() const { return mtx.max_depth(); }
 };
 
 /**

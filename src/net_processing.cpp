@@ -14,6 +14,7 @@
 #include "blockrelay/compactblock.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
+#include "blockrelay/netdeltablocks.h"
 #include "blockrelay/thinblock.h"
 #include "blockstorage/blockstorage.h"
 #include "chain.h"
@@ -30,6 +31,7 @@
 #include "validation/validation.h"
 #include "validationinterface.h"
 #include "version.h"
+
 
 extern std::atomic<int64_t> nTimeBestReceived;
 extern std::atomic<int> nPreferredDownload;
@@ -1652,6 +1654,18 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     {
         LOCK(pfrom->cs_thintype);
         return CXThinBlockTx::HandleMessage(vRecv, pfrom);
+    }
+
+    // Handle delta/weak blocks
+    else if (strCommand == NetMsgType::DBMISSTX && !fImporting && !fReindex /* && CDeltaBlock::isEnabled()*/)
+    {
+        // FIXME: depend on deltablock enable
+        return CNetDeltaRequestMissing::HandleMessage(vRecv, pfrom);
+    }
+    else if (strCommand == NetMsgType::DELTABLOCK && !fImporting && !fReindex /* && CDeltaBlock::isEnabled() */)
+    {
+        // FIXME: depend on deltablock enable
+        return CNetDeltaBlock::HandleMessage(vRecv, pfrom);
     }
 
     // Handle Graphene blocks

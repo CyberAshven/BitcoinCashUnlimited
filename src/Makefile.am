@@ -122,6 +122,7 @@ BITCOIN_CORE_H = \
   blockrelay/graphene.h \
   blockrelay/graphene_set.h \
   blockrelay/mempool_sync.h \
+  blockrelay/netdeltablocks.h \
   blockrelay/thinblock.h \
   blockstorage/blockleveldb.h \
   blockstorage/blockstorage.h \
@@ -159,6 +160,7 @@ BITCOIN_CORE_H = \
   deadlock-detection/locklocation.h \
   deadlock-detection/lockorder.h \
   deadlock-detection/threaddeadlock.h \
+  deltablocks.h \
   dosman.h \
   dstencode.h \
   expedited.h \
@@ -284,6 +286,7 @@ libbitcoin_server_a_SOURCES = \
   blockrelay/graphene.cpp \
   blockrelay/graphene_set.cpp \
   blockrelay/mempool_sync.cpp \
+  blockrelay/netdeltablocks.cpp \
   blockrelay/thinblock.cpp \
   blockstorage/blockleveldb.cpp \
   blockstorage/sequential_files.cpp \
@@ -325,6 +328,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/blockchain.cpp \
   rpc/client.cpp \
   rpc/electrum.cpp \
+  rpc/deltablocks.cpp \
   rpc/mining.cpp \
   rpc/misc.cpp \
   rpc/net.cpp \

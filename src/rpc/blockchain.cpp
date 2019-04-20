@@ -257,7 +257,7 @@ void entryToJSON(UniValue &info, const CTxMemPoolEntry &e)
     info.pushKV("size", (int)e.GetTxSize());
     info.pushKV("fee", ValueFromAmount(e.GetFee()));
     info.pushKV("modifiedfee", ValueFromAmount(e.GetModifiedFee()));
-    info.pushKV("time", e.GetTime());
+    info.pushKV("time", e.GetTimeMicros() / 1000000); // FIXME: just pass increased resolution as float maybe?
     info.pushKV("height", (int)e.GetHeight());
     info.pushKV("doublespent", (e.dsproof == 1 ? true : false));
     info.pushKV("startingpriority", e.GetPriority(e.GetHeight()));
