@@ -1974,10 +1974,10 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     CheckSort<ancestor_score>(pool, sortedOrder);
 
     /* after tx6 is mined, tx7 should move up in the sort */
-    std::vector<CTransactionRef> vtx;
-    vtx.push_back(MakeTransactionRef(tx6));
+    CBlock block;
+    block.add(MakeTransactionRef(tx6));
     std::list<CTransactionRef> dummy;
-    pool.removeForBlock(vtx, 1, dummy, false);
+    pool.removeForBlock(block, 1, dummy, false);
 
     sortedOrder.erase(sortedOrder.begin() + 1);
     // Ties are broken by time
