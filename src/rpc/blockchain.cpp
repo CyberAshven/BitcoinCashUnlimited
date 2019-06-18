@@ -148,7 +148,7 @@ UniValue blockToJSON(const CBlock &block,
     }
     else
     {
-        result.pushKV("txcount", (uint64_t)block.vtx.size());
+        result.pushKV("txcount", (uint64_t)block.numTransactions());
     }
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
