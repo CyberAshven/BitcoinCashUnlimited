@@ -74,7 +74,20 @@ const char *DSPROOF = "dsproof-beta";
 
 const char *REQTXVAL = "req-txval";
 const char *RESTXVAL = "res-txval";
+
+const char *CAPDPREFIX = "capd";
+const char *CAPDGETINFO = "capdgetinfo";
+const char *CAPDINFO = "capdinfo";
+const char *CAPDINV = "capdinv";
+const char *CAPDGETMSG = "capdgetmsg";
+const char *CAPDMSG = "capdmsg";
+<<<<<<< HEAD
 }; // namespace NetMsgType
+=======
+const char *CAPDQUERY = "capdquery";
+const char *CAPDQUERYREPLY = "capdqreply";
+};
+>>>>>>> 2eb6474e2... add protocol messages
 
 static const char *ppszTypeName[] = {
     "ERROR", // Should never occur
@@ -140,7 +153,15 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::DSPROOF,
     NetMsgType::REQTXVAL,
     NetMsgType::RESTXVAL,
+    NetMsgType::CAPDINV,
+    NetMsgType::CAPDGETMSG,
+    NetMsgType::CAPDMSG,
+    NetMsgType::CAPDGETINFO,
+    NetMsgType::CAPDINFO,
+    NetMsgType::CAPDQUERY,
+    NetMsgType::CAPDQUERYREPLY
 };
+
 const static std::vector<std::string> allNetMessageTypesVec(allNetMessageTypes,
     allNetMessageTypes + ARRAYLEN(allNetMessageTypes));
 

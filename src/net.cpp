@@ -18,6 +18,7 @@
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
+#include "capd.h"
 #include "chainparams.h"
 #include "connmgr.h"
 #include "consensus/consensus.h"
@@ -2610,6 +2611,10 @@ void ThreadMessageHandler()
             pnode->Release();
         }
 
+        // Pass any invs for any CAPD messages that have arrived to every node
+        if (capdPoolSize.Value() > 0)
+            capdProtocol.FlushGossipMessagesToNodes();
+
         if (fSleep)
         {
             std::unique_lock<std::mutex> lock(wakeableDelayMutex);
@@ -3375,6 +3380,12 @@ CNode::~CNode()
     // Decrement thintype peer counters
     thinrelay.RemovePeers(this);
 
+    // Clean up the CAPD node information, if it exists
+    auto tmp = capd;
+    capd = nullptr;
+    if (tmp)
+        delete tmp;
+
     GetNodeSignals().FinalizeNode(GetId());
 }
 
@@ -3535,6 +3546,13 @@ void CNode::ReadConfigFromExtversion()
             negotiatedGrapheneVersion = GRAPHENE_NO_VERSION_SUPPORTED;
         else
             negotiatedGrapheneVersion = upper;
+    }
+
+    num = xVersion.as_u64c(XVer::BU_CAPD_VERSION);
+    if (num)
+    {
+        capd = new CapdNode(this);
+        isCapdEnabled = true;
     }
 }
 

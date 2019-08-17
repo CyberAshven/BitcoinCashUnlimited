@@ -440,6 +440,24 @@ uint64_t ReadCompactSize(Stream &is)
     return ReadCompactSizeWithLimit(is, MAX_SIZE);
 }
 
+class CompactSerializer
+{
+    uint64_t v;
+
+public:
+    CompactSerializer(uint64_t val) : v(val) {}
+    template <typename Stream>
+    void Serialize(Stream &s) const
+    {
+        WriteCompactSize(s, v);
+    }
+
+    template <typename Stream>
+    void Unserialize(Stream &s)
+    {
+        v = ReadCompactSize(s);
+    }
+};
 
 /**
  * Variable-length integers: bytes are a MSB base-128 encoding of the number.
@@ -759,6 +777,8 @@ void Unserialize(Stream &is, std::set<K, Pred, A> &m);
 template <typename Stream, typename T>
 void Serialize(Stream &os, const std::shared_ptr<const T> &p);
 template <typename Stream, typename T>
+void Serialize(Stream &os, std::shared_ptr<T> &p);
+template <typename Stream, typename T>
 void Unserialize(Stream &os, std::shared_ptr<const T> &p);
 
 /**
@@ -1032,6 +1052,11 @@ void Unserialize(Stream &is, std::unique_ptr<const T> &p)
  */
 template <typename Stream, typename T>
 void Serialize(Stream &os, const std::shared_ptr<const T> &p)
+{
+    Serialize(os, *p);
+}
+template <typename Stream, typename T>
+void Serialize(Stream &os, std::shared_ptr<T> &p)
 {
     Serialize(os, *p);
 }

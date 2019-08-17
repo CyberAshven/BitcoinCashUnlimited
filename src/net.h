@@ -50,6 +50,7 @@ class CSubNet;
 class CNode;
 class CNodeRef;
 class CNetMessage;
+class CapdNode;
 
 namespace boost
 {
@@ -371,6 +372,14 @@ public:
     CSharedCriticalSection csMsgSerializer;
 
     // socket
+<<<<<<< HEAD
+=======
+    uint64_t nServices;
+    //! Set to true if capd is enabled in this node (based on XVersion config)
+    bool isCapdEnabled = false;
+    //! The "hook" into capd functionality
+    CapdNode *capd = nullptr;
+>>>>>>> a88668462... p2p messages, RPC call, unit tests
     SOCKET hSocket;
 
     CCriticalSection cs_vSend;
@@ -981,6 +990,7 @@ public:
 
     void copyStats(CNodeStats &stats);
 
+    bool IsCapdEnabled() { return isCapdEnabled; }
     // Network stats
     static void RecordBytesRecv(uint64_t bytes);
     static void RecordBytesSent(uint64_t bytes);

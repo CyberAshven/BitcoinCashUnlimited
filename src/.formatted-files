@@ -39,6 +39,8 @@ blockstorage/blockcache.cpp
 blockstorage/blockcache.h
 bloom.cpp
 bloom.h
+capd.cpp
+capd.h
 cashaddr.cpp
 cashaddr.h
 cashaddrenc.cpp
@@ -324,6 +326,7 @@ test/bip32_tests.cpp
 test/blockcache_tests.cpp
 test/bloom_tests.cpp
 test/bswap_tests.cpp
+test/capd_tests.cpp
 test/cashaddr_tests.cpp
 test/cashaddrenc_tests.cpp
 test/checkblock_tests.cpp
