@@ -1,17 +1,19 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 '''
-Perform basic ELF security checks on a series of executables.
+Perform basic security checks on a series of executables.
 Exit status will be 0 if successful, and the program will be silent.
 Otherwise the exit status will be 1 and it will log which executables failed which checks.
-Needs `readelf` (for ELF) and `objdump` (for PE).
+Needs `readelf` (for ELF), `objdump` (for PE) and `otool` (for MACHO).
 '''
-from __future__ import division,print_function,unicode_literals
+#from __future__ import division,print_function,unicode_literals
 import subprocess
 import sys
 import os
 
 READELF_CMD = os.getenv('READELF', '/usr/bin/readelf')
 OBJDUMP_CMD = os.getenv('OBJDUMP', '/usr/bin/objdump')
+OTOOL_CMD = os.getenv('OTOOL', '/usr/bin/otool')
+NONFATAL = {} # checks which are non-fatal for now but only generate a warning
 
 def check_ELF_PIE(executable):
     '''
@@ -135,6 +137,31 @@ def check_PE_NX(executable):
     '''NX: DllCharacteristics bit 0x100 signifies nxcompat (DEP)'''
     return bool(get_PE_dll_characteristics(executable) & 0x100)
 
+def get_MACHO_executable_flags(executable):
+    p = subprocess.Popen([OTOOL_CMD, '-vh', executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
+    (stdout, stderr) = p.communicate()
+    if p.returncode:
+        raise IOError('Error opening file')
+
+    flags = []
+    for line in stdout.splitlines():
+        tokens = line.split()
+        # filter first two header lines
+        if 'magic' in tokens or 'Mach' in tokens:
+            continue
+        # filter ncmds and sizeofcmds values
+        flags += [t for t in tokens if not t.isdigit()]
+    return flags
+
+def check_MACHO_PIE(executable) -> bool:
+    '''
+    Check for position independent executable (PIE), allowing for address space randomization.
+    '''
+    flags = get_MACHO_executable_flags(executable)
+    if 'PIE' in flags:
+        return True
+    return False
+
 CHECKS = {
 'ELF': [
     ('PIE', check_ELF_PIE),
@@ -145,6 +172,9 @@ CHECKS = {
 'PE': [
     ('PIE', check_PE_PIE),
     ('NX', check_PE_NX)
+],
+'MACHO': [
+    ('PIE', check_MACHO_PIE),
 ]
 }
 
@@ -155,6 +185,8 @@ def identify_executable(executable):
         return 'PE'
     elif magic.startswith(b'\x7fELF'):
         return 'ELF'
+    elif magic.startswith(b'\xcf\xfa'):
+        return 'MACHO'
     return None
 
 if __name__ == '__main__':
