@@ -28,7 +28,7 @@ static std::map<uint64_t, uint256> getPartialTxHashesFromAllSources(
     const uint64_t version = 2;
 
     // Do the orphans first before taking the mempool.cs lock, so that we maintain correct locking order.
-    READLOCK(orphanpool.cs);
+    READLOCK(orphanpool.cs_orphanpool);
     for (auto &kv : orphanpool.mapOrphanTransactions)
     {
         uint64_t cheapHash = GetShortID(_shorttxidk0, _shorttxidk1, kv.first, version);
@@ -220,7 +220,7 @@ bool CNetDeltaBlock::reconstruct(CDeltaBlockRef& dbr, CNetDeltaRequestMissing** 
     for (auto txr : delta_tx_additional)
         delta_map[txr->GetHash()] = txr;
 
-    READLOCK(orphanpool.cs);
+    READLOCK(orphanpool.cs_orphanpool);
     std::vector<CTransactionRef> delta_tx;
     for (auto cheaphash : deltaCheapHashes) {
         const uint256& hash = mapPartialTxHash[cheaphash];
@@ -376,11 +376,17 @@ bool CNetDeltaBlock::HandleMessage(CDataStream& vRecv, CNode* pfrom) {
 
 
         LOG(WB, "DELTABLOCK not known yet.\n");
+        // Code below is causing nodes to fall out of sync during block production / dissemination.
+        // Disabling the code does not seem to cause any problem.
+        // TODO: Determine if it is safe to permanently remove this.
+        /*
         if (!IsRecentDeltaBlock(ndb.header.hashPrevBlock)) {
             LOG(WB, "Delta block's parent hash %s is not recent enough (or even known) to be worth considering.\n",
                 ndb.header.hashPrevBlock.GetHex());
             return false;
         }
+        */
+
         if (ndb.delta_tx_additional.size() < 1) {
             LOG(WB, "Malformed DELTABLOCK without coinbase received. Ignoring.\n");
             return false;
@@ -530,4 +536,9 @@ void CNetDeltaBlock::processNew(CDeltaBlockRef dbr, CNode *pfrom) {
         }
     }
 
+    LOG(WB, "Bobtail PoW:\n");
+    for (auto &hash : dbr->ancestorHashes())
+    {
+        LOG(WB, "\t%s\n", hash.ToString());
+    }
 }

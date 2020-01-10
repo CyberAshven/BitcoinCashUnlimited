@@ -163,9 +163,13 @@ static ThresholdConditionCache warningcache[Consensus::MAX_VERSION_BITS_DEPLOYME
 
 bool CheckBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW)
 {
-    // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()))
-        return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
+    std::shared_ptr<const CDeltaBlock> deltaBlock = known_dbs[block.GetHash()];
+    if (fCheckPOW &&
+        (deltaBlock == nullptr ||
+            !CheckBobtailPoW(*deltaBlock, deltaBlock->allAncestorHashes(), Params().GetConsensus(), BOBTAIL_K)))
+    {
+        return state.DoS(50, error("CheckBlockHeader(): bobtail proof of work failed"), REJECT_INVALID, "high-hash");
+    }
 
     // Check timestamp
     if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)

@@ -282,7 +282,7 @@ public:
             // we won't bail out early due to package insertion failures. Secondly it also preserves some
             // sense of fairness that, all other things begin equal, the first transation to arrive in the
             // mempool has priority over ones that follow.
-            return a.GetTime() < b.GetTime();
+            return a.GetTimeMicros() < b.GetTimeMicros();
         }
 
         return f1 > f2;

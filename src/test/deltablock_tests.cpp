@@ -3,6 +3,7 @@
 #include "arith_uint256.h"
 #include "deltablocks.h"
 #include "consensus/merkle.h"
+#include "consensus/params.h"
 #include <boost/test/unit_test.hpp>
 #include <map>
 #include <iostream>
@@ -292,6 +293,78 @@ BOOST_AUTO_TEST_CASE(deltatree)
         BOOST_CHECK_EQUAL(tips[0], b6); // still came first
         BOOST_CHECK_EQUAL(tips[1], b8);
     }
+}
+
+BOOST_AUTO_TEST_CASE(check_bobtail_pow)
+{
+    const Consensus::Params &consensusParams = Params().GetConsensus();
+    CDeltaBlock::resetAll();
+    CDeltaBlock::newStrong(hash1);
+    std::vector<uint256> ancestorHashes;
+
+    for (int i=0;i < 3;i++)
+    {
+        CBlockHeader parentHeader;
+        parentHeader.hashPrevBlock = hash1;
+        parentHeader.nNonce = i;
+        ancestorHashes.push_back(parentHeader.GetHash());
+        CMutableTransaction parentCb;
+        parentCb.vin.resize(1);
+        parentCb.vin[0].prevout.SetNull();
+        CDeltaBlockRef parentDelta(new CDeltaBlock(parentHeader, CTransactionRef(new CTransaction(parentCb))));
+        addSomeTx(parentDelta, 100);
+        finalize(parentDelta);
+        CDeltaBlock::tryRegister(parentDelta);
+    }
+
+    CBlockHeader childHeader;
+    CMutableTransaction childCb;
+    CDeltaBlock::addAncestorOPRETURNs(childCb, ancestorHashes);
+
+    CDeltaBlock childDelta = CDeltaBlock(childHeader, MakeTransactionRef(childCb));
+
+    std::vector<uint256> ah = childDelta.ancestorHashes();
+    BOOST_CHECK_EQUAL(ah.size(), 3);
+    BOOST_CHECK_EQUAL(ah[0], ancestorHashes[0]);
+    BOOST_CHECK_EQUAL(ah[1], ancestorHashes[1]);
+    BOOST_CHECK_EQUAL(ah[2], ancestorHashes[2]);
+
+    CheckBobtailPoW(childDelta, childDelta.ancestorHashes(), consensusParams, 2);
+}
+
+BOOST_AUTO_TEST_CASE(check_bobtail_statistic)
+{
+    arith_uint256 p1(3);
+    arith_uint256 p2(5);
+    arith_uint256 p3(10);
+    std::vector<arith_uint256> proofs;
+    proofs.push_back(p1);
+    proofs.push_back(p2);
+    proofs.push_back(p3);
+
+    arith_uint256 targetHigh(7);
+    arith_uint256 targetLow(5);
+
+    BOOST_CHECK_EQUAL(CheckBobtailPoWFromOrderedProofs(proofs, targetHigh, 3), true);
+    BOOST_CHECK_EQUAL(CheckBobtailPoWFromOrderedProofs(proofs, targetLow, 3), false);
+}
+
+BOOST_AUTO_TEST_CASE(arith_uint256_sanity)
+{
+    unsigned int nBits = 545259519;
+    arith_uint256 a;
+    a.SetCompact(nBits);
+    arith_uint256 b;
+    b.SetCompact(nBits);
+    b /= 1000;
+    arith_uint256 c;
+    a.SetCompact(nBits);
+    c = ~c;
+    c *= 1000;
+    c = ~c;
+
+    BOOST_CHECK(a > b);
+    BOOST_CHECK(a > c);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -403,7 +403,7 @@ bool BlockAssembler::isStillDependent(CTxMemPool::txiter iter)
 {
     for (CTxMemPool::txiter parent : mempool.GetMemPoolParents(iter))
     {
-        if (!inBlock.count(parent->GetTx().GetHash()))
+        if (!inBlock.count(parent))
         {
             return true;
         }
@@ -563,7 +563,7 @@ void BlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxM
     ++nBlockTx;
     nBlockSigOps += iter->GetSigOpCount();
     nFees += iter->GetFee();
-    inBlock.insert(iter->GetTx().GetHash());
+    inBlock.insert(iter);
 
     bool fPrintPriority = GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority)
@@ -585,7 +585,8 @@ void BlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxM
     ++nBlockTx;
     nBlockSigOps += entry->GetSigOpCount();
     nFees += entry->GetFee();
-    inBlock.insert(entry->GetTx().GetHash());
+    CTxMemPool::txiter txiter = mempool.mapTx.find(entry->GetSharedTx()->GetHash());
+    inBlock.insert((CTxMemPool::txiter)(txiter));
     // COZ_PROGRESS_NAMED("AddToBlock2");
 }
 
@@ -774,7 +775,7 @@ void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
         vecPriority.pop_back();
 
         // If tx already in block, skip
-        if (inBlock.count(iter->GetTx().GetHash()))
+        if (inBlock.count(iter))
         {
             // DbgAssert(false, ); // can happen for prio tx if delta block
             continue;
