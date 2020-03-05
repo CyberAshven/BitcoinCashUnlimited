@@ -126,6 +126,7 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     while (numblocks < nGenerate)
     {
         std::unique_ptr<CBlockTemplate> pblocktemplate;
+        CDeltaBlockRef pblock;
         {
             TxAdmissionPause lock; // flush any tx waiting to enter the mempool
             pblocktemplate = BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript);
@@ -184,14 +185,6 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
         }
         blockHashes.push_back(pblock->GetHash().GetHex());
-
-        // mark script as important because it was used at least for one coinbase output if the script came from the
-        // wallet
-        if (keepScript)
-        {
-            coinbaseScript->KeepScript();
-        }
-        numblocks++;
     }
 
     CValidationState state;
@@ -218,7 +211,7 @@ UniValue generate(const UniValue &params, bool fHelp)
                             HelpExampleCli("generate", "11"));
 
     int nGenerate = params[0].get_int();
-    uint64_t nMaxTries = 1000000;
+    uint64_t nMaxTries = 100000000;
     if (params.size() > 1)
     {
         nMaxTries = params[1].get_int();
@@ -258,7 +251,7 @@ UniValue generatetoaddress(const UniValue &params, bool fHelp)
                             HelpExampleCli("generatetoaddress", "11 \"myaddress\""));
 
     int nGenerate = params[0].get_int();
-    uint64_t nMaxTries = 1000000;
+    uint64_t nMaxTries = 100000000;
     if (params.size() > 2)
     {
         nMaxTries = params[2].get_int();
