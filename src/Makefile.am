@@ -131,6 +131,7 @@ BITCOIN_CORE_H = \
   blockstorage/blockcache.h \
   bitnodes.h \
   bloom.h \
+  bobtaildb.h \
   cashaddr.h \
   cashaddrenc.h \
   chain.h \
@@ -293,6 +294,7 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockstorage.cpp \
   blockstorage/blockcache.cpp \
   bloom.cpp \
+  bobtaildb.cpp \
   chain.cpp \
   checkpoints.cpp \
   connmgr.cpp \
@@ -503,6 +505,10 @@ libbitcoin_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
+  bobtail/bobtail.cpp \
+  bobtail/bobtail.h \
+  bobtail/subblock.cpp \
+  bobtail/subblock.h \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
