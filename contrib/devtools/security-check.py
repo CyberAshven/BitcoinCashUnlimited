@@ -114,24 +114,34 @@ def check_ELF_Canary(executable):
             ok = True
     return ok
 
-def get_PE_dll_characteristics(executable):
-    '''
-    Get PE DllCharacteristics bits
-    '''
-    p = subprocess.Popen([OBJDUMP_CMD, '-x',  executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+def get_PE_dll_characteristics(executable) -> int:
+    '''Get PE DllCharacteristics bits'''
+    p = subprocess.Popen([OBJDUMP_CMD, '-x',  executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
     (stdout, stderr) = p.communicate()
     if p.returncode:
         raise IOError('Error opening file')
-    for line in stdout.split('\n'):
+    bits = 0
+    for line in stdout.splitlines():
         tokens = line.split()
         if len(tokens)>=2 and tokens[0] == 'DllCharacteristics':
-            return int(tokens[1],16)
-    return 0
+            bits = int(tokens[1],16)
+    return bits
 
+IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA = 0x0020
+IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE    = 0x0040
+IMAGE_DLL_CHARACTERISTICS_NX_COMPAT       = 0x0100
 
-def check_PE_PIE(executable):
+def check_PE_DYNAMIC_PIE(executable):
     '''PIE: DllCharacteristics bit 0x40 signifies dynamicbase (ASLR)'''
-    return bool(get_PE_dll_characteristics(executable) & 0x40)
+    bits = get_PE_dll_characteristics(executable)
+    return (bits & IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE) == IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE
+
+# Must support high-entropy 64-bit address space layout randomization
+# in addition to DYNAMIC_BASE to have secure ASLR.
+def check_PE_HIGH_ENTROPY_VA(executable):
+    '''PIE: DllCharacteristics bit 0x20 signifies high-entropy ASLR'''
+    bits = get_PE_dll_characteristics(executable)
+    return (bits & IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA) == IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA
 
 def check_PE_RELOC_SECTION(executable) -> bool:
     '''Check for a reloc section. This is required for functional ASLR.'''
@@ -146,7 +156,8 @@ def check_PE_RELOC_SECTION(executable) -> bool:
 
 def check_PE_NX(executable):
     '''NX: DllCharacteristics bit 0x100 signifies nxcompat (DEP)'''
-    return bool(get_PE_dll_characteristics(executable) & 0x100)
+    bits = get_PE_dll_characteristics(executable)
+    return (bits & IMAGE_DLL_CHARACTERISTICS_NX_COMPAT) == IMAGE_DLL_CHARACTERISTICS_NX_COMPAT
 
 def get_MACHO_executable_flags(executable):
     p = subprocess.Popen([OTOOL_CMD, '-vh', executable], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
@@ -230,7 +241,6 @@ CHECKS = {
     ('Canary', check_ELF_Canary)
 ],
 'PE': [
-    ('PIE', check_PE_PIE),
     ('DYNAMIC_BASE', check_PE_DYNAMIC_BASE),
     ('HIGH_ENTROPY_VA', check_PE_HIGH_ENTROPY_VA),
     ('NX', check_PE_NX),
