@@ -13,7 +13,6 @@ import os
 READELF_CMD = os.getenv('READELF', '/usr/bin/readelf')
 OBJDUMP_CMD = os.getenv('OBJDUMP', '/usr/bin/objdump')
 OTOOL_CMD = os.getenv('OTOOL', '/usr/bin/otool')
-NONFATAL = {} # checks which are non-fatal for now but only generate a warning
 
 def check_ELF_PIE(executable):
     '''
