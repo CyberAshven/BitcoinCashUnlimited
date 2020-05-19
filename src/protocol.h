@@ -442,10 +442,31 @@ public:
         int nVersion = s.GetVersion();
         if (s.GetType() & SER_DISK)
             READWRITE(nVersion);
-        if ((s.GetType() & SER_DISK) || (nVersion >= CADDR_TIME_VERSION && !(s.GetType() & SER_GETHASH)))
-            READWRITE(nTime);
-        READWRITE(nServices);
-        READWRITE(*(CService *)this);
+        }
+        if ((s.GetType() & SER_DISK) || (nVersion != INIT_PROTO_VERSION && !(s.GetType() & SER_GETHASH))) {
+            // The only time we serialize a CAddress object without nTime is in
+            // the initial VERSION messages which contain two CAddress records.
+            // At that point, the serialization version is INIT_PROTO_VERSION.
+            // After the version handshake, serialization version is >=
+            // MIN_PEER_PROTO_VERSION and all ADDR messages are serialized with
+            // nTime.
+            // Note: The extversion phase (optional) of protocol negotiation
+            // uses INIT_PROTO_VERSION. Currently extversion in BCHN does not
+            // send CAddress instances in the extversion message, but if it
+            // were to do so in some hypothetical future change, then it should
+            // take into account the behavior here, and be sure not to use
+            // INIT_PROTO_VERSION if it wished to serialize nTime.
+            READWRITE(obj.nTime);
+        }
+        if (nVersion & ADDRV2_FORMAT) {
+            uint64_t services_tmp;
+            SER_WRITE(obj, services_tmp = obj.nServices);
+            READWRITE(Using<CompactSizeFormatter<false>>(services_tmp));
+            SER_READ(obj, obj.nServices = static_cast<ServiceFlags>(services_tmp));
+        } else {
+            READWRITE(Using<CustomUintFormatter<8>>(obj.nServices));
+        }
+        READWRITEAS(CService, obj);
     }
 
     // TODO: make private (improves encapsulation)
