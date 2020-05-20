@@ -80,14 +80,34 @@ public:
     bool IsLocal() const;
     bool IsRoutable() const;
     bool IsValid() const;
-    bool IsMulticast() const;
+
+    /**
+     * Check if the current object can be serialized in pre-ADDRv2/BIP155 format.
+     */
+    bool IsAddrV1Compatible() const;
+
     enum Network GetNetwork() const;
     std::string ToString() const;
     std::string ToStringIP() const;
     unsigned int GetByte(int n) const;
     uint64_t GetHash() const;
     bool GetInAddr(struct in_addr *pipv4Addr) const;
-    std::vector<unsigned char> GetGroup() const;
+    uint8_t GetNetClass() const;
+
+    //! For IPv4, mapped IPv4, SIIT translated IPv4, Teredo, 6to4 tunneled addresses, return the relevant IPv4 address
+    //! as a uint32.
+    uint32_t GetLinkedIPv4() const;
+    //! Whether this address has a linked IPv4 address (see GetLinkedIPv4()).
+    bool HasLinkedIPv4() const;
+
+    // The AS on the BGP path to the node we use to diversify
+    // peers in AddrMan bucketing based on the AS infrastructure.
+    // The ip->AS mapping depends on how asmap is constructed.
+    uint32_t GetMappedAS(const std::vector<bool> &asmap) const;
+
+    std::vector<uint8_t> GetGroup(const std::vector<bool> &asmap) const;
+    // This will return the address as a serialized V1 vector (size: 16 bytes).
+    std::vector<uint8_t> GetAddrBytes() const;
     int GetReachabilityFrom(const CNetAddr *paddrPartner = nullptr) const;
 
     bool GetIn6Addr(struct in6_addr *pipv6Addr) const;

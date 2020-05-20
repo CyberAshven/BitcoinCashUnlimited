@@ -180,9 +180,31 @@ bool CNetAddr::IsRoutable() const
                             (IsRFC4193() && !IsTor()) || IsRFC4843() || IsLocal());
 }
 
-enum Network CNetAddr::GetNetwork() const
-{
-    if (!IsRoutable())
+bool CNetAddr::IsAddrV1Compatible() const {
+    switch (m_net) {
+        case NET_IPV4:
+        case NET_IPV6:
+        case NET_INTERNAL:
+            return true;
+        case NET_ONION:
+            return m_addr.size() == ADDR_TORV2_SIZE;
+        case NET_I2P:
+        case NET_CJDNS:
+            return false;
+        case NET_UNROUTABLE: // m_net is never and should not be set to NET_UNROUTABLE
+        case NET_MAX:        // m_net is never and should not be set to NET_MAX
+            assert(false);
+    } // no default case, so the compiler can warn about missing cases
+
+    assert(false);
+}
+
+enum Network CNetAddr::GetNetwork() const {
+    if (IsInternal()) {
+        return NET_INTERNAL;
+    }
+
+    if (!IsRoutable()) {
         return NET_UNROUTABLE;
 
     if (IsIPv4())
@@ -302,9 +324,15 @@ std::vector<unsigned char> CNetAddr::GetGroup() const
     return vchRet;
 }
 
-uint64_t CNetAddr::GetHash() const
-{
-    uint256 hash = Hash(&ip[0], &ip[16]);
+std::vector<uint8_t> CNetAddr::GetAddrBytes() const {
+    if (IsAddrV1Compatible()) {
+        return SerializeV1Array();
+    }
+    return std::vector<uint8_t>(m_addr.begin(), m_addr.end());
+}
+
+uint64_t CNetAddr::GetHash() const {
+    const uint256 hash = Hash(m_addr);
     uint64_t nRet;
     memcpy(&nRet, &hash, sizeof(nRet));
     return nRet;
