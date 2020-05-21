@@ -10,6 +10,7 @@
 #include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
+#include "bobtail/bobtail.h"
 #include "checkpoints.h"
 #include "connmgr.h"
 #include "consensus/grouptokens.h"
