@@ -15,6 +15,7 @@
 #include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
+#include "bobtail/dag.h"
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
@@ -78,6 +79,7 @@
  */
 
 /*! Known, complete delta blocks. */
+CDagForrest bobtailDag;
 std::map<uint256, ConstCDeltaBlockRef> known_dbs;
 
 std::atomic<bool> fImporting{false};

@@ -8,6 +8,7 @@
 #include "blockrelay/netdeltablocks.h"
 #include "blockstorage/blockstorage.h"
 #include "bobtail/bobtail.h"
+#include "bobtail/dag.h"
 #include "chain.h"
 #include "chainparams.h"
 #include "consensus/consensus.h"
@@ -37,6 +38,7 @@
 #include <univalue.h>
 
 using namespace std;
+extern CDagForrest bobtailDag;
 
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
@@ -127,7 +129,6 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     while (numblocks < nGenerate)
     {
         std::unique_ptr<CBlockTemplate> pblocktemplate;
-        CDeltaBlockRef pblock;
         {
             TxAdmissionPause lock; // flush any tx waiting to enter the mempool
             pblocktemplate = BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript);

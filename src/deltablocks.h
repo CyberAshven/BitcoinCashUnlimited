@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+const double KOS_INCLUSION_PROB = 0.99999;
+
 // Deltablocks / Merged weak blocks for Bitcoin
 
 class CDeltaBlock;
@@ -128,6 +130,10 @@ public:
     //! Reset internal data; mostly for unit testing
     static void resetAll();
 
+    /*! Call this when a new delta block arrived, weak or strong. This
+     *  will process it and send it around to everyone. */
+    static void processNew(CDeltaBlockRef dbr);
+
     //! Test outpoint for whether it is spent in the delta block already
     bool spendsOutput(const COutPoint &out) const;
 
@@ -157,5 +163,7 @@ private:
 
     friend int weakPOW_internal(const std::vector<ConstCDeltaBlockRef>& merge_set, const uint256& hashPrevBlock);
 };
+
+double GetKOSThreshold(arith_uint256 target, uint8_t k);
 
 #endif
