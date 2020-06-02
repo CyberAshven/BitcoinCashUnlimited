@@ -526,7 +526,7 @@ extern void UnlimitedLogBlock(const CBlock &block, const std::string &hash, uint
         long int byteLen = block.GetBlockSize();
         CBlockHeader bh = block.GetBlockHeader();
         fprintf(blockReceiptLog, "%" PRIu64 ",%" PRIu64 ",%ld,%ld,%s\n", receiptTime, (uint64_t)bh.nTime, byteLen,
-                block.numTransactions(), hash.c_str());
+                block.vtx.size(), hash.c_str());
         fflush(blockReceiptLog);
     }
 #endif
@@ -1361,7 +1361,7 @@ std::vector<uint256> GetMerkleProofBranches(CBlock *pblock)
     std::vector<uint256> ret;
     std::vector<uint256> leaves;
 
-    for (const auto &tx : *pblock)
+    for (const auto &tx : pblock->vtx)
         leaves.push_back(tx->GetHash());
 
     ret = ComputeMerkleBranch(leaves, 0);
@@ -1405,7 +1405,7 @@ static UniValue MkMiningCandidateJson(CMiningCandidate &candid)
     ret.pushKV("id", candid.id);
 
     {
-        const CTransactionRef &tran = block.coinbase();
+        const CTransactionRef &tran = block.vtx[0];
         ret.pushKV("coinbase", EncodeHexTx(*tran));
     }
 
