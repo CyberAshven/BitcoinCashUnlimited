@@ -4072,7 +4072,7 @@ bool IsBlockPruned(const CBlockIndex *pblockindex)
 
 /* Bobtail
  */
-extern CDagForrest bobtailDag;
+extern CBobtailDagSet bobtailDagSet;
 
 struct unknownBobtailForkData
 {
@@ -4115,7 +4115,7 @@ static int64_t nBobtailTimePostConnect = 0;
 
 bool CheckSubBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW)
 {
-    CDagNode *dagNode = bobtailDag.Find(block.GetHash());
+    CDagNode *dagNode = bobtailDagSet.Find(block.GetHash());
     CSubBlockRef deltaBlock = std::make_shared<CSubBlock>(dagNode->subblock);
     //TODO: CheckBobtailPoW SHOULD TAKE DAG NOT HASHES
     std::vector<uint256> ancestors; //DELETE ME
@@ -4136,7 +4136,7 @@ bool CheckSubBlockHeader(const CBlockHeader &block, CValidationState &state, boo
 
 bool CheckBobtailBlock(const CBlockHeader &block, CValidationState &state, bool fCheckPOW)
 {
-    CDagNode *dagNode = bobtailDag.Find(block.GetHash());
+    CDagNode *dagNode = bobtailDagSet.Find(block.GetHash());
     CSubBlockRef deltaBlock = std::make_shared<CSubBlock>(dagNode->subblock);
     //TODO: CheckBobtailPoW SHOULD TAKE DAG NOT HASHES
     std::vector<uint256> ancestors; //DELETE ME
