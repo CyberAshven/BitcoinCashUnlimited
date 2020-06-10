@@ -131,6 +131,7 @@ BITCOIN_CORE_H = \
   blockstorage/blockcache.h \
   bitnodes.h \
   bloom.h \
+  bobtail/miner.h \
   bobtail/validation.h \
   bobtaildb.h \
   cashaddr.h \
@@ -190,6 +191,7 @@ BITCOIN_CORE_H = \
   memusage.h \
   merkleblock.h \
   miner.h \
+  miner_common.h \
   net.h \
   net_processing.h \
   nodestate.h \
@@ -295,6 +297,7 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockstorage.cpp \
   blockstorage/blockcache.cpp \
   bloom.cpp \
+  bobtail/miner.cpp \
   bobtail/validation.cpp \
   bobtaildb.cpp \
   chain.cpp \
@@ -320,6 +323,7 @@ libbitcoin_server_a_SOURCES = \
   main.cpp \
   merkleblock.cpp \
   miner.cpp \
+  miner_common.cpp \
   net.cpp \
   net_processing.cpp \
   nextchain.cpp \
