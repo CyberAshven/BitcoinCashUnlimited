@@ -4,6 +4,10 @@
 
 #include "bobtail.h"
 #include "bobtailblock.h"
+#include "dag.h"
+
+#include "net.h"
+
 #include <boost/math/distributions/gamma.hpp>
 
 bool IsSubBlockMalformed(const CSubBlock &subblock)
@@ -26,6 +30,23 @@ bool IsSubBlockMalformed(const CSubBlock &subblock)
     {
         if (subblock.vtx[i]->IsProofBase())
         {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ProcessNewSubBlock(const CSubBlock &subblock)
+{
+    if (IsSubBlockMalformed(subblock) == false)
+    {
+        if (bobtailDagSet.Insert(subblock))
+        {
+            LOCK(cs_vNodes);
+            for (CNode *pnode : vNodes)
+            {
+                pnode->PushInventory(CInv(MSG_SUBBLOCK, subblock.GetHash()));
+            }
             return true;
         }
     }
@@ -89,7 +110,7 @@ bool CheckBobtailPoWFromOrderedProofs(std::vector<arith_uint256> proofs, arith_u
     return false;
 }
 
-bool CheckSubBlockPoW(const CBlockHeader header, const Consensus::Params &params, uint8_t k)
+bool CheckSubBlockPoW(const CBlockHeader &header, const Consensus::Params &params, uint8_t k)
 {
     arith_uint256 bnTarget;
     bool fNegative;
@@ -112,16 +133,6 @@ bool CheckSubBlockPoW(const CBlockHeader header, const Consensus::Params &params
     arith_uint256 pow = UintToArith256(header.GetHash());
 
     return pow.getdouble() < GetKOSThreshold(bnTarget, k);
-}
-
-// to check wpow use sth like this:
-// if (!CheckProofOfWork(ahashMerkleRoot, weakPOWfromPOW(nBits), Consensus::Params(), true)) { ...
-unsigned int weakPOWfromPOW(unsigned int nBits) {
-    arith_uint256 a;
-    a.SetCompact(nBits);
-    a /= 1000;
-
-    return a.GetCompact();
 }
 
 double GetKOSThreshold(arith_uint256 target, uint8_t k)

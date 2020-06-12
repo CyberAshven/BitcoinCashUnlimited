@@ -7,6 +7,7 @@
 
 #include "uint256.h"
 #include "subblock.h"
+#include "sync.h"
 
 #include <deque>
 #include <queue>
@@ -51,14 +52,18 @@ protected:
     std::deque<CDagNode*> _dag;
 
 public:
-    std::set<COutPoint> spent_outputs;
+    // output spent, the tx hash it was spent in
+    std::map<COutPoint, uint256> spent_outputs;
     uint64_t score;
+    std::set<int16_t>incompatible_dags;
 
 private:
     CBobtailDag(){} // disable default constructor
 
 protected:
     void SetId(int16_t new_id);
+    bool CheckForCompatibility(CDagNode* newNode);
+    void UpdateCompatibility(const int16_t &new_id, const std::set<int16_t> &old_ids);
 
 public:
     CBobtailDag(uint16_t _id, CDagNode* first_node)
@@ -73,13 +78,16 @@ public:
 class CBobtailDagSet
 {
 protected:
+    CRecursiveSharedCriticalSection cs_dagset;
+
     std::vector<CBobtailDag> vdags;
-    std::map<uint256, CDagNode*> mapAllNodes;
+    std::map<uint256, CDagNode> mapAllNodes;
 
 private:
     void SetNewIds(std::priority_queue<int16_t> &removed_ids);
 
 protected:
+    void CreateNewDag(CDagNode *newNode);
     bool MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id);
 
 public:
@@ -90,12 +98,17 @@ public:
 
     void Clear();
 
-    CDagNode* Find(const uint256 &hash);
+    size_t Size();
 
+    bool Find(const uint256 &hash, CSubBlock &subblock);
+    bool Contains(const uint256 &hash);
     bool Insert(const CSubBlock &sub_block);
     void TemporalSort();
     bool IsTemporallySorted();
     bool GetBestDag(std::set<CDagNode*> &dag);
+    std::vector<uint256> GetTips();
 };
+
+extern CBobtailDagSet bobtailDagSet;
 
 #endif

@@ -7,10 +7,8 @@
 
 #include "base58.h"
 #include "blockrelay/graphene.h"
-#include "blockrelay/netdeltablocks.h"
 #include "blockrelay/thinblock.h"
 #include "blockstorage/blockstorage.h"
-#include "bobtail/bobtail.h"
 #include "cashaddrenc.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -52,7 +50,6 @@
 
 #include <atomic>
 #include <boost/lexical_cast.hpp>
-//#include <coz.h>
 #include <inttypes.h>
 #include <iomanip>
 #include <limits>
@@ -525,8 +522,7 @@ extern void UnlimitedLogBlock(const CBlock &block, const std::string &hash, uint
     if (blockReceiptLog) {
         long int byteLen = block.GetBlockSize();
         CBlockHeader bh = block.GetBlockHeader();
-        fprintf(blockReceiptLog, "%" PRIu64 ",%" PRIu64 ",%ld,%ld,%s\n", receiptTime, (uint64_t)bh.nTime, byteLen,
-                block.vtx.size(), hash.c_str());
+        fprintf(blockReceiptLog, "%" PRIu64 ",%" PRIu64 ",%ld,%ld,%s\n", receiptTime, (uint64_t)bh.nTime, byteLen, block.vtx.size(), hash.c_str());
         fflush(blockReceiptLog);
     }
 #endif
@@ -1355,14 +1351,16 @@ static uint64_t AddMiningCandidate(CMiningCandidate &candid)
     return lastMiningCandidateId;
 }
 
-// FIXME: isn't this code dup of merkle.cpp or merkleblock.cpp?
 std::vector<uint256> GetMerkleProofBranches(CBlock *pblock)
 {
     std::vector<uint256> ret;
     std::vector<uint256> leaves;
+    int len = pblock->vtx.size();
 
-    for (const auto &tx : pblock->vtx)
-        leaves.push_back(tx->GetHash());
+    for (int i = 0; i < len; i++)
+    {
+        leaves.push_back(pblock->vtx[i].get()->GetHash());
+    }
 
     ret = ComputeMerkleBranch(leaves, 0);
     return ret;
@@ -1405,7 +1403,7 @@ static UniValue MkMiningCandidateJson(CMiningCandidate &candid)
     ret.pushKV("id", candid.id);
 
     {
-        const CTransactionRef &tran = block.vtx[0];
+        const CTransaction *tran = block.vtx[0].get();
         ret.pushKV("coinbase", EncodeHexTx(*tran));
     }
 
@@ -1923,10 +1921,12 @@ extern UniValue getstructuresizes(const UniValue &params, bool fHelp)
                     (int64_t)::GetSerializeSize(*inode.pThinBlockFilter, SER_NETWORK, PROTOCOL_VERSION));
             }
         }
+
         {
             LOCK(inode.cs_vSend);
             node.pushKV("vAddrToSend", (int64_t)inode.vAddrToSend.size());
         }
+
         node.pushKV("vInventoryToSend", (int64_t)inode.vInventoryToSend.size());
         ret.pushKV(inode.addrName, node);
     }
