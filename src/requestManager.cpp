@@ -67,7 +67,7 @@ extern bool CanDirectFetch(const Consensus::Params &consensusParams);
 static bool IsBlockType(const CInv &obj)
 {
     return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
-            (obj.type == MSG_GRAPHENEBLOCK));
+            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK));
 }
 
 // Constructor for CRequestManagerNodeState struct
@@ -544,6 +544,15 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 {
     CInv inv2(obj);
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+
+    if (IsChainNearlySyncd() && inv2.type == MSG_SUBBLOCK)
+    {
+        std::vector<CInv> vGetData;
+        inv2.type = MSG_SUBBLOCK;
+        vGetData.push_back(inv2);
+        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        return true;
+    }
 
     if (IsChainNearlySyncd() &&
         (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
