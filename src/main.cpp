@@ -15,6 +15,7 @@
 #include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
+#include "bobtail/bobtailblock.h"
 #include "bobtail/dag.h"
 #include "chainparams.h"
 #include "checkpoints.h"
@@ -80,6 +81,8 @@
 
 /*! Known, complete delta blocks. */
 CBobtailDagSet bobtailDagSet;
+CCriticalSection cs_bobtailblocks;
+std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblocks);
 std::map<uint256, ConstCDeltaBlockRef> known_dbs;
 
 std::atomic<bool> fImporting{false};

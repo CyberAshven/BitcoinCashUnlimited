@@ -70,6 +70,9 @@ const char *CMPCTBLOCK = "cmpctblock";
 const char *GETBLOCKTXN = "getblocktxn";
 const char *BLOCKTXN = "blocktxn";
 
+const char *DBMISSTX = "dbmisstx";
+const char *SUBBLOCK = "subblock";
+const char *BOBTAILBLOCK = "bobtailblock";
 const char *DSPROOF = "dsproof";
 
 const char *REQTXVAL = "req-txval";

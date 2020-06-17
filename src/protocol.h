@@ -506,6 +506,8 @@ enum
     MSG_MEMPOOLSYNC,
     //
     MSG_SUBBLOCK,
+    
+    MSG_BOBTAILBLOCK,
 
     MSG_DOUBLESPENDPROOF = 7
 };
