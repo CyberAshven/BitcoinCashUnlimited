@@ -7,6 +7,7 @@
 #include "hashwrapper.h"
 #include "iblt.h"
 #include "random.h"
+#include "rank_items.h"
 #include "serialize.h"
 #include "uint256.h"
 #include "util.h"
@@ -101,7 +102,7 @@ CGrapheneSet::CGrapheneSet(size_t _nReceiverUniverseItems,
         std::vector<uint64_t> sortedIdxs = ArgSort(cheapHashes);
         uint8_t nBits = ceil(log2(cheapHashes.size()));
 
-        encodedRank = CGrapheneSet::EncodeRank(sortedIdxs, nBits);
+        encodedRank = EncodeRank(sortedIdxs, nBits);
     }
 }
 
@@ -296,7 +297,7 @@ std::vector<uint64_t> CGrapheneSet::Reconcile(const std::map<uint64_t, uint256> 
     std::shared_ptr<CIblt> _pSetIblt,
     std::shared_ptr<CBloomFilter> _pSetFilter,
     std::shared_ptr<CVariableFastFilter> _pFastFilter,
-    std::vector<unsigned char> _encodedRank,
+    std::vector<uint8_t> _encodedRank,
     bool _computeOptimized,
     bool _ordered)
 {
@@ -320,7 +321,7 @@ std::vector<uint64_t> CGrapheneSet::Reconcile(const std::map<uint64_t, uint256> 
 std::vector<uint64_t> CGrapheneSet::Reconcile(const std::set<uint64_t> &setSenderFilterPositiveCheapHashes,
     const CIblt &localIblt,
     std::shared_ptr<CIblt> _pSetIblt,
-    std::vector<unsigned char> _encodedRank,
+    std::vector<uint8_t> _encodedRank,
     bool _ordered)
 {
     std::set<uint64_t> receiverSet = std::set<uint64_t>(setSenderFilterPositiveCheapHashes);
@@ -348,7 +349,7 @@ std::vector<uint64_t> CGrapheneSet::Reconcile(const std::set<uint64_t> &setSende
 
     // Place items in order
     uint8_t nBits = ceil(log2(receiverSetItems.size()));
-    std::vector<uint64_t> itemRank = CGrapheneSet::DecodeRank(_encodedRank, receiverSetItems.size(), nBits);
+    std::vector<uint64_t> itemRank = DecodeRank(_encodedRank, receiverSetItems.size(), nBits);
     std::sort(receiverSetItems.begin(), receiverSetItems.end(), [](uint64_t i1, uint64_t i2) { return i1 < i2; });
     std::vector<uint64_t> orderedSetItems(itemRank.size(), 0);
     for (size_t i = 0; i < itemRank.size(); i++)
@@ -503,60 +504,6 @@ CIblt CGrapheneSet::FailureRecoveryIblt(std::set<uint64_t> &relevantCheapHashes,
     }
 
     return iblt;
-}
-
-std::vector<unsigned char> CGrapheneSet::EncodeRank(std::vector<uint64_t> items, uint16_t nBitsPerItem)
-{
-    size_t nItems = items.size();
-    size_t nEncodedWords = int(ceil(nBitsPerItem * nItems / float(WORD_BITS)));
-    std::vector<unsigned char> encoded(nEncodedWords, 0);
-
-    // form boolean array (low-order first)
-    std::unique_ptr<bool[]> bits(new bool[nEncodedWords * WORD_BITS]);
-    for (size_t i = 0; i < items.size(); i++)
-    {
-        uint64_t item = items[i];
-
-        assert(ceil(log2(item)) <= nBitsPerItem);
-
-        for (uint16_t j = 0; j < nBitsPerItem; j++)
-            bits[j + i * nBitsPerItem] = (item >> j) & 1;
-    }
-
-    // encode boolean array
-    for (size_t i = 0; i < nEncodedWords; i++)
-    {
-        encoded[i] = 0;
-        for (size_t j = 0; j < WORD_BITS; j++)
-            encoded[i] |= bits[j + i * WORD_BITS] << j;
-    }
-
-    return encoded;
-}
-
-std::vector<uint64_t> CGrapheneSet::DecodeRank(std::vector<unsigned char> encoded, size_t nItems, uint16_t nBitsPerItem)
-{
-    size_t nEncodedWords = int(ceil(nBitsPerItem * nItems / float(WORD_BITS)));
-
-    // decode into boolean array (low-order first)
-    std::unique_ptr<bool[]> bits(new bool[nEncodedWords * WORD_BITS]);
-
-    for (size_t i = 0; i < nEncodedWords; i++)
-    {
-        unsigned char word = encoded[i];
-
-        for (size_t j = 0; j < WORD_BITS; j++)
-            bits[j + i * WORD_BITS] = (word >> j) & 1;
-    }
-
-    // convert boolean to item array
-    std::vector<uint64_t> items(nItems, 0);
-    for (size_t i = 0; i < nItems; i++)
-    {
-        for (size_t j = 0; j < nBitsPerItem; j++)
-            items[i] |= bits[j + i * nBitsPerItem] << j;
-    }
-    return items;
 }
 
 double CGrapheneSet::BloomFalsePositiveRate(double optSymDiff, uint64_t nReceiverExcessItems)

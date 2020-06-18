@@ -19,6 +19,45 @@ BOOST_AUTO_TEST_CASE(test_dag_temporal_sort)
     BOOST_CHECK(forest.IsTemporallySorted());
 }
 
+BOOST_AUTO_TEST_CASE(test_dag_score)
+{
+    /* n1 -> n2
+     *  |
+     *  ---> n3 -> n4
+     *  Scores:
+     *      n4: 1
+     *      n3: 1+ 2*1 = 3
+     *      n2: 1
+     *      n1: 1 + 3*(3+1) = 13
+     */
+    int anticipatedTotalScore = 18;
+    // root node
+    CSubBlock subblock1;
+    CDagNode *node1 = new CDagNode(subblock1);
+    // two descendants, which are siblings
+    CSubBlock subblock2;
+    CDagNode *node2 = new CDagNode(subblock2);
+    node1->AddDescendant(node2);
+    node2->AddAncestor(node1);
+    CSubBlock subblock3;
+    CDagNode *node3 = new CDagNode(subblock3);
+    node1->AddDescendant(node3);
+    node3->AddAncestor(node1);
+    // one descendant, which is child of one sibling
+    CSubBlock subblock4;
+    CDagNode *node4 = new CDagNode(subblock4);
+    node3->AddDescendant(node4);
+    node4->AddAncestor(node3);
+
+    // create dag
+    CBobtailDag dag(0, node1);
+    dag.Insert(node2);
+    dag.Insert(node3);
+    dag.Insert(node4);
+
+    BOOST_CHECK(dag.score == anticipatedTotalScore);
+}
+
 BOOST_AUTO_TEST_CASE(arith_uint256_sanity)
 {
     unsigned int nBits = 545259519;
@@ -50,14 +89,101 @@ BOOST_AUTO_TEST_CASE(gamma_sanity_check)
     BOOST_CHECK(quantile(bobtail_gamma, cdf(bobtail_gamma, mean(bobtail_gamma))) == k*scale.getdouble());
 }
 
-BOOST_AUTO_TEST_CASE(test_kos_threshold)
+BOOST_AUTO_TEST_CASE(test_scaling_gamma, *boost::unit_test::tolerance(0.000001))
+{
+    uint8_t k = 3;
+    arith_uint256 scale = arith_uint256(1e6);
+    arith_uint256 scaler = arith_uint256(13);
+    arith_uint256 scaled_scale = scale / scaler;
+    boost::math::gamma_distribution<> bobtail_gamma(k, scale.getdouble());
+    boost::math::gamma_distribution<> bobtail_gamma_scaled(k, scaled_scale.getdouble());
+
+    double mean1 = mean(bobtail_gamma);
+    double mean2 = scaler.getdouble()*mean(bobtail_gamma_scaled);
+    double relative_error = std::abs(mean1 - mean2) / mean1;
+}
+
+BOOST_AUTO_TEST_CASE(test_is_below_kos_threshold)
 {
     uint8_t k = 3;
     arith_uint256 target(1e6);
+    arith_uint256 lowPow(k*1e5);
+    arith_uint256 highPow(k*1e7);
 
-    double thresh = GetKOSThreshold(target, k);
-    // Threshold should be larger than mean
-    BOOST_CHECK(thresh > target.getdouble()*k);
+    // the first two tests do not use scaling
+    // low pow should pass
+    BOOST_CHECK(IsBelowKOSThreshold(lowPow, target, k, (int)target.getdouble()));
+    // high pow should fail
+    BOOST_CHECK(!IsBelowKOSThreshold(highPow, target, k, (int)target.getdouble()));
+
+    // now check with default scaling
+    BOOST_CHECK(IsBelowKOSThreshold(lowPow, target, k));
+    BOOST_CHECK(!IsBelowKOSThreshold(highPow, target, k));
+}
+
+BOOST_AUTO_TEST_CASE(test_best_k)
+{
+    uint16_t desiredDagNodes = 30;
+    double probability = 0.9;
+
+    uint32_t k = GetBestK(desiredDagNodes, probability);
+
+    // wolfram alpha 90th percentile from query: "gamma quantile shape=23 scale=1 "
+    BOOST_CHECK(k == 23);
+}
+
+BOOST_AUTO_TEST_CASE(test_update_tx_lists)
+{
+    /* n1 -> n2
+     */
+    // root node
+    CSubBlock subblock1;
+    CSubBlockRef subref1 = std::make_shared<CSubBlock>(subblock1);
+    CDagNode *node1 = new CDagNode(subblock1);
+    // one descendant
+    CSubBlock subblock2;
+    CSubBlockRef subref2 = std::make_shared<CSubBlock>(subblock2);
+    CDagNode *node2 = new CDagNode(subblock2);
+    node1->AddDescendant(node2);
+    node2->AddAncestor(node1);
+
+    // add txs to subblocks
+    CMutableTransaction mtx11;
+    mtx11.vin.resize(1);
+    mtx11.vin[0].prevout.n = 11;
+    CTransactionRef tx11 = std::make_shared<CTransaction>(CTransaction(mtx11));
+    CMutableTransaction mtx12;
+    mtx12.vin.resize(1);
+    mtx12.vin[0].prevout.n = 12;
+    CTransactionRef tx12 = std::make_shared<CTransaction>(CTransaction(mtx12));
+    subblock1.vtx.push_back(tx11);
+    subblock1.vtx.push_back(tx12);
+
+    CMutableTransaction mtx21;
+    mtx21.vin.resize(1);
+    mtx21.vin[0].prevout.n = 21;
+    CTransactionRef tx21 = std::make_shared<CTransaction>(CTransaction(mtx21));
+    CMutableTransaction mtx22;
+    mtx22.vin.resize(1);
+    mtx22.vin[0].prevout.n = 22;
+    CTransactionRef tx22 = std::make_shared<CTransaction>(CTransaction(mtx22));
+    subblock2.vtx.push_back(tx21);
+    subblock2.vtx.push_back(tx22);
+
+    // form block
+    CBobtailBlock block;
+    block.vdag.push_back(subref1);
+    block.vdag.push_back(subref2);
+    block.UpdateTxLists();
+
+    BOOST_CHECK(block.vtx.size() == 4);
+
+    // validate decoded subblock tx info
+    std::map<CSubBlockRef, std::vector<CTransactionRef>> subblockTxListMap = block.DecodeTxLists();
+    BOOST_CHECK(subblockTxListMap[subref1][0] == tx11);
+    BOOST_CHECK(subblockTxListMap[subref1][1] == tx12);
+    BOOST_CHECK(subblockTxListMap[subref2][0] == tx21);
+    BOOST_CHECK(subblockTxListMap[subref2][1] == tx22);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
