@@ -132,4 +132,58 @@ BOOST_AUTO_TEST_CASE(test_best_k)
     BOOST_CHECK(k == 23);
 }
 
+BOOST_AUTO_TEST_CASE(test_update_tx_lists)
+{
+    /* n1 -> n2
+     */
+    // root node
+    CSubBlock subblock1;
+    CSubBlockRef subref1 = std::make_shared<CSubBlock>(subblock1);
+    CDagNode *node1 = new CDagNode(subblock1);
+    // one descendant
+    CSubBlock subblock2;
+    CSubBlockRef subref2 = std::make_shared<CSubBlock>(subblock2);
+    CDagNode *node2 = new CDagNode(subblock2);
+    node1->AddDescendant(node2);
+    node2->AddAncestor(node1);
+
+    // add txs to subblocks
+    CMutableTransaction mtx11;
+    mtx11.vin.resize(1);
+    mtx11.vin[0].prevout.n = 11;
+    CTransactionRef tx11 = std::make_shared<CTransaction>(CTransaction(mtx11));
+    CMutableTransaction mtx12;
+    mtx12.vin.resize(1);
+    mtx12.vin[0].prevout.n = 12;
+    CTransactionRef tx12 = std::make_shared<CTransaction>(CTransaction(mtx12));
+    subblock1.vtx.push_back(tx11);
+    subblock1.vtx.push_back(tx12);
+
+    CMutableTransaction mtx21;
+    mtx21.vin.resize(1);
+    mtx21.vin[0].prevout.n = 21;
+    CTransactionRef tx21 = std::make_shared<CTransaction>(CTransaction(mtx21));
+    CMutableTransaction mtx22;
+    mtx22.vin.resize(1);
+    mtx22.vin[0].prevout.n = 22;
+    CTransactionRef tx22 = std::make_shared<CTransaction>(CTransaction(mtx22));
+    subblock2.vtx.push_back(tx21);
+    subblock2.vtx.push_back(tx22);
+
+    // form block
+    CBobtailBlock block;
+    block.vdag.push_back(subref1);
+    block.vdag.push_back(subref2);
+    block.UpdateTxLists();
+
+    BOOST_CHECK(block.vtx.size() == 4);
+
+    // validate decoded subblock tx info
+    std::map<CSubBlockRef, std::vector<CTransactionRef>> subblockTxListMap = block.DecodeTxLists();
+    BOOST_CHECK(subblockTxListMap[subref1][0] == tx11);
+    BOOST_CHECK(subblockTxListMap[subref1][1] == tx12);
+    BOOST_CHECK(subblockTxListMap[subref2][0] == tx21);
+    BOOST_CHECK(subblockTxListMap[subref2][1] == tx22);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

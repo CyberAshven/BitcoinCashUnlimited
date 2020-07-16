@@ -207,6 +207,7 @@ BITCOIN_CORE_H = \
   pow.h \
   protocol.h \
   random.h \
+  rank_items.h \
   reverse_iterator.h \
   reverselock.h \
   rpc/blockchain.h \
@@ -299,6 +300,7 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockcache.cpp \
   bloom.cpp \
   bobtail/bobtail.cpp \
+  bobtail/bobtailblock.cpp \
   bobtail/dag.cpp \
   bobtail/miner.cpp \
   bobtail/subblock.cpp \
@@ -425,6 +427,8 @@ libbitcoincash_a_SOURCES = \
   pubkey.h \
   random.cpp \
   random.h \
+  rank_items.cpp \
+  rank_items.h \
   script/bitfield.cpp \
   script/bitfield.h \
   script/pushtxstate.cpp \
@@ -599,6 +603,7 @@ libbitcoin_util_a_SOURCES = \
   deadlock-detection/threaddeadlock.cpp \
   fs.cpp \
   random.cpp \
+  rank_items.cpp \
   rpc/protocol.cpp \
   support/cleanse.cpp \
   sync.cpp \

@@ -15,6 +15,10 @@ class CBobtailBlock : public CBlock
 {
 public:
     std::vector<CSubBlockRef> vdag;
+    std::map<CSubBlockRef, std::set<unsigned char>> dagEncodingMap;
+
+    void UpdateTxLists();
+    std::map<CSubBlockRef, std::vector<CTransactionRef>> DecodeTxLists();
 
     ADD_SERIALIZE_METHODS;
 

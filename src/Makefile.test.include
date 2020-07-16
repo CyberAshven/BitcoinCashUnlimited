@@ -125,6 +125,7 @@ BITCOIN_TESTS =\
   test/prevector_tests.cpp \
   test/pushtxstate_tests.cpp \
   test/random_tests.cpp \
+  test/rank_items_tests.cpp \
   test/requestmanager_tests.cpp \
   test/reverselock_tests.cpp \
   test/rpc_tests.cpp \

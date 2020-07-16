@@ -285,18 +285,6 @@ BOOST_AUTO_TEST_CASE(graphene_set_version_check)
     }
 }
 
-BOOST_AUTO_TEST_CASE(item_rank_encodes_and_decodes)
-{
-    uint64_t itemArr[4] = {1, 20, 500, 7000};
-    std::vector<uint64_t> inputItems(itemArr, itemArr + sizeof(itemArr) / sizeof(uint64_t));
-    uint16_t nBits = 13;
-
-    std::vector<unsigned char> encoded = CGrapheneSet::EncodeRank(inputItems, nBits);
-    std::vector<uint64_t> outputItems = CGrapheneSet::DecodeRank(encoded, inputItems.size(), nBits);
-
-    BOOST_CHECK_EQUAL_COLLECTIONS(outputItems.begin(), outputItems.end(), inputItems.begin(), inputItems.end());
-}
-
 BOOST_AUTO_TEST_CASE(compute_optimized_graphene_set_can_serde)
 {
     uint64_t version = MAX_GRAPHENE_SET_VERSION;
