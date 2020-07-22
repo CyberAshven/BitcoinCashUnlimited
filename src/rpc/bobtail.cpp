@@ -7,7 +7,8 @@
 #include "blockstorage/blockstorage.h"
 #include "bobtail/bobtail.h"
 #include "bobtail/dag.h"
-#include "bobtail/miner.h"
+#include "bobtail/bobtail_miner.h"
+#include "bobtail/subblock_miner.h"
 #include "bobtail/validation.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -42,7 +43,8 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     int nSubGenerate=0,
     int nBobGenerate=0,
     uint64_t nMaxTries=0,
-    bool keepScript=false)
+    bool keepScript=false, 
+    bool fSubBlocksOnly=false)
 {
     static const int nInnerLoopCount = 0x10000;
 
@@ -107,36 +109,40 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
 
             // Assemble bobtail block
             std::unique_ptr<CBobtailBlockTemplate> pBobtailBlockTemplate;
+            if (fSubBlocksOnly == false)
             {
                 TxAdmissionPause lock; // flush any tx waiting to enter the mempool
                 pBobtailBlockTemplate = BobtailBlockAssembler(Params()).CreateNewBobtailBlock(coinbaseScript->reserveScript);
-            }
-            if (!pBobtailBlockTemplate.get())
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new bobtail block");
-            CBobtailBlock *pBobtailBlock = pBobtailBlockTemplate->bobtailblock.get();
-            pBobtailBlock->vdag = vdag;
-
-            // Check if bobtail block meets strong PoW
-            if (CheckBobtailPoW(*pBobtailBlock, Params().GetConsensus(), BOBTAIL_K))
-            {
-                PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
-
-                CValidationState state;
-                if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr, false))
+                if (pBobtailBlockTemplate.get())
                 {
-                    throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
-                }
+                    CBobtailBlock *pBobtailBlock = pBobtailBlockTemplate->bobtailblock.get();
+                    pBobtailBlock->vdag = vdag;
 
-                // mark script as important because it was used at least for one coinbase output if the script came from the
-                // wallet
-                if (keepScript)
-                {
-                    coinbaseScript->KeepScript();
-                }
-                numBobBlocks++;
+                    // Check if bobtail block meets strong PoW
+                    if (CheckBobtailPoW(*pBobtailBlock, Params().GetConsensus(), BOBTAIL_K))
+                    {
+                        PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
 
-                if (nBobGenerate > 0)
-                    blockHashes.push_back(pBobtailBlock->GetHash().GetHex());
+                        CValidationState state;
+                        if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr, false))
+                        {
+                            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
+                        }
+
+                        // mark script as important because it was used at least for one coinbase output if the script came from the
+                        // wallet
+                        if (keepScript)
+                        {
+                            coinbaseScript->KeepScript();
+                        }
+                        numBobBlocks++;
+
+                        if (nBobGenerate > 0)
+                        {
+                            blockHashes.push_back(pBobtailBlock->GetHash().GetHex());
+                        }
+                    }
+                }
             }
         }
         if (nSubGenerate > 0)
@@ -150,7 +156,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
 UniValue generatesubblocks(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
-        throw std::runtime_error("generate numSubBlocks ( maxtries )\n"
+        throw std::runtime_error("generatesubblocks numSubBlocks ( maxtries )\n"
                             "\nMine up to numSubBlocks subBlocks immediately (before the RPC call returns)\n"
                             "\nArguments:\n"
                             "1. numSubBlocks    (numeric, required) How many subBlocks are generated immediately.\n"
@@ -159,7 +165,7 @@ UniValue generatesubblocks(const UniValue &params, bool fHelp)
                             "[ blockhashes ]     (array) hashes of blocks generated\n"
                             "\nExamples:\n"
                             "\nGenerate 11 subBlocks\n" +
-                            HelpExampleCli("generate", "11"));
+                            HelpExampleCli("generatesubblocks", "11"));
 
     int nSubGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
@@ -179,13 +185,13 @@ UniValue generatesubblocks(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateBobtailBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, true);
+    return generateBobtailBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, true, true);
 }
 
 UniValue generatebobtailblocks(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
-        throw std::runtime_error("generate numBobtailBlocks ( maxtries )\n"
+        throw std::runtime_error("generatebobtailblocks numBobtailBlocks ( maxtries )\n"
                             "\nMine up to numBobtailBlocks bobtailBlocks immediately (before the RPC call returns)\n"
                             "\nArguments:\n"
                             "1. numBobtailBlocks    (numeric, required) How many bobtailBlocks are generated immediately.\n"
@@ -194,7 +200,7 @@ UniValue generatebobtailblocks(const UniValue &params, bool fHelp)
                             "[ blockhashes ]     (array) hashes of blocks generated\n"
                             "\nExamples:\n"
                             "\nGenerate 11 bobtailBlocks\n" +
-                            HelpExampleCli("generate", "11"));
+                            HelpExampleCli("generatebobtailblocks", "11"));
 
     int nBobGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
@@ -220,8 +226,8 @@ UniValue generatebobtailblocks(const UniValue &params, bool fHelp)
 UniValue generatesubblockstoaddress(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 3)
-        throw std::runtime_error("generatetoaddress numSubBlocks address (maxtries)\n"
-                            "\nMine sub blocks immediately to a specified address (before the RPC call returns)\n"
+        throw std::runtime_error("generatesubblockstoaddress numSubBlocks address (maxtries)\n"
+                            "\nMine subblocks immediately to a specified address (before the RPC call returns)\n"
                             "\nArguments:\n"
                             "1. numSubBlocks    (numeric, required) How many subBlocks are generated immediately.\n"
                             "2. address    (string, required) The address to send the newly generated bitcoin to.\n"
@@ -229,8 +235,8 @@ UniValue generatesubblockstoaddress(const UniValue &params, bool fHelp)
                             "\nResult\n"
                             "[ blockhashes ]     (array) hashes of blocks generated\n"
                             "\nExamples:\n"
-                            "\nGenerate 11 bobtailblocks to myaddress\n" +
-                            HelpExampleCli("generatetoaddress", "11 \"myaddress\""));
+                            "\nGenerate 11 subblocks to myaddress\n" +
+                            HelpExampleCli("generatesubblockstoaddress", "11 \"myaddress\""));
 
     int nSubGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
@@ -248,13 +254,13 @@ UniValue generatesubblockstoaddress(const UniValue &params, bool fHelp)
     boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    return generateBobtailBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, false);
+    return generateBobtailBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, false, true);
 }
 
 UniValue generatebobtailblockstoaddress(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 3)
-        throw std::runtime_error("generatetoaddress numBobtailBlocks address (maxtries)\n"
+        throw std::runtime_error("generatebobtailblockstoaddress numBobtailBlocks address (maxtries)\n"
                             "\nMine bobtail blocks immediately to a specified address (before the RPC call returns)\n"
                             "\nArguments:\n"
                             "1. numBobtailBlocks    (numeric, required) How many subBlocks are generated immediately.\n"
@@ -264,7 +270,7 @@ UniValue generatebobtailblockstoaddress(const UniValue &params, bool fHelp)
                             "[ blockhashes ]     (array) hashes of blocks generated\n"
                             "\nExamples:\n"
                             "\nGenerate 11 bobtailblocks to myaddress\n" +
-                            HelpExampleCli("generatetoaddress", "11 \"myaddress\""));
+                            HelpExampleCli("generatebobtailblockstoaddress", "11 \"myaddress\""));
 
     int nBobGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
@@ -355,7 +361,7 @@ UniValue getbobtailinfo(const UniValue &params, bool fHelp)
 static const CRPCCommand commands[] = {
     //  category              name                      actor (function)         okSafeMode
     //  --------------------- ------------------------  -----------------------  ----------
-    {"generating", "generatesubblocks", &generatesubblocks, true}, {"generating", "generatebobtailblocks", &generatebobtailblocks, true}, 
+    {"generating", "generatesubblocks", &generatesubblocks, true}, {"generating", "generatebobtailblocks", &generatebobtailblocks, true},
     {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true}, {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
     {"bobtail", "getdaginfo", &getdaginfo, true}, {"bobtail", "getdagtips", &getdagtips, true}, {"bobtail", "getbobtailinfo", &getbobtailinfo, true}
 };
