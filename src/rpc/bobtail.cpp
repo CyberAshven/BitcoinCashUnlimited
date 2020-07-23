@@ -112,32 +112,35 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
                 TxAdmissionPause lock; // flush any tx waiting to enter the mempool
                 pBobtailBlockTemplate = BobtailBlockAssembler(Params()).CreateNewBobtailBlock(coinbaseScript->reserveScript);
             }
-            if (!pBobtailBlockTemplate.get())
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new bobtail block");
-            CBobtailBlock *pBobtailBlock = pBobtailBlockTemplate->bobtailblock.get();
-            pBobtailBlock->vdag = vdag;
-
-            // Check if bobtail block meets strong PoW
-            if (CheckBobtailPoW(*pBobtailBlock, Params().GetConsensus(), BOBTAIL_K))
+            if (pBobtailBlockTemplate.get())
             {
-                PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
+                CBobtailBlock *pBobtailBlock = pBobtailBlockTemplate->bobtailblock.get();
+                pBobtailBlock->vdag = vdag;
 
-                CValidationState state;
-                if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr, false))
+                // Check if bobtail block meets strong PoW
+                if (CheckBobtailPoW(*pBobtailBlock, Params().GetConsensus(), BOBTAIL_K))
                 {
-                    throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
-                }
+                    PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
 
-                // mark script as important because it was used at least for one coinbase output if the script came from the
-                // wallet
-                if (keepScript)
-                {
-                    coinbaseScript->KeepScript();
-                }
-                numBobBlocks++;
+                    CValidationState state;
+                    if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr, false))
+                    {
+                        throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
+                    }
 
-                if (nBobGenerate > 0)
-                    blockHashes.push_back(pBobtailBlock->GetHash().GetHex());
+                    // mark script as important because it was used at least for one coinbase output if the script came from the
+                    // wallet
+                    if (keepScript)
+                    {
+                        coinbaseScript->KeepScript();
+                    }
+                    numBobBlocks++;
+
+                    if (nBobGenerate > 0)
+                    {
+                        blockHashes.push_back(pBobtailBlock->GetHash().GetHex());
+                    }
+                }
             }
         }
         if (nSubGenerate > 0)
