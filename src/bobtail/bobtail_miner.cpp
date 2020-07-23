@@ -131,6 +131,7 @@ CTransactionRef BobtailBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn,
         tx.vout[i].scriptPubKey = (*iter).subblock.vtx[0]->vin[0].scriptSig;
         tx.vout[i].nValue = valuePer;
         total_paid = total_paid + valuePer;
+	++i;
     }
     unsigned int k = 0;
     unsigned int zero_indexed_K = BOBTAIL_K - 1;
