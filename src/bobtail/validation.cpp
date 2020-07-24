@@ -486,13 +486,36 @@ bool AcceptBobtailBlock(const CBobtailBlock &block,
     return true;
 }
 
-bool ConnectBobtailBlockPrevalidations(const CBobtailBlock &block,
+bool ConnectBobtailBlock(const CBobtailBlock &block,
     CValidationState &state,
     CBlockIndex *pindex,
     CCoinsViewCache &view,
     const CChainParams &chainparams,
-    bool fJustCheck)
+    bool fJustCheck,
+    bool fParallel)
 {
+    // pindex should be the header structure for this new block.  Check this by making sure that the nonces are the
+    // same.
+    assert(pindex->nNonce == block.nNonce);
+
+    // Special case for the genesis block, skipping connection of its transactions
+    // (its coinbase is unspendable)
+    if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock)
+    {
+        if (!fJustCheck)
+        {
+            view.SetBestBlock(pindex->GetBlockHash());
+        }
+        return true;
+    }
+
+    /** BU: Start Section to validate inputs - if there are parallel blocks being checked
+     *      then the winner of this race will get to update the UTXO.
+     */
+    AssertLockHeld(cs_main);
+    // Section for boost scoped lock on the scriptcheck_mutex
+    boost::thread::id this_id(boost::this_thread::get_id());
+
     int64_t nTimeStart = GetStopwatchMicros();
 
     // Check it again in case a previous version let a bad block in
@@ -566,44 +589,7 @@ bool ConnectBobtailBlockPrevalidations(const CBobtailBlock &block,
     nTimeForks += nTime2 - nTime1;
     LOG(BENCH, "    - Fork checks: %.2fms [%.2fs]\n", 0.001 * (nTime2 - nTime1), nTimeForks * 0.000001);
 
-    return true;
-}
-
-bool ConnectBobtailBlock(const CBobtailBlock &block,
-    CValidationState &state,
-    CBlockIndex *pindex,
-    CCoinsViewCache &view,
-    const CChainParams &chainparams,
-    bool fJustCheck,
-    bool fParallel)
-{
-    // pindex should be the header structure for this new block.  Check this by making sure that the nonces are the
-    // same.
-    assert(pindex->nNonce == block.nNonce);
-
-    // Special case for the genesis block, skipping connection of its transactions
-    // (its coinbase is unspendable)
-    if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock)
-    {
-        if (!fJustCheck)
-        {
-            view.SetBestBlock(pindex->GetBlockHash());
-        }
-        return true;
-    }
-
-    /** BU: Start Section to validate inputs - if there are parallel blocks being checked
-     *      then the winner of this race will get to update the UTXO.
-     */
-    AssertLockHeld(cs_main);
-    // Section for boost scoped lock on the scriptcheck_mutex
-    boost::thread::id this_id(boost::this_thread::get_id());
-
-    if (!ConnectBobtailBlockPrevalidations(block, state, pindex, view, chainparams, fJustCheck))
-        return false;
-
     const arith_uint256 nStartingChainWork = chainActive.Tip()->nChainWork;
-
     const int64_t timeBarrier = GetTime() - (24 * 3600 * checkScriptDays.Value());
     // Blocks that have various days of POW behind them makes them secure in that
     // real online nodes have checked the scripts.  Therefore, during initial block
@@ -625,42 +611,19 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
     vPos.reserve(block.vtx.size());
 
-    // Discover how to handle this block
-    bool canonical = fCanonicalTxsOrder;
-    // Always allow overwite of fCanonicalTxsOrder but for regtest on BCH
-    if (IsNov2018Activated(chainparams.GetConsensus(), chainActive.Tip()))
+    if (!ConnectBlockCanonicalOrdering(
+            block, state, pindex, view, chainparams, fJustCheck, fParallel, fScriptChecks, nFees, blockundo, vPos))
     {
-        if (!(chainparams.NetworkIDString() == "regtest"))
-        {
-            canonical = true;
-        }
-    }
-    else
-    {
-        if (!(chainparams.NetworkIDString() == "regtest"))
-        {
-            canonical = false;
-        }
-    }
-
-    if (canonical)
-    {
-        if (!ConnectBlockCanonicalOrdering(
-                block, state, pindex, view, chainparams, fJustCheck, fParallel, fScriptChecks, nFees, blockundo, vPos))
-            return false;
-    }
-    else
-    {
-        if (!ConnectBlockDependencyOrdering(
-                block, state, pindex, view, chainparams, fJustCheck, fParallel, fScriptChecks, nFees, blockundo, vPos))
-            return false;
+        return false;
     }
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
+    {
         return state.DoS(100, error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
                                   block.vtx[0]->GetValueOut(), blockReward),
             REJECT_INVALID, "bad-cb-amount");
+    }
 
     if (fJustCheck)
         return true;
@@ -692,10 +655,14 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
                 CDiskBlockPos _pos;
                 if (!FindUndoPos(
                         state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
+                {
                     return error("ConnectBlock(): FindUndoPos failed");
+                }
 
                 if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev, chainparams.MessageStart()))
+                {
                     return AbortNode(state, "Failed to write undo data");
+                }
 
                 // update nUndoPos in block index
                 //
