@@ -10,7 +10,7 @@ These are the dependencies currently used by Bitcoin Unlimited. You can find ins
 | D-Bus | [1.10.19](https://cgit.freedesktop.org/dbus/dbus/tree/NEWS?h=dbus-1.10) |  | No | Yes |  |
 | Expat | [2.4.1](https://libexpat.github.io/) |  | No | Yes |  |
 | fontconfig | [2.12.1](https://www.freedesktop.org/software/fontconfig/release/) |  | No | Yes |  |
-| FreeType | [2.7.1](http://download.savannah.gnu.org/releases/freetype) |  | No |  |  |
+| FreeType | [2.11.0](http://download.savannah.gnu.org/releases/freetype) |  | No |  |  |
 | GCC |  | [5+](https://gcc.gnu.org/) |  |  |  |
 | HarfBuzz-NG |  |  |  |  |  |
 | libevent | [2.1.8-stable](https://github.com/libevent/libevent/releases) | 2.0.22 | No |  |  |
