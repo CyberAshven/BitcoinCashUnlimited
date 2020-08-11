@@ -11,6 +11,7 @@
 
 #include "blockrelay/graphene.h"
 #include "blockrelay/thinblock.h"
+#include "bobtail/graphene.h"
 #include "net.h"
 
 #include <QCompleter>
@@ -110,6 +111,8 @@ public Q_SLOTS:
     void setCompactBlockPropagationStats(const CompactBlockQuickStats &compact);
     /** Set block propagation statistics in the UI */
     void setGrapheneBlockPropagationStats(const GrapheneQuickStats &graphene);
+    /** Set block propagation statistics in the UI */
+    void setSBGrapheneBlockPropagationStats(const SBGrapheneQuickStats &graphene);
     /** Go forward or back in history */
     void browseHistory(int offset);
     /** Scroll console view to end */

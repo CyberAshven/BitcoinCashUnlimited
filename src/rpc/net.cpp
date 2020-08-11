@@ -7,6 +7,7 @@
 
 #include "blockrelay/graphene.h"
 #include "blockrelay/thinblock.h"
+#include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "clientversion.h"
 #include "dosman.h"
@@ -540,6 +541,29 @@ static UniValue GetGrapheneStats()
     return obj;
 }
 
+static UniValue GetSBGrapheneStats()
+{
+    UniValue obj(UniValue::VOBJ);
+    bool enabled = SBIsGrapheneBlockEnabled();
+    obj.pushKV("enabled", enabled);
+    if (enabled)
+    {
+        obj.pushKV("summary", sb_graphenedata.ToString());
+        obj.pushKV("inbound_percent", sb_graphenedata.InBoundPercentToString());
+        obj.pushKV("outbound_percent", sb_graphenedata.OutBoundPercentToString());
+        obj.pushKV("response_time", sb_graphenedata.ResponseTimeToString());
+        obj.pushKV("validation_time", sb_graphenedata.ValidationTimeToString());
+        obj.pushKV("filter", sb_graphenedata.FilterToString());
+        obj.pushKV("iblt", sb_graphenedata.IbltToString());
+        obj.pushKV("rank", sb_graphenedata.RankToString());
+        obj.pushKV("graphene_block_size", sb_graphenedata.GrapheneBlockToString());
+        obj.pushKV("graphene_additional_tx_size", sb_graphenedata.AdditionalTxToString());
+        obj.pushKV("rerequested", sb_graphenedata.ReRequestedTxToString());
+    }
+    return obj;
+}
+
+
 static UniValue GetCompactBlockStats()
 {
     UniValue obj(UniValue::VOBJ);
@@ -610,6 +634,7 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
             "  \"thinblockstats\": \"...\"              (string) thin block related statistics \n"
             "  \"compactblockstats\": \"...\"           (string) compact block related statistics \n"
             "  \"grapheneblockstats\": \"...\"          (string) graphene block related statistics \n"
+            "  \"sb_grapheneblockstats\": \"...\"       (string) graphene subblock related statistics \n"
             "  \"warnings\": \"...\"                    (string) any network warnings (such as alert messages) \n"
             "}\n"
             "\nExamples:\n" +
@@ -647,6 +672,7 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
     obj.pushKV("thinblockstats", GetThinBlockStats());
     obj.pushKV("compactblockstats", GetCompactBlockStats());
     obj.pushKV("grapheneblockstats", GetGrapheneStats());
+    obj.pushKV("sb_grapheneblockstats", GetSBGrapheneStats());
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }
@@ -664,7 +690,10 @@ UniValue clearblockstats(const UniValue &params, bool fHelp)
     if (IsThinBlocksEnabled())
         thindata.ClearThinBlockStats();
     if (IsGrapheneBlockEnabled())
+    {
         graphenedata.ClearGrapheneBlockStats();
+        sb_graphenedata.ClearGrapheneBlockStats();
+    }
     if (IsCompactBlocksEnabled())
         compactdata.ClearCompactBlockStats();
 

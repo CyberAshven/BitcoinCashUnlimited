@@ -613,6 +613,7 @@ CStatHistory<uint64_t> nBlockValidationTime("blockValidationTime", STAT_OP_MAX |
 // Single classes for gather thin type block relay statistics
 CThinBlockData thindata;
 CGrapheneBlockData graphenedata;
+CSBGrapheneBlockData sb_graphenedata;
 CCompactBlockData compactdata;
 ThinTypeRelay thinrelay;
 CCriticalSection cs_mempoolsync;

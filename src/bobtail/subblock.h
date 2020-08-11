@@ -39,6 +39,7 @@ public:
         Unserialize(s);
     }
 
+    uint64_t GetBlockSize() const;
 
     void SetNull();
 

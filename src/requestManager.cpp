@@ -8,6 +8,7 @@
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
 #include "blockrelay/thinblock.h"
+#include "bobtail/graphene.h"
 #include "chain.h"
 #include "chainparams.h"
 #include "consensus/consensus.h"
@@ -67,7 +68,8 @@ extern bool CanDirectFetch(const Consensus::Params &consensusParams);
 static bool IsBlockType(const CInv &obj)
 {
     return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
-            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_BOBTAILBLOCK));
+            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_BOBTAILBLOCK) ||
+            (obj.type == MSG_SB_GRAPHENEBLOCK));
 }
 
 // Constructor for CRequestManagerNodeState struct
@@ -540,19 +542,23 @@ static bool IsGrapheneVersionSupported(CNode *pfrom)
     }
 }
 
+static bool SBIsGrapheneVersionSupported(CNode *pfrom)
+{
+    try
+    {
+        SBNegotiateGrapheneVersion(pfrom);
+        return true;
+    }
+    catch (const std::runtime_error &error)
+    {
+        return false;
+    }
+}
+
 bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 {
     CInv inv2(obj);
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-
-    if (IsChainNearlySyncd() && inv2.type == MSG_SUBBLOCK)
-    {
-        std::vector<CInv> vGetData;
-        inv2.type = MSG_SUBBLOCK;
-        vGetData.push_back(inv2);
-        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
-        return true;
-    }
 
     if (IsChainNearlySyncd() && inv2.type == MSG_BOBTAILBLOCK)
     {
@@ -560,6 +566,43 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
         inv2.type = MSG_BOBTAILBLOCK;
         vGetData.push_back(inv2);
         pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        return true;
+    }
+
+    if (inv2.type == MSG_SUBBLOCK)
+    {
+        if (IsChainNearlySyncd() && (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
+        {
+            // Ask for Graphene subblock
+            // Must download a graphene block from a graphene enabled peer.
+            if (SBIsGrapheneBlockEnabled() && pfrom->GrapheneCapable() && SBIsGrapheneVersionSupported(pfrom))
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::SB_GRAPHENEBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    // Instead of building a bloom filter here as we would for an xthin, we actually
+                    // just need to fill in CMempoolInfo
+                    inv2.type = MSG_SB_GRAPHENEBLOCK;
+                    CSBMemPoolInfo receiverMemPoolInfo = SBGetGrapheneMempoolInfo();
+                    ss << inv2;
+                    ss << receiverMemPoolInfo;
+                    sb_graphenedata.UpdateOutBoundMemPoolInfo(
+                        ::GetSerializeSize(receiverMemPoolInfo, SER_NETWORK, PROTOCOL_VERSION));
+
+                    pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENE, ss);
+                    LOG(GRAPHENE, "Requesting graphene subblock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
+                    return true;
+                }
+            }
+        }
+
+        // If we get here, then graphene failed for some reason, request a full subblock
+        std::vector<CInv> vGetData;
+        inv2.type = MSG_SUBBLOCK;
+        vGetData.push_back(inv2);
+        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        LOG(GRAPHENE, "Requesting Regular SubBlock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
         return true;
     }
 

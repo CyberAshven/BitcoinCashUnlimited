@@ -95,6 +95,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
             {
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewSubBlock, subblock not accepted");
             }
+            LOG(WB, "Processed new subblock: %s\n", pblocktemplate->subblock->GetHash().ToString());
 
             // mark script as important because it was used at least for one coinbase output if the script came from the
             // wallet

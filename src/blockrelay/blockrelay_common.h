@@ -39,6 +39,7 @@ public:
     CCriticalSection cs_inflight;
     CCriticalSection cs_reconstruct;
     CCriticalSection cs_graphene_sender;
+    CCriticalSection cs_sb_graphene_sender;
 
     // put a cap on the total number of thin type blocks we can have in flight. This lowers any possible
     // attack surface.
@@ -68,6 +69,7 @@ private:
 
     // blocks still in flight sent by the sender.
     std::map<NodeId, std::shared_ptr<CGrapheneBlock> > mapGrapheneSentBlocks GUARDED_BY(cs_graphene_sender);
+    std::map<NodeId, std::shared_ptr<CSBGrapheneBlock> > mapSBGrapheneSentBlocks GUARDED_BY(cs_sb_graphene_sender);
 
 public:
     void AddPeers(CNode *pfrom);
@@ -86,8 +88,11 @@ public:
     void ClearBlockInFlight(NodeId id, const uint256 &hash);
     void ClearAllBlocksInFlight(NodeId id);
     void SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock);
+    void SetSentSBGrapheneBlocks(NodeId id, CSBGrapheneBlock &grapheneBlock);
     std::shared_ptr<CGrapheneBlock> GetSentGrapheneBlocks(NodeId id);
+    std::shared_ptr<CSBGrapheneBlock> GetSentSBGrapheneBlocks(NodeId id);
     void ClearSentGrapheneBlocks(NodeId id);
+    void ClearSentSBGrapheneBlocks(NodeId id);
     void CheckForDownloadTimeout(CNode *pfrom);
     void RequestBlock(CNode *pfrom, const uint256 &hash);
 

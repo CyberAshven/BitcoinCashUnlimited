@@ -191,6 +191,32 @@ extern const char *GET_GRAPHENE_RECOVERY;
  */
 extern const char *GRAPHENE_RECOVERY;
 /**
+ * The sb_grapheneblock message transmits a single serialized graphene subblock.
+ */
+extern const char *SB_GRAPHENEBLOCK;
+/**
+ * The sb_graphenetx message transmits a single serialized sb_grblktx.
+ */
+extern const char *SB_GRAPHENETX;
+/**
+ * The get_sb_graphenetx message transmits a single serialized get_sbgrblktx.
+ */
+extern const char *GET_SB_GRAPHENETX;
+/**
+ * The get_sb_graphene message transmits a single serialized get_sbgrblk.
+ */
+extern const char *GET_SB_GRAPHENE;
+/**
+ * The get_sb_graphene_recovery message transmits a single serialized
+ * RequestSBGrapheneReceiverRecover object.
+ */
+extern const char *GET_SB_GRAPHENE_RECOVERY;
+/**
+ * The sb_graphene_recovery message transmits a single serialized
+ * CSBGrapheneReceiverRecover object.
+ */
+extern const char *SB_GRAPHENE_RECOVERY;
+/**
  * The mempoolsync message transmits a single serialized get_memsync.
  */
 extern const char *MEMPOOLSYNC;
@@ -497,19 +523,31 @@ enum
 
     // MSG_XTHINBLOCK, MSG_GRAPHENEBLOCK and MSG_THINBLOCK are not strictly necessary but they do make
     // creating and validating the requestManager tests much easier.
+
+    // BUIP010 Xtreme Thinblocks: an Xtreme thin block contains the first 8 bytes of all the tx hashes
+    // and also provides the missing transactions that are needed at the other end to reconstruct the block
     MSG_XTHINBLOCK = 5,
+    // BUIPXXX Graphene blocks: similar to xtreme thin blocks, a graphene block contains all the transactions
+    // hashes in a block and also provides the missing transaction ids that are needed at the other end to
+    // reconstruct the block
     MSG_GRAPHENEBLOCK = 6,
     // With the introduction of compact blocks, this is being deprecated in favor of using the get_thin p2p
+    MSG_DOUBLESPENDPROOF = 7
+    // With the introduction of compact block, this is being deprecated in favor of using the get_thin p2p
     // message, which solves the conflict with MSG_THINBLOCK and MSG_CMPCT_BLOCK.
     MSG_THINBLOCK = MSG_CMPCT_BLOCK,
-    // Uses Graphene set reconciliation to syncronize mempools between two peers.
-    MSG_MEMPOOLSYNC,
-    //
-    MSG_SUBBLOCK,
-    
-    MSG_BOBTAILBLOCK,
 
-    MSG_DOUBLESPENDPROOF = 7
+    // Graphene for subblocks
+    MSG_SB_GRAPHENEBLOCK = 8,
+    // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
+    // and also provides the missing transactions that are needed at the other end to reconstruct the block.
+    //
+    // Uses Graphene set reconciliation to syncronize mempools between two peers.
+    MSG_MEMPOOLSYNC = 9,
+    //
+    MSG_SUBBLOCK = 10,
+
+    MSG_BOBTAILBLOCK = 11
 };
 
 #endif // BITCOIN_PROTOCOL_H

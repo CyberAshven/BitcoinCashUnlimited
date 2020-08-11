@@ -2,7 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "serialize.h"
 #include "subblock.h"
+#include "version.h"
+
+uint64_t CSubBlock::GetBlockSize() const
+{
+    return ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
+}
 
 void CSubBlock::SetNull()
 {

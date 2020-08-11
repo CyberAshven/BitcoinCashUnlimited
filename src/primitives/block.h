@@ -24,6 +24,7 @@ class CXThinBlock;
 class CThinBlock;
 class CompactBlock;
 class CGrapheneBlock;
+class CSBGrapheneBlock;
 
 /** Get the work equivalent for the supplied nBits of difficulty */
 arith_uint256 GetWorkForDifficultyBits(uint32_t nBits);
@@ -200,6 +201,7 @@ public:
     std::shared_ptr<CXThinBlock> xthinblock;
     std::shared_ptr<CompactBlock> cmpctblock;
     std::shared_ptr<CGrapheneBlock> grapheneblock;
+    std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
 
     //! Track the current block size during reconstruction: (memory only)
     uint64_t nCurrentBlockSize;
@@ -214,6 +216,7 @@ public:
         xthinblock.reset();
         cmpctblock.reset();
         grapheneblock.reset();
+        sb_grapheneblock.reset();
     }
 };
 
