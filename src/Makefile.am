@@ -134,6 +134,7 @@ BITCOIN_CORE_H = \
   bobtail/bobtail.h \
   bobtail/bobtailblock.h \
   bobtail/dag.h \
+  bobtail/graphene.h \
   bobtail/subblock_miner.h \
   bobtail/subblock.h \
   bobtail/validation.h \
@@ -304,6 +305,7 @@ libbitcoin_server_a_SOURCES = \
   bobtail/bobtail.cpp \
   bobtail/bobtailblock.cpp \
   bobtail/dag.cpp \
+  bobtail/graphene.cpp \
   bobtail/subblock_miner.cpp \
   bobtail/subblock.cpp \
   bobtail/validation.cpp \

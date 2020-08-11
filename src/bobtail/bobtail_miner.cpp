@@ -84,33 +84,14 @@ void BobtailBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t co
 uint64_t BobtailBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
 {
     CBlockHeader h;
-    uint64_t nHeaderSize, nCoinbaseSize, nCoinbaseReserve;
+    uint64_t nHeaderSize;
 
     // BU add the proper block size quantity to the actual size
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
     assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
 
-
-    // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
-    // signed integer taking up 4 bytes for heights 32768-8388607 (around the year 2167) after which it will use 5
-    nCoinbaseSize = ::GetSerializeSize(coinbaseTx(scriptPubKeyIn, 400000, 0, {}), SER_NETWORK, PROTOCOL_VERSION);
-
-    if (coinbaseSize >= 0) // Explicit size of coinbase has been requested
-    {
-        nCoinbaseReserve = (uint64_t)coinbaseSize;
-    }
-    else
-    {
-        nCoinbaseReserve = coinbaseReserve.Value();
-    }
-
-    // BU Miners take the block we give them, wipe away our coinbase and add their own.
-    // So if their reserve choice is bigger then our coinbase then use that.
-    nCoinbaseSize = std::max(nCoinbaseSize, nCoinbaseReserve);
-
-
-    return nHeaderSize + nCoinbaseSize;
+    return nHeaderSize;
 }
 
 CTransactionRef BobtailBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _nHeight, CAmount nValue, const std::set<CDagNode> &dag)
@@ -126,12 +107,12 @@ CTransactionRef BobtailBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn,
     unsigned int i = 0;
     std::set<CDagNode>::iterator iter = dag.begin();
     CAmount total_paid = 0;
-    while (i < BOBTAIL_K)
+    while (i < BOBTAIL_K && iter != dag.end())
     {
         tx.vout[i].scriptPubKey = (*iter).subblock.vtx[0]->vin[0].scriptSig;
         tx.vout[i].nValue = valuePer;
         total_paid = total_paid + valuePer;
-	++i;
+	    ++i;
     }
     unsigned int k = 0;
     unsigned int zero_indexed_K = BOBTAIL_K - 1;

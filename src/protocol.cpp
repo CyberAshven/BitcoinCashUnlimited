@@ -54,6 +54,14 @@ const char *GET_GRAPHENE = "get_grblk";
 const char *GET_GRAPHENE_RECOVERY = "get_grrec";
 const char *GRAPHENE_RECOVERY = "grrec";
 // BUIPXXX Graphene - end section
+// Graphene subblock - begin section
+const char *SB_GRAPHENEBLOCK = "sbgrblk";
+const char *SB_GRAPHENETX = "sbgrblktx";
+const char *GET_SB_GRAPHENETX = "get_sbgrblktx";
+const char *GET_SB_GRAPHENE = "get_sbgrblk";
+const char *GET_SB_GRAPHENE_RECOVERY = "get_sbgrrec";
+const char *SB_GRAPHENE_RECOVERY = "sbgrrec";
+// Graphene subblock - end section
 // Mempool sync - begin section
 const char *MEMPOOLSYNC = "memsync";
 const char *MEMPOOLSYNCTX = "memsynctx";

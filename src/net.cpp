@@ -18,6 +18,7 @@
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
+#include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "connmgr.h"
 #include "consensus/consensus.h"
@@ -644,6 +645,9 @@ static bool IsPriorityMsg(std::string strCommand)
         strCommand == NetMsgType::GET_GRAPHENE || strCommand == NetMsgType::GRAPHENETX ||
         strCommand == NetMsgType::GET_GRAPHENE_RECOVERY || strCommand == NetMsgType::GRAPHENE_RECOVERY ||
         strCommand == NetMsgType::GET_GRAPHENETX || strCommand == NetMsgType::GET_XTHIN ||
+        strCommand == NetMsgType::GET_SB_GRAPHENE || strCommand == NetMsgType::SB_GRAPHENETX ||
+        strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY || strCommand == NetMsgType::SB_GRAPHENE_RECOVERY ||
+        strCommand == NetMsgType::GET_SB_GRAPHENETX ||
         strCommand == NetMsgType::GET_THIN || strCommand == NetMsgType::XTHINBLOCK ||
         strCommand == NetMsgType::THINBLOCK || strCommand == NetMsgType::XBLOCKTX ||
         strCommand == NetMsgType::GET_XBLOCKTX || strCommand == NetMsgType::XPEDITEDREQUEST ||

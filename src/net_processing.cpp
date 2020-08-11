@@ -19,6 +19,7 @@
 #include "blockstorage/blockstorage.h"
 #include "bobtail/bobtailblock.h"
 #include "bobtail/dag.h"
+#include "bobtail/graphene.h"
 #include "chain.h"
 #include "dosman.h"
 #include "electrum/electrs.h"
@@ -950,8 +951,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 return false;
 
             const CInv &inv = vInv[nInv];
-            if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) ||
-                inv.type == MSG_DOUBLESPENDPROOF || (inv.type == MSG_SUBBLOCK))
+            if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF) ||
+                (inv.type == MSG_BOBTAILBLOCK) || (inv.type == MSG_SUBBLOCK)))
             {
                 LOG(NET, "message inv invalid type = %u hash %s", inv.type, inv.hash.ToString());
                 return false;
@@ -1759,6 +1760,61 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
         LOCK(pfrom->cs_thintype);
         return HandleGrapheneBlockRecoveryResponse(vRecv, pfrom, chainparams);
+    }
+
+    // Handle Graphene subblocks
+    else if (strCommand == NetMsgType::GET_SB_GRAPHENE && !fImporting && !fReindex && IsGrapheneBlockEnabled() &&
+             grapheneVersionCompatible)
+    {
+        if (!requester.CheckForRequestDOS(pfrom, chainparams))
+            return false;
+
+        LOCK(pfrom->cs_thintype);
+        return SBHandleGrapheneBlockRequest(vRecv, pfrom, chainparams);
+    }
+
+    else if (strCommand == NetMsgType::SB_GRAPHENEBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
+             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    {
+        LOCK(pfrom->cs_thintype);
+        return CSBGrapheneBlock::HandleMessage(vRecv, pfrom, strCommand, 0);
+    }
+
+
+    else if (strCommand == NetMsgType::GET_SB_GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
+             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    {
+        if (!requester.CheckForRequestDOS(pfrom, chainparams))
+            return false;
+
+        LOCK(pfrom->cs_thintype);
+        return CSBRequestGrapheneBlockTx::HandleMessage(vRecv, pfrom);
+    }
+
+
+    else if (strCommand == NetMsgType::SB_GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
+             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    {
+        LOCK(pfrom->cs_thintype);
+        return CSBGrapheneBlockTx::HandleMessage(vRecv, pfrom);
+    }
+
+    else if (strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    {
+        if (!requester.CheckForRequestDOS(pfrom, chainparams))
+            return false;
+
+        LOCK(pfrom->cs_thintype);
+        return SBHandleGrapheneBlockRecoveryRequest(vRecv, pfrom, chainparams);
+    }
+
+    else if (strCommand == NetMsgType::SB_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    {
+        if (!requester.CheckForRequestDOS(pfrom, chainparams))
+            return false;
+
+        LOCK(pfrom->cs_thintype);
+        return SBHandleGrapheneBlockRecoveryResponse(vRecv, pfrom, chainparams);
     }
 
     // Handle Compact Blocks

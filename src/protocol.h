@@ -191,6 +191,32 @@ extern const char *GET_GRAPHENE_RECOVERY;
  */
 extern const char *GRAPHENE_RECOVERY;
 /**
+ * The sb_grapheneblock message transmits a single serialized graphene subblock.
+ */
+extern const char *SB_GRAPHENEBLOCK;
+/**
+ * The sb_graphenetx message transmits a single serialized sb_grblktx.
+ */
+extern const char *SB_GRAPHENETX;
+/**
+ * The get_sb_graphenetx message transmits a single serialized get_sbgrblktx.
+ */
+extern const char *GET_SB_GRAPHENETX;
+/**
+ * The get_sb_graphene message transmits a single serialized get_sbgrblk.
+ */
+extern const char *GET_SB_GRAPHENE;
+/**
+ * The get_sb_graphene_recovery message transmits a single serialized
+ * RequestSBGrapheneReceiverRecover object.
+ */
+extern const char *GET_SB_GRAPHENE_RECOVERY;
+/**
+ * The sb_graphene_recovery message transmits a single serialized
+ * CSBGrapheneReceiverRecover object.
+ */
+extern const char *SB_GRAPHENE_RECOVERY;
+/**
  * The mempoolsync message transmits a single serialized get_memsync.
  */
 extern const char *MEMPOOLSYNC;
@@ -503,6 +529,10 @@ enum
     // hashes in a block and also provides the missing transaction ids that are needed at the other end to
     // reconstruct the block
     MSG_GRAPHENEBLOCK,
+    MSG_SUBBLOCK,
+    MSG_BOBTAILBLOCK,
+    // Graphene for subblocks
+    MSG_SB_GRAPHENEBLOCK,
     // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
     // and also provides the missing transactions that are needed at the other end to reconstruct the block.
     //
