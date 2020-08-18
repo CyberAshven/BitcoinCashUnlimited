@@ -10,7 +10,7 @@ $(package)_build_subdir=qtbase
 $(package)_qt_libs=corelib network widgets gui plugins testlib
 $(package)_patches=mac-qmake.conf fix_qt_pkgconfig.patch fix_configure_mac.patch fix_no_printer.patch
 $(package)_patches+= fix_rcc_determinism.patch xkb-default.patch no-xlib.patch dont_hardcode_pwd.patch
-$(package)_patches+= freetype_back_compat.patch
+$(package)_patches+= freetype_back_compat.patch drop_lrelease_dependency.patch
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
 $(package)_qttranslations_sha256_hash=fb5a47799754af73d3bf501fe513342cfe2fc37f64e80df5533f6110e804220c
@@ -154,7 +154,7 @@ endef
 define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/freetype_back_compat.patch && \
   sed -i.old "s|updateqm.commands = \$$$$\$$$$LRELEASE|updateqm.commands = $($(package)_extract_dir)/qttools/bin/lrelease|" qttranslations/translations/translations.pro && \
-  sed -i.old "/updateqm.depends =/d" qttranslations/translations/translations.pro && \
+  patch -p1 -i $($(package)_patch_dir)/drop_lrelease_dependency.patch && \
   patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch &&\
   mkdir -p qtbase/mkspecs/macx-clang-linux &&\
   cp -f qtbase/mkspecs/macx-clang/Info.plist.lib qtbase/mkspecs/macx-clang-linux/ &&\
