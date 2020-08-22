@@ -7,7 +7,7 @@
 #include "bobtail/subblock_miner.h"
 
 #include "bobtail/dag.h"
-#include "bobtail/validation.h"
+#include "bobtail/subblock_validation.h"
 
 #include "amount.h"
 #include "chain.h"
@@ -212,6 +212,8 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
 
 
     {
+        // we must get the tips before locking mempool because we can not recursively lock mempool
+        std::vector<uint256> dag_tips = bobtailDagSet.GetTips();
         READLOCK(mempool.cs_txmempool);
         nHeight = pindexPrev->nHeight + 1;
 
@@ -227,21 +229,10 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
             (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST) ? nMedianTimePast : pblock->GetBlockTime();
 
         std::vector<const CTxMemPoolEntry *> vtxe;
-        addPriorityTxs(&vtxe);
 
-        // Mine by package (CPFP) or by score.
-        if (miningCPFP.Value() == true)
-        {
-            int64_t nStartPackage = GetStopwatchMicros();
-            addPackageTxs(&vtxe);
-            bobtail_nTotalPackage += GetStopwatchMicros() - nStartPackage;
-        }
-        else
-        {
-            int64_t nStartScore = GetStopwatchMicros();
-            addScoreTxs(&vtxe);
-            bobtail_nTotalScore += GetStopwatchMicros() - nStartScore;
-        }
+        int64_t nStartScore = GetStopwatchMicros();
+        addScoreTxs(&vtxe);
+        bobtail_nTotalScore += GetStopwatchMicros() - nStartScore;
 
         bobtail_nLastBlockTx = nBlockTx;
         bobtail_nLastBlockSize = nBlockSize;
@@ -259,9 +250,8 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
             pblocktemplate->vTxSigOps.push_back(txe->GetSigOpCount());
         }
 
-        // Create coinbase transaction.
-        pblock->vtx[0] =
-            proofbaseTx(scriptPubKeyIn, nHeight, bobtailDagSet.GetTips());
+        // Create proofbase transaction.
+        pblock->vtx[0] = proofbaseTx(scriptPubKeyIn, nHeight, dag_tips);
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
@@ -629,86 +619,6 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
         for (auto &it : ancestors)
         {
             AddToBlock(vtxe, it);
-        }
-    }
-}
-
-void SubBlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
-{
-    // How much of the block should be dedicated to high-priority transactions,
-    // included regardless of the fees they pay
-    uint64_t nBlockPrioritySize = GetArg("-blockprioritysize", DEFAULT_BLOCK_PRIORITY_SIZE);
-    nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
-
-    if (nBlockPrioritySize == 0)
-    {
-        return;
-    }
-
-    // This vector will be sorted into a priority queue:
-    std::vector<TxCoinAgePriority> vecPriority;
-    TxCoinAgePriorityCompare pricomparer;
-    std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash> waitPriMap;
-    typedef std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash>::iterator waitPriIter;
-    double actualPriority = -1;
-
-    vecPriority.reserve(mempool.mapTx.size());
-    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin(); mi != mempool.mapTx.end(); ++mi)
-    {
-        double dPriority = mi->GetPriority(nHeight);
-        CAmount dummy;
-        mempool._ApplyDeltas(mi->GetTx().GetHash(), dPriority, dummy);
-        vecPriority.push_back(TxCoinAgePriority(dPriority, mi));
-    }
-    std::make_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
-
-    CTxMemPool::txiter iter;
-    while (!vecPriority.empty() && !blockFinished)
-    { // add a tx from priority queue to fill the blockprioritysize
-        iter = vecPriority.front().second;
-        actualPriority = vecPriority.front().first;
-        std::pop_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
-        vecPriority.pop_back();
-
-        // If tx already in block, skip
-        if (inBlock.count(iter))
-        {
-            // DbgAssert(false, ); // can happen for prio tx if delta block
-            continue;
-        }
-
-        // If tx is dependent on other mempool txs which haven't yet been included
-        // then put it in the waitSet
-        if (isStillDependent(iter))
-        {
-            waitPriMap.insert(std::make_pair(iter, actualPriority));
-            continue;
-        }
-
-        // If this tx fits in the block add it, otherwise keep looping
-        if (TestForBlock(iter))
-        {
-            AddToBlock(vtxe, iter);
-
-            // If now that this txs is added we've surpassed our desired priority size
-            // or have dropped below the AllowFreeThreshold, then we're done adding priority txs
-            if (nBlockSize >= nBlockPrioritySize || !AllowFree(actualPriority))
-            {
-                return;
-            }
-
-            // This tx was successfully added, so
-            // add transactions that depend on this one to the priority queue to try again
-            for (CTxMemPool::txiter child : mempool.GetMemPoolChildren(iter))
-            {
-                waitPriIter wpiter = waitPriMap.find(child);
-                if (wpiter != waitPriMap.end())
-                {
-                    vecPriority.push_back(TxCoinAgePriority(wpiter->second, child));
-                    std::push_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
-                    waitPriMap.erase(wpiter);
-                }
-            }
         }
     }
 }

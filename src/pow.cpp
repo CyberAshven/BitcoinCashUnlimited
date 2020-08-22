@@ -8,7 +8,7 @@
 #include "pow.h"
 
 #include "arith_uint256.h"
-#include "bobtail/bobtail.h"
+#include "bobtail/pow.h"
 #include "chain.h"
 #include "consensus/consensus.h"
 #include "primitives/block.h"

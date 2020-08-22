@@ -2,56 +2,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bobtail.h"
+#include "pow.h"
 #include "bobtailblock.h"
 #include "dag.h"
 
 #include "net.h"
 
 #include <boost/math/distributions/gamma.hpp>
-
-bool IsSubBlockMalformed(const CSubBlock &subblock)
-{
-    if (subblock.IsNull())
-    {
-        return true;
-    }
-    // at a minimum a subblock needs a proofbase transaction to be valid
-    if (subblock.vtx.size() == 0)
-    {
-        return true;
-    }
-    if (subblock.vtx[0]->IsProofBase() == false)
-    {
-        return true;
-    }
-    size_t size_vtx = subblock.vtx.size();
-    for (size_t i = 1; i < size_vtx; ++i)
-    {
-        if (subblock.vtx[i]->IsProofBase())
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool ProcessNewSubBlock(const CSubBlock &subblock)
-{
-    if (IsSubBlockMalformed(subblock) == false)
-    {
-        if (bobtailDagSet.Insert(subblock))
-        {
-            LOCK(cs_vNodes);
-            for (CNode *pnode : vNodes)
-            {
-                pnode->PushInventory(CInv(MSG_SUBBLOCK, subblock.GetHash()));
-            }
-            return true;
-        }
-    }
-    return false;
-}
 
 bool CheckBobtailPoW(CBobtailBlock block, const Consensus::Params &params, uint8_t k)
 {
@@ -109,6 +66,7 @@ bool CheckBobtailPoWFromOrderedProofs(std::vector<arith_uint256> proofs, arith_u
 
     return false;
 }
+
 
 bool CheckSubBlockPoW(const CBlockHeader &header, const Consensus::Params &params, uint8_t k)
 {

@@ -5,10 +5,11 @@
 #include "amount.h"
 #include "blockrelay/netdeltablocks.h"
 #include "blockstorage/blockstorage.h"
-#include "bobtail/bobtail.h"
+#include "bobtail/pow.h"
 #include "bobtail/dag.h"
 #include "bobtail/bobtail_miner.h"
 #include "bobtail/subblock_miner.h"
+#include "bobtail/subblock_validation.h"
 #include "bobtail/validation.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -43,7 +44,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     int nSubGenerate=0,
     int nBobGenerate=0,
     uint64_t nMaxTries=0,
-    bool keepScript=false, 
+    bool keepScript=false,
     bool fSubBlocksOnly=false)
 {
     static const int nInnerLoopCount = 0x10000;

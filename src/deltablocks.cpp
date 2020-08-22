@@ -1,5 +1,5 @@
 
-#include "bobtail/bobtail.h"
+#include "bobtail/pow.h"
 #include "main.h"
 #include "pow.h"
 #include "chainparams.h"

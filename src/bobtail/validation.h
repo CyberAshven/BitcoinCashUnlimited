@@ -14,14 +14,6 @@
 #include "txmempool.h"
 #include "versionbits.h"
 
-/** Context-independent validity checks */
-bool CheckSubBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW = true);
-
-bool AcceptSubBlockBlockHeader(const CBlockHeader &block,
-    CValidationState &state,
-    const CChainParams &chainparams,
-    CBlockIndex **ppindex = nullptr);
-
 //TODO: This should accept a CBobtailBlockHeader once it is defined
 bool CheckBobtailBlockHeader(const CBlockHeader &block, CValidationState &state);
 
@@ -30,16 +22,6 @@ bool AcceptBobtailBlockBlockHeader(const CBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex = nullptr);
-
-/** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main
- * held) */
-bool TestSubBlockValidity(CValidationState &state,
-    const CChainParams &chainparams,
-    const CSubBlock &block,
-    CBlockIndex *pindexPrev,
-    bool fCheckPOW = true,
-    bool fCheckMerkleRoot = true,
-    bool fConservative = false);
 
 bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 

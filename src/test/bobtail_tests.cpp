@@ -1,4 +1,4 @@
-#include "bobtail/bobtail.h"
+#include "bobtail/pow.h"
 #include "bobtail/dag.h"
 #include "bobtail/subblock.h"
 #include "test/test_bitcoin.h"

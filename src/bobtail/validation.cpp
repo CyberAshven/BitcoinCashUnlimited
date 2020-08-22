@@ -7,7 +7,7 @@
 #include "blockrelay/blockrelay_common.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
-#include "bobtail/bobtail.h"
+#include "bobtail/pow.h"
 #include "bobtail/bobtailblock.h"
 #include "bobtail/dag.h"
 #include "checkpoints.h"
@@ -32,105 +32,10 @@
 
 extern CCriticalSection cs_bobtailblocks;
 extern std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblocks);
-extern CBobtailDagSet bobtailDagSet;
 extern bool fCheckForPruning;
 extern std::map<uint256, NodeId> mapBlockSource;
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
-
-static int64_t nTimeCheck = 0;
-static int64_t nTimeForks = 0;
-// static int64_t nTimeVerify = 0;
-// static int64_t nTimeConnect = 0;
-static int64_t nTimeIndex = 0;
-static int64_t nTimeCallbacks = 0;
-// static int64_t nTimeTotal = 0;
-// static int64_t nTimeReadFromDisk = 0;
-// static int64_t nTimeConnectTotal = 0;
-// static int64_t nTimeFlush = 0;
-// static int64_t nTimeChainState = 0;
-// static int64_t nTimePostConnect = 0;
-
-//////////////////////////////////////////////////////////////////
-//
-// Header
-//
-
-bool CheckSubBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW)
-{
-    if (fCheckPOW && !CheckSubBlockPoW(block, Params().GetConsensus(), BOBTAIL_K))
-    {
-        return state.DoS(50, error("CheckSubBlockHeader(): subblock proof of work failed"), REJECT_INVALID, "high-hash");
-    }
-
-    // Check timestamp
-    if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
-        return state.Invalid(
-            error("CheckSubBlockHeader(): block timestamp too far in the future"), REJECT_INVALID, "time-too-new");
-
-    return true;
-}
-
-bool AcceptSubBlockBlockHeader(const CBlockHeader &block,
-    CValidationState &state,
-    const CChainParams &chainparams,
-    CBlockIndex **ppindex)
-{
-    AssertLockHeld(cs_main);
-    // Check for duplicate
-    uint256 hash = block.GetHash();
-    CBlockIndex *pindex = nullptr;
-    if (hash != chainparams.GetConsensus().hashGenesisBlock)
-    {
-        pindex = LookupBlockIndex(hash);
-        if (pindex)
-        {
-            // Block header is already known.
-            if (ppindex)
-                *ppindex = pindex;
-            {
-                READLOCK(cs_mapBlockIndex);
-                if (pindex->nStatus & BLOCK_FAILED_MASK)
-                    return state.Invalid(
-                        error("%s: subblock %s height %d is marked invalid", __func__, hash.ToString(), pindex->nHeight),
-                        0, "duplicate");
-            }
-            return true;
-        }
-
-        if (!CheckSubBlockHeader(block, state))
-            return false;
-
-        // Get prev block index
-        CBlockIndex *pindexPrev = LookupBlockIndex(block.hashPrevBlock);
-        if (!pindexPrev)
-            return state.DoS(10, error("%s: previous block %s not found while accepting %s", __func__,
-                                     block.hashPrevBlock.ToString(), hash.ToString()),
-                0, "bad-prevblk");
-        {
-            READLOCK(cs_mapBlockIndex);
-            if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
-                return state.DoS(100,
-                    error("%s: previous block %s is invalid", __func__, pindexPrev->GetBlockHash().GetHex().c_str()),
-                    REJECT_INVALID, "bad-prevblk");
-        }
-
-        // If the parent block belongs to the set of checkpointed blocks but it has a mismatched hash,
-        // then we are on the wrong fork so ignore
-        if (fCheckpointsEnabled && !CheckAgainstCheckpoint(pindexPrev->nHeight, *pindexPrev->phashBlock, chainparams))
-            return error("%s: CheckAgainstCheckpoint(): %s", __func__, state.GetRejectReason().c_str());
-
-        if (!ContextualCheckBlockHeader(block, state, pindexPrev))
-            return false;
-    }
-    if (pindex == nullptr)
-        pindex = AddToBlockIndex(block);
-
-    if (ppindex)
-        *ppindex = pindex;
-
-    return true;
-}
 
 bool CheckBobtailBlockHeader(const CBlockHeader &block, CValidationState &state)
 {
@@ -209,112 +114,6 @@ bool AcceptBobtailBlockBlockHeader(const CBlockHeader &block,
     return true;
 }
 
-
-//////////////////////////////////////////////////////////////////
-//
-// Block/chain
-//
-
-bool CheckSubBlock(const CSubBlock &block, CValidationState &state, bool fCheckPOW, bool fCheckMerkleRoot)
-{
-    // These are checks that are independent of context.
-
-    // Check that the header is valid (particularly PoW).  This is mostly
-    // redundant with the call in AcceptBlockHeader.
-    if (!CheckSubBlockHeader(block, state, fCheckPOW))
-        return false;
-
-    // Check the merkle root.
-    if (fCheckMerkleRoot)
-    {
-        bool mutated;
-        uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
-        if (block.hashMerkleRoot != hashMerkleRoot2)
-            return state.DoS(
-                100, error("CheckSubBlock(): hashMerkleRoot mismatch"), REJECT_INVALID, "bad-txnmrklroot", true);
-
-        // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
-        // of transactions in a block without affecting the merkle root of a block,
-        // while still invalidating it.
-        if (mutated)
-            return state.DoS(
-                100, error("CheckSubBlock(): duplicate transaction"), REJECT_INVALID, "bad-txns-duplicate", true);
-    }
-
-    // All potential-corruption validation must be done before we do any
-    // transaction validation, as otherwise we may mark the header as invalid
-    // because we receive the wrong transactions for it.
-
-    // Size limits
-    if (block.vtx.empty())
-    {
-        return state.DoS(100, error("CheckSubBlock(): size limits failed"), REJECT_INVALID, "bad-blk-length");
-    }
-
-    // First transaction must be proofbase, the rest must not be
-    if (block.vtx.empty() || !block.vtx[0]->IsProofBase())
-    {
-        return state.DoS(100, error("CheckSubBlock(): first tx is not proofbase"), REJECT_INVALID, "bad-pb-missing");
-    }
-
-    for (unsigned int i = 1; i < block.vtx.size(); i++)
-    {
-        if (block.vtx[i]->IsProofBase())
-        {
-            return state.DoS(100, error("CheckSubBlock(): more than one proofbase"), REJECT_INVALID, "bad-pb-multiple");
-        }
-    }
-
-    for (unsigned int i = 0; i < block.vtx.size(); i++)
-    {
-        if (block.vtx[i]->IsCoinBase())
-        {
-            return state.DoS(100, error("CheckSubBlock(): subblock contains a coinbase"), REJECT_INVALID, "bad-cb-contains");
-        }
-    }
-
-    // Check transactions
-    for (const auto &tx : block.vtx)
-    {
-        if (!CheckTransaction(tx, state))
-        {
-            return error("CheckSubBlock(): CheckTransaction of %s failed with %s", tx->GetHash().ToString(),
-                FormatStateMessage(state));
-        }
-    }
-    return true;
-}
-
-bool TestSubBlockValidity(CValidationState &state,
-    const CChainParams &chainparams,
-    const CSubBlock &block,
-    CBlockIndex *pindexPrev,
-    bool fCheckPOW,
-    bool fCheckMerkleRoot,
-    bool fConservative)
-{
-    AssertLockHeld(cs_main);
-    assert(pindexPrev && pindexPrev == chainActive.Tip());
-    // Ensure that if there is a checkpoint on this height, that this block is the one.
-    if (fCheckpointsEnabled && !CheckAgainstCheckpoint(pindexPrev->nHeight + 1, block.GetHash(), chainparams))
-        return error("%s: CheckAgainstCheckpoint(): %s", __func__, state.GetRejectReason().c_str());
-
-    CCoinsViewCache viewNew(pcoinsTip);
-    CBlockIndex indexDummy(block);
-    indexDummy.pprev = pindexPrev;
-    indexDummy.nHeight = pindexPrev->nHeight + 1;
-
-    // NOTE: CheckBlockHeader is called by CheckBlock
-    if (!ContextualCheckBlockHeader(block, state, pindexPrev))
-        return false;
-    if (!CheckSubBlock(block, state, fCheckPOW, fCheckMerkleRoot))
-        return false;
-    if (!ContextualCheckBlock(block, state, pindexPrev, fConservative))
-        return false;
-    assert(state.IsValid());
-
-    return true;
-}
 
 bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state, bool fCheckPOW, bool fCheckMerkleRoot)
 {
@@ -528,10 +327,6 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
     uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
     assert(hashPrevBlock == view.GetBestBlock());
 
-    int64_t nTime1 = GetStopwatchMicros();
-    nTimeCheck += nTime1 - nTimeStart;
-    LOG(BENCH, "    - Sanity checks: %.2fms [%.2fs]\n", 0.001 * (nTime1 - nTimeStart), nTimeCheck * 0.000001);
-
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
     // If such overwrites are allowed, coinbases and transactions depending upon those
@@ -584,10 +379,6 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
             }
         }
     }
-
-    int64_t nTime2 = GetStopwatchMicros();
-    nTimeForks += nTime2 - nTime1;
-    LOG(BENCH, "    - Fork checks: %.2fms [%.2fs]\n", 0.001 * (nTime2 - nTime1), nTimeForks * 0.000001);
 
     const arith_uint256 nStartingChainWork = chainActive.Tip()->nChainWork;
     const int64_t timeBarrier = GetTime() - (24 * 3600 * checkScriptDays.Value());
@@ -688,18 +479,10 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
     // add this block to the view's block chain (the main UTXO in memory cache)
     view.SetBestBlock(pindex->GetBlockHash());
 
-    int64_t nTime5 = GetStopwatchMicros();
-    nTimeIndex += nTime5 - nTime4;
-    LOG(BENCH, "    - Index writing: %.2fms [%.2fs]\n", 0.001 * (nTime5 - nTime4), nTimeIndex * 0.000001);
-
     // Watch for changes to the previous coinbase transaction.
     static uint256 hashPrevBestCoinBase;
     GetMainSignals().UpdatedTransaction(hashPrevBestCoinBase);
     hashPrevBestCoinBase = block.vtx[0]->GetHash();
-
-    int64_t nTime6 = GetStopwatchMicros();
-    nTimeCallbacks += nTime6 - nTime5;
-    LOG(BENCH, "    - Callbacks: %.2fms [%.2fs]\n", 0.001 * (nTime6 - nTime5), nTimeCallbacks * 0.000001);
 
     PV->Cleanup(block, pindex); // NOTE: this must be run whether in fParallel or not!
 
