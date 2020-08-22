@@ -131,11 +131,12 @@ BITCOIN_CORE_H = \
   bitnodes.h \
   bloom.h \
   bobtail/bobtail_miner.h \
-  bobtail/bobtail.h \
   bobtail/bobtailblock.h \
   bobtail/dag.h \
   bobtail/graphene.h \
+  bobtail/pow.h \
   bobtail/subblock_miner.h \
+  bobtail/subblock_validation.h \
   bobtail/subblock.h \
   bobtail/validation.h \
   bobtaildb.h \
@@ -302,11 +303,12 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockcache.cpp \
   bloom.cpp \
   bobtail/bobtail_miner.cpp \
-  bobtail/bobtail.cpp \
   bobtail/bobtailblock.cpp \
   bobtail/dag.cpp \
   bobtail/graphene.cpp \
+  bobtail/pow.cpp \
   bobtail/subblock_miner.cpp \
+  bobtail/subblock_validation.cpp \
   bobtail/subblock.cpp \
   bobtail/validation.cpp \
   bobtaildb.cpp \

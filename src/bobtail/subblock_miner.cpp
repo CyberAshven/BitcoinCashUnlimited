@@ -7,7 +7,7 @@
 #include "bobtail/subblock_miner.h"
 
 #include "bobtail/dag.h"
-#include "bobtail/validation.h"
+#include "bobtail/subblock_validation.h"
 
 #include "amount.h"
 #include "chain.h"

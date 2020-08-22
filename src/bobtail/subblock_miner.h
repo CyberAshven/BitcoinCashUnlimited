@@ -7,7 +7,7 @@
 #ifndef BITCOIN_BOBTAIL_SUBBLOCKMINER_H
 #define BITCOIN_BOBTAIL_SUBBLOCKMINER_H
 
-#include "bobtail/bobtail.h"
+#include "bobtail/pow.h"
 #include "bobtail/subblock.h"
 #include "miner_common.h"
 
