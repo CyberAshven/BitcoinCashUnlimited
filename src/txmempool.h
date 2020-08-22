@@ -110,6 +110,7 @@ private:
     CAmount nModFeesWithAncestors;
     unsigned int nSigOpCountWithAncestors;
     bool fDirty;
+    std::set<uint16_t> includedDags;
 
 public:
     unsigned char sighashType;
@@ -158,6 +159,12 @@ public:
     // Update runtime validation resource usage
     void UpdateRuntimeSigOps(uint64_t _runtimeSigOpCount, uint64_t _runtimeSighashBytes);
 
+    void UpdateIncludedDags(const uint16_t &dag_id, const bool &add);
+    bool IsInDag(const uint16_t &dag_id);
+
+    uint64_t GetCountWithDescendants() const { return nCountWithDescendants; }
+    uint64_t GetSizeWithDescendants() const { return nSizeWithDescendants; }
+    CAmount GetModFeesWithDescendants() const { return nModFeesWithDescendants; }
     bool GetSpendsCoinbase() const { return spendsCoinbase; }
     uint64_t GetCountWithAncestors() const { return nCountWithAncestors; }
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
@@ -233,6 +240,15 @@ struct update_fee_delta
 
 private:
     int64_t feeDelta;
+};
+
+struct update_included_dags
+{
+    update_included_dags(const int16_t &_dag_id, const bool &_add) : dag_id(_dag_id), add(_add) {}
+    void operator()(CTxMemPoolEntry &e) const { e.UpdateIncludedDags(dag_id, add); }
+private:
+    const int16_t &dag_id;
+    const bool &add;
 };
 
 struct update_lock_points
@@ -609,6 +625,8 @@ public:
      */
     void UpdateTransactionsFromBlock(const std::vector<uint256> &hashesToUpdate);
 
+    void UpdateTransactionDagInfo(const uint256 &hash, const uint16_t &dag_id, const bool &add);
+
     /** Try to calculate all in-mempool ancestors of entry.
      *  (these are all calculated including the tx itself)
      *  limitAncestorCount = max number of ancestors
@@ -772,5 +790,7 @@ struct TxCoinAgePriorityCompare
         return a.first < b.first;
     }
 };
+
+extern CTxMemPool mempool;
 
 #endif // BITCOIN_TXMEMPOOL_H

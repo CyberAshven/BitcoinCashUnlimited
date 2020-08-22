@@ -5,6 +5,7 @@
 #include "dag.h"
 
 #include "consensus/consensus.h"
+#include "txmempool.h"
 
 void CDagNode::AddAncestor(CDagNode* ancestor)
 {
@@ -236,6 +237,10 @@ void CBobtailDagSet::CreateNewDag(CDagNode *newNode)
     {
         dag.CheckForCompatibility(newNode);
     }
+    for (auto &tx : newNode->subblock.vtx)
+    {
+        mempool.UpdateTransactionDagInfo(tx->GetHash(), new_id, true);
+    }
 }
 
 bool CBobtailDagSet::MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
@@ -253,6 +258,10 @@ bool CBobtailDagSet::MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
         for (CDagNode* node : vdags[id]._dag)
         {
             vdags[base_dag_id].Insert(node);
+            for (auto &tx : node->subblock.vtx)
+            {
+                mempool.UpdateTransactionDagInfo(tx->GetHash(), id, false);
+            }
         }
     }
     // before we set new ids and consume the set, use the set to update
@@ -271,6 +280,15 @@ bool CBobtailDagSet::MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
     }
     SetNewIds(removed_ids);
     new_id = base_dag_id;
+
+    // update the txs in this dag
+    for (CDagNode* node : vdags[base_dag_id]._dag)
+    {
+        for (auto &tx : node->subblock.vtx)
+        {
+            mempool.UpdateTransactionDagInfo(tx->GetHash(), base_dag_id, true);
+        }
+    }
     return true;
 }
 
@@ -341,6 +359,13 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
         {
             return false;
         }
+        for (auto &id : merge_list)
+        {
+            for (auto &tx : sub_block.vtx)
+            {
+                mempool.UpdateTransactionDagInfo(tx->GetHash(), id, false);
+            }
+        }
     }
     else if (merge_list.size() == 1)
     {
@@ -357,6 +382,12 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
         return false;
     }
     vdags[new_id].Insert(newNode);
+    // once we have inserted the subblock into a dag, we should update the
+    // mempool with information about which dag the txx went into
+    for (auto &tx : sub_block.vtx)
+    {
+        mempool.UpdateTransactionDagInfo(tx->GetHash(), new_id, true);
+    }
     // run compat checks for the newNode, skip the dag it belongs to,
     // we already checked this one
     for (auto &dag : vdags)

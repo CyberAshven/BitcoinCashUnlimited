@@ -179,6 +179,12 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
 
 
     {
+        // we must get the best dag before locking mempool because we can not recursively lock mempool
+        std::set<CDagNode> bestdag;
+        if (bobtailDagSet.GetBestDag(bestdag) == false)
+        {
+            return nullptr;
+        }
         READLOCK(mempool.cs_txmempool);
         nHeight = pindexPrev->nHeight + 1;
 
@@ -224,12 +230,6 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
             pblocktemplate->bobtailblock->vtx.push_back(txe->GetSharedTx());
             pblocktemplate->vTxFees.push_back(txe->GetFee());
             pblocktemplate->vTxSigOps.push_back(txe->GetSigOpCount());
-        }
-
-        std::set<CDagNode> bestdag;
-        if (bobtailDagSet.GetBestDag(bestdag) == false)
-        {
-            return nullptr;
         }
         // Create coinbase transaction.
         pblock->vtx[0] =

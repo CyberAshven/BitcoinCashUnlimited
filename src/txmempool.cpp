@@ -143,6 +143,16 @@ void CTxMemPool::UpdateTransactionsFromBlock(const std::vector<uint256> &vHashes
     }
 }
 
+void CTxMemPool::UpdateTransactionDagInfo(const uint256 &hash, const uint16_t &dag_id, const bool &add)
+{
+    WRITELOCK(cs_txmempool);
+    txiter it = mapTx.find(hash);
+    if (it != mapTx.end())
+    {
+        mapTx.modify(it, update_included_dags(dag_id, add));
+    }
+}
+
 bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry,
     uint64_t limitAncestorCount,
     uint64_t limitAncestorSize,
@@ -544,6 +554,18 @@ void CTxMemPoolEntry::ReplaceAncestorState(int64_t modifySize,
     assert(int(nSigOpCountWithAncestors) >= 0);
 
     fDirty = dirty;
+}
+
+void CTxMemPoolEntry::UpdateIncludedDags(const uint16_t &dag_id, const bool &add)
+{
+    if (add)
+    {
+        includedDags.emplace(dag_id);
+    }
+    else // remove, needed for dag merges
+    {
+        includedDags.erase(dag_id);
+    }
 }
 
 CTxMemPool::CTxMemPool() : nTransactionsUpdated(0), m_dspStorage(new DoubleSpendProofStorage())

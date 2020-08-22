@@ -115,8 +115,6 @@ private:
     // Methods for how to add transactions to a block.
     /** Add transactions based on modified feerate */
     void addScoreTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
-    /** Add transactions based on tx "priority" */
-    void addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
 
     /** Add transactions based on feerate including unconfirmed ancestors */
     void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
