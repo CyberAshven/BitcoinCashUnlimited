@@ -10,6 +10,7 @@
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
+#include "crypto/sha3.h"
 #include "crypto/sha512.h"
 #include "hashwrapper.h"
 #include "random.h"
@@ -43,8 +44,15 @@ static void SHA256(benchmark::State &state)
         CSHA256().Write(in.data(), in.size()).Finalize(hash);
 }
 
-static void SHA256_32b(benchmark::State &state)
-{
+static void SHA3_256_1M(benchmark::State &state) {
+    uint8_t hash[SHA3_256::OUTPUT_SIZE];
+    std::vector<uint8_t> in(BUFFER_SIZE, 0);
+    while (state.KeepRunning()) {
+        SHA3_256().Write(in).Finalize(hash);
+    }
+}
+
+static void SHA256_32b(benchmark::State &state) {
     std::vector<uint8_t> in(32, 0);
     while (state.KeepRunning())
     {
