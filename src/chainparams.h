@@ -117,6 +117,7 @@ public:
     const std::string &CashAddrPrefix() const { return cashaddrPrefix; }
     const std::vector<SeedSpec6> &FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData &Checkpoints() const { return checkpointData; }
+    uint64_t DefaultMaxBlockSize() const { return nDefaultMaxBlockSize; }
 protected:
     CChainParams() {}
     Consensus::Params consensus;
@@ -136,6 +137,7 @@ protected:
     bool fMineBlocksOnDemand;
     bool fTestnetToBeDeprecatedFieldRPC;
     CCheckpointData checkpointData;
+    uint64_t nDefaultMaxBlockSize;
 };
 
 /**
