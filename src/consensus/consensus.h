@@ -9,11 +9,8 @@
 
 #include "uint256.h"
 
-/** The maximum allowed size for a serialized block, in bytes (network rule) */
-// BU: this constant is deprecated but is still used in a few areas such as allocation of memory.  Removing it is a
-// tradeoff between being perfect and changing more code. TODO: remove this entirely
-// static const unsigned int BU_MAX_BLOCK_SIZE = 32000000;
-static const unsigned int BLOCKSTREAM_CORE_MAX_BLOCK_SIZE = 1000000;
+static const unsigned int ONE_MEGABYTE = 1000000;
+
 /** The maximum allowed number of signature check operations in a 1MB block (network rule), and the suggested max sigops
  * per (MB rounded up) in blocks > 1MB. */
 static const unsigned int MAX_BLOCK_SIGOPS_PER_MB = 20000;
