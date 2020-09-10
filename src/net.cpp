@@ -615,7 +615,7 @@ void CNode::copyStats(CNodeStats &stats)
 
 static bool IsMessageOversized(CNetMessage &msg)
 {
-    if (maxMessageSizeMultiplier && msg.in_data && (msg.hdr.nMessageSize > BLOCKSTREAM_CORE_MAX_BLOCK_SIZE) &&
+    if (maxMessageSizeMultiplier && msg.in_data &&
         (msg.hdr.nMessageSize > (maxMessageSizeMultiplier * excessiveBlockSize)))
     {
         // TODO: warn if too many nodes are doing this
