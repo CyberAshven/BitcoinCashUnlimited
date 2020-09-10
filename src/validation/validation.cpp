@@ -1649,6 +1649,12 @@ bool CheckBlock(const CBlock &block, CValidationState &state, bool fCheckPOW, bo
     if (!CheckBlockHeader(block, state, fCheckPOW))
         return false;
 
+    // check that the block is a valid size
+    if (block.GetBlockSize() > Params().MaxBlockSize())
+    {
+        return false;
+    }
+
     // Check the merkle root.
     if (fCheckMerkleRoot)
     {
