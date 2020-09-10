@@ -387,7 +387,7 @@ bool BlockAssembler::IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtr
     if (!may2020Enabled)
     {
         // Enforce the "old" sigops for <= 1MB blocks
-        if (nBlockSize + nExtraSize <= BLOCKSTREAM_CORE_MAX_BLOCK_SIZE)
+        if (nBlockSize + nExtraSize <= ONE_MEGABYTE)
         {
             // BU: be conservative about what is generated
             if (nBlockSigOps + nExtraSigOps >= MAX_BLOCK_SIGOPS_PER_MB)
@@ -409,17 +409,6 @@ bool BlockAssembler::IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtr
                     blockFinished = true;
                 return false;
             }
-        }
-    }
-    else // may2020
-    {
-        if (nBlockSigOps + nExtraSigOps > maxSigOpsAllowed)
-        {
-            if (nBlockSigOps > maxSigOpsAllowed - 2)
-                // very close to the limit, so the block is finished.  So a block that is near the sigops limit
-                // might be shorter than it could be if the high sigops tx was backed out and other tx added.
-                blockFinished = true;
-            return false;
         }
     }
 

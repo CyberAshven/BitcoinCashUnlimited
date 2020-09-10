@@ -59,7 +59,7 @@
 using namespace std;
 
 extern CTxMemPool mempool; // from main.cpp
-static atomic<uint64_t> nLargestBlockSeen{BLOCKSTREAM_CORE_MAX_BLOCK_SIZE}; // track the largest block we've seen
+static atomic<uint64_t> nLargestBlockSeen{ONE_MEGABYTE}; // track the largest block we've seen
 static atomic<bool> fIsChainNearlySyncd{false};
 
 // We always start with true so that when ActivateBestChain is called during the startup (init.cpp)
@@ -938,21 +938,13 @@ bool CheckExcessive(const CBlock &block, uint64_t blockSize, uint64_t nTx, uint6
             block.nTime, blockSize, nTx);
         return true;
     }
-
-    if (blockSize > BLOCKSTREAM_CORE_MAX_BLOCK_SIZE)
+    // Check transaction size to limit sighash
+    if (blockSize > ONE_MEGABYTE && largestTx > maxTxSize.Value())
     {
-        // Check transaction size to limit sighash
-        if (largestTx > maxTxSize.Value())
-        {
-            LOGA("Excessive block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64
-                 " largest TX:%d  :tx too large.  Expected less than: %d\n",
-                block.nVersion, block.nTime, blockSize, nTx, largestTx, maxTxSize.Value());
-            return true;
-        }
-    }
-    else
-    {
-        // Within a 1MB block transactions can be 1MB, so nothing to check WRT transaction size
+        LOGA("Excessive block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64
+             " largest TX:%d  :tx too large.  Expected less than: %d\n",
+            block.nVersion, block.nTime, blockSize, nTx, largestTx, maxTxSize.Value());
+        return true;
     }
 
     LOGA("Acceptable block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64 " \n", block.nVersion, block.nTime, blockSize,
@@ -1367,14 +1359,6 @@ bool IsChainSyncd()
 }
 uint64_t LargestBlockSeen(uint64_t nBlockSize)
 {
-    // C++98 lacks the capability to do static initialization properly
-    // so we need a runtime check to make sure it is.
-    // This can be removed when moving to C++11 .
-    if (nBlockSize < BLOCKSTREAM_CORE_MAX_BLOCK_SIZE)
-    {
-        nBlockSize = BLOCKSTREAM_CORE_MAX_BLOCK_SIZE;
-    }
-
     // Return the largest block size that we have seen since startup
     uint64_t nSize = nLargestBlockSeen.load();
     while (nBlockSize > nSize)
@@ -1774,10 +1758,9 @@ UniValue getminingcandidate(const UniValue &params, bool fHelp)
             throw std::runtime_error("Requested coinbase size is less than 0");
         }
 
-        if (coinbaseSize > BLOCKSTREAM_CORE_MAX_BLOCK_SIZE)
+        if (coinbaseSize > ONE_MEGABYTE)
         {
-            throw std::runtime_error(
-                strprintf("Requested coinbase size too big. Max allowed: %u", BLOCKSTREAM_CORE_MAX_BLOCK_SIZE));
+            throw std::runtime_error(strprintf("Requested coinbase size too big. Max allowed: %u", ONE_MEGABYTE));
         }
     }
     if (params.size() == 2)

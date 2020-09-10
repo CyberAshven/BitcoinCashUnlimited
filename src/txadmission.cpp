@@ -1157,8 +1157,7 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
                 // -limitfreerelay unit is thousand-bytes-per-minute
                 // At default rate it would take over a month to fill 1GB
                 LOG(MEMPOOL, "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount + nSize);
-                if ((dFreeCount + nSize) >=
-                    (nFreeLimit * 10 * 1000 * nLargestBlockSeen / ONE_MEGABYTE))
+                if ((dFreeCount + nSize) >= (nFreeLimit * 10 * 1000 * nLargestBlockSeen / ONE_MEGABYTE))
                 {
                     if (debugger)
                     {
