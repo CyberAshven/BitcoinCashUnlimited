@@ -238,12 +238,12 @@ static void MutateTxAddInput(CMutableTransaction &tx, const string &strInput)
     uint256 txid(uint256S(strTxid));
 
     static const unsigned int minTxOutSz = 9;
-    static const unsigned int maxVout = BLOCKSTREAM_CORE_MAX_BLOCK_SIZE / minTxOutSz;
+    static const unsigned int maxVout = ONE_MEGABYTE / minTxOutSz;
 
     // extract and validate vout
     string strVout = vStrInputParts[1];
     int vout = atoi(strVout);
-    // BU: be strict about what is generated.  TODO: BLOCKSTREAM_CORE_MAX_BLOCK_SIZE should be converted to a cmd line
+    // BU: be strict about what is generated.  TODO: ONE_MEGABYTE should be converted to a cmd line
     // parameter
     if ((vout < 0) || (vout > (int)maxVout))
         throw runtime_error("invalid TX input vout");

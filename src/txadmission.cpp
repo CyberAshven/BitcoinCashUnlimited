@@ -1158,7 +1158,7 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
                 // At default rate it would take over a month to fill 1GB
                 LOG(MEMPOOL, "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount + nSize);
                 if ((dFreeCount + nSize) >=
-                    (nFreeLimit * 10 * 1000 * nLargestBlockSeen / BLOCKSTREAM_CORE_MAX_BLOCK_SIZE))
+                    (nFreeLimit * 10 * 1000 * nLargestBlockSeen / ONE_MEGABYTE))
                 {
                     if (debugger)
                     {
