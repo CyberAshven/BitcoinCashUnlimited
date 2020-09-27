@@ -118,6 +118,7 @@ public:
     const std::vector<SeedSpec6> &FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData &Checkpoints() const { return checkpointData; }
     uint64_t DefaultMaxBlockSize() const { return nDefaultMaxBlockSize; }
+    uint64_t DefaultMaxBlockMiningSize() const { return nDefaultMaxBlockMiningSize; }
 protected:
     CChainParams() {}
     Consensus::Params consensus;
@@ -138,6 +139,7 @@ protected:
     bool fTestnetToBeDeprecatedFieldRPC;
     CCheckpointData checkpointData;
     uint64_t nDefaultMaxBlockSize;
+    uint64_t nDefaultMaxBlockMiningSize;
 };
 
 /**

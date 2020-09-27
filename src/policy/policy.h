@@ -16,6 +16,8 @@
 class CCoinsViewCache;
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
+// this is now set in chain params
+static const unsigned int DEFAULT_BLOCK_MAX_SIZE_REGTEST = 1000;
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 8000000;
 static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
 
