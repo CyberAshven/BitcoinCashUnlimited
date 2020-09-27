@@ -281,7 +281,7 @@ CTweakRef<uint64_t> ebTweak("net.excessiveBlock",
     "Excessive block size in bytes",
     &excessiveBlockSize,
     &ExcessiveBlockValidator);
-    
+
 CTweak<bool> ignoreNetTimeouts("net.ignoreTimeouts", "ignore inactivity timeouts, used during debugging", false);
 CTweakRef<bool> displayArchInSubver("net.displayArchInSubver",
     "Show box architecture, 32/64bit, in node user agent string (subver)",
