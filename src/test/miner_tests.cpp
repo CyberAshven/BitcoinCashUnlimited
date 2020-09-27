@@ -251,7 +251,6 @@ void GenerateBlocks(const CChainParams &chainparams,
         nTotalBlockSize += pblocktemplate->block.GetBlockSize();
         nTotalMine += GetStopwatchMicros() - nStartMine;
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, CBlock::CURRENT_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
@@ -490,7 +489,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, CBlock::CURRENT_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
@@ -512,7 +510,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock - 4);
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, CBlock::CURRENT_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock - 4);
@@ -540,7 +537,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         // minerComment = testMinerComment.substr(0,i%100);
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock - 2);
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, CBlock::CURRENT_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock - 2);

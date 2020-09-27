@@ -141,9 +141,6 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                         }
                         else
                         {
-                            // Don't relay excessive blocks that are not on the active chain
-                            if (mi->nStatus & BLOCK_EXCESSIVE)
-                                fSend = false;
                             if (!fSend)
                                 LOG(NET, "%s: ignoring request from peer=%s for excessive block of height %d not on "
                                          "the main chain\n",

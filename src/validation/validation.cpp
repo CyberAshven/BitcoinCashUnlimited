@@ -1685,12 +1685,6 @@ bool ReceivedBlockTransactions(const CBlock &block,
     pindexNew->nDataPos = pos.nPos;
     pindexNew->nUndoPos = 0;
     pindexNew->nStatus |= BLOCK_HAVE_DATA;
-
-    if (block.fExcessive)
-    {
-        pindexNew->nStatus |= BLOCK_EXCESSIVE;
-    }
-
     pindexNew->RaiseValidity(BLOCK_VALID_TRANSACTIONS);
     setDirtyBlockIndex.insert(pindexNew);
 

@@ -38,7 +38,7 @@ static const int COINBASE_MATURITY = 100;
 /** per May, 15 '18 upgrade specification the min value for min value for max accepted block size, i.e. EB, is 32 MB
  * (github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/may-2018-hardfork.md#summary)
  */
- // defaults for each chain are set in chainparams but defined here
+// defaults for each chain are set in chainparams but defined here
 static const unsigned int DEFAULT_EXCESSIVE_BLOCK_SIZE = 32000000;
 static const unsigned int DEFAULT_EXCESSIVE_BLOCK_SIZE_REGTEST = 1000;
 

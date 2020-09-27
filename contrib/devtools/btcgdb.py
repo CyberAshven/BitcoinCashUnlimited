@@ -35,7 +35,6 @@ int2BlockStatusList = ( (gdb.parse_and_eval("BLOCK_VALID_HEADER") , "BLOCK_VALID
 (gdb.parse_and_eval("BLOCK_VALID_SCRIPTS") , "BLOCK_VALID_SCRIPTS"),
 (gdb.parse_and_eval("BLOCK_HAVE_DATA") , "BLOCK_HAVE_DATA"),
 (gdb.parse_and_eval("BLOCK_HAVE_UNDO") , "BLOCK_HAVE_UNDO"),
-(gdb.parse_and_eval("BLOCK_EXCESSIVE") , "BLOCK_EXCESSIVE"),
 (gdb.parse_and_eval("BLOCK_FAILED_VALID") , "BLOCK_FAILED_VALID"),
 (gdb.parse_and_eval("BLOCK_FAILED_CHILD") , "BLOCK_FAILED_CHILD") )
 
