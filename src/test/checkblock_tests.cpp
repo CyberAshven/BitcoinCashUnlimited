@@ -65,9 +65,9 @@ BOOST_AUTO_TEST_CASE(TestBlock)
         // NOTE: setting of fExcessive was moved from CheckBlock to ContextualCheckBlock in c64d44b7
         BOOST_CHECK_MESSAGE(LockAndContextualCheckBlock(testblock, state), "Contextual CheckBlock failed");
         excessiveBlockSize = blockSize - 1;
-        BOOST_CHECK_MESSAGE(CheckBlock(testblock, state, false, false), "Basic CheckBlock failed");
+        BOOST_CHECK_MESSAGE(CheckBlock(testblock, state, false, false) == false, "Basic CheckBlock failed");
         // NOTE: setting of fExcessive was moved from CheckBlock to ContextualCheckBlock in c64d44b7
-        BOOST_CHECK_MESSAGE(LockAndContextualCheckBlock(testblock, state), "Contextual CheckBlock failed");
+        BOOST_CHECK_MESSAGE(LockAndContextualCheckBlock(testblock, state) == false, "Contextual CheckBlock failed");
         excessiveBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE; // set it back to the default that other tests expect
     }
 }
