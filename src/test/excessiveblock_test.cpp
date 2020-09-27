@@ -22,29 +22,22 @@ BOOST_FIXTURE_TEST_SUITE(excessiveblock_test, TestingSetup)
 BOOST_AUTO_TEST_CASE(rpc_excessive)
 {
     BOOST_CHECK_NO_THROW(CallRPC("getexcessiveblock"));
-
     BOOST_CHECK_NO_THROW(CallRPC("getminingmaxblock"));
-
     // Testing the parsing of input parameters of setexcessive block,
     // this RPC set the value for EB and AD and expect exactly 2 unsigned
     // integer parameter.
 
-    // 1) RPC accept 2 parameters EB and AD and both has to be positive integer
+    // 1) RPC accept 1 parameter EB has to be positive integer
     BOOST_CHECK_THROW(CallRPC("setexcessiveblock not_uint"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("setexcessiveblock 36000000 not_uint"), boost::bad_lexical_cast);
-    BOOST_CHECK_THROW(CallRPC("setexcessiveblock 36000000 -1"), boost::bad_lexical_cast);
-    BOOST_CHECK_THROW(CallRPC("setexcessiveblock -1 0"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("setexcessiveblock -1"), runtime_error);
 
-    // 2) passing 3 params should raise an exception
-    BOOST_CHECK_THROW(CallRPC("setexcessiveblock 1000 0 0"), runtime_error);
-
+    // 2) passing 2 params should raise an exception
+    BOOST_CHECK_THROW(CallRPC("setexcessiveblock 1000 0"), runtime_error);
     // Testing the semantics of input parameters of setexcessive
 
-    // 1) EB must be bigger than 32MB and bigger than MG
-    BOOST_CHECK_NO_THROW(CallRPC("setminingmaxblock 33000000"));
-    BOOST_CHECK_THROW(CallRPC("setexcessiveblock 32000000 1"), runtime_error);
+    // 1) EB must be 32MB or bigger
+    BOOST_CHECK_THROW(CallRPC("setexcessiveblock 31999999"), runtime_error);
     BOOST_CHECK_NO_THROW(CallRPC("setminingmaxblock 32000000"));
-    BOOST_CHECK_NO_THROW(CallRPC("setexcessiveblock 32000000 1"));
 
     // Testing the parsing of inputs parameters of setminingmaxblock,
     // this RPC call set the value in byte for the max size of produced
@@ -70,7 +63,7 @@ BOOST_AUTO_TEST_CASE(rpc_excessive)
     BOOST_CHECK_NO_THROW(CallRPC("setminingmaxblock 101"));
 
     // Set it back to the expected values for other tests
-    BOOST_CHECK_NO_THROW(CallRPC("setexcessiveblock 32000000 12"));
+    BOOST_CHECK_NO_THROW(CallRPC("setexcessiveblock 32000000"));
     BOOST_CHECK_NO_THROW(CallRPC("setminingmaxblock 1000000"));
 }
 
