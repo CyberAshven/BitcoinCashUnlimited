@@ -920,12 +920,26 @@ UniValue setexcessiveblock(const UniValue &params, bool fHelp)
 
     uint64_t ebs = 0;
     if (params[0].isNum())
+    {
         ebs = params[0].get_int64();
+    }
     else
     {
         string temp = params[0].get_str();
         if (temp[0] == '-')
+        {
             throw runtime_error("Excessive block size has to be a positive number");
+        }
+        // everything must be a number
+        std::string::const_iterator it = temp.begin();
+        while (it != temp.end() && std::isdigit(*it))
+        {
+            ++it;
+        }
+        if (it != temp.end())
+        {
+            throw runtime_error("Excessive block size has to be a positive number");
+        }
         ebs = std::stoull(temp);
     }
 
