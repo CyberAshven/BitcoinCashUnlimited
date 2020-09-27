@@ -132,28 +132,6 @@ BOOST_AUTO_TEST_CASE(buip005)
     excessiveBlockSize = 1000000;
 }
 
-
-BOOST_AUTO_TEST_CASE(excessiveChecks)
-{
-    CBlock block;
-
-    excessiveBlockSize = 16000000; // Ignore excessive block size when checking sigops and block effort
-
-    // Check tx size values
-    maxTxSize.Set(DEFAULT_LARGEST_TRANSACTION);
-
-    // Within a 1 MB block, a 1MB transaction is not excessive
-    BOOST_CHECK_MESSAGE(
-        false == CheckExcessive(block, BLOCKSTREAM_CORE_MAX_BLOCK_SIZE, 1, BLOCKSTREAM_CORE_MAX_BLOCK_SIZE),
-        "improper max tx");
-
-    // With a > 1 MB block, use the maxTxSize to determine
-    BOOST_CHECK_MESSAGE(
-        false == CheckExcessive(block, BLOCKSTREAM_CORE_MAX_BLOCK_SIZE + 1, 1, maxTxSize.Value()), "improper max tx");
-    BOOST_CHECK_MESSAGE(true == CheckExcessive(block, BLOCKSTREAM_CORE_MAX_BLOCK_SIZE + 1, 1, maxTxSize.Value() + 1),
-        "improper max tx");
-}
-
 BOOST_AUTO_TEST_CASE(check_validator_rule)
 {
     BOOST_CHECK(MiningAndExcessiveBlockValidatorRule(1000000, 1000000));
