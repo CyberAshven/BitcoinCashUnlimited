@@ -85,15 +85,6 @@ bool MiningAndExcessiveBlockValidatorRule(const uint64_t newExcessiveBlockSize, 
     return (newMiningBlockSize <= newExcessiveBlockSize);
 }
 
-std::string AcceptDepthValidator(const unsigned int &value, unsigned int *item, bool validate)
-{
-    if (!validate)
-    {
-        settingsToUserAgentString();
-    }
-    return std::string();
-}
-
 std::string ExcessiveBlockValidator(const uint64_t &value, uint64_t *item, bool validate)
 {
     if (validate)
@@ -420,10 +411,6 @@ void settingsToUserAgentString()
         eb = eb.substr(0, eb.size() - 2);
 
     BUComments.push_back("EB" + eb);
-
-    int ad_formatted;
-    ad_formatted = (excessiveAcceptDepth >= 9999999 ? 9999999 : excessiveAcceptDepth);
-    BUComments.push_back("AD" + boost::lexical_cast<std::string>(ad_formatted));
 }
 
 void UnlimitedSetup(void)
@@ -433,7 +420,6 @@ void UnlimitedSetup(void)
     maxGeneratedBlock = GetArg("-blockmaxsize", maxGeneratedBlock);
     blockVersion = GetArg("-blockversion", blockVersion);
     excessiveBlockSize = GetArg("-excessiveblocksize", Params().DefaultMaxBlockSize());
-    excessiveAcceptDepth = GetArg("-excessiveacceptdepth", excessiveAcceptDepth);
     LoadTweaks(); // The above options are deprecated so the same parameter defined as a tweak will override them
 
     // If the user configures it to 1, assume this means default
@@ -876,81 +862,6 @@ UniValue setgenerate(const UniValue &params, bool fHelp)
 
 // End generate block internal CPU miner section
 
-int chainContainsExcessive(const CBlockIndex *blk, unsigned int goBack)
-{
-    AssertLockHeld(cs_mapBlockIndex);
-
-    if (goBack == 0)
-        goBack = excessiveAcceptDepth + EXCESSIVE_BLOCK_CHAIN_RESET;
-    for (unsigned int i = 0; i < goBack; i++, blk = blk->pprev)
-    {
-        if (!blk)
-            break; // we hit the beginning
-        if (blk->nStatus & BLOCK_EXCESSIVE)
-            return true;
-    }
-    return false;
-}
-
-int isChainExcessive(const CBlockIndex *blk, unsigned int goBack)
-{
-    AssertLockHeld(cs_mapBlockIndex);
-
-    if (goBack == 0)
-        goBack = excessiveAcceptDepth;
-    bool recentExcessive = false;
-    bool oldExcessive = false;
-    for (unsigned int i = 0; i < goBack; i++, blk = blk->pprev)
-    {
-        if (!blk)
-            break; // we hit the beginning
-        if (blk->nStatus & BLOCK_EXCESSIVE)
-            recentExcessive = true;
-    }
-
-    // Once an excessive block is built upon the chain is not excessive even if more large blocks appear.
-    // So look back to make sure that this is the "first" excessive block for a while
-    for (unsigned int i = 0; i < EXCESSIVE_BLOCK_CHAIN_RESET; i++, blk = blk->pprev)
-    {
-        if (!blk)
-            break; // we hit the beginning
-        if (blk->nStatus & BLOCK_EXCESSIVE)
-            oldExcessive = true;
-    }
-
-    return (recentExcessive && !oldExcessive);
-}
-
-bool CheckExcessive(const CBlock &block, uint64_t blockSize, uint64_t nTx, uint64_t largestTx)
-{
-    if (blockSize > excessiveBlockSize)
-    {
-        LOGA("Excessive block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64 "  :too many bytes\n", block.nVersion,
-            block.nTime, blockSize, nTx);
-        return true;
-    }
-
-    if (blockSize > BLOCKSTREAM_CORE_MAX_BLOCK_SIZE)
-    {
-        // Check transaction size to limit sighash
-        if (largestTx > maxTxSize.Value())
-        {
-            LOGA("Excessive block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64
-                 " largest TX:%d  :tx too large.  Expected less than: %d\n",
-                block.nVersion, block.nTime, blockSize, nTx, largestTx, maxTxSize.Value());
-            return true;
-        }
-    }
-    else
-    {
-        // Within a 1MB block transactions can be 1MB, so nothing to check WRT transaction size
-    }
-
-    LOGA("Acceptable block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64 " \n", block.nVersion, block.nTime, blockSize,
-        nTx);
-    return false;
-}
-
 extern UniValue getminercomment(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -986,29 +897,23 @@ UniValue getexcessiveblock(const UniValue &params, bool fHelp)
                             "\nReturn the excessive block size and accept depth."
                             "\nResult\n"
                             "  excessiveBlockSize (integer) block size in bytes\n"
-                            "  excessiveAcceptDepth (integer) if the chain gets this much deeper than the excessive "
                             "block, then accept the chain as active (if it has the most work)\n"
                             "\nExamples:\n" +
                             HelpExampleCli("getexcessiveblock", "") + HelpExampleRpc("getexcessiveblock", ""));
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("excessiveBlockSize", excessiveBlockSize);
-    ret.pushKV("excessiveAcceptDepth", (uint64_t)excessiveAcceptDepth);
     return ret;
 }
 
 UniValue setexcessiveblock(const UniValue &params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() >= 3)
-        throw runtime_error("setexcessiveblock blockSize acceptDepth\n"
-                            "\nSet the excessive block size and accept depth.  Excessive blocks will not be used in "
-                            "the active chain or relayed until they are several blocks deep in the blockchain.  This "
-                            "discourages the propagation of blocks that you consider excessively large.  However, if "
-                            "the mining majority of the network builds upon the block then you will eventually accept "
-                            "it, maintaining consensus."
+    if (fHelp || params.size() != 1)
+        throw runtime_error("setexcessiveblock blockSize\n"
+                            "\nSet the excessive block size Excessive blocks will not be used in "
+                            "the active chain or relayed"
                             "\nResult\n"
                             "  blockSize (integer) excessive block size in bytes\n"
-                            "  acceptDepth (integer) if the chain gets this much deeper than the excessive block, then "
                             "accept the chain as active (if it has the most work)\n"
                             "\nExamples:\n" +
                             HelpExampleCli("getexcessiveblock", "") + HelpExampleRpc("getexcessiveblock", ""));
@@ -1029,20 +934,9 @@ UniValue setexcessiveblock(const UniValue &params, bool fHelp)
         throw runtime_error(estr);
     ebTweak.Set(ebs);
 
-    if (params[1].isNum())
-        excessiveAcceptDepth = params[1].get_int64();
-    else
-    {
-        string temp = params[1].get_str();
-        if (temp[0] == '-')
-            boost::throw_exception(boost::bad_lexical_cast());
-        excessiveAcceptDepth = boost::lexical_cast<unsigned int>(temp);
-    }
-
     settingsToUserAgentString();
     std::ostringstream ret;
-    ret << "Excessive Block set to " << excessiveBlockSize << " bytes.  Accept Depth set to " << excessiveAcceptDepth
-        << " blocks.";
+    ret << "Excessive Block set to " << excessiveBlockSize << " bytes.";
     return UniValue(ret.str());
 }
 
@@ -2067,11 +1961,6 @@ UniValue validateblocktemplate(const UniValue &params, bool fHelp)
         if (!TestBlockValidity(state, chainparams, block, pindexPrev, false, true))
         {
             throw runtime_error(std::string("invalid block: ") + state.GetRejectReason());
-        }
-
-        if (block.fExcessive)
-        {
-            throw runtime_error("invalid block: excessive");
         }
     }
 

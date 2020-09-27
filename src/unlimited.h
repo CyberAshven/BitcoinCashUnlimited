@@ -28,13 +28,11 @@
 enum
 {
     TYPICAL_BLOCK_SIZE = 200000, // used for initial buffer size
-    DEFAULT_EXCESSIVE_ACCEPT_DEPTH = 12, // Default is 12 to make it very expensive for a minority hash power to get
     // lucky, and potentially drive a block that the rest of the network sees as
     // "excessive" onto the blockchain.
 
     DEFAULT_COINBASE_RESERVE_SIZE = 1000,
     MAX_COINBASE_SCRIPTSIG_SIZE = 100,
-    EXCESSIVE_BLOCK_CHAIN_RESET = 6 * 24, // After 1 day of non-excessive blocks, reset the checker
     DEFAULT_CHECKPOINT_DAYS =
         30, // Default for the number of days in the past we check scripts during initial block download
 
@@ -74,7 +72,6 @@ extern std::set<CBlockIndex *> setDirtyBlockIndex;
 extern uint32_t blockVersion; // Overrides the mined block version if non-zero
 extern uint64_t maxGeneratedBlock;
 extern uint64_t excessiveBlockSize;
-extern unsigned int excessiveAcceptDepth;
 extern unsigned int maxMessageSizeMultiplier;
 extern bool fCanonicalTxsOrder;
 
@@ -140,15 +137,6 @@ extern void UnlimitedAcceptBlock(const CBlock &block,
     CDiskBlockPos *dbp);
 
 extern void UnlimitedLogBlock(const CBlock &block, const std::string &hash, uint64_t receiptTime);
-
-// Check whether this block is bigger in some metric than we really want to accept
-extern bool CheckExcessive(const CBlock &block, uint64_t blockSize, uint64_t nTx, uint64_t largestTx);
-
-// Check whether this chain qualifies as excessive.
-extern int isChainExcessive(const CBlockIndex *blk, unsigned int checkDepth = excessiveAcceptDepth);
-
-// Check whether any block N back in this chain is an excessive block
-extern int chainContainsExcessive(const CBlockIndex *blk, unsigned int goBack = 0);
 
 // Given an invalid block, find all chains containing this block and mark all children invalid
 void MarkAllContainingChainsInvalid(CBlockIndex *invalidBlock);

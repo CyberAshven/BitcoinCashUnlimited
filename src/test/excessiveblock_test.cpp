@@ -79,25 +79,19 @@ BOOST_AUTO_TEST_CASE(buip005)
     string exceptedEB;
     string exceptedAD;
     excessiveBlockSize = 1000000;
-    excessiveAcceptDepth = 9999999;
     exceptedEB = "EB1";
     exceptedAD = "AD9999999";
     settingsToUserAgentString();
     BOOST_CHECK_MESSAGE(BUComments.front() == exceptedEB,
         "EB ought to have been " << exceptedEB << " when excessiveBlockSize = " << excessiveBlockSize << " but was "
                                  << BUComments.front());
-    BOOST_CHECK_MESSAGE(BUComments.back() == exceptedAD,
-        "AD ought to have been " << exceptedAD << " when excessiveBlockSize = " << excessiveAcceptDepth);
     excessiveBlockSize = 100000;
-    excessiveAcceptDepth = 9999999 + 1;
     exceptedEB = "EB0.1";
     exceptedAD = "AD9999999";
     settingsToUserAgentString();
     BOOST_CHECK_MESSAGE(BUComments.front() == exceptedEB,
         "EB ought to have been " << exceptedEB << " when excessiveBlockSize = " << excessiveBlockSize << " but was "
                                  << BUComments.front());
-    BOOST_CHECK_MESSAGE(BUComments.back() == exceptedAD,
-        "AD ought to have been " << exceptedAD << " when excessiveBlockSize = " << excessiveAcceptDepth);
     excessiveBlockSize = 10000;
     exceptedEB = "EB0";
     settingsToUserAgentString();
@@ -136,7 +130,6 @@ BOOST_AUTO_TEST_CASE(buip005)
                                             << " but was " << BUComments.front());
     // set back to defaults
     excessiveBlockSize = 1000000;
-    excessiveAcceptDepth = 4;
 }
 
 

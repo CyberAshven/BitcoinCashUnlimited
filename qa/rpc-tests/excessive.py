@@ -206,11 +206,6 @@ class ExcessiveBlockTest (BitcoinTestFramework):
         if 1:
             tips = self.nodes[0].getchaintips()
 
-            self.nodes[0].set("net.excessiveAcceptDepth=0")
-            self.nodes[1].set("net.excessiveAcceptDepth=1")
-            self.nodes[2].set("net.excessiveAcceptDepth=2")
-            self.nodes[3].set("net.excessiveAcceptDepth=3")
-
             self.nodes[0].set("net.excessiveBlock=2000000")
             self.nodes[1].set("net.excessiveBlock=2000000")
             self.nodes[2].set("net.excessiveBlock=2000000")
