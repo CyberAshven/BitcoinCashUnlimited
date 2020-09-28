@@ -40,7 +40,9 @@ static const int COINBASE_MATURITY = 100;
  */
 // defaults for each chain are set in chainparams but defined here
 static const unsigned int DEFAULT_EXCESSIVE_BLOCK_SIZE = 32000000;
-static const unsigned int DEFAULT_EXCESSIVE_BLOCK_SIZE_REGTEST = 1000;
+
+static const unsigned int MIN_EXCESSIVE_BLOCK_SIZE = 32000000;
+static const unsigned int MIN_EXCESSIVE_BLOCK_SIZE_REGTEST = 1000;
 
 /**
  * The ratio between the maximum allowable block size and the maximum allowable

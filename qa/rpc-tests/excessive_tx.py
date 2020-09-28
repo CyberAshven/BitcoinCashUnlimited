@@ -86,6 +86,8 @@ class ExcessiveBlockTest (BitcoinTestFramework):
         self.testExcessiveTx()
 
     def testCli(self):
+        self.nodes[0].setminingmaxblock(1000)
+        self.nodes[0].setexcessiveblock(1000)
         try:
             self.nodes[0].setminingmaxblock(1001)
         except JSONRPCException as e:
@@ -179,8 +181,15 @@ class ExcessiveBlockTest (BitcoinTestFramework):
             tips = self.nodes[0].getchaintips()
 
             self.nodes[0].setexcessiveblock(2000000)
+            self.nodes[0].setminingmaxblock(2000000)
+
+            self.nodes[1].setminingmaxblock(2000000)
             self.nodes[1].setexcessiveblock(2000000)
+
+            self.nodes[2].setminingmaxblock(2000000)
             self.nodes[2].setexcessiveblock(2000000)
+
+            self.nodes[3].setminingmaxblock(2000000)
             self.nodes[3].setexcessiveblock(2000000)
 
             self.sync_all()

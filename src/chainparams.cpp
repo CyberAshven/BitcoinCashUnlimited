@@ -162,6 +162,7 @@ public:
         nDefaultPort = DEFAULT_MAINNET_PORT;
         nPruneAfterHeight = 100000;
         nDefaultMaxBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
+        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE;
         nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
 
         genesis = CreateGenesisBlock(1231006505, 2083236893, 0x1d00ffff, 1, 50 * COIN);
@@ -279,6 +280,7 @@ public:
         nDefaultPort = DEFAULT_NOLNET_PORT;
         nPruneAfterHeight = 100000;
         nDefaultMaxBlockSize = std::numeric_limits<uint64_t>::max();
+        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE_REGTEST;
         nDefaultMaxBlockMiningSize = std::numeric_limits<uint64_t>::max();
 
         // Aug, 1 2017 hard fork
@@ -387,6 +389,7 @@ public:
         nDefaultPort = DEFAULT_TESTNET_PORT;
         nPruneAfterHeight = 1000;
         nDefaultMaxBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
+        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE;
         nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
 
         genesis = CreateGenesisBlock(1296688602, 414098458, 0x1d00ffff, 1, 50 * COIN);
@@ -511,8 +514,9 @@ public:
         pchCashMessageStart[3] = 0xfa;
         nDefaultPort = DEFAULT_REGTESTNET_PORT;
         nPruneAfterHeight = 1000;
-        nDefaultMaxBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE_REGTEST;
-        nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE_REGTEST;
+        nDefaultMaxBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
+        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE_REGTEST;
+        nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
 
         genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
