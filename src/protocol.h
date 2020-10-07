@@ -368,7 +368,18 @@ extern const char *GETBLOCKTXN;
  * @since protocol version 70014 as described by BIP 152
  */
 extern const char *BLOCKTXN;
-
+/**
+ * Contains a Bobtail compact block.
+ */
+extern const char *BOBCMPCTBLOCK;
+/**
+ * A request for missing subblocks for a Bobtail block.
+ */
+extern const char *GETBOBSUB;
+/**
+ * A missing subblock for a Bobtail block 
+ */
+extern const char *BOBSUB;
 /**
  * Double spend proof
  */
@@ -539,15 +550,17 @@ enum
 
     // Graphene for subblocks
     MSG_SB_GRAPHENEBLOCK = 8,
+    // Compact bobtail blocks
+    MSG_BOB_CMPCT_BLOCK = 9,
     // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
     // and also provides the missing transactions that are needed at the other end to reconstruct the block.
     //
     // Uses Graphene set reconciliation to syncronize mempools between two peers.
-    MSG_MEMPOOLSYNC = 9,
+    MSG_MEMPOOLSYNC = 10,
     //
-    MSG_SUBBLOCK = 10,
+    MSG_SUBBLOCK = 11,
 
-    MSG_BOBTAILBLOCK = 11
+    MSG_BOBTAILBLOCK = 12
 };
 
 #endif // BITCOIN_PROTOCOL_H

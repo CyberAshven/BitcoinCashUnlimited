@@ -7,6 +7,7 @@
 
 #include "blockrelay/graphene.h"
 #include "blockrelay/thinblock.h"
+#include "bobtail/compactblock.h"
 #include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "clientversion.h"
@@ -584,6 +585,26 @@ static UniValue GetCompactBlockStats()
     return obj;
 }
 
+static UniValue GetBobCompactBlockStats()
+{
+    UniValue obj(UniValue::VOBJ);
+    bool enabled = IsBobCompactBlocksEnabled();
+    obj.pushKV("enabled", enabled);
+    if (enabled)
+    {
+        obj.pushKV("summary", bobcompactdata.ToString());
+        obj.pushKV("mempool_limiter", bobcompactdata.MempoolLimiterBytesSavedToString());
+        obj.pushKV("inbound_percent", bobcompactdata.InBoundPercentToString());
+        obj.pushKV("outbound_percent", bobcompactdata.OutBoundPercentToString());
+        obj.pushKV("response_time", bobcompactdata.ResponseTimeToString());
+        obj.pushKV("validation_time", bobcompactdata.ValidationTimeToString());
+        obj.pushKV("compact_block_size", bobcompactdata.CompactBlockToString());
+        obj.pushKV("compact_full_tx", bobcompactdata.FullTxToString());
+        obj.pushKV("rerequested", bobcompactdata.ReRequestedTxToString());
+    }
+    return obj;
+}
+
 UniValue getnetworkinfo(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -671,6 +692,7 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
     obj.pushKV("localaddresses", localAddresses);
     obj.pushKV("thinblockstats", GetThinBlockStats());
     obj.pushKV("compactblockstats", GetCompactBlockStats());
+    obj.pushKV("bobcompactblockstats", GetBobCompactBlockStats());
     obj.pushKV("grapheneblockstats", GetGrapheneStats());
     obj.pushKV("sb_grapheneblockstats", GetSBGrapheneStats());
     obj.pushKV("warnings", GetWarnings("statusbar"));

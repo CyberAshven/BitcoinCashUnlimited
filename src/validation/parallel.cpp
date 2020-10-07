@@ -8,6 +8,7 @@
 #include "blockrelay/compactblock.h"
 #include "blockrelay/graphene.h"
 #include "blockstorage/blockstorage.h"
+#include "bobtail/compactblock.h"
 #include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "dosman.h"
@@ -617,6 +618,8 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
                     sb_graphenedata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::BLOCKTXN)
                     compactdata.UpdateValidationTime(nValidationTime);
+                else if (strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::BOBSUB)
+                    bobcompactdata.UpdateValidationTime(nValidationTime);
                 else
                     thindata.UpdateValidationTime(nValidationTime);
             }

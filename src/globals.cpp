@@ -615,6 +615,7 @@ CThinBlockData thindata;
 CGrapheneBlockData graphenedata;
 CSBGrapheneBlockData sb_graphenedata;
 CCompactBlockData compactdata;
+CBobCompactBlockData bobcompactdata;
 ThinTypeRelay thinrelay;
 CCriticalSection cs_mempoolsync;
 std::map<NodeId, CMempoolSyncState> mempoolSyncRequested GUARDED_BY(cs_mempoolsync);

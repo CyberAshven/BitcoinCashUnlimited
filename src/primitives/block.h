@@ -25,6 +25,8 @@ class CThinBlock;
 class CompactBlock;
 class CGrapheneBlock;
 class CSBGrapheneBlock;
+class BobCompactBlock;
+class CSubBlock;
 
 /** Get the work equivalent for the supplied nBits of difficulty */
 arith_uint256 GetWorkForDifficultyBits(uint32_t nBits);
@@ -95,6 +97,10 @@ private:
 public:
     // network and disk
     std::vector<CTransactionRef> vtx;
+
+    // For bobtail
+    std::vector<std::shared_ptr<CSubBlock>> vdag;
+    std::map<std::shared_ptr<CSubBlock>, std::set<unsigned char>> dagEncodingMap;
 
     // Xpress Validation: (memory only)
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
@@ -202,6 +208,7 @@ public:
     std::shared_ptr<CompactBlock> cmpctblock;
     std::shared_ptr<CGrapheneBlock> grapheneblock;
     std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
+    std::shared_ptr<BobCompactBlock> bobcmpctblock;
 
     //! Track the current block size during reconstruction: (memory only)
     uint64_t nCurrentBlockSize;

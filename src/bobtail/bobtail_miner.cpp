@@ -199,41 +199,59 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
         nLockTimeCutoff =
             (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST) ? nMedianTimePast : pblock->GetBlockTime();
 
-        std::vector<const CTxMemPoolEntry *> vtxe;
-        addPriorityTxs(&vtxe);
-
-        // Mine by package (CPFP) or by score.
-        if (miningCPFP.Value() == true)
-        {
-            int64_t nStartPackage = GetStopwatchMicros();
-            addPackageTxs(&vtxe);
-            nTotalPackage += GetStopwatchMicros() - nStartPackage;
-        }
-        else
-        {
-            int64_t nStartScore = GetStopwatchMicros();
-            addScoreTxs(&vtxe);
-            nTotalScore += GetStopwatchMicros() - nStartScore;
-        }
-
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
         LOGA("CreateNewBobtailBlock: total size %llu txs: %llu of %llu fees: %lld sigops %u\n", nBlockSize, nBlockTx,
             mempool._size(), nFees, nBlockSigOps);
 
-
-        // sort tx if there are any and the feature is enabled
-        std::sort(vtxe.begin(), vtxe.end(), NumericallyLessTxHashComparator());
-
-        for (auto &txe : vtxe)
+        // Populate vdag with subblocks and create coinbase tx
+        for (auto &dagnode : bestdag)
         {
-            pblocktemplate->bobtailblock->vtx.push_back(txe->GetSharedTx());
-            pblocktemplate->vTxFees.push_back(txe->GetFee());
-            pblocktemplate->vTxSigOps.push_back(txe->GetSigOpCount());
+            pblock->vdag.push_back(std::make_shared<CSubBlock>(dagnode.subblock));
         }
-        // Create coinbase transaction.
         pblock->vtx[0] =
             coinbaseTx(scriptPubKeyIn, nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
+        pblock->UpdateTxLists();
+
+        std::set<uint256> blockTxHashes;
+        for (auto &tx : pblock->vtx)
+        {
+            if (tx != nullptr)
+                blockTxHashes.insert(tx->GetHash());
+        }
+
+        // Search for txs in mempool and add them to vtxe
+        AssertLockHeld(mempool.cs_txmempool);
+        std::vector<const CTxMemPoolEntry *> vtxe;
+        std::map<uint256, const CTxMemPoolEntry *> vtxeMap;
+		// TODO: Griffith to make this more efficient after refactoring DAG
+        for (CTxMemPool::indexed_transaction_set::const_iterator it = mempool.mapTx.begin(); it != mempool.mapTx.end(); it++)
+        {
+            if (blockTxHashes.count(it->GetSharedTx()->GetHash()) > 0)
+            {
+                AddToBlock(&vtxe, it);
+                vtxeMap[vtxe.back()->GetSharedTx()->GetHash()] = vtxe.back();
+            }
+        }
+
+        for (auto &tx : pblock->vtx)
+        {
+            if (tx->IsCoinBase())
+            {
+                continue;
+            }
+            else if (tx->IsProofBase())
+            {
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOps.push_back(0);
+            }
+            else
+            {
+                pblocktemplate->vTxFees.push_back(vtxeMap[tx->GetHash()]->GetFee());
+                pblocktemplate->vTxSigOps.push_back(vtxeMap[tx->GetHash()]->GetSigOpCount());
+            }
+
+        }
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
@@ -370,12 +388,6 @@ bool BobtailBlockAssembler::TestForBlock(CTxMemPool::txiter iter)
             return false;
     }
 
-    int64_t micros_now = GetTimeMicros();
-    int64_t micros_tx = iter->GetTimeMicros();
-    if (micros_tx + 1000000 > micros_now)
-    {
-        return false;
-    }
     // Last but not least, check that it is not a known doublespend to help working on a a single
     // delta blocks chain...
     /*! FIXME: Notice that this probably needs to be changed for a

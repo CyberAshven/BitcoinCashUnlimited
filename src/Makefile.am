@@ -132,6 +132,7 @@ BITCOIN_CORE_H = \
   bloom.h \
   bobtail/bobtail_miner.h \
   bobtail/bobtailblock.h \
+  bobtail/compactblock.h \
   bobtail/dag.h \
   bobtail/graphene.h \
   bobtail/pow.h \
@@ -304,6 +305,7 @@ libbitcoin_server_a_SOURCES = \
   bloom.cpp \
   bobtail/bobtail_miner.cpp \
   bobtail/bobtailblock.cpp \
+  bobtail/compactblock.cpp \
   bobtail/dag.cpp \
   bobtail/graphene.cpp \
   bobtail/pow.cpp \
