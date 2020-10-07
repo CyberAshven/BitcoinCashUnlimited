@@ -390,12 +390,6 @@ bool SubBlockAssembler::TestForBlock(CTxMemPool::txiter iter)
             return false;
     }
 
-    int64_t micros_now = GetTimeMicros();
-    int64_t micros_tx = iter->GetTimeMicros();
-    if (micros_tx + 1000000 > micros_now)
-    {
-        return false;
-    }
     // Last but not least, check that it is not a known doublespend to help working on a a single
     // delta blocks chain...
     /*! FIXME: Notice that this probably needs to be changed for a

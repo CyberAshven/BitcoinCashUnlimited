@@ -1,3 +1,4 @@
+#include "miner_common.h"
 #include "bobtailblock.h"
 #include "rank_items.h"
 
@@ -25,7 +26,7 @@ void CBobtailBlock::UpdateTxLists()
         vtx[idx] = txRef;
         idx++;
     }
-    std::sort(vtx.begin() + 1, vtx.end());
+    std::sort(vtx.begin() + 1, vtx.end(), NumericallyLessTxHashComparator());
 
     std::vector<int> idxs(vtx.size());
     std::iota (std::begin(idxs), std::end(idxs), 0);

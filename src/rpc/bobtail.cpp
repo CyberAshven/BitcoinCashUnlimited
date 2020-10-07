@@ -118,7 +118,6 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
                 if (pBobtailBlockTemplate.get())
                 {
                     CBobtailBlock *pBobtailBlock = pBobtailBlockTemplate->bobtailblock.get();
-                    pBobtailBlock->vdag = vdag;
 
                     // Check if bobtail block meets strong PoW
                     if (CheckBobtailPoW(*pBobtailBlock, Params().GetConsensus(), BOBTAIL_K))

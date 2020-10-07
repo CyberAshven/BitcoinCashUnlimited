@@ -31,7 +31,7 @@ extern std::atomic<bool> fMempoolTests;
 
 using namespace std;
 CTxMemPoolEntry::CTxMemPoolEntry()
-    : tx(), nFee(), nTimeMicros(0), entryPriority(0), entryHeight(0), hadNoDependencies(0), inChainInputValue(0),
+    : tx(), nFee(), nTime(0), entryPriority(0), entryHeight(0), hadNoDependencies(0), inChainInputValue(0),
       spendsCoinbase(false), sigOpCount(0), lockPoints()
 {
     nModSize = 0;
@@ -42,7 +42,7 @@ CTxMemPoolEntry::CTxMemPoolEntry()
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef _tx,
     const CAmount &_nFee,
-    int64_t _nTimeMicros,
+    int64_t _nTime,
     double _entryPriority,
     unsigned int _entryHeight,
     bool poolHasNoInputsOf,
@@ -50,7 +50,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef _tx,
     bool _spendsCoinbase,
     unsigned int _sigOps,
     LockPoints lp)
-    : tx(_tx), nFee(_nFee), nTimeMicros(_nTimeMicros), entryPriority(_entryPriority), entryHeight(_entryHeight),
+    : tx(_tx), nFee(_nFee), nTime(_nTime), entryPriority(_entryPriority), entryHeight(_entryHeight),
       hadNoDependencies(poolHasNoInputsOf), inChainInputValue(_inChainInputValue), spendsCoinbase(_spendsCoinbase),
       sigOpCount(_sigOps), lockPoints(lp)
 {
@@ -1247,7 +1247,7 @@ CTransactionRef CTxMemPool::get(const uint256 &hash) const
 
 static TxMempoolInfo GetInfo(CTxMemPool::indexed_transaction_set::const_iterator it)
 {
-    return TxMempoolInfo{it->GetSharedTx(), it->GetTimeMicros(), CFeeRate(it->GetFee(), it->GetTxSize()),
+    return TxMempoolInfo{it->GetSharedTx(), it->GetTime(), CFeeRate(it->GetFee(), it->GetTxSize()),
         it->GetModifiedFee() - it->GetFee()};
 }
 
@@ -1387,7 +1387,7 @@ int CTxMemPool::Expire(int64_t time, std::vector<COutPoint> &vCoinsToUncache)
     WRITELOCK(cs_txmempool);
     indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
     setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTimeMicros() < time)
+    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time)
     {
         toremove.insert(mapTx.project<0>(it));
         it++;

@@ -82,11 +82,12 @@ public:
 
 class CBobtailDagSet
 {
+public:
+    std::map<uint256, CDagNode> mapAllNodes;
 protected:
     CRecursiveSharedCriticalSection cs_dagset;
 
     std::vector<CBobtailDag> vdags;
-    std::map<uint256, CDagNode> mapAllNodes;
 
 private:
     void SetNewIds(std::priority_queue<int16_t> &removed_ids);

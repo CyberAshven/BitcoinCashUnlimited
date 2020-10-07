@@ -2572,7 +2572,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
                     return state.DoS(100, error("ConnectBlock(): too many sigops"), REJECT_INVALID, "bad-blk-sigops");
             }
 
-            if (!tx.IsCoinBase())
+            if (!tx.IsCoinBase() && !tx.IsProofBase())
             {
                 // Check that transaction is BIP68 final
                 // BIP68 lock checks (as opposed to nLockTime checks) must

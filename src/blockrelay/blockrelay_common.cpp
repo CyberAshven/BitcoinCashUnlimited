@@ -238,8 +238,9 @@ void ThinTypeRelay::BlockWasReceived(CNode *pfrom, const uint256 &hash)
 bool ThinTypeRelay::AddBlockInFlight(CNode *pfrom, const uint256 &hash, const std::string thinType)
 {
     LOCK(cs_inflight);
-    if (AreTooManyBlocksInFlight())
-        return false;
+    //TODO: Figure out why BobCompactBlocks do not work with this
+    //if (AreTooManyBlocksInFlight())
+    //    return false;
 
     // this insert returns a pair <iterator,bool> where the bool denotes whether the insertion took place
     auto key = mapThinTypeBlocksInFlight.find(pfrom->GetId());

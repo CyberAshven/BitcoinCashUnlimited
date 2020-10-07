@@ -8,6 +8,7 @@
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
 #include "blockrelay/thinblock.h"
+#include "bobtail/compactblock.h"
 #include "bobtail/graphene.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -69,7 +70,7 @@ static bool IsBlockType(const CInv &obj)
 {
     return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
             (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_BOBTAILBLOCK) ||
-            (obj.type == MSG_SB_GRAPHENEBLOCK));
+            (obj.type == MSG_SB_GRAPHENEBLOCK) || (obj.type == MSG_BOB_CMPCT_BLOCK));
 }
 
 // Constructor for CRequestManagerNodeState struct
@@ -560,12 +561,34 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     CInv inv2(obj);
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
 
-    if (IsChainNearlySyncd() && inv2.type == MSG_BOBTAILBLOCK)
+    if (inv2.type == MSG_BOBTAILBLOCK)
     {
+        if (IsChainNearlySyncd() && (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
+        {
+            // Ask for compact Bobtail block
+            // Must download a compact block from a compact block enabled peer.
+            if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::BOBCMPCTBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    std::vector<CInv> vGetData;
+                    inv2.type = MSG_BOB_CMPCT_BLOCK;
+                    vGetData.push_back(inv2);
+                    pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+                    LOG(CMPCT, "Requesting compact bobtail block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
+                    return true;
+                }
+            }
+        }
+        
+        // If we get here, then it was not possible to request a compact bobtail block for some reason 
         std::vector<CInv> vGetData;
         inv2.type = MSG_BOBTAILBLOCK;
         vGetData.push_back(inv2);
         pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        LOG(GRAPHENE, "Requesting Regular Bobtail Block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
         return true;
     }
 
@@ -1511,6 +1534,11 @@ bool CRequestManager::MarkBlockAsReceived(const uint256 &hash, CNode *pnode)
             if (thinrelay.IsBlockInFlight(pnode, NetMsgType::CMPCTBLOCK, hash))
             {
                 compactdata.UpdateResponseTime(nResponseTime);
+            }
+            // Update Compact Bobtail Block stats
+            if (thinrelay.IsBlockInFlight(pnode, NetMsgType::BOBCMPCTBLOCK, hash))
+            {
+                bobcompactdata.UpdateResponseTime(nResponseTime);
             }
         }
 

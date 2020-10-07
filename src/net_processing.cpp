@@ -18,6 +18,7 @@
 #include "blockrelay/thinblock.h"
 #include "blockstorage/blockstorage.h"
 #include "bobtail/bobtailblock.h"
+#include "bobtail/compactblock.h"
 #include "bobtail/dag.h"
 #include "bobtail/graphene.h"
 #include "chain.h"
@@ -139,6 +140,20 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             if (bobtailBlocks.count(inv.hash) > 0)
             {
                 pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, bobtailBlocks[inv.hash]);
+            }
+            else
+            {
+                vNotFound.push_back(inv);
+            }
+        }
+        else if (inv.type == MSG_BOB_CMPCT_BLOCK)
+        {
+            LOCK(cs_bobtailblocks);
+
+            if (bobtailBlocks.count(inv.hash) > 0)
+            {
+                BobSendCompactBlock(std::make_shared<CBobtailBlock>(bobtailBlocks[inv.hash]), pfrom, inv);
+                LOG(CMPCT, "Sending compact bobtail block via getdata message\n");
             }
             else
             {
@@ -1077,8 +1092,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_FILTERED_BLOCK) ||
-                    (inv.type == MSG_CMPCT_BLOCK) || (inv.type == MSG_SUBBLOCK) || (inv.type == MSG_BOBTAILBLOCK)
-                    || (inv.type == MSG_DOUBLESPENDPROOF)))
+                    (inv.type == MSG_CMPCT_BLOCK) || (inv.type == MSG_SUBBLOCK) || (inv.type == MSG_BOBTAILBLOCK) ||
+                    (inv.type == MSG_BOB_CMPCT_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF)))
             {
                 dosMan.Misbehaving(pfrom, 20, BanReasonInvalidInventory);
                 return error("message inv invalid type = %u", inv.type);
@@ -1838,6 +1853,29 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     {
         LOCK(pfrom->cs_thintype);
         return CompactReReqResponse::HandleMessage(vRecv, pfrom);
+    }
+
+    // Handle Compact Bobtail Blocks
+    else if (strCommand == NetMsgType::BOBCMPCTBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
+             IsCompactBlocksEnabled())
+    {
+        LOCK(pfrom->cs_thintype);
+        return BobCompactBlock::HandleMessage(vRecv, pfrom);
+    }
+    else if (strCommand == NetMsgType::GETBOBSUB && !fImporting && !fReindex && !IsInitialBlockDownload() &&
+             IsCompactBlocksEnabled())
+    {
+        if (!requester.CheckForRequestDOS(pfrom, chainparams))
+            return false;
+
+        LOCK(pfrom->cs_thintype);
+        return BobCompactReRequest::HandleMessage(vRecv, pfrom);
+    }
+    else if (strCommand == NetMsgType::BOBSUB && !fImporting && !fReindex && !IsInitialBlockDownload() &&
+             IsCompactBlocksEnabled())
+    {
+        LOCK(pfrom->cs_thintype);
+        return BobCompactReReqResponse::HandleMessage(vRecv, pfrom);
     }
 
     // Mempool synchronization request

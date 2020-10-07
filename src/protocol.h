@@ -368,7 +368,18 @@ extern const char *GETBLOCKTXN;
  * @since protocol version 70014 as described by BIP 152
  */
 extern const char *BLOCKTXN;
-
+/**
+ * Contains a Bobtail compact block.
+ */
+extern const char *BOBCMPCTBLOCK;
+/**
+ * A request for missing subblocks for a Bobtail block.
+ */
+extern const char *GETBOBSUB;
+/**
+ * A missing subblock for a Bobtail block 
+ */
+extern const char *BOBSUB;
 /**
  * Double spend proof
  */
@@ -533,6 +544,8 @@ enum
     MSG_BOBTAILBLOCK,
     // Graphene for subblocks
     MSG_SB_GRAPHENEBLOCK,
+    // Compact bobtail blocks
+    MSG_BOB_CMPCT_BLOCK,
     // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
     // and also provides the missing transactions that are needed at the other end to reconstruct the block.
     //
