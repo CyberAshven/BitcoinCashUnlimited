@@ -13,6 +13,13 @@
 #include <queue>
 #include <set>
 
+struct BestDagInfo
+{
+    std::vector<uint256> tip_hashes;
+    std::vector<int16_t> compatible_dags;
+    std::vector<int16_t> incompatible_dags;
+};
+
 class CDagNode
 {
 public:
@@ -112,7 +119,7 @@ public:
     void TemporalSort();
     bool IsTemporallySorted();
     bool GetBestDag(std::set<CDagNode> &dag);
-    std::vector<uint256> GetTips();
+    BestDagInfo GetBestDagInfo();
 };
 
 extern CBobtailDagSet bobtailDagSet;

@@ -7,9 +7,6 @@
 
 #include "primitives/block.h"
 
-class CSubBlock;
-typedef std::shared_ptr<CSubBlock> CSubBlockRef;
-
 class CSubBlock : public CBlockHeader
 {
 public:
@@ -54,5 +51,6 @@ public:
     std::vector<uint256> GetTxHashes() const;
 };
 
+typedef std::shared_ptr<CSubBlock> CSubBlockRef;
 
 #endif

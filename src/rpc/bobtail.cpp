@@ -330,7 +330,7 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VARR);
-    std::vector<uint256> tip_hashes = bobtailDagSet.GetTips();
+    std::vector<uint256> tip_hashes = bobtailDagSet.GetBestDagInfo().tip_hashes;
     for (auto &hash : tip_hashes)
     {
         obj.push_back(hash.GetHex());

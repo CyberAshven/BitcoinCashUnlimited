@@ -8,9 +8,6 @@
 #include "primitives/block.h"
 #include "subblock.h"
 
-class CBobtailBlock;
-typedef std::shared_ptr<CBobtailBlock> CBobtailBlockRef;
-
 class CBobtailBlock : public CBlock
 {
 public:
@@ -25,7 +22,8 @@ public:
         READWRITE(*(CBlock *)this);
         READWRITE(vdag);
     }
-
 };
+
+typedef std::shared_ptr<CBobtailBlock> CBobtailBlockRef;
 
 #endif

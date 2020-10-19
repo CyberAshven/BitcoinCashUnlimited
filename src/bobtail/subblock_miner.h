@@ -7,6 +7,7 @@
 #ifndef BITCOIN_BOBTAIL_SUBBLOCKMINER_H
 #define BITCOIN_BOBTAIL_SUBBLOCKMINER_H
 
+#include "bobtail/dag.h"
 #include "bobtail/pow.h"
 #include "bobtail/subblock.h"
 #include "miner_common.h"
@@ -28,7 +29,6 @@ extern CCriticalSection cs_coinbaseFlags;
 
 extern std::atomic<int64_t> nTotalPackage;
 extern std::atomic<int64_t> nTotalScore;
-extern CTweak<bool> miningCPFP;
 
 namespace Consensus
 {
@@ -109,27 +109,16 @@ private:
     /** Add a tx to the block */
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter);
 
-    // incomplete, only used for delta blocks
-    void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry);
-
-    // Methods for how to add transactions to a block.
-    /** Add transactions based on modified feerate */
-    void addScoreTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
-
     /** Add transactions based on feerate including unconfirmed ancestors */
-    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
+    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi);
 
-    // helper function for addScoreTxs and addPriorityTxs
-    bool IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps);
-    /** Test if tx will still "fit" in the block */
-    bool TestForBlock(CTxMemPool::txiter iter);
     /** Test if tx still has unconfirmed parents not yet in block */
     bool isStillDependent(CTxMemPool::txiter iter);
 
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */
-    CTransactionRef proofbaseTx(const CScript &scriptPubKeyIn, int nHeight, const std::vector<uint256> &ancestor_hashes);
+    CTransactionRef proofbaseTx(const CScript &scriptPubKeyIn, int nHeight, const BestDagInfo &bdi);
 
     // helper functions for addPackageTxs()
     /** Test whether a package, if added to the block, would make the block exceed the sigops limits */
