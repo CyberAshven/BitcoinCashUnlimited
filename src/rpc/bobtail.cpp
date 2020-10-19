@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "amount.h"
-#include "blockrelay/netdeltablocks.h"
 #include "blockstorage/blockstorage.h"
 #include "bobtail/pow.h"
 #include "bobtail/dag.h"
@@ -56,7 +55,13 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     int numBobBlocks = 0;
     std::vector<CSubBlockRef> vdag;
 
-    while (numSubBlocks < nSubGenerate || numBobBlocks < nBobGenerate)
+    // if we arent generating any blocks, return now
+    if (nSubGenerate <= 0 && nBobGenerate <= 0)
+    {
+        return blockHashes;
+    }
+
+    while (true)
     {
         std::unique_ptr<CSubBlockTemplate> pblocktemplate;
         {
@@ -64,7 +69,10 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
             pblocktemplate = SubBlockAssembler(Params()).CreateNewSubBlock(coinbaseScript->reserveScript);
         }
         if (!pblocktemplate.get())
+        {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
+        }
+
         LOG(WB, "Using delta block for RPC generate.\n");
         CSubBlock *pblock = pblocktemplate->subblock.get();
         {
@@ -81,6 +89,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
         }
         if (nMaxTries == 0)
             break;
+
         if (pblock->nNonce == nInnerLoopCount)
             continue;
 
@@ -104,15 +113,24 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
             {
                 coinbaseScript->KeepScript();
             }
-            numSubBlocks++;
-
             // Add subblock to the dag
             vdag.push_back(pblocktemplate->subblock);
+            numSubBlocks++;
+            if (nSubGenerate > 0)
+            {
+                blockHashes.push_back(pblock->GetHash().GetHex());
+            }
 
-            // Assemble bobtail block
-            std::unique_ptr<CBobtailBlockTemplate> pBobtailBlockTemplate;
+            if (fSubBlocksOnly == true && numSubBlocks >= nSubGenerate)
+            {
+                break;
+            }
+
             if (fSubBlocksOnly == false)
             {
+                // Assemble bobtail block
+                std::unique_ptr<CBobtailBlockTemplate> pBobtailBlockTemplate;
+
                 TxAdmissionPause lock; // flush any tx waiting to enter the mempool
                 pBobtailBlockTemplate = BobtailBlockAssembler(Params()).CreateNewBobtailBlock(coinbaseScript->reserveScript);
                 if (pBobtailBlockTemplate.get())
@@ -125,7 +143,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
                         PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
 
                         CValidationState state;
-                        if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr, false))
+                        if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr))
                         {
                             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
                         }
@@ -142,12 +160,14 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
                         {
                             blockHashes.push_back(pBobtailBlock->GetHash().GetHex());
                         }
+                        if (numBobBlocks >= nBobGenerate)
+                        {
+                            break;
+                        }
                     }
                 }
             }
         }
-        if (nSubGenerate > 0)
-            blockHashes.push_back(pblock->GetHash().GetHex());
     }
     // we dont need to flush to disk because no blocks that can be written to disk were made
     // we dont update tip because no cblocks were mined, only csubblocks
@@ -330,7 +350,7 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VARR);
-    std::vector<uint256> tip_hashes = bobtailDagSet.GetTips();
+    std::vector<uint256> tip_hashes = bobtailDagSet.GetBestDagInfo().tip_hashes;
     for (auto &hash : tip_hashes)
     {
         obj.push_back(hash.GetHex());

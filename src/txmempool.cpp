@@ -568,6 +568,11 @@ void CTxMemPoolEntry::UpdateIncludedDags(const uint16_t &dag_id, const bool &add
     }
 }
 
+bool CTxMemPoolEntry::IsInDag(const uint16_t &dag_id) const
+{
+    return includedDags.count(dag_id);
+}
+
 CTxMemPool::CTxMemPool() : nTransactionsUpdated(0), m_dspStorage(new DoubleSpendProofStorage())
 {
     _clear(); // lock free clear

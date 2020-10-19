@@ -49,10 +49,12 @@ private:
 
     /// Write update index entries for a newly connected block.
     bool WriteBlock(const CBlock &block, const CBlockIndex *pindex);
+    bool WriteBlock(const CBobtailBlock &block, const CBlockIndex *pindex);
 
 public:
     /// Update the txindex with this newly connected block data
     void BlockConnected(const CBlock &block, CBlockIndex *pindex);
+    void BlockConnected(const CBobtailBlock &block, CBlockIndex *pindex);
 
     /// Write the current chain block locator to the DB.
     bool WriteBestBlock(CBlockIndex *block_index);

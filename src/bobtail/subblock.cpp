@@ -2,9 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "hashwrapper.h"
 #include "serialize.h"
 #include "subblock.h"
 #include "version.h"
+
+uint256 CSubBlockHeader::GetHash() const { return SerializeHash(*this); }
 
 uint64_t CSubBlock::GetBlockSize() const
 {
@@ -13,18 +16,18 @@ uint64_t CSubBlock::GetBlockSize() const
 
 void CSubBlock::SetNull()
 {
-    CBlockHeader::SetNull();
+    CSubBlockHeader::SetNull();
     vtx.clear();
 }
 
 bool CSubBlock::IsNull() const
 {
-    return (vtx.empty() && CBlockHeader::IsNull());
+    return (vtx.empty() && CSubBlockHeader::IsNull());
 }
 
-CBlockHeader CSubBlock::GetBlockHeader() const
+CSubBlockHeader CSubBlock::GetBlockHeader() const
 {
-    CBlockHeader block;
+    CSubBlockHeader block;
     block.nVersion = nVersion;
     block.hashPrevBlock = hashPrevBlock;
     block.hashMerkleRoot = hashMerkleRoot;

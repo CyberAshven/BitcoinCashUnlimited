@@ -5,6 +5,7 @@
 #ifndef BITCOIN_THINBLOCK_H
 #define BITCOIN_THINBLOCK_H
 
+#include "blockrelay_common.h"
 #include "bloom.h"
 #include "consensus/validation.h"
 #include "primitives/block.h"

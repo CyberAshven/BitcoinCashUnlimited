@@ -83,7 +83,6 @@
 CBobtailDagSet bobtailDagSet;
 CCriticalSection cs_bobtailblocks;
 std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblocks);
-std::map<uint256, ConstCDeltaBlockRef> known_dbs;
 
 std::atomic<bool> fImporting{false};
 std::atomic<bool> fReindex{false};

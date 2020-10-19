@@ -6,7 +6,6 @@
 
 #include "bobtail/subblock_miner.h"
 
-#include "bobtail/dag.h"
 #include "bobtail/subblock_validation.h"
 
 #include "amount.h"
@@ -107,10 +106,10 @@ uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int6
     assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
 
-
+    BestDagInfo bdi = bobtailDagSet.GetBestDagInfo();
     // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
     // signed integer taking up 4 bytes for heights 32768-8388607 (around the year 2167) after which it will use 5
-    nCoinbaseSize = ::GetSerializeSize(proofbaseTx(scriptPubKeyIn, 400000, bobtailDagSet.GetTips()), SER_NETWORK, PROTOCOL_VERSION);
+    nCoinbaseSize = ::GetSerializeSize(proofbaseTx(scriptPubKeyIn, 400000, bdi), SER_NETWORK, PROTOCOL_VERSION);
 
     if (coinbaseSize >= 0) // Explicit size of coinbase has been requested
     {
@@ -128,17 +127,16 @@ uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int6
 
     return nHeaderSize + nCoinbaseSize;
 }
-CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, int _nHeight,
-    const std::vector<uint256> &ancestor_hashes)
+
+CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, int _nHeight, const BestDagInfo &bdi)
 {
     CMutableTransaction tx;
-
     tx.vin.resize(1);
     tx.vin[0].prevout.SetNull();
     tx.vin[0].scriptSig = scriptPubKeyIn;
     // subblocks have their ancestors in ctxins inside the proofbase
     // there must be at a minimum 2 ctxins, if we have no ancestor hashes, the second one is null
-    if (ancestor_hashes.empty())
+    if (bdi.tip_hashes.empty())
     {
         COutPoint outpoint;
         outpoint.SetNull();
@@ -149,7 +147,7 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
     }
     else
     {
-        for (auto &ancestor : ancestor_hashes)
+        for (auto &ancestor : bdi.tip_hashes)
         {
             COutPoint outpoint;
             outpoint.hash = ancestor;
@@ -184,6 +182,21 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
     return MakeTransactionRef(std::move(tx));
 }
 
+int64_t UpdateTime(CSubBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev)
+{
+    int64_t nOldTime = pblock->nTime;
+    int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast() + 1, GetAdjustedTime());
+
+    if (nOldTime < nNewTime)
+        pblock->nTime = nNewTime;
+
+    // Updating time can change work required on testnet:
+    if (consensusParams.fPowAllowMinDifficultyBlocks)
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), consensusParams);
+
+    return nNewTime - nOldTime;
+}
+
 std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CScript &scriptPubKeyIn,
     int64_t coinbaseSize)
 {
@@ -203,17 +216,10 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     CBlockIndex *pindexPrev = chainActive.Tip();
     assert(pindexPrev); // can't make a new block if we don't even have the genesis block
 
-    may2020Enabled = IsMay2020Enabled(Params().GetConsensus(), pindexPrev);
-
-    if (may2020Enabled)
-    {
-        maxSigOpsAllowed = maxSigChecks.Value();
-    }
-
-
+    maxSigOpsAllowed = maxSigChecks.Value();
     {
         // we must get the tips before locking mempool because we can not recursively lock mempool
-        std::vector<uint256> dag_tips = bobtailDagSet.GetTips();
+        BestDagInfo bdi = bobtailDagSet.GetBestDagInfo();
         READLOCK(mempool.cs_txmempool);
         nHeight = pindexPrev->nHeight + 1;
 
@@ -231,7 +237,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         std::vector<const CTxMemPoolEntry *> vtxe;
 
         int64_t nStartScore = GetStopwatchMicros();
-        addScoreTxs(&vtxe);
+        addPackageTxs(&vtxe, bdi);
         bobtail_nTotalScore += GetStopwatchMicros() - nStartScore;
 
         bobtail_nLastBlockTx = nBlockTx;
@@ -251,18 +257,15 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         }
 
         // Create proofbase transaction.
-        pblock->vtx[0] = proofbaseTx(scriptPubKeyIn, nHeight, dag_tips);
+        pblock->vtx[0] = proofbaseTx(scriptPubKeyIn, nHeight, bdi);
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), chainparams.GetConsensus());
         pblock->nNonce = 0;
-        if (!may2020Enabled)
-            pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0], STANDARD_SCRIPT_VERIFY_FLAGS);
-        else // coinbase May2020 Sigchecks is always 0 since no scripts executed in coinbase tx.
-            pblocktemplate->vTxSigOps[0] = 0;
+        pblocktemplate->vTxSigOps[0] = 0;
     }
 
     // All the transactions in this block are from the mempool and therefore we can use XVal to speed
@@ -297,11 +300,6 @@ bool SubBlockAssembler::isStillDependent(CTxMemPool::txiter iter)
 
 bool SubBlockAssembler::TestPackageSigOps(uint64_t packageSize, unsigned int packageSigOps)
 {
-    if (!may2020Enabled) // if may2020 is enabled, its a constant
-    {
-        maxSigOpsAllowed = GetMaxBlockSigOpsCount(nBlockSize + packageSize);
-    }
-
     // Note that the may2020 rule should be > so this assembles a block with 1 less sigcheck than possible
     if (nBlockSigOps + packageSigOps >= maxSigOpsAllowed)
         return false;
@@ -316,95 +314,6 @@ bool SubBlockAssembler::TestPackageFinality(const CTxMemPool::setEntries &packag
     {
         if (!IsFinalTx(it->GetSharedTx(), nHeight, nLockTimeCutoff))
             return false;
-    }
-    return true;
-}
-
-// Return true if incremental tx or txs in the block with the given size and sigop count would be
-// valid, and false otherwise.  If false, blockFinished and lastFewTxs are updated if appropriate.
-bool SubBlockAssembler::IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps)
-{
-    if (nBlockSize + nExtraSize > nBlockMaxSize)
-    {
-        // If the block is so close to full that no more txs will fit
-        // or if we've tried more than 50 times to fill remaining space
-        // then flag that the block is finished
-        if (nBlockSize > nBlockMaxSize - 100 || lastFewTxs > 50)
-        {
-            blockFinished = true;
-            return false;
-        }
-        // Once we're within 1000 bytes of a full block, only look at 50 more txs
-        // to try to fill the remaining space.
-        if (nBlockSize > nBlockMaxSize - 1000)
-        {
-            lastFewTxs++;
-        }
-        return false;
-    }
-
-    if (!may2020Enabled)
-    {
-        if (nBlockSigOps + nExtraSigOps > GetMaxBlockSigOpsCount(nBlockSize))
-        {
-            if (nBlockSigOps > GetMaxBlockSigOpsCount(nBlockSize) - 2)
-            {
-                // very close to the limit, so the block is finished.  So a block that is near the sigops limit
-                // might be shorter than it could be if the high sigops tx was backed out and other tx added.
-                blockFinished = true;
-            }
-            return false;
-        }
-    }
-    else
-    {
-        if (nBlockSigOps + nExtraSigOps > maxSigOpsAllowed)
-        {
-            if (nBlockSigOps > maxSigOpsAllowed - 2)
-                // very close to the limit, so the block is finished.  So a block that is near the sigops limit
-                // might be shorter than it could be if the high sigops tx was backed out and other tx added.
-                blockFinished = true;
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool SubBlockAssembler::TestForBlock(CTxMemPool::txiter iter)
-{
-    if (!IsIncrementallyGood(iter->GetTxSize(), iter->GetSigOpCount()))
-        return false;
-
-    // Must check that lock times are still valid
-    // This can be removed once MTP is always enforced
-    // as long as reorgs keep the mempool consistent.
-    if (!IsFinalTx(iter->GetSharedTx(), nHeight, nLockTimeCutoff))
-        return false;
-
-    // On BCH if Nov 15th 2019 has been activaterd make sure tx size
-    // is greater or equal than 100 bytes
-    if (IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
-    {
-        if (iter->GetTxSize() < MIN_TX_SIZE)
-            return false;
-    }
-
-    // Last but not least, check that it is not a known doublespend to help working on a a single
-    // delta blocks chain...
-    /*! FIXME: Notice that this probably needs to be changed for a
-      production variant of deltablocks to have low no false positives
-      (asymptotically none so txn don't get stuck forever) and also
-      low false negatives. Currently the respend stuff has up to 0.01 FP rate...*/
-    {
-        const CTransactionRef &tx = iter->GetSharedTx();
-        for (auto inp : tx->vin)
-        {
-            if (respend::RespendDetector::likelyKnownRespent(inp.prevout))
-            {
-                return false;
-            }
-        }
     }
     return true;
 }
@@ -429,77 +338,18 @@ void SubBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, C
             CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString().c_str(),
             iter->GetTx().GetHash().ToString().c_str());
     }
-    // COZ_PROGRESS_NAMED("AddToBlock1");
 }
 
-void SubBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry)
+bool TxIsIncompatible(const BestDagInfo &bdi, const CTxMemPool::txiter &iter)
 {
-    vtxe->push_back(entry);
-    nBlockSize += entry->GetTxSize();
-    ++nBlockTx;
-    nBlockSigOps += entry->GetSigOpCount();
-    nFees += entry->GetFee();
-    CTxMemPool::txiter txiter = mempool.mapTx.find(entry->GetSharedTx()->GetHash());
-    inBlock.insert((CTxMemPool::txiter)(txiter));
-    // COZ_PROGRESS_NAMED("AddToBlock2");
-}
-
-void SubBlockAssembler::addScoreTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
-{
-    std::priority_queue<CTxMemPool::txiter, std::vector<CTxMemPool::txiter>, ScoreCompare> clearedTxs;
-    CTxMemPool::setEntries waitSet;
-    CTxMemPool::indexed_transaction_set::index<mining_score>::type::iterator mi =
-        mempool.mapTx.get<mining_score>().begin();
-    CTxMemPool::txiter iter;
-    while (!blockFinished && (mi != mempool.mapTx.get<mining_score>().end() || !clearedTxs.empty()))
+    for (auto &incompatible_dag : bdi.incompatible_dags)
     {
-        // If no txs that were previously postponed are available to try
-        // again, then try the next highest score tx
-        if (clearedTxs.empty())
+        if (iter->IsInDag(incompatible_dag))
         {
-            iter = mempool.mapTx.project<0>(mi);
-            mi++;
-        }
-        // If a previously postponed tx is available to try again, then it
-        // has higher score than all untried so far txs
-        else
-        {
-            iter = clearedTxs.top();
-            clearedTxs.pop();
-        }
-
-        // If tx already in block, skip  (added by addPriorityTxs)
-        if (inBlock.count(iter))
-        {
-            continue;
-        }
-
-
-        // If tx is dependent on other mempool txs which haven't yet been included
-        // then put it in the waitSet
-        if (isStillDependent(iter))
-        {
-            waitSet.insert(iter);
-            continue;
-        }
-
-        // If this tx fits in the block add it, otherwise keep looping
-        if (TestForBlock(iter))
-        {
-            AddToBlock(vtxe, iter);
-
-            // This tx was successfully added, so
-            // add transactions that depend on this one to the priority queue to try again
-            for (CTxMemPool::txiter child : mempool.GetMemPoolChildren(iter))
-            {
-                if (waitSet.count(child))
-                {
-                    clearedTxs.push(child);
-                    waitSet.erase(child);
-                }
-            }
+            return true;
         }
     }
+    return false;
 }
 
 // This transaction selection algorithm orders the mempool based
@@ -530,7 +380,7 @@ void SubBlockAssembler::addScoreTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
 // the current algo is still much better than the older method which needed to update calculations for the
 // entire descendant tree after each package was added to the block.
 
-void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
+void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi)
 {
     AssertLockHeld(mempool.cs_txmempool);
 
@@ -540,6 +390,10 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
     {
         iter = mempool.mapTx.project<0>(mi);
 
+        if (TxIsIncompatible(bdi, iter))
+        {
+            continue;
+        }
         // Skip txns we know are in the block
         if (inBlock.count(iter))
         {

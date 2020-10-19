@@ -8,6 +8,7 @@
 #define BITCOIN_CHAIN_H
 
 #include "arith_uint256.h"
+#include "bobtail/bobtailblock.h"
 #include "pow.h"
 #include "primitives/block.h"
 #include "sync.h"
@@ -197,7 +198,8 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    unsigned int nTime;
+    // TODO : changing the time field type here might be a breaking change
+    uint64_t nTime;
     unsigned int nBits;
     unsigned int nNonce;
 
@@ -240,6 +242,18 @@ public:
         nTime = block.nTime;
         nBits = block.nBits;
         nNonce = block.nNonce;
+    }
+
+    CBlockIndex(const CBobtailBlockHeader &block)
+    {
+        SetNull();
+
+        nVersion = block.nVersion;
+        hashMerkleRoot = block.hashMerkleRoot;
+        nTime = block.nTime;
+        nBits = block.nBits;
+        // bobtail blocks dont have a nonce
+        //nNonce = block.nNonce;
     }
 
     CDiskBlockPos GetBlockPos() const

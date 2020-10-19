@@ -477,6 +477,14 @@ bool WriteBlockToDisk(const CBlock &block,
     }
     return pblockdb->WriteBlock(block);
 }
+bool WriteBlockToDisk(const CBobtailBlock &block, CDiskBlockPos &pos, const CMessageHeader::MessageStartChars &messageStart)
+{
+    if (!pblockdb)
+    {
+        return WriteBlockToDiskSequential(block, pos, messageStart);
+    }
+    return pblockdb->WriteBlock(block);
+}
 
 CBlockRef ReadBlockFromDisk(const CBlockIndex *pindex, const Consensus::Params &consensusParams)
 {
@@ -518,6 +526,35 @@ CBlockRef ReadBlockFromDisk(const CBlockIndex *pindex, const Consensus::Params &
         return nullptr;
     }
     return pblockRef;
+}
+
+bool ReadBlockFromDisk(CBobtailBlock &block, const CBlockIndex *pindex, const Consensus::Params &consensusParams)
+{
+    if (!pblockdb)
+    {
+        if (!ReadBlockFromDiskSequential(block, pindex->GetBlockPos(), consensusParams))
+        {
+            return false;
+        }
+        if (block.GetHash() != pindex->GetBlockHash())
+        {
+            return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
+                pindex->ToString(), pindex->GetBlockPos().ToString());
+        }
+        return true;
+    }
+    block.SetNull();
+    if (!pblockdb->ReadBlock(pindex, block))
+    {
+        LOGA("failed to read block with hash %s from leveldb \n", pindex->GetBlockHash().GetHex().c_str());
+        return false;
+    }
+    if (block.GetHash() != pindex->GetBlockHash())
+    {
+        return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
+            pindex->ToString(), pindex->GetBlockPos().ToString());
+    }
+    return true;
 }
 
 bool WriteUndoToDisk(const CBlockUndo &blockundo,

@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BOBTAIL_COMPACTBLOCK_H
-#define BOBTAIL_COMPACTBLOCK_H
+#ifndef BITCOIN_BOBTAIL_COMPACTBLOCK_H
+#define BITCOIN_BOBTAIL_COMPACTBLOCK_H
 
 #include "bobtail/subblock.h"
 #include "bobtail/bobtailblock.h"
@@ -91,7 +91,7 @@ public:
     }
 };
 
-class BobCompactBlock
+class BobCompactBlock : public CBobtailBlock
 {
 public:
     mutable uint64_t shorttxidk0, shorttxidk1;
@@ -113,20 +113,23 @@ public:
     std::vector<uint64_t> vSubHashes; // List of all 64 bit subblock hashes in the bobtail block
     std::map<uint64_t, CSubBlockRef> mapMissingTx; // Map of subblocks that were re-requested
 
+    //! Track the current block size during reconstruction: (memory only)
+    uint64_t nCurrentBlockSize;
+
 public:
     static const int SHORTTXIDS_LENGTH = 6;
 
     std::vector<uint64_t> shorttxids;
 
-    CBlockHeader header;
-
     // Dummy for deserialization
     BobCompactBlock() : nSize(0), nWaitingFor(0) {}
     BobCompactBlock(const CBobtailBlock &block);
 
-    static bool HandleMessage(CDataStream &vRecv, CNode *pfrom);
-    bool process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock);
-    CInv GetInv() { return CInv(MSG_BLOCK, header.GetHash()); }
+    bool process(CNode *pfrom);
+    CInv GetInv()
+    {
+        return CInv(MSG_BLOCK, GetHash());
+    }
     uint64_t BobGetShortID(const uint256 &txhash) const;
 
     size_t BlockSubCount() const { return shorttxids.size(); }
@@ -142,7 +145,12 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
-        READWRITE(header);
+        READWRITE(this->nVersion);
+        READWRITE(hashPrevBlock);
+        READWRITE(hashMerkleRoot);
+        READWRITE(nTime);
+        READWRITE(nBits);
+        READWRITE(subblockHashes);
         READWRITE(nonce);
         READWRITE(coinbase);
 
@@ -181,6 +189,7 @@ public:
     }
 };
 
+bool HandleBobCompactMessage(CDataStream &vRecv, CNode *pfrom);
 void validateBobCompactBlock(std::shared_ptr<BobCompactBlock> cmpctblock);
 
 
@@ -303,7 +312,6 @@ public:
     void FillCompactBlockQuickStats(BobCompactBlockQuickStats &stats);
 };
 extern CBobCompactBlockData bobcompactdata; // Singleton class
-
 
 bool IsBobCompactBlocksEnabled();
 void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv &inv);

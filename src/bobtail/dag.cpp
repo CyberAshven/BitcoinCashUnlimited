@@ -448,12 +448,12 @@ bool CBobtailDagSet::GetBestDag(std::set<CDagNode> &dag)
     return true;
 }
 
-std::vector<uint256> CBobtailDagSet::GetTips()
+BestDagInfo CBobtailDagSet::GetBestDagInfo()
 {
     RECURSIVEREADLOCK(cs_dagset);
-    std::vector<uint256> tip_hashes;
-    uint64_t best_dag_score = 0;
+    BestDagInfo bestdaginfo;
     int16_t best_dag = -1;
+    uint64_t best_dag_score = 0;
     // first find the best dag, we want to mine on top of this one.
     for (auto& dag : vdags)
     {
@@ -471,33 +471,39 @@ std::vector<uint256> CBobtailDagSet::GetTips()
     if (best_dag < 0)
     {
         // if we did not then return an empty vector with no hashes
-        return tip_hashes;
+        return bestdaginfo;
     }
     // if we have more than one dag we should see which dags are compatible with the best dag
     // and try to merge those dags by using the tips of all compatible dags
-    std::vector<int16_t> compatible_dags;
     // the best dag is always compatible with itself so add it first
-    compatible_dags.push_back(best_dag);
+    bestdaginfo.compatible_dags.push_back(best_dag);
     if (vdags.size() > 1)
     {
         for (auto& dag : vdags)
         {
-            if (dag.id != best_dag && dag.incompatible_dags.count(best_dag) == 0)
+            if (dag.id != best_dag)
             {
-                compatible_dags.push_back(dag.id);
+                if (dag.incompatible_dags.count(best_dag) == 0)
+                {
+                    bestdaginfo.compatible_dags.push_back(dag.id);
+                }
+                else // if (dag.incompatible_dags.count(best_dag) == 1)
+                {
+                    bestdaginfo.incompatible_dags.push_back(dag.id);
+                }
             }
         }
     }
     // get the tips from all compatible dags
-    for (auto& dag_index : compatible_dags)
+    for (auto& dag_index : bestdaginfo.compatible_dags)
     {
         for (auto &node : vdags[dag_index]._dag)
         {
             if (node->IsTip())
             {
-                tip_hashes.push_back(node->hash);
+                bestdaginfo.tip_hashes.push_back(node->hash);
             }
         }
     }
-    return tip_hashes;
+    return bestdaginfo;
 }

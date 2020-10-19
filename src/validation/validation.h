@@ -9,7 +9,6 @@
 
 #include "chainparams.h"
 #include "consensus/validation.h"
-#include "deltablocks.h"
 #include "forks.h"
 #include "parallel.h"
 #include "txdebugger.h"
@@ -36,6 +35,34 @@ enum DisconnectResult
     DISCONNECT_OK, // All good.
     DISCONNECT_UNCLEAN, // Rolled back, but UTXO set was inconsistent with block.
     DISCONNECT_FAILED // Something else went wrong.
+};
+
+struct CBlockIndexWorkComparator
+{
+    bool operator()(CBlockIndex *pa, CBlockIndex *pb) const
+    {
+        // First sort by most total work, ...
+        if (pa->nChainWork > pb->nChainWork)
+            return false;
+        if (pa->nChainWork < pb->nChainWork)
+            return true;
+
+        // ... then by earliest time received, ...
+        if (pa->nSequenceId < pb->nSequenceId)
+            return false;
+        if (pa->nSequenceId > pb->nSequenceId)
+            return true;
+
+        // Use pointer address as tie breaker (should only happen with blocks
+        // loaded from disk, as those all have id 0).
+        if (pa < pb)
+            return false;
+        if (pa > pb)
+            return true;
+
+        // Identical blocks.
+        return false;
+    }
 };
 
 /** Context-independent validity checks */
@@ -115,6 +142,8 @@ CBlockIndex *FindMostWorkChain();
 /** Mark a block as invalid. */
 bool InvalidateBlock(CValidationState &state, const Consensus::Params &consensusParams, CBlockIndex *pindex);
 
+void CheckForkWarningConditions();
+
 void InvalidChainFound(CBlockIndex *pindexNew);
 
 /** Context-dependent validity block checks */
@@ -178,8 +207,14 @@ bool ConnectBlock(const CBlock &block,
     bool fJustCheck = false,
     bool fParallel = false);
 
+void InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state);
+
+void UpdateTip(CBlockIndex *pindexNew);
+
 /** Disconnect the current chainActive.Tip() */
 bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack = false);
+
+void CheckForkWarningConditionsOnNewFork(CBlockIndex *pindexNewForkTip);
 
 /** Find the best known block, and make it the tip of the block chain */
 bool ActivateBestChain(CValidationState &state,

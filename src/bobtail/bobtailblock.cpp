@@ -79,3 +79,10 @@ std::map<CSubBlockRef, std::vector<CTransactionRef>> CBobtailBlock::DecodeTxList
 
     return subblockTxLists;
 }
+
+uint64_t CBobtailBlock::GetBlockSize() const
+{
+    if (nBlockSize == 0)
+        nBlockSize = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
+    return nBlockSize;
+}

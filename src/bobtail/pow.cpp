@@ -10,7 +10,7 @@
 
 #include <boost/math/distributions/gamma.hpp>
 
-bool CheckBobtailPoW(CBobtailBlock block, const Consensus::Params &params, uint8_t k)
+bool CheckBobtailPoW(const CBobtailBlockHeader &header, const Consensus::Params &params, uint8_t k)
 {
     bool fNegative;
     bool fOverflow;
@@ -19,14 +19,14 @@ bool CheckBobtailPoW(CBobtailBlock block, const Consensus::Params &params, uint8
     if (k == 0)
         return true;
 
-    if (block.vdag.size() < k)
+    if (header.subblockHashes.size() < k)
         return false;
 
-    bnTarget.SetCompact(block.nBits, &fNegative, &fOverflow);
+    bnTarget.SetCompact(header.nBits, &fNegative, &fOverflow);
 
     if (fNegative || fOverflow)
     {
-        LOG(WB, "Illegal value encountered when decoding target bits=%d\n", block.nBits);
+        LOG(WB, "Illegal value encountered when decoding target bits=%d\n", header.nBits);
         return false;
     }
 
@@ -36,13 +36,7 @@ bool CheckBobtailPoW(CBobtailBlock block, const Consensus::Params &params, uint8
         return false;
     }
 
-    std::vector<CSubBlockRef> subblocks = block.vdag;
-    std::vector<uint256> subblockHashes;
-    for (auto subblock : subblocks)
-    {
-        subblockHashes.push_back(subblock->GetHash());
-    }
-
+    std::vector<uint256> subblockHashes (header.subblockHashes);
     std::sort(subblockHashes.begin(), subblockHashes.end());
     std::vector<arith_uint256> lowestK;
     for (int i=0;i < k-1;i++)
@@ -68,7 +62,7 @@ bool CheckBobtailPoWFromOrderedProofs(std::vector<arith_uint256> proofs, arith_u
 }
 
 
-bool CheckSubBlockPoW(const CBlockHeader &header, const Consensus::Params &params, uint8_t k)
+bool CheckSubBlockPoW(const CSubBlockHeader &header, const Consensus::Params &params, uint8_t k)
 {
     arith_uint256 bnTarget;
     bool fNegative;

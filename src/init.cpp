@@ -21,7 +21,6 @@
 #include "config.h"
 #include "connmgr.h"
 #include "consensus/validation.h"
-#include "deltablocks.h"
 #include "dosman.h"
 #include "electrum/electrumserver.h"
 #include "forks_csv.h"

@@ -4,7 +4,8 @@
 
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
-#include "bobtail/graphene.h"
+#include "bobtail/compactrelay.h"
+#include "bobtail/graphenerelay.h"
 #include "net.h"
 #include "random.h"
 #include "requestManager.h"
@@ -296,13 +297,6 @@ void ThinTypeRelay::SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlo
     mapGrapheneSentBlocks[id] = std::make_shared<CGrapheneBlock>(grapheneBlock);
 }
 
-
-void ThinTypeRelay::SetSentSBGrapheneBlocks(NodeId id, CSBGrapheneBlock &grapheneBlock)
-{
-    LOCK(cs_sb_graphene_sender);
-    mapSBGrapheneSentBlocks[id] = std::make_shared<CSBGrapheneBlock>(grapheneBlock);
-}
-
 std::shared_ptr<CGrapheneBlock> ThinTypeRelay::GetSentGrapheneBlocks(NodeId id)
 {
     LOCK(cs_graphene_sender);
@@ -314,27 +308,10 @@ std::shared_ptr<CGrapheneBlock> ThinTypeRelay::GetSentGrapheneBlocks(NodeId id)
         return std::shared_ptr<CGrapheneBlock>();
 }
 
-std::shared_ptr<CSBGrapheneBlock> ThinTypeRelay::GetSentSBGrapheneBlocks(NodeId id)
-{
-    LOCK(cs_sb_graphene_sender);
-
-    auto it = mapSBGrapheneSentBlocks.find(id);
-    if (it != mapSBGrapheneSentBlocks.end())
-        return it->second;
-    else
-        return std::shared_ptr<CSBGrapheneBlock>();
-}
-
 void ThinTypeRelay::ClearSentGrapheneBlocks(NodeId id)
 {
     LOCK(cs_graphene_sender);
     mapGrapheneSentBlocks.erase(id);
-}
-
-void ThinTypeRelay::ClearSentSBGrapheneBlocks(NodeId id)
-{
-    LOCK(cs_sb_graphene_sender);
-    mapSBGrapheneSentBlocks.erase(id);
 }
 
 void ThinTypeRelay::CheckForDownloadTimeout(CNode *pfrom)
@@ -390,7 +367,6 @@ std::shared_ptr<CBlockThinRelay> ThinTypeRelay::SetBlockToReconstruct(CNode *pfr
     pblock->xthinblock = std::make_shared<CXThinBlock>(CXThinBlock());
     pblock->cmpctblock = std::make_shared<CompactBlock>(CompactBlock());
     pblock->grapheneblock = std::make_shared<CGrapheneBlock>(CGrapheneBlock());
-    pblock->sb_grapheneblock = std::make_shared<CSBGrapheneBlock>(CSBGrapheneBlock());
     // unless we run out of memory, emplace should never fail
     auto newKey = mapBlocksReconstruct.emplace(pfrom->GetId(), std::map<uint256, std::shared_ptr<CBlockThinRelay> >());
     newKey.first->second.emplace(hash, pblock);
@@ -447,5 +423,7 @@ void ThinTypeRelay::ClearAllBlockData(CNode *pnode, const uint256 &hash)
 {
     // Clear the entries for block to reconstruct and block in flight
     ClearBlockToReconstruct(pnode->GetId(), hash);
+    ClearCompactBlockToReconstruct(pnode->GetId(), hash);
+    ClearSBGBlockToReconstruct(pnode->GetId(), hash);
     ClearBlockInFlight(pnode->GetId(), hash);
 }

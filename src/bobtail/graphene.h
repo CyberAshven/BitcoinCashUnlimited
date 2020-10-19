@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BOBTAIL_GRAPHENE_H
-#define BOBTAIL_GRAPHENE_H
+#ifndef BITCOIN_BOBTAIL_GRAPHENE_H
+#define BITCOIN_BOBTAIL_GRAPHENE_H
 
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
@@ -46,7 +46,7 @@ public:
     }
 };
 
-class CSBGrapheneBlock
+class CSBGrapheneBlock : public CSubBlock
 {
 private:
     // Entropy used for SipHash secret key; this is distinct from the block nonce
@@ -67,11 +67,13 @@ public:
     std::set<CTransactionRef> vRecoveredTxs; // set of transactions collected during failure recovery
     std::map<uint64_t, uint32_t> mapHashOrderIndex;
 
+    //! Track the current block size during reconstruction: (memory only)
+    uint64_t nCurrentBlockSize;
+
 public:
     // These describe, in two parts, the 128-bit secret key used for SipHash
     // Note that they are populated by FillShortTxIDSelector, which uses header and sipHashNonce
     uint64_t shorttxidk0, shorttxidk1;
-    CBlockHeader header;
     uint64_t nBlockTxs;
     std::shared_ptr<CGrapheneSet> pGrapheneSet;
     uint64_t version;
@@ -80,6 +82,11 @@ public:
 
 public:
     CSBGrapheneBlock(const CSubBlockRef pblock,
+        uint64_t nReceiverMemPoolTx,
+        uint64_t nSenderMempoolPlusBlock,
+        uint64_t _version,
+        bool _computeOptimized);
+    CSBGrapheneBlock(const CSubBlock &pblock,
         uint64_t nReceiverMemPoolTx,
         uint64_t nSenderMempoolPlusBlock,
         uint64_t _version,
@@ -106,7 +113,6 @@ public:
 
     void SetNull();
     bool IsNull() const;
-    CBlockHeader GetBlockHeader() const;
     std::string ToString() const;
     std::set<uint256> GetAncestorHashes() const;
     std::vector<uint256> GetTxHashes() const;
@@ -124,22 +130,11 @@ public:
     // Validates header and, if possible, determines if there are any missing or unnecessary transactions
     // in the block
     bool ValidateAndRecontructBlock(uint256 blockhash,
-        std::shared_ptr<CBlockThinRelay> pblock,
+        std::shared_ptr<CSBGrapheneBlock> pblock,
         const std::map<uint64_t, CTransactionRef> &mapMissingTx,
         std::string command,
         CNode *pfrom,
         CDataStream &vRecv);
-
-    /**
-     * Handle an incoming Graphene block
-     * Once the block is validated apart from the Merkle root, forward the Xpedited block with a hop count of nHops.
-     * @param[in]  vRecv        The raw binary message
-     * @param[in]  pFrom        The node the message was from
-     * @param[in]  strCommand   The message kind
-     * @param[in]  nHops        On the wire, nHops is zero for an incoming Graphene block
-     * @return True if handling succeeded
-     */
-    static bool HandleMessage(CDataStream &vRecv, CNode *pfrom, std::string strCommand, unsigned nHops);
 
     static inline uint64_t GetGrapheneSetVersion(uint64_t grapheneBlockVersion)
     {
@@ -163,7 +158,12 @@ public:
             READWRITE(shorttxidk1);
             READWRITE(sipHashNonce);
         }
-        READWRITE(header);
+        READWRITE(this->nVersion);
+        READWRITE(hashPrevBlock);
+        READWRITE(hashMerkleRoot);
+        READWRITE(nTime);
+        READWRITE(nBits);
+        READWRITE(nNonce);
         READWRITE(vAdditionalTxs);
         READWRITE(nBlockTxs);
         // This logic assumes a smallest transaction size of MIN_TX_SIZE bytes.  This is optimistic for realistic
@@ -196,16 +196,30 @@ public:
         return nSize;
     }
 
-    CInv GetInv() { return CInv(MSG_BLOCK, header.GetHash()); }
-    bool process(CNode *pfrom, std::string strCommand, std::shared_ptr<CBlockThinRelay> pblock);
+    CInv GetInv()
+    {
+        return CInv(MSG_BLOCK, GetHash());
+    }
+    bool process(CNode *pfrom, std::string strCommand);
     void FillTxMapFromPools(std::map<uint64_t, CTransactionRef> &mapTxFromPools);
     void SituateCoinbase(std::vector<uint64_t> blockCheapHashes, CTransactionRef coinbase, uint64_t grapheneVersion);
     void SituateCoinbase(CTransactionRef coinbase);
     std::set<uint64_t> UpdateResolvedTxsAndIdentifyMissing(const std::map<uint64_t, CTransactionRef> &mapPartialTxHash,
         const std::vector<uint64_t> &blockCheapHashes,
         uint64_t grapheneVersion);
-    bool CheckBlockHeader(const CBlockHeader &block, CValidationState &state);
+    bool CheckBlockHeader(const CSubBlockHeader &block, CValidationState &state);
 };
+
+/**
+ * Handle an incoming Graphene block
+ * Once the block is validated apart from the Merkle root, forward the Xpedited block with a hop count of nHops.
+ * @param[in]  vRecv        The raw binary message
+ * @param[in]  pFrom        The node the message was from
+ * @param[in]  strCommand   The message kind
+ * @param[in]  nHops        On the wire, nHops is zero for an incoming Graphene block
+ * @return True if handling succeeded
+ */
+ bool HandleSBGMessage(CDataStream &vRecv, CNode *pfrom, std::string strCommand, unsigned nHops);
 
 // This class is used to respond to requests for missing transactions after sending an Graphene block.
 // It is filled with the requested transactions in order.
@@ -491,15 +505,15 @@ public:
 
 bool SBIsGrapheneBlockEnabled();
 void SBSendGrapheneBlock(CSubBlockRef pblock, CNode *pfrom, const CInv &inv, const CSBMemPoolInfo &mempoolinfo);
-bool SBIsGrapheneBlockValid(CNode *pfrom, const CBlockHeader &header);
+bool SBIsGrapheneBlockValid(CNode *pfrom, const CSubBlockHeader &header);
 bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams);
 bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams);
 bool SBHandleGrapheneBlockRecoveryRequest(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams);
 CSBMemPoolInfo SBGetGrapheneMempoolInfo();
 void SBRequestFailureRecovery(CNode *pfrom,
-    std::shared_ptr<CSBGrapheneBlock> pblock,
+    CSBGrapheneBlock &grapheneBlock,
     std::vector<uint256> vSenderFilterPositiveHahses);
-void SBRequestFailoverBlock(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock);
+void SBRequestFailoverBlock(CNode *pfrom, CSBGrapheneBlock* pblock);
 // Load subset of transactions from block according to cheap hashes
 std::vector<CTransaction> SBTransactionsFromBlockByCheapHash(std::set<uint64_t> &vCheapHashes,
     uint256 blockhash,

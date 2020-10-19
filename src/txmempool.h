@@ -12,6 +12,7 @@
 #include <set>
 
 #include "amount.h"
+#include "bobtail/bobtailblock.h"
 #include "coins.h"
 #include "primitives/transaction.h"
 #include "random.h"
@@ -160,7 +161,7 @@ public:
     void UpdateRuntimeSigOps(uint64_t _runtimeSigOpCount, uint64_t _runtimeSighashBytes);
 
     void UpdateIncludedDags(const uint16_t &dag_id, const bool &add);
-    bool IsInDag(const uint16_t &dag_id);
+    bool IsInDag(const uint16_t &dag_id) const;
 
     uint64_t GetCountWithDescendants() const { return nCountWithDescendants; }
     uint64_t GetSizeWithDescendants() const { return nSizeWithDescendants; }
