@@ -98,10 +98,6 @@ public:
     // network and disk
     std::vector<CTransactionRef> vtx;
 
-    // For bobtail
-    std::vector<std::shared_ptr<CSubBlock>> vdag;
-    std::map<std::shared_ptr<CSubBlock>, std::set<unsigned char>> dagEncodingMap;
-
     // Xpress Validation: (memory only)
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
     std::set<uint256> setUnVerifiedTxns;
