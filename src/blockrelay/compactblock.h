@@ -26,6 +26,7 @@ static const bool DEFAULT_USE_COMPACT_BLOCKS = true;
 class CTxMemPool;
 class CDataStream;
 class CNode;
+class CBlockThinRelay;
 
 
 uint64_t GetShortID(const uint64_t &shorttxidk0, const uint64_t &shorttxidk1, const uint256 &txhash);

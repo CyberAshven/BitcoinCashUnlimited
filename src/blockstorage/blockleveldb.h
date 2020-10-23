@@ -115,8 +115,11 @@ public:
     }
 
     bool WriteBlock(const CBlock &block);
+    bool WriteBlock(const CBobtailBlock &block);
     bool ReadBlock(const CBlockIndex *pindex, CBlock &block);
+    bool ReadBlock(const CBlockIndex *pindex, CBobtailBlock &block);
     bool EraseBlock(CBlock &block);
+    bool EraseBlock(CBobtailBlock &block);
     bool EraseBlock(const CBlockIndex *pindex);
     void Flush()
     {

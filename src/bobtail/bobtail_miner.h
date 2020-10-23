@@ -67,7 +67,6 @@ private:
     int lastFewTxs;
     bool blockFinished;
 
-    bool may2020Enabled = false;
     uint64_t maxSigOpsAllowed = 0;
 
 public:
@@ -86,32 +85,10 @@ private:
     // incomplete, only used for delta blocks
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry);
 
-    // Methods for how to add transactions to a block.
-    /** Add transactions based on modified feerate */
-    void addScoreTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
-    /** Add transactions based on tx "priority" */
-    void addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
-
-    /** Add transactions based on feerate including unconfirmed ancestors */
-    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
-
-    // helper function for addScoreTxs and addPriorityTxs
-    bool IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps);
-    /** Test if tx will still "fit" in the block */
-    bool TestForBlock(CTxMemPool::txiter iter);
-    /** Test if tx still has unconfirmed parents not yet in block */
-    bool isStillDependent(CTxMemPool::txiter iter);
-
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */
     CTransactionRef coinbaseTx(const CScript &scriptPubKeyIn, int nHeight, CAmount nValue, const std::set<CDagNode> &dag);
-
-    // helper functions for addPackageTxs()
-    /** Test whether a package, if added to the block, would make the block exceed the sigops limits */
-    bool TestPackageSigOps(uint64_t packageSize, unsigned int packageSigOps);
-    /** Test if a set of transactions are all final */
-    bool TestPackageFinality(const CTxMemPool::setEntries &package);
 };
 
 #endif

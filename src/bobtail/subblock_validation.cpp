@@ -13,7 +13,7 @@
 #include "net.h"
 #include "timedata.h"
 
-bool CheckSubBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW)
+bool CheckSubBlockHeader(const CSubBlockHeader &block, CValidationState &state, bool fCheckPOW)
 {
     if (fCheckPOW && !CheckSubBlockPoW(block, Params().GetConsensus(), BOBTAIL_K))
     {

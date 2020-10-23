@@ -182,6 +182,21 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
     return MakeTransactionRef(std::move(tx));
 }
 
+int64_t UpdateTime(CSubBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev)
+{
+    int64_t nOldTime = pblock->nTime;
+    int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast() + 1, GetAdjustedTime());
+
+    if (nOldTime < nNewTime)
+        pblock->nTime = nNewTime;
+
+    // Updating time can change work required on testnet:
+    if (consensusParams.fPowAllowMinDifficultyBlocks)
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), consensusParams);
+
+    return nNewTime - nOldTime;
+}
+
 std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CScript &scriptPubKeyIn,
     int64_t coinbaseSize)
 {
@@ -248,7 +263,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), chainparams.GetConsensus());
         pblock->nNonce = 0;
         pblocktemplate->vTxSigOps[0] = 0;
     }

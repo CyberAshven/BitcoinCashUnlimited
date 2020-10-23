@@ -194,6 +194,19 @@ bool TxIndex::WriteBlock(const CBlock &block, const CBlockIndex *pindex)
     return db->WriteTxs(vPos);
 }
 
+bool TxIndex::WriteBlock(const CBobtailBlock &block, const CBlockIndex *pindex)
+{
+    CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
+    std::vector<std::pair<uint256, CDiskTxPos> > vPos;
+    vPos.reserve(block.vtx.size());
+    for (const auto &tx : block.vtx)
+    {
+        vPos.emplace_back(tx->GetHash(), pos);
+        pos.nTxOffset += ::GetSerializeSize(*tx, SER_DISK, CLIENT_VERSION);
+    }
+    return db->WriteTxs(vPos);
+}
+
 bool TxIndex::WriteBestBlock(CBlockIndex *block_index)
 {
     LOCK(cs_main);
@@ -205,6 +218,31 @@ bool TxIndex::WriteBestBlock(CBlockIndex *block_index)
 }
 
 void TxIndex::BlockConnected(const CBlock &block, CBlockIndex *pindex)
+{
+    if (!fSynced.load())
+        return;
+
+    // If we're reindexing we need to write the transaction from the genesis block here
+    if (fReindex && pindex->nHeight == 1)
+        WriteGenesisTransaction();
+
+    if (WriteBlock(block, pindex))
+    {
+        pbestindex = pindex;
+
+        if (!WriteBestBlock(pindex))
+        {
+            error("%s: Failed to write locator to disk", __func__);
+        }
+    }
+    else
+    {
+        FatalError("%s: Failed to write block %s to txindex", __func__, pindex->GetBlockHash().ToString());
+        return;
+    }
+}
+
+void TxIndex::BlockConnected(const CBobtailBlock &block, CBlockIndex *pindex)
 {
     if (!fSynced.load())
         return;

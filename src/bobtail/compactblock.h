@@ -118,7 +118,7 @@ public:
 
     std::vector<uint64_t> shorttxids;
 
-    CBlockHeader header;
+    CBobtailBlockHeader header;
 
     // Dummy for deserialization
     BobCompactBlock() : nSize(0), nWaitingFor(0) {}
@@ -303,7 +303,6 @@ public:
     void FillCompactBlockQuickStats(BobCompactBlockQuickStats &stats);
 };
 extern CBobCompactBlockData bobcompactdata; // Singleton class
-
 
 bool IsBobCompactBlocksEnabled();
 void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv &inv);

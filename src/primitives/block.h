@@ -24,9 +24,6 @@ class CXThinBlock;
 class CThinBlock;
 class CompactBlock;
 class CGrapheneBlock;
-class CSBGrapheneBlock;
-class BobCompactBlock;
-class CSubBlock;
 
 /** Get the work equivalent for the supplied nBits of difficulty */
 arith_uint256 GetWorkForDifficultyBits(uint32_t nBits);
@@ -188,39 +185,6 @@ public:
     // Return the serialized block size in bytes. This is only done once and then the result stored
     // in nBlockSize for future reference, saving unncessary and expensive serializations.
     uint64_t GetBlockSize() const;
-};
-
-/**
- * Used for thin type blocks that we want to reconstruct into a full block. All the data
- * necessary to recreate the block are held within the thinrelay objects which are subsequently
- * stored within this class as smart pointers.
- */
-class CBlockThinRelay : public CBlock
-{
-public:
-    //! thinrelay block types: (memory only)
-    std::shared_ptr<CThinBlock> thinblock;
-    std::shared_ptr<CXThinBlock> xthinblock;
-    std::shared_ptr<CompactBlock> cmpctblock;
-    std::shared_ptr<CGrapheneBlock> grapheneblock;
-    std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
-    std::shared_ptr<BobCompactBlock> bobcmpctblock;
-
-    //! Track the current block size during reconstruction: (memory only)
-    uint64_t nCurrentBlockSize;
-
-    CBlockThinRelay() { SetNull(); }
-    ~CBlockThinRelay() { SetNull(); }
-    void SetNull()
-    {
-        CBlock::SetNull();
-        nCurrentBlockSize = 0;
-        thinblock.reset();
-        xthinblock.reset();
-        cmpctblock.reset();
-        grapheneblock.reset();
-        sb_grapheneblock.reset();
-    }
 };
 
 /** Describes a place in the block chain to another node such that if the

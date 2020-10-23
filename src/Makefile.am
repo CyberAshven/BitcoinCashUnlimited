@@ -305,6 +305,7 @@ libbitcoin_server_a_SOURCES = \
   bloom.cpp \
   bobtail/bobtail_miner.cpp \
   bobtail/bobtailblock.cpp \
+  bobtail/bobtaildb.cpp \
   bobtail/compactblock.cpp \
   bobtail/dag.cpp \
   bobtail/graphene.cpp \
@@ -313,7 +314,6 @@ libbitcoin_server_a_SOURCES = \
   bobtail/subblock_validation.cpp \
   bobtail/subblock.cpp \
   bobtail/validation.cpp \
-  bobtaildb.cpp \
   chain.cpp \
   checkpoints.cpp \
   connmgr.cpp \

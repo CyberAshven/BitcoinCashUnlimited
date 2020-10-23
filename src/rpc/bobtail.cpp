@@ -125,7 +125,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
                         PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
 
                         CValidationState state;
-                        if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr, false))
+                        if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr))
                         {
                             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
                         }

@@ -263,7 +263,7 @@ arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
  * adjustement + Emergency Difficulty Adjustement (EDA).
  */
 static uint32_t GetNextEDAWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params)
 {
     // Only change once per difficulty adjustment interval
@@ -286,7 +286,7 @@ static uint32_t GetNextEDAWorkRequired(const CBlockIndex *pindexPrev,
         // Special difficulty rule for testnet:
         // If the new block's timestamp is more than 2* 10 minutes then allow
         // mining of a min-difficulty block.
-        if (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing)
+        if (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing)
         {
             return nProofOfWorkLimit;
         }
@@ -334,7 +334,7 @@ static uint32_t GetNextEDAWorkRequired(const CBlockIndex *pindexPrev,
     return nPow.GetCompact();
 }
 
-uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *pblock, const Consensus::Params &params)
+uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const int64_t &blockTime, const Consensus::Params &params)
 {
     // Genesis block
     if (pindexPrev == nullptr)
@@ -356,10 +356,10 @@ uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *
 
     if (pindexPrev->nHeight >= params.daaHeight)
     {
-        return GetNextCashWorkRequired(pindexPrev, pblock, params);
+        return GetNextCashWorkRequired(pindexPrev, blockTime, params);
     }
 
-    return GetNextEDAWorkRequired(pindexPrev, pblock, params);
+    return GetNextEDAWorkRequired(pindexPrev, blockTime, params);
 }
 
 uint32_t CalculateNextWorkRequired(const CBlockIndex *pindexLast,
@@ -569,7 +569,7 @@ static const CBlockIndex *GetSuitableBlock(const CBlockIndex *pindex)
  * input, this ensures the algorithm is more resistant to malicious inputs.
  */
 uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params)
 {
     // This cannot handle the genesis block and early blocks in general.
@@ -579,7 +579,7 @@ uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
     if (params.fPowAllowMinDifficultyBlocks &&
-        (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+        (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }

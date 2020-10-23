@@ -12,7 +12,7 @@
 #include "subblock.h"
 
 /** Context-independent validity checks */
-bool CheckSubBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW = true);
+bool CheckSubBlockHeader(const CSubBlockHeader &block, CValidationState &state, bool fCheckPOW = true);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main
  * held) */

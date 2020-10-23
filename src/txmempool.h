@@ -12,6 +12,7 @@
 #include <set>
 
 #include "amount.h"
+#include "bobtail/bobtailblock.h"
 #include "coins.h"
 #include "primitives/transaction.h"
 #include "random.h"

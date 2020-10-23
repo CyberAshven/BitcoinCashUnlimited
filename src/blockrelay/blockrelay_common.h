@@ -5,6 +5,7 @@
 #ifndef BITCOIN_BLOCKRELAY_COMMON_H
 #define BITCOIN_BLOCKRELAY_COMMON_H
 
+#include "bobtail/bobtailblock.h"
 #include "net.h"
 #include "utiltime.h"
 
@@ -13,7 +14,51 @@
 
 class CNode;
 class uint256;
-class CBlockThinRelay;
+class CSBGrapheneBlock;
+class BobCompactBlock;
+class CBobtailBlock;
+
+typedef int NodeId;
+
+/**
+ * Used for thin type blocks that we want to reconstruct into a full block. All the data
+ * necessary to recreate the block are held within the thinrelay objects which are subsequently
+ * stored within this class as smart pointers.
+ */
+class CBlockThinRelay
+{
+public:
+    // memory only
+    std::shared_ptr<CBlock> block;
+    std::shared_ptr<CSubBlock> subblock;
+    std::shared_ptr<CBobtailBlock> bobtailblock;
+
+    //! thinrelay block types: (memory only)
+    std::shared_ptr<CThinBlock> thinblock;
+    std::shared_ptr<CXThinBlock> xthinblock;
+    std::shared_ptr<CompactBlock> cmpctblock;
+    std::shared_ptr<CGrapheneBlock> grapheneblock;
+    std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
+    std::shared_ptr<BobCompactBlock> bobcmpctblock;
+
+    //! Track the current block size during reconstruction: (memory only)
+    uint64_t nCurrentBlockSize;
+
+    CBlockThinRelay() { SetNull(); }
+    ~CBlockThinRelay() { SetNull(); }
+    void SetNull()
+    {
+        block.reset();
+        bobtailblock.reset();
+        nCurrentBlockSize = 0;
+        thinblock.reset();
+        xthinblock.reset();
+        cmpctblock.reset();
+        grapheneblock.reset();
+        sb_grapheneblock.reset();
+        bobcmpctblock.reset();
+    }
+};
 
 struct CThinTypeBlockInFlight
 {

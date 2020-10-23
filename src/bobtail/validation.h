@@ -14,16 +14,23 @@
 #include "txmempool.h"
 #include "versionbits.h"
 
-//TODO: This should accept a CBobtailBlockHeader once it is defined
-bool CheckBobtailBlockHeader(const CBlockHeader &block, CValidationState &state);
+bool CheckBobtailBlockHeader(const CBobtailBlockHeader &block, CValidationState &state);
 
-//TODO: This should accept a CBobtailBlockHeader once it is defined
-bool AcceptBobtailBlockBlockHeader(const CBlockHeader &block,
+bool AcceptBobtailBlockBlockHeader(const CBobtailBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex = nullptr);
 
-bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+/** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main
+ * held) */
+bool TestBobtailBlockValidity(CValidationState &state,
+    const CChainParams &chainparams,
+    const CBobtailBlock &block,
+    CBlockIndex *pindexPrev,
+    bool fCheckPOW = true,
+    bool fCheckMerkleRoot = true);
+
+bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBobtailBlock(const CBobtailBlock &block,
@@ -31,8 +38,7 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
     CBlockIndex *pindex,
     CCoinsViewCache &view,
     const CChainParams &chainparams,
-    bool fJustCheck = false,
-    bool fParallel = false);
+    bool fJustCheck = false);
 
 /**
  * Process an incoming block. This only returns after the best known valid
@@ -57,7 +63,6 @@ bool ProcessNewBobtailBlock(CValidationState &state,
     CNode *pfrom,
     CBobtailBlock *pblock,
     bool fForceProcessing,
-    CDiskBlockPos *dbp,
-    bool fParallel);
+    CDiskBlockPos *dbp);
 
 #endif

@@ -71,7 +71,7 @@ public:
     // These describe, in two parts, the 128-bit secret key used for SipHash
     // Note that they are populated by FillShortTxIDSelector, which uses header and sipHashNonce
     uint64_t shorttxidk0, shorttxidk1;
-    CBlockHeader header;
+    CSubBlockHeader header;
     uint64_t nBlockTxs;
     std::shared_ptr<CGrapheneSet> pGrapheneSet;
     uint64_t version;
@@ -106,7 +106,7 @@ public:
 
     void SetNull();
     bool IsNull() const;
-    CBlockHeader GetBlockHeader() const;
+    CSubBlockHeader GetBlockHeader() const;
     std::string ToString() const;
     std::set<uint256> GetAncestorHashes() const;
     std::vector<uint256> GetTxHashes() const;
@@ -491,7 +491,7 @@ public:
 
 bool SBIsGrapheneBlockEnabled();
 void SBSendGrapheneBlock(CSubBlockRef pblock, CNode *pfrom, const CInv &inv, const CSBMemPoolInfo &mempoolinfo);
-bool SBIsGrapheneBlockValid(CNode *pfrom, const CBlockHeader &header);
+bool SBIsGrapheneBlockValid(CNode *pfrom, const CSubBlockHeader &header);
 bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams);
 bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams);
 bool SBHandleGrapheneBlockRecoveryRequest(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams);

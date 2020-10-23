@@ -182,7 +182,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader &block, CValidationState &sta
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
 
     // Check proof of work
-    uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, &block, consensusParams);
+    uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, block.GetBlockTime(), consensusParams);
     if (block.nBits != expectedNbits)
     {
         return state.DoS(100,
@@ -251,6 +251,7 @@ static void NotifyHeaderTip()
         nLastTime = GetTime();
     }
 }
+
 bool AcceptBlockHeader(const CBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
@@ -3394,7 +3395,7 @@ bool ConnectTip(CValidationState &state,
     return true;
 }
 
-static void CheckForkWarningConditionsOnNewFork(CBlockIndex *pindexNewForkTip)
+void CheckForkWarningConditionsOnNewFork(CBlockIndex *pindexNewForkTip)
 {
     AssertLockHeld(cs_main);
     // If we are on a fork that is sufficiently large, set a warning flag

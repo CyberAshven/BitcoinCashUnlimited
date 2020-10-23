@@ -923,6 +923,50 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx, const CBlock 
     return false;
 }
 
+bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx, const CBobtailBlock *pblock, bool fUpdate, int txIndex)
+{
+    AssertLockHeld(cs_wallet);
+
+    if (pblock)
+    {
+        for (const CTxIn &txin : ptx->vin)
+        {
+            std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
+            while (range.first != range.second)
+            {
+                if (range.first->second != ptx->GetHash())
+                {
+                    LOGA("Transaction %s (in block %s) conflicts with wallet transaction %s (both spend %s:%i)\n",
+                        ptx->GetHash().ToString(), pblock->GetHash().ToString(), range.first->second.ToString(),
+                        range.first->first.hash.ToString(), range.first->first.n);
+                    MarkConflicted(pblock->GetHash(), range.first->second);
+                }
+                range.first++;
+            }
+        }
+    }
+
+    bool fExisted = mapWallet.count(ptx->GetHash()) != 0;
+    if (fExisted && !fUpdate)
+        return false;
+    if (fExisted || IsMine(*ptx) || IsFromMe(*ptx))
+    {
+        CWalletTx wtx(this, *ptx);
+
+        // Get merkle branch if transaction was found in a block
+        if (pblock)
+            wtx.SetMerkleBranch(*pblock, txIndex);
+
+        // Do not flush the wallet here for performance reasons
+        // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our
+        // SetBestChain-mechanism
+        CWalletDB walletdb(strWalletFile, "r+", false);
+
+        return AddToWallet(wtx, false, &walletdb);
+    }
+    return false;
+}
+
 bool CWallet::AbandonTransaction(const uint256 &hashTx)
 {
     LOCK(cs_wallet);
@@ -1066,6 +1110,23 @@ void CWallet::MarkConflicted(const uint256 &hashBlock, const uint256 &hashTx)
 }
 
 void CWallet::SyncTransaction(const CTransactionRef &ptx, const CBlock *pblock, int txIdx)
+{
+    LOCK(cs_wallet);
+
+    if (!AddToWalletIfInvolvingMe(ptx, pblock, true, txIdx))
+        return; // Not one of ours
+
+    // If a transaction changes 'conflicted' state, that changes the balance
+    // available of the outputs it spends. So force those to be
+    // recomputed, also:
+    for (const CTxIn &txin : ptx->vin)
+    {
+        if (mapWallet.count(txin.prevout.hash))
+            mapWallet[txin.prevout.hash].MarkDirty();
+    }
+}
+
+void CWallet::SyncTransaction_BT(const CTransactionRef &ptx, const CBobtailBlock *pblock, int txIdx)
 {
     LOCK(cs_wallet);
 
@@ -4067,6 +4128,25 @@ CWalletKey::CWalletKey(int64_t nExpires)
 }
 
 int CMerkleTx::SetMerkleBranch(const CBlock &block, int txIdx)
+{
+    // txIdx never == -1 since the caller already know txIdx
+    assert(txIdx >= 0);
+    CBlock blockTmp;
+
+    // Update the tx's hashBlock
+    hashBlock = block.GetHash();
+    // Set the position of the transaction in the block
+    nIndex = txIdx;
+
+    // Is the tx in a block that's in the main chain
+    const CBlockIndex *pindex = LookupBlockIndex(hashBlock);
+    if (!pindex || !chainActive.Contains(pindex))
+        return 0;
+
+    return chainActive.Height() - pindex->nHeight + 1;
+}
+
+int CMerkleTx::SetMerkleBranch(const CBobtailBlock &block, int txIdx)
 {
     // txIdx never == -1 since the caller already know txIdx
     assert(txIdx >= 0);
