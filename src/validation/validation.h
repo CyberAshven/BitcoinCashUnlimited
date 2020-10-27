@@ -9,7 +9,6 @@
 
 #include "chainparams.h"
 #include "consensus/validation.h"
-#include "deltablocks.h"
 #include "forks.h"
 #include "parallel.h"
 #include "txdebugger.h"

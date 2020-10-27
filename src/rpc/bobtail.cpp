@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "amount.h"
-#include "blockrelay/netdeltablocks.h"
 #include "blockstorage/blockstorage.h"
 #include "bobtail/pow.h"
 #include "bobtail/dag.h"

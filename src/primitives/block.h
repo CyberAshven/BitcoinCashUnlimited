@@ -7,7 +7,6 @@
 #ifndef BITCOIN_PRIMITIVES_BLOCK_H
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
-#include "persistent_map.h"
 #include "primitives/transaction.h"
 #include "protocol.h"
 #include "serialize.h"

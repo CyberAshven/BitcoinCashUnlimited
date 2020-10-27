@@ -15,7 +15,6 @@
 #include "consensus/grouptokens.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
-#include "deltablocks.h"
 #include "dosman.h"
 #include "expedited.h"
 #include "index/txindex.h"
