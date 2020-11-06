@@ -70,6 +70,59 @@ ALLOWED_LIBRARIES = {
 'libdl.so.2' # programming interface to dynamic linker
 }
 
+ARCH_MIN_GLIBC_VER = {
+pixie.EM_386:    (2,1),
+pixie.EM_X86_64: (2,2,5),
+pixie.EM_ARM:    (2,4),
+pixie.EM_AARCH64:(2,17),
+}
+
+MACHO_ALLOWED_LIBRARIES = {
+# bitcoind and bitcoin-qt
+'libc++.1.dylib', # C++ Standard Library
+'libSystem.B.dylib', # libc, libm, libpthread, libinfo
+# bitcoin-qt only
+'AppKit', # user interface
+'ApplicationServices', # common application tasks.
+'Carbon', # deprecated c back-compat API
+'CoreFoundation', # low level func, data types
+'CoreGraphics', # 2D rendering
+'CoreServices', # operating system services
+'CoreText', # interface for laying out text and handling fonts.
+'CoreVideo', # video processing
+'Foundation', # base layer functionality for apps/frameworks
+'ImageIO', # read and write image file formats.
+'IOKit', # user-space access to hardware devices and drivers.
+'IOSurface', # cross process image/drawing buffers
+'libobjc.A.dylib', # Objective-C runtime library
+'Metal', # 3D graphics
+'Security', # access control and authentication
+'QuartzCore', # animation
+}
+
+PE_ALLOWED_LIBRARIES = {
+'ADVAPI32.dll', # security & registry
+'IPHLPAPI.DLL', # IP helper API
+'KERNEL32.dll', # win32 base APIs
+'msvcrt.dll', # C standard library for MSVC
+'SHELL32.dll', # shell API
+'USER32.dll', # user interface
+'WS2_32.dll', # sockets
+# bitcoin-qt only
+'dwmapi.dll', # desktop window manager
+'GDI32.dll', # graphics device interface
+'IMM32.dll', # input method editor
+'NETAPI32.dll',
+'ole32.dll', # component object model
+'OLEAUT32.dll', # OLE Automation API
+'SHLWAPI.dll', # light weight shell API
+'USERENV.dll',
+'UxTheme.dll',
+'VERSION.dll', # version checking
+'WINMM.dll', # WinMM audio API
+'WTSAPI32.dll',
+}
+
 class CPPFilt(object):
     '''
     Demangle C++ symbol names.
