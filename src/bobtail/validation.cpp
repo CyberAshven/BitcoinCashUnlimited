@@ -40,19 +40,19 @@ extern std::set<CBlockIndex *, CBlockIndexWorkComparator> setBlockIndexCandidate
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
 
-bool CheckBobtailBlockHeader(const CBobtailBlockHeader &block, CValidationState &state)
+bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState &state)
 {
-    // fCheckPOW kept only for legacy compatibility
-    if (true) //TODO: add Bobtail header validty check here
+    // Check proof-of-work
+    if (CheckBobtailPoW(header, Params().GetConsensus(), BOBTAIL_K))
     {
-        return state.DoS(50, error("CheckBobtailBlockHeader(): bobtail block validity check failed"), REJECT_INVALID, "high-hash");
+        return state.DoS(50, error("%s(): bobtail block validity check failed", __func__), REJECT_INVALID, "high-hash");
     }
-
     // Check timestamp
-    if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
+    if (header.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
+    {
         return state.Invalid(
-            error("CheckBobtailBlockHeader(): block timestamp too far in the future"), REJECT_INVALID, "time-too-new");
-
+            error("%s(): block timestamp too far in the future", __func__), REJECT_INVALID, "time-too-new");
+    }
     return true;
 }
 
@@ -346,15 +346,14 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
 {
     if (!CheckBobtailPoW(block, Params().GetConsensus(), BOBTAIL_K))
     {
-        return state.DoS(50, error("CheckBobtailBlock(): bobtail proof of work failed"), REJECT_INVALID, "high-hash");
+        return state.DoS(50, error("%s(): bobtail proof of work failed", __func__), REJECT_INVALID, "high-hash");
     }
 
     // Check timestamp
     if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
     {
-        return state.Invalid(
-            error("CheckBobtailBlock(): block timestamp too far in the future"), REJECT_INVALID, "time-too-new");
-        }
+        return state.Invalid(error("%s(): block timestamp too far in the future", __func__), REJECT_INVALID, "time-too-new");
+    }
 
     // These are checks that are independent of context.
 
@@ -371,7 +370,7 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
     if (block.hashMerkleRoot != hashMerkleRoot2)
     {
         return state.DoS(
-            100, error("CheckBlock(): hashMerkleRoot mismatch"), REJECT_INVALID, "bad-txnmrklroot", true);
+            100, error("%s(): hashMerkleRoot mismatch", __func__), REJECT_INVALID, "bad-txnmrklroot", true);
     }
     // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
     // of transactions in a block without affecting the merkle root of a block,
@@ -379,7 +378,7 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
     if (mutated)
     {
         return state.DoS(
-            100, error("CheckBlock(): duplicate transaction"), REJECT_INVALID, "bad-txns-duplicate", true);
+            100, error("%s(): duplicate transaction", __func__), REJECT_INVALID, "bad-txns-duplicate", true);
     }
 
     // All potential-corruption validation must be done before we do any
@@ -389,20 +388,20 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
     // Size limits
     if (block.vtx.empty())
     {
-        return state.DoS(100, error("CheckBlock(): size limits failed"), REJECT_INVALID, "bad-blk-length");
+        return state.DoS(100, error("%s(): size limits failed", __func__), REJECT_INVALID, "bad-blk-length");
     }
 
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
     {
-        return state.DoS(100, error("CheckBlock(): first tx is not coinbase"), REJECT_INVALID, "bad-cb-missing");
+        return state.DoS(100, error("%s(): first tx is not coinbase", __func__), REJECT_INVALID, "bad-cb-missing");
     }
 
     for (unsigned int i = 1; i < block.vtx.size(); i++)
     {
         if (block.vtx[i]->IsCoinBase())
         {
-            return state.DoS(100, error("CheckBlock(): more than one coinbase"), REJECT_INVALID, "bad-cb-multiple");
+            return state.DoS(100, error("%s(): more than one coinbase", __func__), REJECT_INVALID, "bad-cb-multiple");
         }
     }
 
@@ -411,7 +410,7 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
     {
         if (!CheckTransaction(tx, state))
         {
-            return error("CheckBlock(): CheckTransaction of %s failed with %s", tx->GetHash().ToString(),
+            return error("%s(): CheckTransaction of %s failed with %s", __func__, tx->GetHash().ToString(),
                 FormatStateMessage(state));
         }
     }
@@ -556,7 +555,7 @@ bool AcceptBobtailBlock(const CBobtailBlock &block,
         }
         if (!FindBlockPos(state, blockPos, nBlockSize + 8, nHeight, block.GetBlockTime(), dbp != nullptr))
         {
-            return error("AcceptBlock(): FindBlockPos failed");
+            return error("%s(): FindBlockPos failed", __func__);
         }
         if (dbp == nullptr)
         {
@@ -567,7 +566,7 @@ bool AcceptBobtailBlock(const CBobtailBlock &block,
         }
         if (!ReceivedBlockTransactions(block, state, pindex, blockPos))
         {
-            return error("AcceptBlock(): ReceivedBlockTransactions failed");
+            return error("%s(): ReceivedBlockTransactions failed", __func__);
         }
     }
     catch (const std::runtime_error &e)
@@ -659,7 +658,7 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
                 {
                     if (view.HaveCoin(COutPoint(tx->GetHash(), o)))
                     {
-                        return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"), REJECT_INVALID,
+                        return state.DoS(100, error("%s(): tried to overwrite transaction", __func__), REJECT_INVALID,
                             "bad-txns-BIP30");
                     }
                 }
@@ -877,8 +876,8 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
     {
-        return state.DoS(100, error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                                  block.vtx[0]->GetValueOut(), blockReward),
+        return state.DoS(100, error("%s(): coinbase pays too much (actual=%d vs limit=%d)",
+                                  __func__, block.vtx[0]->GetValueOut(), blockReward),
             REJECT_INVALID, "bad-cb-amount");
     }
 
@@ -899,7 +898,7 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
                 if (!FindUndoPos(
                         state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
                 {
-                    return error("ConnectBlock(): FindUndoPos failed");
+                    return error("%s(): FindUndoPos failed", __func__);
                 }
 
                 if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev, chainparams.MessageStart()))
@@ -977,7 +976,7 @@ bool ConnectTip(CValidationState &state,
     if (!pblock)
     {
         if (!ReadBlockFromDisk(block, pindexNew, chainparams.GetConsensus()))
-            return AbortNode(state, "ConnectTip(): Failed to read block");
+            return AbortNode(state, "%s(): Failed to read block", __func__);
         pblock = &block;
     }
     // Apply the block atomically to the chain state.
@@ -990,7 +989,7 @@ bool ConnectTip(CValidationState &state,
             if (state.IsInvalid())
             {
                 InvalidBlockFound(pindexNew, state);
-                return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
+                return error("%s(): ConnectBlock %s failed", __func__, pindexNew->GetBlockHash().ToString());
             }
             return false;
         }
@@ -1133,7 +1132,7 @@ bool ActivateBestChainStep(CValidationState &state,
             {
                 if (state.IsInvalid())
                 {
-                    LOGA("Invalid block due to %s\n", state.GetRejectReason().c_str());
+                    LOGA("%s(): Invalid block due to %s\n", __func__, state.GetRejectReason().c_str());
 
                     // The block violates a consensus rule.
                     if (!state.CorruptionPossible())
@@ -1322,7 +1321,7 @@ bool ActivateBestChain(CValidationState &state,
             int nDoS = 0;
             if (state.IsInvalid(nDoS))
             {
-                LOGA("Chain activation failed, returning to next best choice\n");
+                LOGA("%s(): Chain activation failed, returning to next best choice\n", __func__);
                 result = false;
 
                 if (pfrom)
@@ -1378,7 +1377,7 @@ bool ProcessNewBobtailBlock(CValidationState &state,
     bool checked = CheckBobtailBlock(*pblock, state);
     if (!checked)
     {
-        LOGA("Invalid bobtail block: ver:%x time:%d Tx size:%d len:%d\n", pblock->nVersion, pblock->nTime,
+        LOGA("%s(): Invalid bobtail block: ver:%x time:%d Tx size:%d len:%d\n", __func__, pblock->nVersion, pblock->nTime,
             pblock->vtx.size(), pblock->GetBlockSize());
     }
 

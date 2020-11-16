@@ -14,7 +14,7 @@
 #include "txmempool.h"
 #include "versionbits.h"
 
-bool CheckBobtailBlockHeader(const CBobtailBlockHeader &block, CValidationState &state);
+bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState &state);
 
 bool AcceptBobtailBlockBlockHeader(const CBobtailBlockHeader &block,
     CValidationState &state,
