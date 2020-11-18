@@ -830,58 +830,68 @@ bool FindBlockPos(CValidationState &state,
         vinfoBlockFile.resize(nFile + 1);
     }
 
-    if (!fKnown)
-    {
-        while ((vinfoBlockFile[nFile].nSize != 0) && (vinfoBlockFile[nFile].nSize + nAddSize >= max_blockfile_size))
-        {
-            nFile++;
-            if (vinfoBlockFile.size() <= nFile)
-            {
-                vinfoBlockFile.resize(nFile + 1);
-            }
-        }
-        pos.nFile = nFile;
-        pos.nPos = vinfoBlockFile[nFile].nSize;
-    }
-
-    if ((int)nFile != nLastBlockFile)
-    {
-        if (!fKnown)
-        {
-            LOGA("Leaving block file %i: %s\n", nLastBlockFile, vinfoBlockFile[nLastBlockFile].ToString());
-        }
-        FlushBlockFile(!fKnown);
-        nLastBlockFile = nFile;
-    }
-
-    vinfoBlockFile[nFile].AddBlock(nHeight, nTime);
     if (fKnown)
     {
+        if ((int)nFile != nLastBlockFile)
+        {
+            FlushBlockFile(!fKnown);
+            nLastBlockFile = nFile;
+        }
+        vinfoBlockFile[nFile].AddBlock(nHeight, nTime);
         vinfoBlockFile[nFile].nSize = std::max(pos.nPos + nAddSize, vinfoBlockFile[nFile].nSize);
     }
     else
     {
-        vinfoBlockFile[nFile].nSize += nAddSize;
-    }
+        bool firstAllocation = false;
 
-    if (!fKnown)
-    {
-        uint64_t nOldChunks = (pos.nPos + blockfile_chunk_size - 1) / blockfile_chunk_size;
-        uint64_t nNewChunks = (vinfoBlockFile[nFile].nSize + blockfile_chunk_size - 1) / blockfile_chunk_size;
+        // if we are more than 1 chunk below the max size, dont waste space. use the rest
+        // before making a new file. we are willing to at most waste up to 1 chunk (16MB)
+        if (vinfoBlockFile[nFile].nSize > max_blockfile_size - blockfile_chunk_size)
+        {
+            while (vinfoBlockFile[nFile].nSize + nAddSize >= max_blockfile_size)
+            {
+                if (vinfoBlockFile[nFile].nSize == 0)
+                {
+                    firstAllocation = true;
+                    break;
+                }
+                nFile++;
+                if (vinfoBlockFile.size() <= nFile)
+                {
+                    vinfoBlockFile.resize(nFile + 1);
+                }
+            }
+        }
+        pos.nFile = nFile;
+        pos.nPos = vinfoBlockFile[nFile].nSize;
+        if ((int)nFile != nLastBlockFile)
+        {
+            LOGA("Leaving block file %i: %s\n", nLastBlockFile, vinfoBlockFile[nLastBlockFile].ToString());
+            FlushBlockFile(!fKnown);
+            nLastBlockFile = nFile;
+        }
+        vinfoBlockFile[nFile].AddBlock(nHeight, nTime);
+        vinfoBlockFile[nFile].nSize += nAddSize;
+        unsigned int nOldChunks = (pos.nPos + blockfile_chunk_size - 1) / blockfile_chunk_size;
+        unsigned int nNewChunks = (vinfoBlockFile[nFile].nSize + blockfile_chunk_size - 1) / blockfile_chunk_size;
         if (nNewChunks > nOldChunks)
         {
+            unsigned int nNewSpace = nNewChunks * blockfile_chunk_size;
             if (fPruneMode)
             {
                 fCheckForPruning = true;
             }
-            if (CheckDiskSpace(nNewChunks * blockfile_chunk_size - pos.nPos))
+            else if (firstAllocation)
+            {
+                nNewSpace = max_blockfile_size;
+            }
+            if (CheckDiskSpace(nNewSpace - pos.nPos))
             {
                 FILE *file = OpenBlockFile(pos);
                 if (file)
                 {
-                    LOGA("Pre-allocating up to position 0x%x in blk%05u.dat\n", nNewChunks * blockfile_chunk_size,
-                        pos.nFile);
-                    AllocateFileRange(file, pos.nPos, nNewChunks * blockfile_chunk_size - pos.nPos);
+                    LOGA("Pre-allocating up to position 0x%x in blk%05u.dat\n", nNewSpace, pos.nFile);
+                    AllocateFileRange(file, pos.nPos, nNewSpace - pos.nPos);
                     fclose(file);
                 }
             }
@@ -889,7 +899,6 @@ bool FindBlockPos(CValidationState &state,
                 return state.Error("out of disk space");
         }
     }
-
     setDirtyFileInfo.insert(nFile);
     return true;
 }
@@ -924,7 +933,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, uint64_
         {
             fCheckForPruning = true;
         }
-        if (CheckDiskSpace(nNewChunks * undofile_chunk_size - pos.nPos))
+        if (CheckDiskSpace((nNewChunks * undofile_chunk_size) - pos.nPos))
         {
             FILE *file = OpenUndoFile(pos);
             if (file)
