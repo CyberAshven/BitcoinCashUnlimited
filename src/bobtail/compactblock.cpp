@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "blockrelay/blockrelay_common.h"
+#include "bobtail/compactrelay.h"
 #include "bobtail/compactblock.h"
 #include "bobtail/dag.h"
 #include "bobtail/validation.h"
@@ -47,7 +47,7 @@ extern CBobtailDagSet bobtailDagSet;
 static bool BobReconstructBlock(CNode *pfrom,
     int &missingCount,
     int &unnecessaryCount,
-    std::shared_ptr<CBlockThinRelay> pblock);
+    BobCompactBlock* pblock);
 
 
 uint64_t BobGetShortID(const uint64_t &shorttxidk0, const uint64_t &shorttxidk1, const uint256 &txhash)
@@ -59,7 +59,7 @@ uint64_t BobGetShortID(const uint64_t &shorttxidk0, const uint64_t &shorttxidk1,
 #define MIN_TRANSACTION_SIZE (::GetSerializeSize(CTransaction(), SER_NETWORK, PROTOCOL_VERSION))
 
 BobCompactBlock::BobCompactBlock(const CBobtailBlock &block)
-    : nSize(0), nonce(GetRand(std::numeric_limits<uint64_t>::max())), nWaitingFor(0), coinbase(block.vtx[0]), header(block)
+    : nSize(0), nonce(GetRand(std::numeric_limits<uint64_t>::max())), nWaitingFor(0), coinbase(block.vtx[0]), ::CBobtailBlock(block)
 {
     FillShortTxIDSelector();
 
@@ -72,7 +72,7 @@ BobCompactBlock::BobCompactBlock(const CBobtailBlock &block)
 void BobCompactBlock::FillShortTxIDSelector() const
 {
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
-    stream << header << nonce;
+    stream << nVersion << hashPrevBlock << hashMerkleRoot << nTime << nBits << subblockHashes << nonce;
     CSHA256 hasher;
     hasher.Write((unsigned char *)&(*stream.begin()), stream.end() - stream.begin());
     uint256 shorttxidhash;
@@ -88,7 +88,7 @@ uint64_t BobCompactBlock::BobGetShortID(const uint256 &txhash) const
 
 void validateBobCompactBlock(std::shared_ptr<BobCompactBlock> bobcmpctblock)
 {
-    if (bobcmpctblock->header.IsNull() || bobcmpctblock->shorttxids.empty())
+    if (bobcmpctblock->IsNull() || bobcmpctblock->shorttxids.empty())
         throw std::invalid_argument("empty data in bobtail compact block");
 }
 
@@ -96,32 +96,29 @@ void validateBobCompactBlock(std::shared_ptr<BobCompactBlock> bobcmpctblock)
  * Handle an incoming compactblock.  The block is fully validated, and if any
  * transactions are missing we re-request them.
  */
-bool BobCompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
+bool HandleBobCompactMessage(CDataStream &vRecv, CNode *pfrom)
 {
     // Deserialize compactblock and store a block to reconstruct
     BobCompactBlock tmp;
     vRecv >> tmp;
-    auto pblock = thinrelay.SetBlockToReconstruct(pfrom, tmp.header.GetHash());
-    pblock->bobcmpctblock = std::make_shared<BobCompactBlock>(std::forward<BobCompactBlock>(tmp));
-
-    std::shared_ptr<BobCompactBlock> compactBlock = pblock->bobcmpctblock;
+    std::shared_ptr<BobCompactBlock> compactBlock = SetCompactBlockToReconstruct(pfrom, tmp);
 
     // Message consistency checking
     if (!IsBobCompactBlockValid(pfrom, compactBlock))
     {
         dosMan.Misbehaving(pfrom, 100);
-        thinrelay.ClearAllBlockData(pfrom, pblock->bobtailblock->GetHash());
+        thinrelay.ClearAllBlockData(pfrom, compactBlock->GetHash());
         return error("Received an invalid BobCompactBlock from peer %s\n", pfrom->GetLogName());
     }
 
     // Is there a previous block or header to connect with?
-    CBlockIndex *pprev = LookupBlockIndex(compactBlock->header.hashPrevBlock);
+    CBlockIndex *pprev = LookupBlockIndex(compactBlock->hashPrevBlock);
     if (!pprev)
         return error("compact block from peer %s will not connect, unknown previous block %s", pfrom->GetLogName(),
-            compactBlock->header.hashPrevBlock.ToString());
+            compactBlock->hashPrevBlock.ToString());
 
     CValidationState state;
-    if (!CheckBobtailBlockHeader(compactBlock->header, state))
+    if (!CheckBobtailBlockHeader(*(compactBlock.get()), state))
     {
         // compact block does not fit within our blockchain
         dosMan.Misbehaving(pfrom, 100);
@@ -129,7 +126,7 @@ bool BobCompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             "compact block from peer %s contextual error: %s", pfrom->GetLogName(), state.GetRejectReason().c_str());
     }
 
-    CInv inv(MSG_BLOCK, compactBlock->header.GetHash());
+    CInv inv(MSG_BLOCK, compactBlock->GetHash());
     requester.UpdateBlockAvailability(pfrom->GetId(), inv.hash);
     LOG(CMPCT, "received compact block %s from peer %s of %d bytes\n", inv.hash.ToString(), pfrom->GetLogName(),
         compactBlock->GetSize());
@@ -152,29 +149,15 @@ bool BobCompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         return true;
     }
 
-    return compactBlock->process(pfrom, pblock);
+    return compactBlock->process(pfrom);
 }
 
 
-bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock)
+bool BobCompactBlock::process(CNode *pfrom)
 {
-    pblock->bobtailblock->nVersion = header.nVersion;
-    pblock->bobtailblock->nBits = header.nBits;
-    pblock->bobtailblock->nTime = header.nTime;
-    pblock->bobtailblock->hashMerkleRoot = header.hashMerkleRoot;
-    pblock->bobtailblock->hashPrevBlock = header.hashPrevBlock;
-    pblock->bobtailblock->subblockHashes = header.subblockHashes;
-
     // Store the salt used by this peer.
     pfrom->shorttxidk0.store(shorttxidk0);
     pfrom->shorttxidk1.store(shorttxidk1);
-
-    DbgAssert(pblock->bobcmpctblock != nullptr, return false);
-    DbgAssert(pblock->bobcmpctblock.get() == this, return false);
-    std::shared_ptr<BobCompactBlock> bobcmpctblock = pblock->bobcmpctblock;
-
-    bobcmpctblock->vSubHashes = shorttxids;
-    bobcmpctblock->coinbase = coinbase;
 
     // Create a map of all short tx hashes pointing to their full tx hash counterpart
     // We need to check all transaction sources (orphan list, mempool, and new (incoming) transactions in this block)
@@ -183,7 +166,7 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
     std::map<uint64_t, uint256> mapPartialTxHash;
     std::vector<uint256> memPoolHashes;
     std::set<uint64_t> setHashesToRequest;
-    unsigned int nWaitingForTxns = bobcmpctblock->nWaitingFor;
+    unsigned int nWaitingForTxns = nWaitingFor;
 
     bool fMerkleRootCorrect = true;
     uint256 merkleroot;
@@ -196,11 +179,11 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
         }
 
         // Start gathering the full subblock hashes. If some are not available then add them to setHashesToRequest.
-        for (const uint64_t &cheapHash : pblock->bobcmpctblock->vSubHashes)
+        for (const uint64_t &cheapHash : vSubHashes)
         {
             if (mapPartialTxHash.find(cheapHash) != mapPartialTxHash.end())
             {
-                pblock->bobcmpctblock->vSubHashes256.push_back(mapPartialTxHash[cheapHash]);
+                vSubHashes256.push_back(mapPartialTxHash[cheapHash]);
             }
             else
             {
@@ -211,9 +194,9 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
                 if (setHashesToRequest.size() > std::numeric_limits<uint16_t>::max())
                 {
                     // Since we can't process this BobCompactBlock then clear out the data from memory
-                    thinrelay.ClearAllBlockData(pfrom, pblock->bobtailblock->GetHash());
+                    thinrelay.ClearAllBlockData(pfrom, GetHash());
 
-                    thinrelay.RequestBlock(pfrom, header.GetHash());
+                    thinrelay.RequestBlock(pfrom, GetHash());
                     return error("Too many re-requested hashes for BobCompactBlock: requesting a full block");
                 }
             }
@@ -225,18 +208,18 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
         // Reconstruct the block if there are no hashes to re-request
         if (setHashesToRequest.empty())
         {
-            if (!BobReconstructBlock(pfrom, missingCount, unnecessaryCount, pblock))
+            if (!BobReconstructBlock(pfrom, missingCount, unnecessaryCount, this))
             {
                 return false;
             }
-            merkleroot = BlockMerkleRoot(*pblock->bobtailblock);
-            if (header.hashMerkleRoot != merkleroot)
+            merkleroot = BlockMerkleRoot(*this);
+            if (hashMerkleRoot != merkleroot)
             {
                 fMerkleRootCorrect = false;
             }
         }
     } // End locking orphanpool.cs, mempool.cs
-    LOG(CMPCT, "Current in memory BobCompactBlock size is %ld bytes\n", pblock->nCurrentBlockSize);
+    LOG(CMPCT, "Current in memory BobCompactBlock size is %ld bytes\n", nCurrentBlockSize);
 
     // These must be checked outside of the mempool.cs lock or deadlock may occur.
     // A merkle root mismatch here does not cause a ban because and expedited node will forward an xthin
@@ -245,16 +228,16 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
     if (!fMerkleRootCorrect)
     {
         return error("mismatched merkle root on BobCompactBlock %s vs %s: rerequesting a full block, peer=%s",
-                header.hashMerkleRoot.ToString(), merkleroot.ToString(), pfrom->GetLogName());
+                hashMerkleRoot.ToString(), merkleroot.ToString(), pfrom->GetLogName());
 
-        thinrelay.ClearAllBlockData(pfrom, header.GetHash());
-        thinrelay.RequestBlock(pfrom, header.GetHash());
+        thinrelay.ClearAllBlockData(pfrom, GetHash());
+        thinrelay.RequestBlock(pfrom, GetHash());
         return true;
     }
 
     nWaitingForTxns = missingCount;
-    LOG(CMPCT, "BobCompactBlock waiting for: %d, unnecessary: %d, total txns: %d received txns: %d\n", nWaitingForTxns,
-        unnecessaryCount, pblock->bobtailblock->vtx.size(), bobcmpctblock->mapMissingTx.size());
+    LOG(CMPCT, "BobCompactBlock waiting for: %d, unnecessary: %d, total txns: %d received txns: %d\n",
+        nWaitingForTxns, unnecessaryCount, vtx.size(), mapMissingTx.size());
 
     // If there are any missing hashes or transactions then we request them here.
     // This must be done outside of the mempool.cs lock or may deadlock.
@@ -262,10 +245,10 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
     {
         nWaitingForTxns = setHashesToRequest.size();
         BobCompactReRequest compactReRequest;
-        compactReRequest.blockhash = header.GetHash();
+        compactReRequest.blockhash = GetHash();
         compactReRequest.subBlockHashes = setHashesToRequest;
-        compactReRequest.shorttxidk0 = bobcmpctblock->shorttxidk0;
-        compactReRequest.shorttxidk1 = bobcmpctblock->shorttxidk1;
+        compactReRequest.shorttxidk0 = shorttxidk0;
+        compactReRequest.shorttxidk1 = shorttxidk1;
         pfrom->PushMessage(NetMsgType::GETBOBSUB, compactReRequest);
 
         // Update run-time statistics of compact block bandwidth savings
@@ -278,27 +261,26 @@ bool BobCompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pbl
     if (missingCount > 0)
     {
         // Since we can't process this compactblock then clear out the data from memory
-        thinrelay.ClearAllBlockData(pfrom, header.GetHash());
+        thinrelay.ClearAllBlockData(pfrom, GetHash());
 
-        thinrelay.RequestBlock(pfrom, header.GetHash());
+        thinrelay.RequestBlock(pfrom, GetHash());
         return error("Still missing transactions for BobCompactBlock: re-requesting a full block");
     }
 
     // We now have all the transactions now that are in this block
-    int blockSize = pblock->bobtailblock->GetBlockSize();
+    int blockSize = GetBlockSize();
     LOG(CMPCT, "Reassembled BobCompactBlock for %s (%d bytes). Message was %d bytes, compression ratio %3.2f, peer=%s\n",
-        pblock->bobtailblock->GetHash().ToString(), blockSize, bobcmpctblock->GetSize(),
-        ((float)blockSize) / ((float)bobcmpctblock->GetSize()), pfrom->GetLogName());
+        GetHash().ToString(), blockSize, GetSize(),
+        ((float)blockSize) / ((float)GetSize()), pfrom->GetLogName());
 
     // Update run-time statistics of compact block bandwidth savings
-    bobcompactdata.UpdateInBound(bobcmpctblock->GetSize(), blockSize);
-    LOG(CMPCT, "compact block stats: %s\n", bobcompactdata.ToString());
+    bobcompactdata.UpdateInBound(GetSize(), blockSize);
 
     // Process the full block
     CValidationState state;
     const CChainParams &chainparams = Params();
     bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
-    ProcessNewBobtailBlock(state, chainparams, pfrom, pblock->bobtailblock.get(), forceProcessing, nullptr);
+    ProcessNewBobtailBlock(state, chainparams, pfrom, this, forceProcessing, nullptr);
     return true;
 }
 
@@ -367,10 +349,9 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         }
     }
 
-    auto pblock = thinrelay.GetBlockToReconstruct(pfrom, compactReReqResponse.blockhash);
-    if (pblock == nullptr)
+    std::shared_ptr<BobCompactBlock> bobcmpctblock = GetCompactBlockToReconstruct(pfrom, compactReReqResponse.blockhash);
+    if (bobcmpctblock == nullptr)
         return error("No block available to reconstruct for bobsub");
-    std::shared_ptr<BobCompactBlock> bobcmpctblock = pblock->bobcmpctblock;
 
     // Check if we've already received this block and have it on disk
     if (AlreadyHaveBlock(inv))
@@ -402,12 +383,12 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     // Look for each transaction in our various pools and buffers.
     // With compactblocks the vSubHashes contains only the first 6 bytes of the tx hash.
     {
-        if (!BobReconstructBlock(pfrom, missingCount, unnecessaryCount, pblock))
+        if (!BobReconstructBlock(pfrom, missingCount, unnecessaryCount, bobcmpctblock.get()))
             return false;
     }
 
     std::vector<uint256> vTxHashes256;
-    for (auto &tx : pblock->bobtailblock->vtx)
+    for (auto &tx : bobcmpctblock->vtx)
     {
         vTxHashes256.push_back(tx->GetHash());
     }
@@ -415,8 +396,8 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
     // At this point we should have all the full hashes in the block. Check that the merkle
     // root in the block header matches the merkleroot calculated from the hashes provided.
-    uint256 merkleroot = BlockMerkleRoot(*pblock->bobtailblock);
-    if (pblock->bobtailblock->hashMerkleRoot != merkleroot)
+    uint256 merkleroot = BlockMerkleRoot(*(bobcmpctblock.get()));
+    if (bobcmpctblock->hashMerkleRoot != merkleroot)
     {
         thinrelay.ClearAllBlockData(pfrom, inv.hash);
         return error("Merkle root for %s does not match computed merkle root, peer=%s", inv.hash.ToString(),
@@ -443,12 +424,12 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
         // for compression statistics, we have to add up the size of compactblock and the re-requested Txns.
         uint64_t nSizeCompactBlockTx = msgSize;
-        uint64_t nBlockSize = pblock->bobtailblock->GetBlockSize();
+        uint64_t nBlockSize = bobcmpctblock->GetBlockSize();
         uint64_t nCmpctBlkSize = bobcmpctblock->GetSize();
         LOG(CMPCT,
             "Reassembled BobCompactReReqResponse for %s (%d bytes). Message was %d bytes (compactblock) and %d bytes "
             "(re-requested tx), compression ratio %3.2f, peer=%s\n",
-            pblock->bobtailblock->GetHash().ToString(), nBlockSize, nCmpctBlkSize, nSizeCompactBlockTx,
+            bobcmpctblock->GetHash().ToString(), nBlockSize, nCmpctBlkSize, nSizeCompactBlockTx,
             ((float)nBlockSize) / ((float)nCmpctBlkSize + (float)nSizeCompactBlockTx), pfrom->GetLogName());
 
         // Update run-time statistics of compactblock bandwidth savings.
@@ -460,7 +441,7 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         CValidationState state;
         const CChainParams &chainparams = Params();
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
-        ProcessNewBobtailBlock(state, chainparams, pfrom, pblock->bobtailblock.get(), forceProcessing, nullptr);
+        ProcessNewBobtailBlock(state, chainparams, pfrom, bobcmpctblock.get(), forceProcessing, nullptr);
     }
 
     return true;
@@ -469,25 +450,25 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 static bool BobReconstructBlock(CNode *pfrom,
     int &missingCount,
     int &unnecessaryCount,
-    std::shared_ptr<CBlockThinRelay> pblock)
+    BobCompactBlock* bobcmpctblock)
 {
     // We must have all the full tx hashes by this point.  We first check for any duplicate
     // transaction ids.  This is a possible attack vector and has been used in the past.
     {
-        std::set<uint256> setHashes(pblock->bobcmpctblock->vSubHashes256.begin(), pblock->bobcmpctblock->vSubHashes256.end());
-        if (setHashes.size() != pblock->bobcmpctblock->vSubHashes256.size())
+        std::set<uint256> setHashes(bobcmpctblock->vSubHashes256.begin(), bobcmpctblock->vSubHashes256.end());
+        if (setHashes.size() != bobcmpctblock->vSubHashes256.size())
         {
-            thinrelay.ClearAllBlockData(pfrom, pblock->bobtailblock->GetHash());
+            thinrelay.ClearAllBlockData(pfrom, bobcmpctblock->GetHash());
             return error("Duplicate subblock ids, peer=%s", pfrom->GetLogName());
         }
     }
 
     // Add the header size to the current size being tracked
-    thinrelay.AddBlockBytes(::GetSerializeSize(pblock->bobtailblock->GetBlockHeader(), SER_NETWORK, PROTOCOL_VERSION), pblock);
+    bobcmpctblock->nCurrentBlockSize += ::GetSerializeSize(bobcmpctblock->GetBlockHeader(), SER_NETWORK, PROTOCOL_VERSION);
 
     // Look for each transaction in our various pools and buffers.
     // With compactblocks the vSubHashes contains only the first 6 bytes of the tx hash.
-    for (const uint256 &hash : pblock->bobcmpctblock->vSubHashes256)
+    for (const uint256 &hash : bobcmpctblock->vSubHashes256)
     {
         CSubBlock subblock;
         bool found = bobtailDagSet.Find(hash, subblock);
@@ -495,20 +476,15 @@ static bool BobReconstructBlock(CNode *pfrom,
         if (!found)
             return false;
 
-        thinrelay.AddBlockBytes(0, pblock); //TODO: actually add subblock bytes
+        bobcmpctblock->nCurrentBlockSize += 0; //TODO: actually add subblock bytes
         //TODO: Check for memory exhaustion attack
 
         // Add this transaction. If the tx is null we still add it as a placeholder to keep the correct
         // ordering.
-        pblock->bobtailblock->vdag.push_back(std::make_shared<CSubBlock>(subblock));
+        bobcmpctblock->vdag.push_back(std::make_shared<CSubBlock>(subblock));
     }
 
-    // TODO: Perhaps there is a better way to get the tx list?
-    CBobtailBlock bobblock;
-    bobblock.vdag = pblock->bobtailblock->vdag;
-    bobblock.UpdateTxLists();
-    pblock->bobtailblock->vtx = bobblock.vtx;
-    pblock->bobtailblock->vtx[0] = pblock->bobcmpctblock->coinbase;
+    bobcmpctblock->UpdateTxLists();
 
     // TODO: evaluate if bobtail needs fXVal
     // Now that we've rebuilt the block successfully we can set the XVal flag which is used in
@@ -936,15 +912,15 @@ bool IsBobCompactBlockValid(CNode *pfrom, std::shared_ptr<BobCompactBlock> compa
 
     // check block header
     CValidationState state;
-    if (!CheckBobtailBlockHeader(compactBlock->header, state))
+    if (!CheckBobtailBlockHeader(*(compactBlock.get()), state))
     {
         return error("Received invalid header for BobCompactBlock %s from peer %s",
-            compactBlock->header.GetHash().ToString(), pfrom->GetLogName());
+            compactBlock->GetHash().ToString(), pfrom->GetLogName());
     }
     if (state.Invalid())
     {
         return error("Received invalid header for BobCompactBlock %s from peer %s",
-            compactBlock->header.GetHash().ToString(), pfrom->GetLogName());
+            compactBlock->GetHash().ToString(), pfrom->GetLogName());
     }
 
     return true;

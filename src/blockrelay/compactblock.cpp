@@ -142,7 +142,7 @@ bool CompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     if (!IsCompactBlockValid(pfrom, compactBlock))
     {
         dosMan.Misbehaving(pfrom, 100);
-        thinrelay.ClearAllBlockData(pfrom, pblock->block->GetHash());
+        thinrelay.ClearAllBlockData(pfrom, pblock->GetHash());
         return error("Received an invalid compactblock from peer %s\n", pfrom->GetLogName());
     }
 
@@ -190,12 +190,12 @@ bool CompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
 bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock)
 {
-    pblock->block->nVersion = header.nVersion;
-    pblock->block->nBits = header.nBits;
-    pblock->block->nNonce = header.nNonce;
-    pblock->block->nTime = header.nTime;
-    pblock->block->hashMerkleRoot = header.hashMerkleRoot;
-    pblock->block->hashPrevBlock = header.hashPrevBlock;
+    pblock->nVersion = header.nVersion;
+    pblock->nBits = header.nBits;
+    pblock->nNonce = header.nNonce;
+    pblock->nTime = header.nTime;
+    pblock->hashMerkleRoot = header.hashMerkleRoot;
+    pblock->hashPrevBlock = header.hashPrevBlock;
 
     // Store the salt used by this peer.
     pfrom->shorttxidk0.store(shorttxidk0);
@@ -300,7 +300,7 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
                 if (setHashesToRequest.size() > std::numeric_limits<uint32_t>::max())
                 {
                     // Since we can't process this compactblock then clear out the data from memory
-                    thinrelay.ClearAllBlockData(pfrom, pblock->block->GetHash());
+                    thinrelay.ClearAllBlockData(pfrom, pblock->GetHash());
 
                     thinrelay.RequestBlock(pfrom, header.GetHash());
                     return error("Too many re-requested hashes for compactblock: requesting a full block");
@@ -343,7 +343,7 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
 
     nWaitingForTxns = missingCount;
     LOG(CMPCT, "compactblock waiting for: %d, unnecessary: %d, total txns: %d received txns: %d\n", nWaitingForTxns,
-        unnecessaryCount, pblock->block->vtx.size(), cmpctBlock->mapMissingTx.size());
+        unnecessaryCount, pblock->vtx.size(), cmpctBlock->mapMissingTx.size());
 
     // If there are any missing hashes or transactions then we request them here.
     // This must be done outside of the mempool.cs lock or may deadlock.
@@ -382,9 +382,9 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
     }
 
     // We now have all the transactions now that are in this block
-    int blockSize = pblock->block->GetBlockSize();
+    int blockSize = pblock->GetBlockSize();
     LOG(CMPCT, "Reassembled compactblock for %s (%d bytes). Message was %d bytes, compression ratio %3.2f, peer=%s\n",
-        pblock->block->GetHash().ToString(), blockSize, cmpctBlock->GetSize(),
+        pblock->GetHash().ToString(), blockSize, cmpctBlock->GetSize(),
         ((float)blockSize) / ((float)cmpctBlock->GetSize()), pfrom->GetLogName());
 
     // Update run-time statistics of compact block bandwidth savings
@@ -392,7 +392,7 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
     LOG(CMPCT, "compact block stats: %s\n", compactdata.ToString());
 
     // Process the full block
-    PV->HandleBlockMessage(pfrom, NetMsgType::CMPCTBLOCK, pblock->block, GetInv());
+    PV->HandleBlockMessage(pfrom, NetMsgType::CMPCTBLOCK, pblock, GetInv());
 
     return true;
 }
@@ -518,7 +518,7 @@ bool CompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     bool mutated;
 
     uint256 merkleroot = ComputeMerkleRoot(cmpctBlock->vTxHashes256, &mutated);
-    if (pblock->block->hashMerkleRoot != merkleroot || mutated)
+    if (pblock->hashMerkleRoot != merkleroot || mutated)
     {
         thinrelay.ClearAllBlockData(pfrom, inv.hash);
         return error("Merkle root for %s does not match computed merkle root, peer=%s", inv.hash.ToString(),
@@ -554,12 +554,12 @@ bool CompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
         // for compression statistics, we have to add up the size of compactblock and the re-requested Txns.
         uint64_t nSizeCompactBlockTx = msgSize;
-        uint64_t nBlockSize = pblock->block->GetBlockSize();
+        uint64_t nBlockSize = pblock->GetBlockSize();
         uint64_t nCmpctBlkSize = cmpctBlock->GetSize();
         LOG(CMPCT,
             "Reassembled compactReReqResponse for %s (%d bytes). Message was %d bytes (compactblock) and %d bytes "
             "(re-requested tx), compression ratio %3.2f, peer=%s\n",
-            pblock->block->GetHash().ToString(), nBlockSize, nCmpctBlkSize, nSizeCompactBlockTx,
+            pblock->GetHash().ToString(), nBlockSize, nCmpctBlkSize, nSizeCompactBlockTx,
             ((float)nBlockSize) / ((float)nCmpctBlkSize + (float)nSizeCompactBlockTx), pfrom->GetLogName());
 
         // Update run-time statistics of compactblock bandwidth savings.
@@ -568,7 +568,7 @@ bool CompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         compactdata.UpdateInBound(nSizeCompactBlockTx + nCmpctBlkSize, nBlockSize);
         LOG(CMPCT, "compactblock stats: %s\n", compactdata.ToString());
 
-        PV->HandleBlockMessage(pfrom, strCommand, pblock->block, inv2);
+        PV->HandleBlockMessage(pfrom, strCommand, pblock, inv2);
     }
 
     return true;
@@ -585,13 +585,13 @@ static bool ReconstructBlock(CNode *pfrom,
         std::set<uint256> setHashes(pblock->cmpctblock->vTxHashes256.begin(), pblock->cmpctblock->vTxHashes256.end());
         if (setHashes.size() != pblock->cmpctblock->vTxHashes256.size())
         {
-            thinrelay.ClearAllBlockData(pfrom, pblock->block->GetHash());
+            thinrelay.ClearAllBlockData(pfrom, pblock->GetHash());
             return error("Duplicate transaction ids, peer=%s", pfrom->GetLogName());
         }
     }
 
     // Add the header size to the current size being tracked
-    thinrelay.AddBlockBytes(::GetSerializeSize(pblock->block->GetBlockHeader(), SER_NETWORK, PROTOCOL_VERSION), pblock);
+    thinrelay.AddBlockBytes(::GetSerializeSize(pblock->GetBlockHeader(), SER_NETWORK, PROTOCOL_VERSION), pblock);
 
     // Look for each transaction in our various pools and buffers.
     // With compactblocks the vTxHashes contains only the first 6 bytes of the tx hash.
@@ -647,7 +647,7 @@ static bool ReconstructBlock(CNode *pfrom,
                 // XVal: these transactions still need to be verified since they were not in the mempool
                 // or CommitQ.
                 if (ptx)
-                    pblock->block->setUnVerifiedTxns.insert(hash);
+                    pblock->setUnVerifiedTxns.insert(hash);
             }
             if (((inMemPool || inCommitQ) && inMissingTx) || (inOrphanCache && inMissingTx))
                 unnecessaryCount++;
@@ -663,16 +663,16 @@ static bool ReconstructBlock(CNode *pfrom,
         if (pblock->nCurrentBlockSize > thinrelay.GetMaxAllowedBlockSize())
         {
             uint64_t nBlockBytes = pblock->nCurrentBlockSize;
-            thinrelay.ClearAllBlockData(pfrom, pblock->block->GetHash());
+            thinrelay.ClearAllBlockData(pfrom, pblock->GetHash());
             pfrom->fDisconnect = true;
             return error("Reconstructed block %s (size:%llu) has caused max memory limit %llu bytes to be "
                          "exceeded, peer=%s",
-                pblock->block->GetHash().ToString(), nBlockBytes, thinrelay.GetMaxAllowedBlockSize(), pfrom->GetLogName());
+                pblock->GetHash().ToString(), nBlockBytes, thinrelay.GetMaxAllowedBlockSize(), pfrom->GetLogName());
         }
 
         // Add this transaction. If the tx is null we still add it as a placeholder to keep the correct
         // ordering.
-        pblock->block->vtx.push_back(ptx);
+        pblock->vtx.push_back(ptx);
     }
     // Now that we've rebuilt the block successfully we can set the XVal flag which is used in
     // ConnectBlock() to determine which if any inputs we can skip the checking of inputs.

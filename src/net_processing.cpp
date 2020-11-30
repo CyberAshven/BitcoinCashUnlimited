@@ -1791,7 +1791,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
              IsGrapheneBlockEnabled() && grapheneVersionCompatible)
     {
         LOCK(pfrom->cs_thintype);
-        return CSBGrapheneBlock::HandleMessage(vRecv, pfrom, strCommand, 0);
+        return HandleSBGMessage(vRecv, pfrom, strCommand, 0);
     }
 
 
@@ -1859,7 +1859,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
              IsCompactBlocksEnabled())
     {
         LOCK(pfrom->cs_thintype);
-        return BobCompactBlock::HandleMessage(vRecv, pfrom);
+        return HandleBobCompactMessage(vRecv, pfrom);
     }
     else if (strCommand == NetMsgType::GETBOBSUB && !fImporting && !fReindex && !IsInitialBlockDownload() &&
              IsCompactBlocksEnabled())
