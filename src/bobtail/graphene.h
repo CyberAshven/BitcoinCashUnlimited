@@ -86,6 +86,11 @@ public:
         uint64_t nSenderMempoolPlusBlock,
         uint64_t _version,
         bool _computeOptimized);
+    CSBGrapheneBlock(const CSubBlock &pblock,
+        uint64_t nReceiverMemPoolTx,
+        uint64_t nSenderMempoolPlusBlock,
+        uint64_t _version,
+        bool _computeOptimized);
     CSBGrapheneBlock()
         : nSize(0), nWaitingFor(0), shorttxidk0(0), shorttxidk1(0), pGrapheneSet(nullptr), version(2),
           computeOptimized(false)
@@ -202,7 +207,7 @@ public:
     std::set<uint64_t> UpdateResolvedTxsAndIdentifyMissing(const std::map<uint64_t, CTransactionRef> &mapPartialTxHash,
         const std::vector<uint64_t> &blockCheapHashes,
         uint64_t grapheneVersion);
-    bool CheckBlockHeader(const CBlockHeader &block, CValidationState &state);
+    bool CheckBlockHeader(const CSubBlockHeader &block, CValidationState &state);
 };
 
 /**
