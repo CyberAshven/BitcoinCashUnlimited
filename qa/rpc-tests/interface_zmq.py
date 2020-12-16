@@ -3,37 +3,43 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test the ZMQ notification interface."""
+import sys
+if sys.version_info[0] < 3:
+    raise "Use Python 3"
+import logging
 import struct
 from io import BytesIO
 
-from test_framework.test_framework import (
-    BitcoinTestFramework,
-    skip_if_no_bitcoind_zmq,
-    skip_if_no_py3_zmq,
-)
-from test_framework.messages import CTransaction
-from test_framework.util import (
-    assert_equal,
-    hash256,
-)
+from test_framework.test_framework import BitcoinTestFramework
+from test_framework.nodemessages import CTransaction
+from test_framework.util import *
 
+try:
+    import zmq
+except ModuleNotFoundError:
+    print("zmq module not found")
+    print("you need to install it to run this test: 'sudo pip3 install zmq'")
+    sys.exit(-1)
 
 class ZMQSubscriber:
     def __init__(self, socket, topic):
         self.sequence = 0
         self.socket = socket
         self.topic = topic
-
-        import zmq
         self.socket.setsockopt(zmq.SUBSCRIBE, self.topic)
 
     def receive(self):
-        topic, body, seq = self.socket.recv_multipart()
+        tmp = self.socket.recv_multipart()
+        topic = tmp[0]
+        body = tmp[1]
         # Topic should match the subscriber topic.
         assert_equal(topic, self.topic)
-        # Sequence should be incremental.
-        assert_equal(struct.unpack('<I', seq)[-1], self.sequence)
-        self.sequence += 1
+
+        if len(tmp) >= 3:
+            # Sequence should be incremental.
+            seq = tmp[2]
+            assert_equal(struct.unpack('<I', seq)[-1], self.sequence)
+            self.sequence += 1
         return body
 
 
@@ -42,10 +48,6 @@ class ZMQTest (BitcoinTestFramework):
         self.num_nodes = 2
 
     def setup_nodes(self):
-        skip_if_no_py3_zmq()
-        skip_if_no_bitcoind_zmq(self)
-        import zmq
-
         # Initialize ZMQ context and socket.
         # All messages are received in the same socket which means that this
         # test fails if the publishing order changes.
@@ -65,20 +67,20 @@ class ZMQTest (BitcoinTestFramework):
 
         self.extra_args = [["-zmqpub{}={}".format(sub.topic.decode(), address) for sub in [
             self.hashblock, self.hashtx, self.rawblock, self.rawtx]], []]
-        self.add_nodes(self.num_nodes, self.extra_args)
-        self.start_nodes()
+        ret  = start_nodes(self.num_nodes, self.options.tmpdir, self.extra_args)
+        return ret
 
     def run_test(self):
         try:
             self._zmq_test()
         finally:
             # Destroy the ZMQ context.
-            self.log.debug("Destroying ZMQ context")
+            logging.debug("Destroying ZMQ context")
             self.zmq_context.destroy(linger=None)
 
     def _zmq_test(self):
         num_blocks = 5
-        self.log.info(
+        logging.info(
             "Generate {0} blocks (and {0} coinbase txes)".format(num_blocks))
         genhashes = self.nodes[0].generate(num_blocks)
         self.sync_all()
@@ -102,9 +104,9 @@ class ZMQTest (BitcoinTestFramework):
 
             # Should receive the generated raw block.
             block = self.rawblock.receive()
-            assert_equal(genhashes[x], hash256(block[:80]).hex())
+            assert_equal(genhashes[x], hash256(block[:80])[::-1].hex())
 
-        self.log.info("Wait for tx from second node")
+        logging.info("Wait for tx from second node")
         payment_txid = self.nodes[1].sendtoaddress(
             self.nodes[0].getnewaddress(), 1.0)
         self.sync_all()
@@ -115,8 +117,14 @@ class ZMQTest (BitcoinTestFramework):
 
         # Should receive the broadcasted raw transaction.
         hex = self.rawtx.receive()
-        assert_equal(payment_txid, hash256(hex).hex())
+        assert_equal(payment_txid, hash256(hex)[::-1].hex())
 
 
 if __name__ == '__main__':
     ZMQTest().main()
+
+def Test():
+    flags = standardFlags()
+    t = ZMQTest()
+    t.drop_to_pdb = True
+    t.main(flags)

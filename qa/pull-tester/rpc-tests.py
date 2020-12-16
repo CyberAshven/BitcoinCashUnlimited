@@ -321,7 +321,6 @@ testScriptsElectrum = [ RpcTest(WhenElectrumFound(t)) for t in [
 if ENABLE_ZMQ == 1:
     testScripts.append(RpcTest('zmq_test'))
 
-
 def show_wrapper_options():
     """ print command line options specific to wrapper """
     print("Wrapper options:")
