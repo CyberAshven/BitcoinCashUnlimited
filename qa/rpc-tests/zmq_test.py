@@ -18,7 +18,7 @@ import urllib.parse
 
 class ZMQTest (BitcoinTestFramework):
 
-    port = 28332
+    port = 28340 # ZMQ ports of these test must be unique so multiple tests can be run simultaneously
 
     def setup_nodes(self):
         self.zmqContext = zmq.Context()
