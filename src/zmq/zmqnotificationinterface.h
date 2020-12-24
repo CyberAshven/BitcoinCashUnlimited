@@ -28,12 +28,6 @@ protected:
     // CValidationInterface
     void SyncTransaction(const CTransactionRef &ptx, const CBlock *pblock, int txIndex = -1) override;
     void SyncDoubleSpend(const CTransactionRef ptx) override;
-
-    void BlockConnected(const std::shared_ptr<const CBlock> &pblock,
-        const CBlockIndex *pindexConnected,
-        const std::vector<CTransactionRef> &vtxConflicted) override;
-    void BlockDisconnected(const std::shared_ptr<const CBlock> &pblock) override;
-
     void UpdatedBlockTip(const CBlockIndex *pindex) override;
 
 private:

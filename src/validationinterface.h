@@ -45,12 +45,6 @@ protected:
     virtual void BlockChecked(const CBlock &, const CValidationState &) {}
     virtual void GetScriptForMining(boost::shared_ptr<CReserveScript> &) {}
     virtual void ResetRequestCount(const uint256 &hash) {}
-    virtual void BlockConnected(const std::shared_ptr<const CBlock> &pblock,
-        const CBlockIndex *pindexConnected,
-        const std::vector<CTransactionRef> &vtxConflicted)
-    {
-    }
-    virtual void BlockDisconnected(const std::shared_ptr<const CBlock> &pblock) {}
     friend void ::RegisterValidationInterface(CValidationInterface *);
     friend void ::UnregisterValidationInterface(CValidationInterface *);
     friend void ::UnregisterAllValidationInterfaces();

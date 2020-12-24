@@ -183,30 +183,5 @@ void CZMQNotificationInterface::SyncDoubleSpend(const CTransactionRef ptx)
     }
 }
 
-void CZMQNotificationInterface::BlockConnected(const std::shared_ptr<const CBlock> &pblock,
-    const CBlockIndex *pindexConnected,
-    const std::vector<CTransactionRef> &vtxConflicted)
-{
-    int cnt = 0;
-    const CBlock *blk = pblock.get();
-    for (const CTransactionRef &ptx : pblock->vtx)
-    {
-        // Do a normal notify for each transaction added in the block
-        SyncTransaction(ptx, blk, cnt);
-        cnt++;
-    }
-}
-
-void CZMQNotificationInterface::BlockDisconnected(const std::shared_ptr<const CBlock> &pblock)
-{
-    int cnt = 0;
-    const CBlock *blk = pblock.get();
-    for (const CTransactionRef &ptx : pblock->vtx)
-    {
-        // Do a normal notify for each transaction removed in block disconnection
-        SyncTransaction(ptx, blk, cnt);
-        cnt++;
-    }
-}
 
 CZMQNotificationInterface *pzmqNotificationInterface = nullptr;

@@ -25,9 +25,16 @@ class ZMQSubscriber:
     def __init__(self, socket, topic):
         self.sequence = 0
         self.socket = socket
-        self.topic = topic
-        self.socket.setsockopt(zmq.SUBSCRIBE, self.topic)
+        self.subscribe(topic)
 
+    def subscribe(self, topic = None):
+        if not topic is None:
+            self.topic = topic
+        self.socket.setsockopt(zmq.SUBSCRIBE, self.topic)
+        
+    def unsubscribe(self):
+        self.socket.setsockopt(zmq.UNSUBSCRIBE, self.topic)
+        
     def receive(self):
         tmp = self.socket.recv_multipart()
         topic = tmp[0]
@@ -65,8 +72,13 @@ class ZMQTest (BitcoinTestFramework):
         self.rawblock = ZMQSubscriber(socket, b"rawblock")
         self.rawtx = ZMQSubscriber(socket, b"rawtx")
 
+        self.hashds = ZMQSubscriber(socket, b"hashds")
+        self.rawds = ZMQSubscriber(socket, b"rawds")
+
         self.extra_args = [["-zmqpub{}={}".format(sub.topic.decode(), address) for sub in [
-            self.hashblock, self.hashtx, self.rawblock, self.rawtx]], []]
+            self.hashblock, self.hashtx, self.rawblock, self.rawtx, self.hashds, self.rawds]], []]
+        self.extra_args[0].append("-debug=dsproof")
+        self.extra_args[0].append("-debug=zmq")
         ret  = start_nodes(self.num_nodes, self.options.tmpdir, self.extra_args)
         return ret
 
@@ -118,6 +130,48 @@ class ZMQTest (BitcoinTestFramework):
         # Should receive the broadcasted raw transaction.
         hex = self.rawtx.receive()
         assert_equal(payment_txid, hash256(hex)[::-1].hex())
+
+        if 1: # Send 2 transactions that double spend each other
+
+            # If these unsubscribes fail, then you will get an assertion that a zmq topic is not correct
+            self.hashtx.unsubscribe()
+            self.rawtx.unsubscribe()
+
+            wallet = self.nodes[0].listunspent()
+            t  = wallet.pop()
+            inputs = []
+            inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
+            outputs = { self.nodes[1].getnewaddress() : t["amount"] }
+
+            rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
+            rawtx   = self.nodes[0].signrawtransaction(rawtx)
+            try:
+                hashTxToDoubleSpend   = self.nodes[1].sendrawtransaction(rawtx['hex'])
+            except JSONRPCException as e:
+                print(e.error['message'])
+                assert False
+            self.sync_all()
+
+            outputs = { self.nodes[1].getnewaddress() : t["amount"] }
+            rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
+            rawtx   = self.nodes[0].signrawtransaction(rawtx)
+            try:
+                hashtx   = self.nodes[0].sendrawtransaction(rawtx['hex'])
+            except JSONRPCException as e:
+                assert("txn-mempool-conflict" in e.error['message'])
+            else:
+                assert(False)
+            self.sync_all()
+
+            # since I unsubscribed from these I don't need to load them
+            #self.hashtx.receive()
+            #self.rawtx.receive()
+
+            # Should receive hash of a double spend proof.
+            dsTxHash = self.hashds.receive()
+            assert hashTxToDoubleSpend == dsTxHash.hex()
+            ds  = self.rawds.receive()
+            assert len(ds) > 0
 
 
 if __name__ == '__main__':
