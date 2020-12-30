@@ -9,21 +9,21 @@
 void CBobtailBlock::UpdateTxLists()
 {
     // account for all txs in all subblocks in dag
-    std::set<CTransactionRef> allTxRefs;
+    std::map<uint256, CTransactionRef> allTxRefs;
     for (auto sbref : vdag)
     {
         for (auto txRef : sbref->vtx)
         {
-            allTxRefs.insert(txRef);
+            allTxRefs[txRef->GetHash()] = txRef;
         }
     }
 
     // insert unique txs (first index reserved for coinbase)
     vtx.resize(allTxRefs.size() + 1);
     uint64_t idx = 1;
-    for (auto txRef: allTxRefs)
+    for (auto &pair: allTxRefs)
     {
-        vtx[idx] = txRef;
+        vtx[idx] = pair.second;
         idx++;
     }
     std::sort(vtx.begin() + 1, vtx.end(), NumericallyLessTxHashComparator());

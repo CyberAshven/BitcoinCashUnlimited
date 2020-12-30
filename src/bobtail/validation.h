@@ -16,7 +16,7 @@
 
 bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState &state);
 
-bool AcceptBobtailBlockBlockHeader(const CBobtailBlockHeader &block,
+bool AcceptBobtailBlockHeader(const CBobtailBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex = nullptr);

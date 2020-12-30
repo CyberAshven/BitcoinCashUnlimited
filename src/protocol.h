@@ -135,6 +135,7 @@ extern const char *TX;
  * @see https://bitcoin.org/en/developer-reference#headers
  */
 extern const char *HEADERS;
+extern const char *BOBTAIL_HEADERS;
 /**
  * The block message transmits a single serialized block.
  * @see https://bitcoin.org/en/developer-reference#block

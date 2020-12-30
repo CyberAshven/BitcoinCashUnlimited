@@ -20,6 +20,7 @@
 #include "bobtail/compactblock.h"
 #include "bobtail/dag.h"
 #include "bobtail/graphene.h"
+#include "bobtail/validation.h"
 #include "chain.h"
 #include "dosman.h"
 #include "electrum/electrs.h"
@@ -41,6 +42,8 @@ extern std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblock
 extern std::atomic<int64_t> nTimeBestReceived;
 extern std::atomic<int> nPreferredDownload;
 extern int nSyncStarted;
+extern std::map<uint256, std::pair<CBlockHeader, int64_t> > mapUnConnectedHeaders;
+extern std::map<uint256, std::pair<CBobtailBlockHeader, int64_t> > mapBobUnConnectedHeaders;
 extern CTweak<unsigned int> maxBlocksInTransitPerPeer;
 extern CTweak<uint64_t> grapheneMinVersionSupported;
 extern CTweak<uint64_t> grapheneMaxVersionSupported;
@@ -1596,6 +1599,313 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         CheckBlockIndex(chainparams.GetConsensus());
     }
 
+    else if (strCommand == NetMsgType::BOBTAIL_HEADERS) // Ignore headers received while importing
+    {
+        if (fImporting)
+        {
+            LOG(NET, "skipping processing of HEADERS because importing\n");
+            return true;
+        }
+        if (fReindex)
+        {
+            LOG(NET, "skipping processing of HEADERS because reindexing\n");
+            return true;
+        }
+        std::vector<CBobtailBlockHeader> headers;
+
+        // Bypass the normal CBlock deserialization, as we don't want to risk deserializing 2000 full blocks.
+        unsigned int nCount = ReadCompactSize(vRecv);
+        if (nCount > MAX_HEADERS_RESULTS)
+        {
+            dosMan.Misbehaving(pfrom, 20);
+            return error("headers message size = %u", nCount);
+        }
+        headers.resize(nCount);
+        for (unsigned int n = 0; n < nCount; n++)
+        {
+            vRecv >> headers[n];
+            //ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
+        }
+
+        LOCK(cs_main);
+
+        // Nothing interesting. Stop asking this peers for more headers.
+        if (nCount == 0)
+            return true;
+
+        // Check all headers to make sure they are continuous before attempting to accept them.
+        // This prevents and attacker from keeping us from doing direct fetch by giving us out
+        // of order headers.
+        bool fNewUnconnectedHeaders = false;
+        uint256 hashLastBlock;
+        hashLastBlock.SetNull();
+        for (const CBobtailBlockHeader &header : headers)
+        {
+            // check that the first header has a previous block in the blockindex.
+            if (hashLastBlock.IsNull())
+            {
+                if (LookupBlockIndex(header.hashPrevBlock))
+                    hashLastBlock = header.hashPrevBlock;
+            }
+
+            // Add this header to the map if it doesn't connect to a previous header
+            if (header.hashPrevBlock != hashLastBlock)
+            {
+                // If we still haven't finished downloading the initial headers during node sync and we get
+                // an out of order header then we must disconnect the node so that we can finish downloading
+                // initial headers from a diffeent peer. An out of order header at this point is likely an attack
+                // to prevent the node from syncing.
+                if (header.GetBlockTime() < GetAdjustedTime() - 24 * 60 * 60)
+                {
+                    pfrom->fDisconnect = true;
+                    return error("non-continuous-headers sequence during node sync - disconnecting peer=%s",
+                        pfrom->GetLogName());
+                }
+                fNewUnconnectedHeaders = true;
+            }
+
+            // if we have an unconnected header then add every following header to the unconnected headers cache.
+            if (fNewUnconnectedHeaders)
+            {
+                uint256 hash = header.GetHash();
+                if (mapBobUnConnectedHeaders.size() < MAX_UNCONNECTED_HEADERS)
+                    mapBobUnConnectedHeaders[hash] = std::make_pair(header, GetTime());
+
+                // update hashLastUnknownBlock so that we'll be able to download the block from this peer even
+                // if we receive the headers, which will connect this one, from a different peer.
+                requester.UpdateBlockAvailability(pfrom->GetId(), hash);
+            }
+
+            hashLastBlock = header.GetHash();
+        }
+        // return without error if we have an unconnected header.  This way we can try to connect it when the next
+        // header arrives.
+        if (fNewUnconnectedHeaders)
+            return true;
+
+        // If possible add any previously unconnected headers to the headers vector and remove any expired entries.
+        std::map<uint256, std::pair<CBobtailBlockHeader, int64_t> >::iterator mi = mapBobUnConnectedHeaders.begin();
+        while (mi != mapBobUnConnectedHeaders.end())
+        {
+            std::map<uint256, std::pair<CBobtailBlockHeader, int64_t> >::iterator toErase = mi;
+
+            // Add the header if it connects to the previous header
+            if (headers.back().GetHash() == (*mi).second.first.hashPrevBlock)
+            {
+                headers.push_back((*mi).second.first);
+                mapBobUnConnectedHeaders.erase(toErase);
+
+                // if you found one to connect then search from the beginning again in case there is another
+                // that will connect to this new header that was added.
+                mi = mapBobUnConnectedHeaders.begin();
+                continue;
+            }
+
+            // Remove any entries that have been in the cache too long.  Unconnected headers should only exist
+            // for a very short while, typically just a second or two.
+            int64_t nTimeHeaderArrived = (*mi).second.second;
+            uint256 headerHash = (*mi).first;
+            mi++;
+            if (GetTime() - nTimeHeaderArrived >= UNCONNECTED_HEADERS_TIMEOUT)
+            {
+                mapBobUnConnectedHeaders.erase(toErase);
+            }
+            // At this point we know the headers in the list received are known to be in order, therefore,
+            // check if the header is equal to some other header in the list. If so then remove it from the cache.
+            else
+            {
+                for (const CBobtailBlockHeader &header : headers)
+                {
+                    if (header.GetHash() == headerHash)
+                    {
+                        mapBobUnConnectedHeaders.erase(toErase);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Check and accept each header in dependency order (oldest block to most recent)
+        CBlockIndex *pindexLast = nullptr;
+        int i = 0;
+        for (const CBobtailBlockHeader &header : headers)
+        {
+            CValidationState state;
+            if (!AcceptBobtailBlockHeader(header, state, chainparams, &pindexLast))
+            {
+                int nDos;
+                if (state.IsInvalid(nDos))
+                {
+                    if (nDos > 0)
+                    {
+                        dosMan.Misbehaving(pfrom, nDos);
+                    }
+                }
+                // all headers from this one forward reference a fork that we don't follow, so erase them
+                headers.erase(headers.begin() + i, headers.end());
+                nCount = headers.size();
+                break;
+            }
+            else
+            {
+               PV->UpdateBobMostWorkOurFork(header);
+            }
+            i++;
+        }
+
+        //if (pindexLast)
+        //    requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
+
+        if (nCount == MAX_HEADERS_RESULTS && pindexLast)
+        {
+            // Headers message had its maximum size; the peer may have more headers.
+            // TODO: optimize: if pindexLast is an ancestor of chainActive.Tip or pindexBestHeader, continue
+            // from there instead.
+            LOG(NET, "more getheaders (%d) to end to peer=%s (startheight:%d)\n", pindexLast->nHeight,
+                pfrom->GetLogName(), pfrom->nStartingHeight);
+            pfrom->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexLast), uint256());
+
+            {
+                int64_t now = GetTime();
+                CNodeStateAccessor state(nodestate, pfrom->GetId());
+                DbgAssert(state != nullptr, );
+                if (state != nullptr)
+                    state->nSyncStartTime = now; // reset the time because more headers needed
+            }
+
+            // During the process of IBD we need to update block availability for every connected peer. To do that we
+            // request, from each NODE_NETWORK peer, a header that matches the last blockhash found in this recent set
+            // of headers. Once the requested header is received then the block availability for this peer will get
+            // updated.
+            if (IsInitialBlockDownload())
+            {
+                // To maintain locking order with cs_main we have to addrefs for each node and then release
+                // the lock on cs_vNodes before aquiring cs_main further down.
+                std::vector<CNode *> vNodesCopy;
+                {
+                    LOCK(cs_vNodes);
+                    vNodesCopy = vNodes;
+                    for (CNode *pnode : vNodes)
+                    {
+                        pnode->AddRef();
+                    }
+                }
+
+                for (CNode *pnode : vNodesCopy)
+                {
+                    if (!pnode->fClient && pnode != pfrom)
+                    {
+                        bool ask = false;
+                        {
+                            CNodeStateAccessor state(nodestate, pfrom->GetId());
+                            DbgAssert(state != nullptr, ); // do not return, we need to release refs later.
+                            if (state == nullptr)
+                                continue;
+
+                            ask = (state->pindexBestKnownBlock == nullptr ||
+                                   pindexLast->nChainWork > state->pindexBestKnownBlock->nChainWork);
+                        } // let go of the CNodeState lock before we PushMessage since that is trapping op.
+
+                        if (ask)
+                        {
+                            // We only want one single header so we pass a null for CBlockLocator.
+                            pnode->PushMessage(NetMsgType::GETHEADERS, CBlockLocator(), pindexLast->GetBlockHash());
+                            LOG(NET | BLK, "Requesting header for blockavailability, peer=%s block=%s height=%d\n",
+                                pnode->GetLogName(), pindexLast->GetBlockHash().ToString().c_str(),
+                                pindexBestHeader.load()->nHeight);
+                        }
+                    }
+                }
+
+                // release refs
+                for (CNode *pnode : vNodesCopy)
+                    pnode->Release();
+            }
+        }
+
+        bool fCanDirectFetch = CanDirectFetch(chainparams.GetConsensus());
+
+        {
+            CNodeStateAccessor state(nodestate, pfrom->GetId());
+            DbgAssert(state != nullptr, return false);
+
+            // During the initial peer handshake we must receive the initial headers which should be greater
+            // than or equal to our block height at the time of requesting GETHEADERS. This is because the peer has
+            // advertised a height >= to our own. Furthermore, because the headers max returned is as much as 2000 this
+            // could not be a mainnet re-org.
+            if (!state->fFirstHeadersReceived)
+            {
+                // We want to make sure that the peer doesn't just send us any old valid header. The block height of the
+                // last header they send us should be equal to our block height at the time we made the GETHEADERS
+                // request.
+                if (pindexLast && state->nFirstHeadersExpectedHeight <= pindexLast->nHeight)
+                {
+                    state->fFirstHeadersReceived = true;
+                    LOG(NET, "Initial headers received for peer=%s\n", pfrom->GetLogName());
+                }
+
+                // Allow for very large reorgs (> 2000 blocks) on the nol test chain or other test net.
+                if (Params().NetworkIDString() != "main" && Params().NetworkIDString() != "regtest")
+                    state->fFirstHeadersReceived = true;
+            }
+        }
+
+        // update the syncd status.  This should come before we make calls to requester.AskFor().
+        IsChainNearlySyncdInit();
+        IsInitialBlockDownloadInit();
+
+        // If this set of headers is valid and ends in a block with at least as
+        // much work as our tip, download as much as possible.
+        if (fCanDirectFetch && pindexLast && pindexLast->IsValid(BLOCK_VALID_TREE) &&
+            chainActive.Tip()->nChainWork <= pindexLast->nChainWork)
+        {
+            // Set tweak value.  Mostly used in testing direct fetch.
+            if (maxBlocksInTransitPerPeer.Value() != 0)
+                pfrom->nMaxBlocksInTransit.store(maxBlocksInTransitPerPeer.Value());
+
+            std::vector<CBlockIndex *> vToFetch;
+            CBlockIndex *pindexWalk = pindexLast;
+            // Calculate all the blocks we'd need to switch to pindexLast.
+            while (pindexWalk && !chainActive.Contains(pindexWalk))
+            {
+                vToFetch.push_back(pindexWalk);
+                pindexWalk = pindexWalk->pprev;
+            }
+
+            // Download as much as possible, from earliest to latest.
+            unsigned int nAskFor = 0;
+            for (auto pindex_iter = vToFetch.rbegin(); pindex_iter != vToFetch.rend(); pindex_iter++)
+            {
+                CBlockIndex *pindex = *pindex_iter;
+                // pindex must be nonnull because we populated vToFetch a few lines above
+                CInv inv(MSG_BOBTAILBLOCK, pindex->GetBlockHash());
+                if (!AlreadyHaveBlock(inv))
+                {
+                    requester.AskFor(inv, pfrom);
+                    LOG(REQ, "AskFor block via headers direct fetch %s (%d) peer=%d\n",
+                        pindex->GetBlockHash().ToString(), pindex->nHeight, pfrom->id);
+                    nAskFor++;
+                }
+                // We don't care about how many blocks are in flight.  We just need to make sure we don't
+                // ask for more than the maximum allowed per peer because the request manager will take care
+                // of any duplicate requests.
+                if (nAskFor >= pfrom->nMaxBlocksInTransit.load())
+                {
+                    LOG(NET, "Large reorg, could only direct fetch %d blocks\n", nAskFor);
+                    break;
+                }
+            }
+            if (nAskFor > 1)
+            {
+                LOG(NET, "Downloading blocks toward %s (%d) via headers direct fetch\n",
+                    pindexLast->GetBlockHash().ToString(), pindexLast->nHeight);
+            }
+        }
+
+        CheckBlockIndex(chainparams.GetConsensus());
+    }
+
+
     // Handle Xthinblocks and Thinblocks
     else if (strCommand == NetMsgType::GET_XTHIN && !fImporting && !fReindex && IsThinBlocksEnabled())
     {
@@ -2814,6 +3124,7 @@ bool SendMessages(CNode *pto)
             }
 
             std::vector<CBlock> vHeaders;
+            std::vector<CBobtailBlockHeader> vBobtailHeaders;
             bool fRevertToInv = (!state->fPreferHeaders || vBlocksToAnnounce.size() > MAX_BLOCKS_TO_ANNOUNCE);
             CBlockIndex *pBestIndex = nullptr; // last header queued for delivery
 
@@ -2855,7 +3166,17 @@ bool SendMessages(CNode *pto)
                     if (fFoundStartingHeader)
                     {
                         // add this to the headers message
-                        vHeaders.push_back(pindex->GetBlockHeader());
+                        try
+                        {
+                            if (pindex->isBobtail)
+                                vBobtailHeaders.push_back(pindex->GetBobtailBlockHeader());
+                            else
+                                vHeaders.push_back(pindex->GetBlockHeader());
+                        }
+                        catch (const std::invalid_argument &e)
+                        {
+                            throw std::runtime_error("Unknown header type");
+                        }
                     }
                     else if (PeerHasHeader(state, pindex))
                     {
@@ -2866,7 +3187,18 @@ bool SendMessages(CNode *pto)
                         // Peer doesn't have this header but they do have the prior one.
                         // Start sending headers.
                         fFoundStartingHeader = true;
-                        vHeaders.push_back(pindex->GetBlockHeader());
+                        try
+                        {
+                            if (pindex->isBobtail)
+                                vBobtailHeaders.push_back(pindex->GetBobtailBlockHeader());
+                            else
+                                vHeaders.push_back(pindex->GetBlockHeader());
+                        }
+                        catch (const std::invalid_argument &e)
+                        {
+                            throw std::runtime_error("Unknown header type");
+                        }
+
                     }
                     else
                     {
@@ -2904,21 +3236,41 @@ bool SendMessages(CNode *pto)
                     }
                 }
             }
-            else if (!vHeaders.empty())
+            else if (!vHeaders.empty() || !vBobtailHeaders.empty())
             {
-                if (vHeaders.size() > 1)
+                if (!vHeaders.empty())
                 {
-                    LOG(NET, "%s: %u headers, range (%s, %s), to peer=%d\n", __func__, vHeaders.size(),
-                        vHeaders.front().GetHash().ToString(), vHeaders.back().GetHash().ToString(), pto->id);
+                    if (vHeaders.size() > 1)
+                    {
+                        LOG(NET, "%s: %u headers, range (%s, %s), to peer=%d\n", __func__, vHeaders.size(),
+                            vHeaders.front().GetHash().ToString(), vHeaders.back().GetHash().ToString(), pto->id);
+                    }
+                    else
+                    {
+                        LOG(NET, "%s: sending header %s to peer=%d\n", __func__, vHeaders.front().GetHash().ToString(),
+                            pto->id);
+                    }
+                    {
+                        LOCK(pto->cs_vSend);
+                        pto->PushMessage(NetMsgType::HEADERS, vHeaders);
+                    }
                 }
-                else
+                if (!vBobtailHeaders.empty())
                 {
-                    LOG(NET, "%s: sending header %s to peer=%d\n", __func__, vHeaders.front().GetHash().ToString(),
-                        pto->id);
-                }
-                {
-                    LOCK(pto->cs_vSend);
-                    pto->PushMessage(NetMsgType::HEADERS, vHeaders);
+                    if (vBobtailHeaders.size() > 1)
+                    {
+                        LOG(NET, "%s: %u headers, range (%s, %s), to peer=%d\n", __func__, vBobtailHeaders.size(),
+                            vBobtailHeaders.front().GetHash().ToString(), vBobtailHeaders.back().GetHash().ToString(), pto->id);
+                    }
+                    else
+                    {
+                        LOG(NET, "%s: sending bobtail header %s to peer=%d\n", __func__, vBobtailHeaders.front().GetHash().ToString(),
+                            pto->id);
+                    }
+                    {
+                        LOCK(pto->cs_vSend);
+                        pto->PushMessage(NetMsgType::BOBTAIL_HEADERS, vBobtailHeaders);
+                    }
                 }
                 CNodeStateAccessor(nodestate, pto->GetId())->pindexBestHeaderSent = pBestIndex;
             }
