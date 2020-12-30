@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <iomanip>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <string>
@@ -62,7 +63,7 @@ BobCompactBlock::BobCompactBlock(const CBobtailBlock &block)
     : nSize(0), nonce(GetRand(std::numeric_limits<uint64_t>::max())), nWaitingFor(0), coinbase(block.vtx[0]), ::CBobtailBlock(block)
 {
     FillShortTxIDSelector();
-
+       
     for (auto subblock : block.vdag)
     {
         shorttxids.push_back(BobGetShortID(subblock->GetHash()));
@@ -168,6 +169,8 @@ bool BobCompactBlock::process(CNode *pfrom)
     std::set<uint64_t> setHashesToRequest;
     unsigned int nWaitingForTxns = nWaitingFor;
 
+    std::copy(shorttxids.begin(), shorttxids.end(), back_inserter(vSubHashes));
+
     bool fMerkleRootCorrect = true;
     uint256 merkleroot;
     {
@@ -212,6 +215,7 @@ bool BobCompactBlock::process(CNode *pfrom)
             {
                 return false;
             }
+            vtx[0] = coinbase;
             merkleroot = BlockMerkleRoot(*this);
             if (hashMerkleRoot != merkleroot)
             {
@@ -387,6 +391,7 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             return false;
     }
 
+    bobcmpctblock->vtx[0] = bobcmpctblock->coinbase;
     std::vector<uint256> vTxHashes256;
     for (auto &tx : bobcmpctblock->vtx)
     {
@@ -880,7 +885,7 @@ void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv
         uint64_t nSizeBlock = pblock->GetBlockSize();
 
         // Send a compact block
-        if (compactBlock.GetSize() < nSizeBlock)
+        if (true)//compactBlock.GetSize() < nSizeBlock)
         {
             bobcompactdata.UpdateOutBound(compactBlock.GetSize(), nSizeBlock);
             pfrom->PushMessage(NetMsgType::BOBCMPCTBLOCK, compactBlock);
@@ -893,7 +898,7 @@ void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv
         }
         else // send full block
         {
-            pfrom->PushMessage(NetMsgType::BLOCK, *pblock);
+            pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, *pblock);
             LOG(CMPCT, "Sent regular block instead - BobCompactBlock size: %d vs block size: %d , peer: %s\n",
                 compactBlock.GetSize(), nSizeBlock, pfrom->GetLogName());
         }

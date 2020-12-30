@@ -898,7 +898,7 @@ bool CSBGrapheneBlock::process(CNode *pfrom, std::string strCommand)
     }
 
     this->nWaitingFor = setHashesToRequest.size();
-    LOG(GRAPHENE, "Graphene block waiting for: %d, total txns: %d received txns: %d\n", this->nWaitingFor,
+    LOG(GRAPHENE, "Graphene subblock waiting for: %d, total txns: %d received txns: %d\n", this->nWaitingFor,
         vtx.size(), mapMissingTx.size());
 
     // If there are any missing hashes or transactions then we request them here.

@@ -43,7 +43,7 @@ extern bool AbortNode(CValidationState &state, const std::string &strMessage, co
 bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState &state)
 {
     // Check proof-of-work
-    if (CheckBobtailPoW(header, Params().GetConsensus(), BOBTAIL_K))
+    if (!CheckBobtailPoW(header, Params().GetConsensus(), BOBTAIL_K))
     {
         return state.DoS(50, error("%s(): bobtail block validity check failed", __func__), REJECT_INVALID, "high-hash");
     }
@@ -122,8 +122,6 @@ CBlockIndex *AddToBlockIndex(const CBobtailBlockHeader &block)
     // to avoid miners withholding blocks but broadcasting headers, to get a
     // competitive advantage.
     pindexNew->nSequenceId = 0;
-    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
-    pindexNew->phashBlock = &((*mi).first);
     BlockMap::iterator miPrev = mapBlockIndex.find(block.hashPrevBlock);
     if (miPrev != mapBlockIndex.end())
     {
@@ -136,6 +134,8 @@ CBlockIndex *AddToBlockIndex(const CBobtailBlockHeader &block)
             pindexNew->nStatus |= BLOCK_FAILED_CHILD;
         }
     }
+    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
+    pindexNew->phashBlock = &((*mi).first);
     pindexNew->nChainWork = (pindexNew->pprev ? pindexNew->pprev->nChainWork : 0) + GetBlockProof(*pindexNew);
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
 

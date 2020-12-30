@@ -195,6 +195,8 @@ public:
     //! Verification status of this block. See enum BlockStatus
     unsigned int nStatus;
 
+    bool isBobtail;
+
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
@@ -202,6 +204,8 @@ public:
     uint64_t nTime;
     unsigned int nBits;
     unsigned int nNonce;
+    // Needed for bobtail blocks only
+    std::vector<uint256> subblockHashes;
 
     //! Sequential id assigned to distinguish order in which blocks are received.
     uint64_t nSequenceId;
@@ -225,6 +229,7 @@ public:
         nSequenceId = 0;
         nTimeReceived = 0;
 
+        isBobtail = false;
         nVersion = 0;
         hashMerkleRoot = uint256();
         nTime = 0;
@@ -237,6 +242,7 @@ public:
     {
         SetNull();
 
+        isBobtail = false;
         nVersion = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime = block.nTime;
@@ -248,12 +254,14 @@ public:
     {
         SetNull();
 
+        isBobtail = true;
         nVersion = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime = block.nTime;
         nBits = block.nBits;
         // bobtail blocks dont have a nonce
         //nNonce = block.nNonce;
+        subblockHashes = block.subblockHashes;
     }
 
     CDiskBlockPos GetBlockPos() const
@@ -280,6 +288,11 @@ public:
 
     CBlockHeader GetBlockHeader() const
     {
+        if (isBobtail)
+	{
+            throw std::invalid_argument("Incorrect header type");
+	}
+
         CBlockHeader block;
         block.nVersion = nVersion;
         if (pprev)
@@ -288,6 +301,22 @@ public:
         block.nTime = nTime;
         block.nBits = nBits;
         block.nNonce = nNonce;
+        return block;
+    }
+
+    CBobtailBlockHeader GetBobtailBlockHeader() const
+    {
+        if (!isBobtail)
+            throw std::invalid_argument("Incorrect bobtail header type");
+
+        CBobtailBlockHeader block;
+        block.nVersion = nVersion;
+        if (pprev)
+            block.hashPrevBlock = pprev->GetBlockHash();
+        block.hashMerkleRoot = hashMerkleRoot;
+        block.nTime = nTime;
+        block.nBits = nBits;
+        block.subblockHashes = subblockHashes;
         return block;
     }
 

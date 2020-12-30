@@ -448,6 +448,20 @@ void CParallelValidation::UpdateMostWorkOurFork(const CBlockHeader &header)
     }
 }
 
+void CParallelValidation::UpdateBobMostWorkOurFork(const CBobtailBlockHeader &header)
+{
+    LOCK(cs_blockvalidationthread);
+    map<boost::thread::id, CHandleBlockMsgThreads>::iterator mi = mapBlockValidationThreads.begin();
+    while (mi != mapBlockValidationThreads.end())
+    {
+        // check if this new header connects to this block and if so then update the nMostWorkOurFork
+        if ((*mi).second.hash == header.hashPrevBlock && (*mi).second.nMostWorkOurFork < header.nBits)
+            (*mi).second.nMostWorkOurFork = header.nBits;
+        mi++;
+    }
+}
+
+
 uint32_t CParallelValidation::MaxWorkChainBeingProcessed()
 {
     uint32_t nMaxWork = 0;

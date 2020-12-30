@@ -26,6 +26,7 @@ const char *GETBLOCKS = "getblocks";
 const char *GETHEADERS = "getheaders";
 const char *TX = "tx";
 const char *HEADERS = "headers";
+const char *BOBTAIL_HEADERS = "bobheaders";
 const char *BLOCK = "block";
 const char *GETADDR = "getaddr";
 const char *MEMPOOL = "mempool";

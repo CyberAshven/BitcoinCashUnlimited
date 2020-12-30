@@ -6,6 +6,7 @@
 #define BITCOIN_PARALLEL_H
 
 #include "checkqueue.h"
+#include "bobtail/bobtailblock.h"
 #include "consensus/validation.h"
 #include "main.h"
 #include "primitives/block.h"
@@ -235,6 +236,7 @@ public:
 
     /** Update the nMostWorkOurFork when a new header arrives */
     void UpdateMostWorkOurFork(const CBlockHeader &header);
+    void UpdateBobMostWorkOurFork(const CBobtailBlockHeader &header);
 
     /** Update the nMostWorkOurFork when a new header arrives */
     uint32_t MaxWorkChainBeingProcessed();

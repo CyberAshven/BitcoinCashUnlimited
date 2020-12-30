@@ -201,6 +201,7 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
         for (auto &dagnode : bestdag)
         {
             pblock->vdag.push_back(std::make_shared<CSubBlock>(dagnode.subblock));
+            pblock->subblockHashes.push_back(dagnode.subblock.GetHash());
         }
         pblock->vtx[0] =
             coinbaseTx(scriptPubKeyIn, nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
