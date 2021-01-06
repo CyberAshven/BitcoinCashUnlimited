@@ -289,7 +289,9 @@ public:
     CBlockHeader GetBlockHeader() const
     {
         if (isBobtail)
+	{
             throw std::invalid_argument("Incorrect header type");
+	}
 
         CBlockHeader block;
         block.nVersion = nVersion;
@@ -305,7 +307,7 @@ public:
     CBobtailBlockHeader GetBobtailBlockHeader() const
     {
         if (!isBobtail)
-            throw std::invalid_argument("Incorrect header type");
+            throw std::invalid_argument("Incorrect bobtail header type");
 
         CBobtailBlockHeader block;
         block.nVersion = nVersion;

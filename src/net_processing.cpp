@@ -1197,6 +1197,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
 
         std::vector<CBlock> vHeaders;
+        std::vector<CBobtailBlockHeader> vBobHeaders;
         {
             LOCK(cs_main); // for chainActive
             if (!locator.IsNull())
@@ -1213,7 +1214,10 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 hashStop.ToString(), pfrom->GetLogName());
             for (; pindex; pindex = chainActive.Next(pindex))
             {
-                vHeaders.push_back(pindex->GetBlockHeader());
+		if (pindex->isBobtail)
+                    vBobHeaders.push_back(pindex->GetBobtailBlockHeader());
+		else
+                    vHeaders.push_back(pindex->GetBlockHeader());
                 if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                     break;
             }
@@ -1226,7 +1230,10 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             CNodeStateAccessor state(nodestate, pfrom->GetId());
             state->pindexBestHeaderSent = pindex ? pindex : chainActive.Tip();
         }
-        pfrom->PushMessage(NetMsgType::HEADERS, vHeaders);
+	if (!vHeaders.empty())
+            pfrom->PushMessage(NetMsgType::HEADERS, vHeaders);
+	if (!vBobHeaders.empty())
+            pfrom->PushMessage(NetMsgType::BOBTAIL_HEADERS, vHeaders);
     }
 
 
