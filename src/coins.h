@@ -44,34 +44,6 @@ struct CCoinsStats
 };
 
 
-class SaltedOutpointHasher
-{
-private:
-    /** Salt */
-    const uint64_t k0, k1;
-
-public:
-    SaltedOutpointHasher();
-
-    uint64_t operator()(const COutPoint &id) const { return SipHashUint256Extra(k0, k1, id.hash, id.n); }
-};
-
-struct CCoinsCacheEntry
-{
-    Coin coin; // The actual cached data.
-    unsigned char flags;
-
-    enum Flags
-    {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1), // The parent view does not have this entry (or it is pruned).
-    };
-
-    CCoinsCacheEntry() : flags(0) {}
-    explicit CCoinsCacheEntry(Coin &&coin_) : coin(std::move(coin_)), flags(0) {}
-};
-
-typedef std::unordered_map<COutPoint, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor
