@@ -172,11 +172,11 @@ protected:
      * Make mutable so that we can "fill the cache" even from Get-methods
      * declared as "const".
      */
-    mutable uint256 hashBlock;
-    mutable uint64_t nBestCoinHeight;
     mutable CCoinsMap cacheCoins;
+    mutable uint256 hashBlock; //protected by cs_utxo
+    mutable uint64_t nBestCoinHeight; // protected by cs_utxo
     /* Cached dynamic memory usage for the inner Coin objects. */
-    mutable size_t cachedCoinsUsage;
+    mutable size_t cachedCoinsUsage; // protected by cs_utxo
 
     /**
      * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on
