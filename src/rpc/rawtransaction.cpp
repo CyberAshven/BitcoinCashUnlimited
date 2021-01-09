@@ -1197,11 +1197,14 @@ UniValue signrawtransaction(const UniValue &params, bool fHelp)
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
         {
-            WRITELOCK(view.cs_utxo);
+            bool spent;
             for (const CTxIn &txin : mergedTx.vin)
             {
                 // Load entries from viewChain into view; can fail.
-                view._AccessCoin(txin.prevout);
+                if (view.HaveCoinInCache(txin.prevout, spent) == false)
+                {
+                    view.GetCoinFromDB(txin.prevout);
+                }
             }
         }
 
