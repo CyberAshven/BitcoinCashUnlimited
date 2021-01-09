@@ -138,7 +138,6 @@ BITCOIN_CORE_H = \
   checkqueue.h \
   clientversion.h \
   coincontrol.h \
-  coins.h \
   compat.h \
   compat/byteswap.h \
   compat/endian.h \
@@ -239,6 +238,9 @@ BITCOIN_CORE_H = \
   util.h \
   utilmoneystr.h \
   utiltime.h \
+  utxo/coin.h \
+  utxo/coinmap.h \
+  utxo/coins.h \
   validation/forks.h \
   validation/validation.h \
   validation/verifydb.h \
@@ -518,8 +520,8 @@ libbitcoin_common_a_SOURCES = \
   base58.cpp \
   cashaddr.cpp \
   cashaddrenc.cpp \
+  chain.cpp \
   chainparams.cpp \
-  coins.cpp \
   compressor.cpp \
   config.cpp \
   core_read.cpp \
@@ -532,8 +534,8 @@ libbitcoin_common_a_SOURCES = \
   protocol.cpp \
   script/sign.cpp \
   script/standard.cpp \
+  utxo/coins.cpp \
   versionbits.cpp \
-  chain.cpp \
   $(BITCOIN_CORE_H)
 
 # util: shared between all executables.
