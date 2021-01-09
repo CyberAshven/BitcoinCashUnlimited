@@ -54,8 +54,6 @@ checkqueue.h
 clientversion.cpp
 clientversion.h
 coincontrol.h
-coins.cpp
-coins.h
 config.cpp
 config.h
 compat.h
@@ -188,6 +186,10 @@ utilstrencodings.cpp
 utilstrencodings.h
 utiltime.cpp
 utiltime.h
+utxo/coin.h
+utxo/coinmap.h
+utxo/coins.cpp
+utxo/coins.h
 validation/forks.cpp
 validation/forks.h
 validation/validation.cpp
