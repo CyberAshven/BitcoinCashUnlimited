@@ -9,7 +9,7 @@
 
 #include "blockstorage/dbabstract.h"
 #include "chain.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "dbwrapper.h"
 
 #include <map>

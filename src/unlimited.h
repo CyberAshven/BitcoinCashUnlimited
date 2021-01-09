@@ -9,7 +9,7 @@
 #include "blockrelay/thinblock.h"
 #include "chain.h"
 #include "checkqueue.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "consensus/params.h"
 #include "consensus/validation.h"
 #include "leakybucket.h"

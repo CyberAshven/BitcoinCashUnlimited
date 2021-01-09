@@ -9,7 +9,7 @@
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"

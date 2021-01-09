@@ -14,7 +14,7 @@
 
 // TODO remove the following dependencies
 #include "chain.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "utilmoneystr.h"
 
 #include <boost/scope_exit.hpp>

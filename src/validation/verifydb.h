@@ -9,7 +9,7 @@
 #define BITCOIN_VERIFYDB_H
 
 #include "chainparams.h"
-#include "coins.h"
+#include "utxo/coins.h"
 
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB

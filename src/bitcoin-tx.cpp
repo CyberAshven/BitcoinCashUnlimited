@@ -10,7 +10,7 @@
 #include "base58.h"
 #include "chainparams.h"
 #include "clientversion.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "consensus/consensus.h"
 #include "core_io.h"
 #include "dstencode.h"

@@ -11,7 +11,7 @@
 #include "blockstorage/sequential_files.h"
 #include "chainparams.h"
 #include "checkpoints.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "consensus/validation.h"
 #include "hashwrapper.h"
 #include "main.h"

@@ -7,7 +7,7 @@
 #include "base58.h"
 #include "blockstorage/blockstorage.h"
 #include "chain.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "consensus/validation.h"
 #include "core_io.h"
 #include "dstencode.h"

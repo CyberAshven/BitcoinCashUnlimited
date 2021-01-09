@@ -11,7 +11,7 @@
 #include "blockrelay/graphene.h"
 #include "cashaddr.h"
 #include "chain.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "compressor.h"
 #include "consensus/merkle.h"
 #include "extversionmessage.h"

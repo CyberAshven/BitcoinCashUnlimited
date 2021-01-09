@@ -14,7 +14,7 @@
 
 #include "amount.h"
 #include "chain.h"
-#include "coins.h"
+#include "utxo/coins.h"
 #include "consensus/consensus.h"
 #include "fs.h"
 #include "net.h"
