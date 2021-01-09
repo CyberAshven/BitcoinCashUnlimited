@@ -54,25 +54,24 @@ public:
         const uint64_t nBestCoinHeight,
         size_t &nChildCachedCoinsUsage)
     {
-        for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();)
+        CCoinsMap::iterator it = mapCoins.begin();
+        uint8_t i = 0;
+        while (it != mapCoins.end())
         {
-            if (it->second.flags & CCoinsCacheEntry::DIRTY)
+            // Same optimization used in CCoinsViewDB is to only write dirty entries.
+            map_[it->first] = it->second.coin;
+            if (it->second.coin.IsSpent() && InsecureRandRange(3) == 0)
             {
-                // Same optimization used in CCoinsViewDB is to only write dirty entries.
-                map_[it->first] = it->second.coin;
-                if (it->second.coin.IsSpent() && InsecureRandRange(3) == 0)
-                {
-                    // Randomly delete empty entries on write.
-                    map_.erase(it->first);
-                }
-                nChildCachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
-                mapCoins.erase(it++);
+                // Randomly delete empty entries on write.
+                map_.erase(it->first);
             }
-            else
-                it++;
+            nChildCachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
+            it = mapCoins.erase(i, it);
         }
         if (!hashBlock.IsNull())
+        {
             hashBestBlock_ = hashBlock;
+        }
         return true;
     }
 
@@ -86,13 +85,10 @@ public:
     void SelfTest() const
     {
         // Manually recompute the dynamic usage of the whole data, and compare it.
-        size_t ret = memusage::DynamicUsage(cacheCoins);
-        size_t count = 0;
-        for (CCoinsMap::iterator it = cacheCoins.begin(); it != cacheCoins.end(); it++)
-        {
-            ret += it->second.coin.DynamicMemoryUsage();
-            ++count;
-        }
+        size_t ret = cacheCoins.DynamicUsage();
+        size_t count = cacheCoins.size();
+        CCoinsMap::iterator it;
+        ret += cacheCoins.CalculateMemoryUsageUsingCoins();
         BOOST_CHECK_EQUAL(GetCacheSize(), count);
         BOOST_CHECK_EQUAL(DynamicMemoryUsage(), ret);
     }
@@ -157,8 +153,8 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
             }
             else
             {
-                WRITELOCK(stack.back()->cs_utxo);
-                const Coin &entry = stack.back()->_AccessCoin(COutPoint(txid, 0));
+                Coin entry;
+                stack.back()->GetCoin(COutPoint(txid, 0), entry);
                 BOOST_CHECK(coin == entry);
             }
 
@@ -216,9 +212,11 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
                 bool have = stack.back()->HaveCoin(it->first);
                 bool isspent = true;
                 {
-                    WRITELOCK(stack.back()->cs_utxo);
-                    const Coin &coin = stack.back()->_AccessCoin(it->first);
-                    isspent = coin.IsSpent();
+                    Coin coin;
+                    if (stack.back()->GetCoin(it->first, coin))
+                    {
+                        isspent = coin.IsSpent();
+                    }
                     BOOST_CHECK(have == !isspent);
                     BOOST_CHECK(coin == it->second);
                 }
@@ -430,14 +428,14 @@ size_t InsertCoinsMapEntry(CCoinsMap &map, CAmount value, char flags)
     CCoinsCacheEntry entry;
     entry.flags = flags;
     SetCoinsValue(value, entry.coin);
-    auto inserted = map.emplace(OUTPOINT, std::move(entry));
+    auto inserted = map.emplace(OUTPOINT, entry);
     assert(inserted.second);
     return inserted.first->second.coin.DynamicMemoryUsage();
 }
 
-void GetCoinsMapEntry(const CCoinsMap &map, CAmount &value, char &flags)
+void GetCoinsMapEntry(CCoinsMap &map, CAmount &value, char &flags)
 {
-    auto it = map.find(OUTPOINT);
+    CCoinsMap::iterator it = map.find(OUTPOINT);
     if (it == map.end())
     {
         value = ABSENT;
@@ -492,8 +490,8 @@ void CheckAccessCoin(CAmount base_value,
     SingleEntryCacheTest test(base_value, cache_value, cache_flags);
 
     {
-        WRITELOCK(test.cache.cs_utxo);
-        test.cache._AccessCoin(OUTPOINT);
+        Coin coin;
+        test.cache.GetCoin(OUTPOINT, coin);
     }
     test.cache.SelfTest();
 
