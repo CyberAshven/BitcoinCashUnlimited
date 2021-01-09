@@ -4,15 +4,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_COINS_H
-#define BITCOIN_COINS_H
+#ifndef BITCOIN_UTXO_COINS_H
+#define BITCOIN_UTXO_COINS_H
 
-#include "compressor.h"
+#include "coinmap.h"
 #include "core_memusage.h"
-#include "hashwrapper.h"
-#include "memusage.h"
-#include "serialize.h"
-#include "sync.h"
 #include "uint256.h"
 
 #include <assert.h>
@@ -42,8 +38,6 @@ struct CCoinsStats
     {
     }
 };
-
-
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor
@@ -80,12 +74,7 @@ public:
     virtual bool HaveCoin(const COutPoint &outpoint) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
-    virtual uint256 _GetBestBlock() const;
-    uint256 GetBestBlock() const
-    {
-        READLOCK(cs_utxo);
-        return _GetBestBlock();
-    }
+    virtual uint256 GetBestBlock() const;
 
     //! Do a bulk modification (multiple Coin changes + BestBlock change).
     //! The passed mapCoins can be modified.
@@ -112,9 +101,9 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
+    uint256 GetBestBlock() const override;
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     bool HaveCoin(const COutPoint &outpoint) const override;
-    uint256 _GetBestBlock() const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
         const uint256 &hashBlock,
@@ -135,7 +124,7 @@ class CoinModifier
 {
 protected:
     const CCoinsViewCache *cache;
-    CCoinsMap::const_iterator it;
+    CCoinsMap::iterator it;
     const Coin *coin;
 
 public:
@@ -156,9 +145,10 @@ class CoinAccessor
 {
 protected:
     const CCoinsViewCache *cache;
-    CCoinsMap::const_iterator it;
+    CCoinsMap::iterator it;
     const Coin *coin;
-    CDeferredSharedLocker lock;
+    COutPoint output;
+    bool found;
 
 public:
     operator bool() const { return coin != nullptr; }
@@ -185,19 +175,33 @@ protected:
     mutable uint256 hashBlock;
     mutable uint64_t nBestCoinHeight;
     mutable CCoinsMap cacheCoins;
-    mutable CSharedCriticalSection csCacheInsert;
     /* Cached dynamic memory usage for the inner Coin objects. */
     mutable size_t cachedCoinsUsage;
 
+    /**
+     * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on
+     * top of a base cache.
+     */
+    CCoinsViewCache(const CCoinsViewCache &);
+
+    // returns an iterator pointing to the coin if it is in the cahce
+    // this method requires a shared_lock or lock on at least the fragment
+    // that would hold the outpoint. locking all fragments is also acceptable
+    CCoinsMap::iterator _GetCoinFromCache(const COutPoint &outpoint) const;
+
+    // returns an iterator pointing to the coin in cache once it has been
+    // put into the cache from disk if it existed on disk
+    // this method requires a lock on at least the fragment
+    // that would hold the outpoint. locking all fragments is also acceptable
+    CCoinsMap::iterator _GetCoinFromCacheOrDisk(const COutPoint &outpoint) const;
 
 public:
-    CCoinsViewCache(CCoinsView *baseIn);
+    CCoinsViewCache(CCoinsView *baseIn, uint8_t _num_fragments = 4);
 
     // Standard CCoinsView methods
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const;
     bool HaveCoin(const COutPoint &outpoint) const;
     uint256 GetBestBlock() const;
-    uint256 _GetBestBlock() const;
     void SetBestBlock(const uint256 &hashBlock);
     bool BatchWrite(CCoinsMap &mapCoins,
         const uint256 &hashBlock,
@@ -220,13 +224,6 @@ public:
      * @return     bool       A return of true only indicates the coin is in cache, but not if it is spent/unspent
      */
     bool HaveCoinInCache(const COutPoint &outpoint, bool &fSpent) const;
-
-    /**
-     * Return a reference to Coin in the cache, or a pruned one if not found. This is
-     * more efficient than GetCoin. Modifications to other cache entries are
-     * allowed while accessing the returned pointer.
-     */
-    const Coin &_AccessCoin(const COutPoint &output) const;
 
     /**
      * Add a coin. Set potential_overwrite to true if a non-pruned version may
@@ -253,8 +250,9 @@ public:
      */
     void Clear()
     {
-        WRITELOCK(cs_utxo);
+        cacheCoins.lock(__FILE__, __LINE__);
         cacheCoins.clear();
+        cacheCoins.unlock();
     }
 
     /**
@@ -278,7 +276,7 @@ public:
     void UncacheTx(const CTransaction &tx);
 
     //! Calculate the size of the cache (in number of transaction outputs)
-    unsigned int GetCacheSize() const;
+    size_t GetCacheSize() const;
 
     //! Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
@@ -306,17 +304,6 @@ public:
      * new blocks are added to the chain.
      */
     double GetPriority(const CTransaction &tx, int nHeight, CAmount &inChainInputValue) const;
-
-protected:
-    // returns an iterator pointing to the coin and lock is taken (caller must unlock when finished with iterator)
-    // If lock is nullptr, the writelock must already be taken.
-    CCoinsMap::iterator FetchCoin(const COutPoint &outpoint, CDeferredSharedLocker *lock) const;
-
-    /**
-     * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on
-     * top of a base cache.
-     */
-    CCoinsViewCache(const CCoinsViewCache &);
 };
 
 //! Utility function to add all of a transaction's outputs to a cache.
