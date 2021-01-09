@@ -13,7 +13,6 @@
 #include "util.h"
 
 #include <assert.h>
-Coin emptyCoin;
 bool CCoinsView::GetCoin(const COutPoint &outpoint, Coin &coin) const { return false; }
 bool CCoinsView::HaveCoin(const COutPoint &outpoint) const { return false; }
 uint256 CCoinsView::_GetBestBlock() const { return uint256(); }
@@ -175,7 +174,6 @@ void CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin *moveout)
     }
 }
 
-static const Coin coinEmpty;
 
 const Coin &CCoinsViewCache::_AccessCoin(const COutPoint &outpoint) const
 {
