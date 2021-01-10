@@ -283,7 +283,7 @@ public:
             ++i;
             if (i < _num_fragments)
             {
-                it = vMaps[map_num]->begin();
+                it = vMaps[i]->begin();
             }
         }
         return it;
