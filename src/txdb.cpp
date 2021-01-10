@@ -244,7 +244,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     }
     if (!hashBlock.IsNull())
     {
-        WriteBestBlock(hashBlock);
+        _WriteBestBlock(hashBlock);
     }
 
     bool ret = db.WriteBatch(batch);
