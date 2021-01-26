@@ -36,12 +36,13 @@ bool CheckBobtailPoW(const CBobtailBlockHeader &header, const Consensus::Params 
         return false;
     }
 
-    std::vector<uint256> subblockHashes (header.subblockHashes);
-    std::sort(subblockHashes.begin(), subblockHashes.end());
+    std::set<uint256> subblockHashes (header.subblockHashes);
     std::vector<arith_uint256> lowestK;
+    std::set<uint256>::iterator iter = subblockHashes.begin();
     for (int i=0;i < k-1;i++)
     {
-        lowestK.push_back(UintToArith256(subblockHashes[i]));
+        lowestK.push_back(UintToArith256(*iter));
+        iter++;
     }
 
     return CheckBobtailPoWFromOrderedProofs(lowestK, bnTarget, k);

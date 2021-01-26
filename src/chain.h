@@ -205,7 +205,8 @@ public:
     unsigned int nBits;
     unsigned int nNonce;
     // Needed for bobtail blocks only
-    std::vector<uint256> subblockHashes;
+    std::set<uint256> subblockHashes;
+    std::map<uint256, uint32_t> subblockNTxMap;
 
     //! Sequential id assigned to distinguish order in which blocks are received.
     uint64_t nSequenceId;
@@ -262,6 +263,7 @@ public:
         // bobtail blocks dont have a nonce
         //nNonce = block.nNonce;
         subblockHashes = block.subblockHashes;
+        subblockNTxMap = block.subblockNTxMap;
     }
 
     CDiskBlockPos GetBlockPos() const

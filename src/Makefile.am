@@ -142,7 +142,6 @@ BITCOIN_CORE_H = \
   bobtail/subblock_validation.h \
   bobtail/subblock.h \
   bobtail/validation.h \
-  bobtaildb.h \
   cashaddr.h \
   cashaddrenc.h \
   chain.h \
@@ -307,7 +306,6 @@ libbitcoin_server_a_SOURCES = \
   bloom.cpp \
   bobtail/bobtail_miner.cpp \
   bobtail/bobtailblock.cpp \
-  bobtail/bobtaildb.cpp \
   bobtail/compactblock.cpp \
   bobtail/compactrelay.cpp \
   bobtail/dag.cpp \

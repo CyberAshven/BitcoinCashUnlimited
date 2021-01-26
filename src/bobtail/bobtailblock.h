@@ -19,7 +19,8 @@ public:
     uint256 hashMerkleRoot;
     int64_t nTime;
     uint32_t nBits;
-    std::vector<uint256> subblockHashes;
+    std::set<uint256> subblockHashes;
+    std::map<uint256, uint32_t> subblockNTxMap;
 
     CBobtailBlockHeader() { SetNull(); }
     ADD_SERIALIZE_METHODS;
@@ -33,6 +34,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(subblockHashes);
+        READWRITE(subblockNTxMap);
     }
 
     void SetNull()
@@ -43,6 +45,7 @@ public:
         nTime = 0;
         nBits = 0;
         subblockHashes.clear();
+        subblockNTxMap.clear();
     }
 
     bool IsNull() const { return (nBits == 0); }
@@ -62,7 +65,10 @@ public:
 
     // memory only
     std::vector<std::shared_ptr<CSubBlock>> vdag;
-    std::map<std::shared_ptr<CSubBlock>, std::set<unsigned char>> dagEncodingMap;
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > decodedMap;
+
+    // no network
+    std::map<uint256, std::pair<CSubBlockHeader, std::set<uint8_t> > > dagEncodingMap;
 
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
     std::set<uint256> setUnVerifiedTxns;
@@ -77,7 +83,17 @@ public:
         header.nTime = nTime;
         header.nBits = nBits;
         header.subblockHashes = subblockHashes;
+        header.subblockNTxMap = subblockNTxMap;
         return header;
+    }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action)
+    {
+        READWRITE(*(CBobtailBlockHeader *)this);
+        READWRITE(dagEncodingMap);
+        READWRITE(vtx);
     }
 
     void SetNull()
@@ -88,7 +104,7 @@ public:
         CBobtailBlockHeader::SetNull();
     }
     void UpdateTxLists();
-    std::map<CSubBlockRef, std::vector<CTransactionRef>> DecodeTxLists();
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists();
     // Return the serialized block size in bytes. This is only done once and then the result stored
     // in nBlockSize for future reference, saving unncessary and expensive serializations.
     uint64_t GetBlockSize() const;
@@ -106,36 +122,52 @@ public:
         CScriptNum coinbaseHeight(heightScript, false, numlen);
         return coinbaseHeight.getint();
     }
+
+    bool PopulateVdag()
+    {
+        bool success = true;
+        vdag.clear();
+        vdag.resize(subblockHashes.size());
+        int i = 0;
+        for (auto &hash : subblockHashes)
+        {
+            CSubBlockRef subblock = std::make_shared<CSubBlock>();
+            success &= GetSubBlock(hash, *subblock);
+            vdag[i++] = subblock;
+        }
+
+        return success;
+    }
+
+    bool GetSubBlock(const uint256 &hash, CSubBlock &subblock)
+    {
+        subblock.SetNull();
+        if (decodedMap.empty())
+        {
+            decodedMap = DecodeTxLists();
+        }
+        if (subblockHashes.count(hash) != 0)
+        {
+            for (const auto &entry : decodedMap)
+            {
+                if (entry.first == hash)
+                {
+                    subblock.nVersion = entry.second.first.nVersion;
+                    subblock.hashPrevBlock = entry.second.first.hashPrevBlock;
+                    subblock.hashMerkleRoot = entry.second.first.hashMerkleRoot;
+                    subblock.nTime = entry.second.first.nTime;
+                    subblock.nBits = entry.second.first.nBits;
+                    subblock.nNonce = entry.second.first.nNonce;
+                    subblock.vtx = entry.second.second;
+                    return true;
+                }
+            }
+            return false;
+        }
+        return false;
+    }
 };
 
 typedef std::shared_ptr<CBobtailBlock> CBobtailBlockRef;
-
-class CBobtailBlockDisk : public CBobtailBlock
-{
-public:
-    std::vector<CSubBlockHeader> vsubblock_headers;
-public:
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action)
-    {
-        READWRITE(this->nVersion);
-        READWRITE(hashPrevBlock);
-        READWRITE(hashMerkleRoot);
-        READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(vsubblock_headers);
-        READWRITE(dagEncodingMap);
-        READWRITE(vtx);
-    }
-    void PopulateSubblockHeaders()
-    {
-        for (const auto &subblock : vdag)
-        {
-            vsubblock_headers.emplace_back(std::move(subblock->GetBlockHeader()));
-        }
-    }
-};
 
 #endif

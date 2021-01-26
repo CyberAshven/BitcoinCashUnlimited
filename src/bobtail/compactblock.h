@@ -151,6 +151,7 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(subblockHashes);
+        READWRITE(subblockNTxMap);
         READWRITE(nonce);
         READWRITE(coinbase);
 
@@ -314,7 +315,7 @@ public:
 extern CBobCompactBlockData bobcompactdata; // Singleton class
 
 bool IsBobCompactBlocksEnabled();
-void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv &inv);
+void BobSendCompactBlock(const CBobtailBlock &pblock, CNode *pfrom, const CInv &inv);
 bool IsBobCompactBlockValid(CNode *pfrom, std::shared_ptr<BobCompactBlock> compactBlock);
 
 #endif // BOBTAIL_COMPACTBLOCK_H

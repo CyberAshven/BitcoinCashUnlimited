@@ -37,8 +37,6 @@
 #include "version.h"
 
 
-extern CCriticalSection cs_bobtailblocks;
-extern std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblocks);
 extern std::atomic<int64_t> nTimeBestReceived;
 extern std::atomic<int> nPreferredDownload;
 extern int nSyncStarted;
@@ -137,11 +135,21 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_BOBTAILBLOCK)
         {
-            LOCK(cs_bobtailblocks);
-
-            if (bobtailBlocks.count(inv.hash) > 0)
+            CBobtailBlock block;
+            READLOCK(cs_mapBlockIndex);
+            auto iter = mapBlockIndex.find(inv.hash);
+            if (iter != mapBlockIndex.end())
             {
-                pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, bobtailBlocks[inv.hash]);
+                if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
+                {
+                    // We don't have the block yet, although we know about it.
+                    LOG(NET,"Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+                    vNotFound.push_back(inv);
+                }
+                else
+                {
+                    pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, block);
+                }
             }
             else
             {
@@ -150,12 +158,22 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_BOB_CMPCT_BLOCK)
         {
-            LOCK(cs_bobtailblocks);
-
-            if (bobtailBlocks.count(inv.hash) > 0)
+            CBobtailBlock block;
+            READLOCK(cs_mapBlockIndex);
+            auto iter = mapBlockIndex.find(inv.hash);
+            if (iter != mapBlockIndex.end())
             {
-                BobSendCompactBlock(std::make_shared<CBobtailBlock>(bobtailBlocks[inv.hash]), pfrom, inv);
-                LOG(CMPCT, "Sending compact bobtail block via getdata message\n");
+                if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
+                {
+                    // We don't have the block yet, although we know about it.
+                    LOG(NET,"Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+                    vNotFound.push_back(inv);
+                }
+                else
+                {
+                    BobSendCompactBlock(block, pfrom, inv);
+                    LOG(CMPCT, "Sending compact bobtail block via getdata message\n");
+                }
             }
             else
             {
@@ -990,9 +1008,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             }
             else if (inv.type == MSG_BOBTAILBLOCK)
             {
-                LOCK(cs_bobtailblocks);
-
-                if (bobtailBlocks.count(inv.hash) == 0)
+                READLOCK(cs_mapBlockIndex);
+                if (mapBlockIndex.count(inv.hash) == 0)
                 {
                     // we dont have it so request it
                     requester.AskFor(inv, pfrom);
@@ -2228,8 +2245,10 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         CBobtailBlock bobtailblock;
         vRecv >> bobtailblock;
 
-        LOCK(cs_bobtailblocks);
-        bobtailBlocks[bobtailblock.GetHash()] = bobtailblock;
+        CValidationState state;
+        const CChainParams &chainparams = Params();
+        bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
+        ProcessNewBobtailBlock(state, chainparams, pfrom, &bobtailblock, forceProcessing, nullptr);
     }
 
     // Handle full blocks
