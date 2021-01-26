@@ -30,8 +30,6 @@
 #include <boost/scope_exit.hpp>
 #include <unordered_set>
 
-extern CCriticalSection cs_bobtailblocks;
-extern std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblocks);
 extern bool fCheckForPruning;
 extern std::map<uint256, NodeId> mapBlockSource;
 extern uint64_t nBlockSequenceId;
@@ -369,6 +367,7 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
     uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
     if (block.hashMerkleRoot != hashMerkleRoot2)
     {
+        LOGA("%s != %s \n", block.hashMerkleRoot.ToString().c_str(), hashMerkleRoot2.ToString().c_str());
         return state.DoS(
             100, error("%s(): hashMerkleRoot mismatch", __func__), REJECT_INVALID, "bad-txnmrklroot", true);
     }
@@ -666,7 +665,6 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
         }
     }
 
-    const arith_uint256 nStartingChainWork = chainActive.Tip()->nChainWork;
     const int64_t timeBarrier = GetTime() - (24 * 3600 * checkScriptDays.Value());
     // Blocks that have various days of POW behind them makes them secure in that
     // real online nodes have checked the scripts.  Therefore, during initial block
@@ -950,7 +948,7 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
  * Connect a new block to chainActive. pblock is either nullptr or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
  */
-bool ConnectTip(CValidationState &state,
+bool ConnectTipBobtail(CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex *pindexNew,
     const CBobtailBlock *pblock)
@@ -993,7 +991,6 @@ bool ConnectTip(CValidationState &state,
             }
             return false;
         }
-        int64_t nStart = GetStopwatchMicros();
         bool result = view.Flush();
         nBlockSizeAtChainTip.store(pblock->GetBlockSize());
         assert(result);
@@ -1054,7 +1051,7 @@ bool ConnectTip(CValidationState &state,
  * Try to make some progress towards making pindexMostWork the active block.
  * pblock is either nullptr or a pointer to a CBlock corresponding to pindexMostWork.
  */
-bool ActivateBestChainStep(CValidationState &state,
+bool ActivateBestChainStepBobtail(CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex *pindexMostWork,
     const CBobtailBlock *pblock)
@@ -1127,7 +1124,7 @@ bool ActivateBestChainStep(CValidationState &state,
                 LOG(PARALLEL, "Returning because chain work has changed while connecting blocks\n");
                 return true;
             }
-            if (!ConnectTip(state, chainparams, pindexConnect,
+            if (!ConnectTipBobtail(state, chainparams, pindexConnect,
                     pindexConnect == pindexMostWork && fBlock ? pblock : nullptr))
             {
                 if (state.IsInvalid())
@@ -1274,7 +1271,7 @@ bool ActivateBestChainStep(CValidationState &state,
  * or an activated best chain. pblock is either nullptr or a pointer to a block
  * that is already loaded (to avoid loading it again from disk).
  */
-bool ActivateBestChain(CValidationState &state,
+bool ActivateBestChainBobtail(CValidationState &state,
     const CChainParams &chainparams,
     const CBobtailBlock *pblock,
     CNode *pfrom)
@@ -1284,8 +1281,6 @@ bool ActivateBestChain(CValidationState &state,
 
     TxAdmissionPause txlock;
     LOCK(cs_main);
-
-    bool fOneDone = false;
     do
     {
         if (shutdown_threads.load() == true)
@@ -1296,8 +1291,6 @@ bool ActivateBestChain(CValidationState &state,
         {
             return false;
         }
-
-        CBlockIndex *pindexOldTip = chainActive.Tip();
         pindexMostWork = FindMostWorkChain();
         if (!pindexMostWork)
         {
@@ -1313,7 +1306,7 @@ bool ActivateBestChain(CValidationState &state,
             }
         }
 
-        if (!ActivateBestChainStep(state, chainparams, pindexMostWork,
+        if (!ActivateBestChainStepBobtail(state, chainparams, pindexMostWork,
                 ((pblock) && pblock->GetHash() == pindexMostWork->GetBlockHash() ? pblock : nullptr)))
         {
             // If we fail to activate a chain because it is bad, send a reject message
@@ -1352,9 +1345,10 @@ bool ActivateBestChain(CValidationState &state,
         // chain. Set pblock to nullptr here to make sure as we continue we get blocks from disk.
         pindexMostWork = FindMostWorkChain();
         if (!pindexMostWork)
+        {
             return false;
+        }
         pblock = nullptr;
-        fOneDone = true;
     } while (pindexMostWork->nChainWork > chainActive.Tip()->nChainWork);
     CheckBlockIndex(chainparams.GetConsensus());
 
@@ -1381,10 +1375,10 @@ bool ProcessNewBobtailBlock(CValidationState &state,
             pblock->vtx.size(), pblock->GetBlockSize());
     }
 
-    // WARNING: cs_main is not locked here throughout but is released and then re-locked during ActivateBestChain
+    // WARNING: cs_main is not locked here throughout but is released and then re-locked during ActivateBestChainBobtail
     //          If you lock cs_main throughout ProcessNewBlock then you will in effect prevent PV from happening.
-    //          TODO: in order to lock cs_main all the way through we must remove the locking from ActivateBestChain
-    //                but it will require great care because ActivateBestChain requires cs_main however it is also
+    //          TODO: in order to lock cs_main all the way through we must remove the locking from ActivateBestChainBobtail
+    //                but it will require great care because ActivateBestChainBobtail requires cs_main however it is also
     //                called from other places.  Currently it seems best to leave cs_main here as is.
     {
         LOCK(cs_main);
@@ -1419,25 +1413,18 @@ bool ProcessNewBobtailBlock(CValidationState &state,
 		}
 		else
 		{
+			LOCK(cs_vNodes);
+			for (CNode *pnode : vNodes)
 			{
-				LOCK(cs_bobtailblocks);
-				bobtailBlocks[pblock->GetHash()] = *pblock;
-			}
-
-			{
-				LOCK(cs_vNodes);
-				for (CNode *pnode : vNodes)
-				{
-					pnode->PushInventory(CInv(MSG_BOBTAILBLOCK, pblock->GetHash()));
-				}
+				pnode->PushInventory(CInv(MSG_BOBTAILBLOCK, pblock->GetHash()));
 			}
 		}
     }
 
-    if (!ActivateBestChain(state, chainparams, pblock, pfrom))
+    if (!ActivateBestChainBobtail(state, chainparams, pblock, pfrom))
     {
         if (state.IsInvalid() || state.IsError())
-            return error("%s: ActivateBestChain failed", __func__);
+            return error("%s: ActivateBestChainBobtail failed", __func__);
         else
             return false;
     }

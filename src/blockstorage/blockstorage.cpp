@@ -538,9 +538,12 @@ bool ReadBlockFromDisk(CBobtailBlock &block, const CBlockIndex *pindex, const Co
         }
         if (block.GetHash() != pindex->GetBlockHash())
         {
-            return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
-                pindex->ToString(), pindex->GetBlockPos().ToString());
+            return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
+                __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
         }
+        if (!block.PopulateVdag())
+            return error("Could not populate vdag");
+
         return true;
     }
     block.SetNull();
@@ -551,9 +554,13 @@ bool ReadBlockFromDisk(CBobtailBlock &block, const CBlockIndex *pindex, const Co
     }
     if (block.GetHash() != pindex->GetBlockHash())
     {
-        return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
-            pindex->ToString(), pindex->GetBlockPos().ToString());
+        return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
+            __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
     }
+
+    if (!block.PopulateVdag())
+        return error("Could not populate vdag");
+
     return true;
 }
 

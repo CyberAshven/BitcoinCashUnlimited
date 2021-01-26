@@ -4,6 +4,7 @@
 #include "test/test_bitcoin.h"
 #include <boost/math/distributions/gamma.hpp>
 #include <boost/test/unit_test.hpp>
+#include <iostream>
 
 BOOST_FIXTURE_TEST_SUITE(bobtail_tests, BasicTestingSetup)
 
@@ -82,7 +83,7 @@ BOOST_AUTO_TEST_CASE(gamma_sanity_check)
     boost::math::gamma_distribution<> expon(1,1);
     BOOST_CHECK(quantile(expon, 0.5) == std::log(2));
 
-    // The quantile of the density of a gamma at its mean should be equal to k*scale_parameter 
+    // The quantile of the density of a gamma at its mean should be equal to k*scale_parameter
     uint8_t k = 3;
     arith_uint256 scale = arith_uint256(1e6);
     boost::math::gamma_distribution<> bobtail_gamma(k, scale.getdouble());
@@ -137,13 +138,13 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     /* n1 -> n2
      */
     // root node
-    CSubBlock subblock1;
-    CSubBlockRef subref1 = std::make_shared<CSubBlock>(subblock1);
-    CDagNode *node1 = new CDagNode(subblock1);
+    CSubBlockRef subref1 = std::make_shared<CSubBlock>();
+    subref1->nNonce = 1;
     // one descendant
-    CSubBlock subblock2;
-    CSubBlockRef subref2 = std::make_shared<CSubBlock>(subblock2);
-    CDagNode *node2 = new CDagNode(subblock2);
+    CSubBlockRef subref2 = std::make_shared<CSubBlock>();
+    subref1->nNonce = 2;
+    CDagNode *node2 = new CDagNode(*subref2);
+    CDagNode *node1 = new CDagNode(*subref1);
     node1->AddDescendant(node2);
     node2->AddAncestor(node1);
 
@@ -151,24 +152,26 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     CMutableTransaction mtx11;
     mtx11.vin.resize(1);
     mtx11.vin[0].prevout.n = 11;
-    CTransactionRef tx11 = std::make_shared<CTransaction>(CTransaction(mtx11));
+    CTransactionRef tx11 = std::make_shared<const CTransaction>(mtx11);
     CMutableTransaction mtx12;
     mtx12.vin.resize(1);
     mtx12.vin[0].prevout.n = 12;
-    CTransactionRef tx12 = std::make_shared<CTransaction>(CTransaction(mtx12));
-    subblock1.vtx.push_back(tx11);
-    subblock1.vtx.push_back(tx12);
+    CTransaction _tx12(mtx12);
+    CTransactionRef tx12 = std::make_shared<const CTransaction>(mtx12);
+    subref1->vtx.push_back(tx11);
+    subref1->vtx.push_back(tx12);
 
     CMutableTransaction mtx21;
     mtx21.vin.resize(1);
     mtx21.vin[0].prevout.n = 21;
-    CTransactionRef tx21 = std::make_shared<CTransaction>(CTransaction(mtx21));
+    CTransaction _tx21(mtx21);
+    CTransactionRef tx21 = std::make_shared<const CTransaction>(mtx21);
     CMutableTransaction mtx22;
     mtx22.vin.resize(1);
     mtx22.vin[0].prevout.n = 22;
-    CTransactionRef tx22 = std::make_shared<CTransaction>(CTransaction(mtx22));
-    subblock2.vtx.push_back(tx21);
-    subblock2.vtx.push_back(tx22);
+    CTransactionRef tx22 = std::make_shared<const CTransaction>(mtx22);
+    subref2->vtx.push_back(tx21);
+    subref2->vtx.push_back(tx22);
 
     // form block
     CBobtailBlock block;
@@ -176,14 +179,14 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     block.vdag.push_back(subref2);
     block.UpdateTxLists();
 
-    BOOST_CHECK(block.vtx.size() == 4);
+    BOOST_CHECK(block.vtx.size() == 5);
 
     // validate decoded subblock tx info
-    std::map<CSubBlockRef, std::vector<CTransactionRef>> subblockTxListMap = block.DecodeTxLists();
-    BOOST_CHECK(subblockTxListMap[subref1][0] == tx11);
-    BOOST_CHECK(subblockTxListMap[subref1][1] == tx12);
-    BOOST_CHECK(subblockTxListMap[subref2][0] == tx21);
-    BOOST_CHECK(subblockTxListMap[subref2][1] == tx22);
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > subblockTxListMap = block.DecodeTxLists();
+    BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[0] == tx11);
+    BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[1] == tx12);
+    BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[0] == tx21);
+    BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[1] == tx22);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

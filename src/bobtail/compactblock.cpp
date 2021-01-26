@@ -41,8 +41,6 @@
 #include "validation/validation.h"
 #include "validation.h"
 
-extern CCriticalSection cs_bobtailblocks;
-extern std::map<uint256, CBobtailBlock> bobtailBlocks GUARDED_BY(cs_bobtailblocks);
 extern CBobtailDagSet bobtailDagSet;
 
 static bool BobReconstructBlock(CNode *pfrom,
@@ -63,10 +61,10 @@ BobCompactBlock::BobCompactBlock(const CBobtailBlock &block)
     : nSize(0), nonce(GetRand(std::numeric_limits<uint64_t>::max())), nWaitingFor(0), coinbase(block.vtx[0]), ::CBobtailBlock(block)
 {
     FillShortTxIDSelector();
-       
-    for (auto subblock : block.vdag)
+
+    for (auto hash : block.subblockHashes)
     {
-        shorttxids.push_back(BobGetShortID(subblock->GetHash()));
+        shorttxids.push_back(BobGetShortID(hash));
     }
 }
 
@@ -306,11 +304,11 @@ bool BobCompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
     CBobtailBlock block;
     {
-        LOCK(cs_bobtailblocks);
-
-        if (bobtailBlocks.count(inv.hash) > 0)
+        READLOCK(cs_mapBlockIndex);
+        auto iter = mapBlockIndex.find(inv.hash);
+        if (iter != mapBlockIndex.end())
         {
-            block = bobtailBlocks[inv.hash];
+            ReadBlockFromDisk(block, iter->second, Params().GetConsensus());
         }
         else
         {
@@ -873,16 +871,17 @@ void CBobCompactBlockData::FillCompactBlockQuickStats(BobCompactBlockQuickStats 
 }
 
 bool IsBobCompactBlocksEnabled() { return GetBoolArg("-use-BobCompactBlocks", true); }
-void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv &inv)
+void BobSendCompactBlock(const CBobtailBlock &pblock, CNode *pfrom, const CInv &inv)
 {
     if (inv.type == MSG_BOB_CMPCT_BLOCK)
     {
         BobCompactBlock compactBlock;
         {
             LOCK(pfrom->cs_inventory);
-            compactBlock = BobCompactBlock(*pblock);
+            compactBlock = BobCompactBlock(pblock);
         }
-        uint64_t nSizeBlock = pblock->GetBlockSize();
+
+        uint64_t nSizeBlock = pblock.GetBlockSize();
 
         // Send a compact block
         if (true)//compactBlock.GetSize() < nSizeBlock)
@@ -898,7 +897,7 @@ void BobSendCompactBlock(const CBobtailBlockRef pblock, CNode *pfrom, const CInv
         }
         else // send full block
         {
-            pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, *pblock);
+            pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, pblock);
             LOG(CMPCT, "Sent regular block instead - BobCompactBlock size: %d vs block size: %d , peer: %s\n",
                 compactBlock.GetSize(), nSizeBlock, pfrom->GetLogName());
         }

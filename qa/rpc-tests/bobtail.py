@@ -20,7 +20,7 @@ class BobtailBlocksTest(BitcoinTestFramework):
     def setup_network(self, split=False):
         node_opts = [
             "-rpcservertimeout=0",
-            "-debug=weakblocks",
+            "-debug=net",
             "-use-grapheneblocks=0",
             "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
@@ -53,7 +53,13 @@ class BobtailBlocksTest(BitcoinTestFramework):
             assert_equal(new_block[miner_node], self.nodes[miner_node].getbobtailinfo()['chaintip'])
 
             # compare miner node and another node to check for proper relay
-            assert_equal(self.nodes[miner_node].getbobtailinfo()['chaintip'], self.nodes[other_node].getbobtailinfo()['chaintip'])
+            assert_equal(self.nodes[-1].getbobtailinfo()['chaintip'], self.nodes[other_node].getbobtailinfo()['chaintip'])
+
+        new_block = self.nodes[miner_node].generatebobtailblocks(10)
+        self.sync_blocks()
+        assert_equal(new_block[-1], self.nodes[miner_node].getbobtailinfo()['chaintip'])
+        # compare miner node and another node to check for proper relay
+        assert_equal(self.nodes[miner_node].getbobtailinfo()['chaintip'], self.nodes[other_node].getbobtailinfo()['chaintip'])
 
 if __name__ == '__main__':
     BobtailBlocksTest().main()

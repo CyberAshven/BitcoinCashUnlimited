@@ -12,6 +12,7 @@ void CBobtailBlock::UpdateTxLists()
     std::map<uint256, CTransactionRef> allTxRefs;
     for (auto sbref : vdag)
     {
+        subblockNTxMap[sbref->GetHash()] = sbref->vtx.size();
         for (auto txRef : sbref->vtx)
         {
             allTxRefs[txRef->GetHash()] = txRef;
@@ -48,11 +49,14 @@ void CBobtailBlock::UpdateTxLists()
             subIdxList.push_back(txRefToIndex[txRef]);
         }
         std::vector<uint8_t> encoded = EncodeRank(subIdxList, nBitsPerItem);
-        std::copy(encoded.begin(), encoded.end(), std::inserter(dagEncodingMap[sbref], dagEncodingMap[sbref].end()));
+        std::set<uint8_t> encoded_set(encoded.begin(), encoded.end());
+        CSubBlockHeader sbheader = sbref->GetBlockHeader();
+        uint256 sbhash = sbref->GetHash();
+        dagEncodingMap.emplace(sbhash, std::make_pair(sbheader, std::move(encoded_set)));
     }
 }
 
-std::map<CSubBlockRef, std::vector<CTransactionRef>> CBobtailBlock::DecodeTxLists()
+std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CBobtailBlock::DecodeTxLists()
 {
     uint8_t nBitsPerItem = ceil(log2(vtx.size()));
 
@@ -64,16 +68,17 @@ std::map<CSubBlockRef, std::vector<CTransactionRef>> CBobtailBlock::DecodeTxList
     }
 
     // retrieve tranaction refs for each subblock
-    std::map<CSubBlockRef, std::vector<CTransactionRef>> subblockTxLists;
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > subblockTxLists;
     for (auto &kv : dagEncodingMap)
     {
-        std::vector<uint8_t> encoded(kv.second.begin(), kv.second.end());
-        for (auto idx : DecodeRank(encoded, vtx.size(), nBitsPerItem))
+        subblockTxLists[kv.first] = std::make_pair(kv.second.first, std::vector<CTransactionRef>());
+        std::vector<uint8_t> encoded(kv.second.second.begin(), kv.second.second.end());
+        for (auto idx : DecodeRank(encoded, subblockNTxMap[kv.first], nBitsPerItem))
         {
             if (idx >= vtx.size())
                 throw std::runtime_error("Subblock tx index beyond length of vtx. Did you call UpdateTxLists first?");
 
-            subblockTxLists[kv.first].push_back(indexToTxRef[idx]);
+            subblockTxLists[kv.first].second.push_back(indexToTxRef[idx]);
         }
     }
 

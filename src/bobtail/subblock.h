@@ -38,6 +38,11 @@ public:
         READWRITE(nNonce);
     }
 
+    friend bool operator<(const CSubBlockHeader &a, const CSubBlockHeader &b)
+    {
+        return a.GetHash() < b.GetHash();
+    }
+
     void SetNull()
     {
         nVersion = 0;
