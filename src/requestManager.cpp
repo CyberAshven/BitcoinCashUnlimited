@@ -823,8 +823,35 @@ void CRequestManager::SendRequests()
                         LOG(REQ, "Block took longer than %6.2f secs. Request timeout for %s.  Retrying\n",
                             ((double)(now - item.lastRequestTime) / 1000000), item.obj.ToString());
                     }
-
                     CInv obj = item.obj;
+
+                    if (MSG_BOBTAILBLOCK == obj.type)
+                    {
+                        LOG(REQ, "Requesting Bobtail block\n");
+                        LEAVE_CRITICAL_SECTION(cs_objDownloader); // item and itemIter are now invalid
+                        bool fReqBlkResult = RequestBlock(next.node, obj);
+                        ENTER_CRITICAL_SECTION(cs_objDownloader);
+                        if (!fReqBlkResult)
+                        {
+                            LOG(REQ, "Unsuccessful bobtail block request\n");
+                            // having released cs_objDownloader, item and itemiter may be invalid.
+                            // So in the rare case that we could not request the block we need to
+                            // find the item again (if it exists) and set the tracking back to what it was
+                            itemIter = mapBlkInfo.find(obj.hash);
+                            if (itemIter != mapBlkInfo.end())
+                            {
+                                item = itemIter->second;
+                                item.outstandingReqs--;
+                                int64_t then = item.lastRequestTime;
+                                item.lastRequestTime = then;
+                            }
+                            item.availableFrom.push_back(next);
+                        }
+                        next.node->Release();
+                        next.node = nullptr;
+                        continue;
+                    }
+
                     item.outstandingReqs++;
                     int64_t then = item.lastRequestTime;
                     int64_t nDownloadingSincePrev = item.nDownloadingSince;
