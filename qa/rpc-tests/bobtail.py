@@ -20,7 +20,7 @@ class BobtailBlocksTest(BitcoinTestFramework):
     def setup_network(self, split=False):
         node_opts = [
             "-rpcservertimeout=0",
-            "-debug=net",
+            "-debug=all",
             "-use-grapheneblocks=0",
             "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",

@@ -823,8 +823,8 @@ void CRequestManager::SendRequests()
                         LOG(REQ, "Block took longer than %6.2f secs. Request timeout for %s.  Retrying\n",
                             ((double)(now - item.lastRequestTime) / 1000000), item.obj.ToString());
                     }
-
                     CInv obj = item.obj;
+
                     item.outstandingReqs++;
                     int64_t then = item.lastRequestTime;
                     int64_t nDownloadingSincePrev = item.nDownloadingSince;
@@ -1259,7 +1259,13 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
                     mapBlocksInFlight.find(blockHash);
                 if (itInFlight != mapBlocksInFlight.end() && !itInFlight->second.count(nodeid))
                 {
-                    AskFor(CInv(MSG_BLOCK, blockHash), node); // Add another source
+                    // Add another source
+                    if (mapBlkInfo[blockHash].obj.type == MSG_BOBTAILBLOCK)
+                        AskFor(CInv(MSG_BOBTAILBLOCK, blockHash), node);
+                    else if (mapBlkInfo[blockHash].obj.type == MSG_SUBBLOCK)
+                        AskFor(CInv(MSG_SUBBLOCK, blockHash), node);
+                    else
+                        AskFor(CInv(MSG_BLOCK, blockHash), node);
                     continue;
                 }
             }
