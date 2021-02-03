@@ -138,10 +138,10 @@ void CBobtailDag::UpdateDagScore()
     size_t depth = 1;
     while (riter != leveled_dag.rend())
     {
-        for (auto &node : *riter)
+        for (auto node : *riter)
         {
             uint64_t node_score = 1;
-            for (auto &desc : node->descendants)
+            for (CDagNode *desc : node->descendants)
             {
                 auto iter = mapNodeScore.find(desc);
                 if (iter != mapNodeScore.end())
@@ -194,7 +194,7 @@ bool CBobtailDag::Insert(CDagNode* new_node)
 
 void CBobtailDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
 {
-    RECURSIVEWRITELOCK(cs_dagset);
+    WRITELOCK(cs_dagset);
     int16_t last_value;
     for (auto riter = vdags.rbegin(); riter != vdags.rend(); ++riter)
     {
@@ -227,9 +227,9 @@ void CBobtailDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
     }
 }
 
-void CBobtailDagSet::CreateNewDag(CDagNode *newNode)
+void CBobtailDagSet::_CreateNewDag(CDagNode *newNode)
 {
-    RECURSIVEWRITELOCK(cs_dagset);
+    AssertWriteLockHeld(cs_dagset);
     int16_t new_id = vdags.size();
     newNode->dag_id = new_id;
     vdags.emplace_back(new_id, newNode);
@@ -243,9 +243,9 @@ void CBobtailDagSet::CreateNewDag(CDagNode *newNode)
     }
 }
 
-bool CBobtailDagSet::MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
+bool CBobtailDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
 {
-    RECURSIVEWRITELOCK(cs_dagset);
+    AssertWriteLockHeld(cs_dagset);
     int16_t base_dag_id = *(tree_ids.begin());
     // remove the first element, it is not being deleted
     tree_ids.erase(tree_ids.begin());
@@ -294,23 +294,28 @@ bool CBobtailDagSet::MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
 
 void CBobtailDagSet::Clear()
 {
-    RECURSIVEWRITELOCK(cs_dagset);
+    WRITELOCK(cs_dagset);
     vdags.clear();
+    for (auto entry : mapAllNodes)
+    {
+        delete entry.second;
+    }
+    mapAllNodes.clear();
 }
 
 size_t CBobtailDagSet::Size()
 {
-    RECURSIVEREADLOCK(cs_dagset);
+    READLOCK(cs_dagset);
     return mapAllNodes.size();
 }
 
 bool CBobtailDagSet::Find(const uint256 &hash, CSubBlock &subblock)
 {
-    RECURSIVEREADLOCK(cs_dagset);
-    std::map<uint256, CDagNode>::iterator iter = mapAllNodes.find(hash);
+    READLOCK(cs_dagset);
+    std::map<uint256, CDagNode*>::iterator iter = mapAllNodes.find(hash);
     if (iter != mapAllNodes.end())
     {
-        subblock = iter->second.subblock;
+        subblock = iter->second->subblock;
         return true;
     }
     return false;
@@ -318,13 +323,14 @@ bool CBobtailDagSet::Find(const uint256 &hash, CSubBlock &subblock)
 
 bool CBobtailDagSet::Contains(const uint256 &hash)
 {
+    READLOCK(cs_dagset);
     return (mapAllNodes.count(hash) != 0);
 }
 
 bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
 {
-    RECURSIVEWRITELOCK(cs_dagset);
-    uint256 sub_block_hash = sub_block.GetHash();
+    WRITELOCK(cs_dagset);
+    const uint256 sub_block_hash = sub_block.GetHash();
     if (mapAllNodes.count(sub_block_hash) != 0)
     {
         // we already have this subblock in the dag
@@ -332,22 +338,21 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
     }
 
     // Create newz
-    CDagNode _newNode(sub_block);
+    CDagNode* newNode = new CDagNode(sub_block);
     // this emplace will always succeed since we already checked for the hash above
-    auto result = mapAllNodes.emplace(_newNode.hash, _newNode);
-    CDagNode *newNode = &result.first->second;
+    auto result = mapAllNodes.emplace(newNode->hash, newNode);
 
     std::set<int16_t> merge_list;
     for (auto &hash : sub_block.GetAncestorHashes())
     {
-        std::map<uint256, CDagNode>::iterator ancestor_iter = mapAllNodes.find(hash);
+        std::map<uint256, CDagNode*>::iterator ancestor_iter = mapAllNodes.find(hash);
         if (ancestor_iter == mapAllNodes.end())
         {
             // TODO : A subblock is missing, try to re-request it or something
             continue;
         }
         // use a pointer to the node already inserted in mapAllNodes to avoid obj duplication
-        CDagNode* ancestor = &(ancestor_iter->second);
+        CDagNode* ancestor = ancestor_iter->second;
         newNode->AddAncestor(ancestor);
         merge_list.emplace(ancestor->dag_id);
         ancestor->AddDescendant(newNode);
@@ -355,7 +360,7 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
     int16_t new_id = -1;
     if (merge_list.size() > 1)
     {
-        if (!MergeDags(merge_list, new_id))
+        if (!_MergeDags(merge_list, new_id))
         {
             return false;
         }
@@ -373,7 +378,7 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
     }
     else // if(merge_list.size() == 0)
     {
-        CreateNewDag(newNode);
+        _CreateNewDag(newNode);
         return true;
     }
     newNode->dag_id = new_id;
@@ -400,19 +405,9 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
     return true;
 }
 
-void CBobtailDagSet::TemporalSort()
-{
-
-}
-
-bool CBobtailDagSet::IsTemporallySorted()
-{
-    return true;
-}
-
 bool CBobtailDagSet::GetBestDag(std::set<CDagNode> &dag)
 {
-    RECURSIVEREADLOCK(cs_dagset);
+    READLOCK(cs_dagset);
     if (vdags.empty())
     {
         return false;
@@ -450,7 +445,7 @@ bool CBobtailDagSet::GetBestDag(std::set<CDagNode> &dag)
 
 BestDagInfo CBobtailDagSet::GetBestDagInfo()
 {
-    RECURSIVEREADLOCK(cs_dagset);
+    READLOCK(cs_dagset);
     BestDagInfo bestdaginfo;
     int16_t best_dag = -1;
     uint64_t best_dag_score = 0;
@@ -506,4 +501,15 @@ BestDagInfo CBobtailDagSet::GetBestDagInfo()
         }
     }
     return bestdaginfo;
+}
+
+std::map<uint256, CDagNode> CBobtailDagSet::GetAllNodes()
+{
+    READLOCK(cs_dagset);
+    std::map<uint256, CDagNode> allNodes;
+    for (auto entry : mapAllNodes)
+    {
+        allNodes.emplace(entry.first, *entry.second);
+    }
+    return allNodes;
 }

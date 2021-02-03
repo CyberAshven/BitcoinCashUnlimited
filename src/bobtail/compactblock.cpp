@@ -172,7 +172,7 @@ bool BobCompactBlock::process(CNode *pfrom)
     bool fMerkleRootCorrect = true;
     uint256 merkleroot;
     {
-        for (auto kv : bobtailDagSet.mapAllNodes)
+        for (auto kv : bobtailDagSet.GetAllNodes())
         {
             CSubBlock subblock = kv.second.subblock;
             uint64_t cheapHash = BobGetShortID(subblock.GetHash());

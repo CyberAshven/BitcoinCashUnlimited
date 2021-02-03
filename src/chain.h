@@ -319,6 +319,7 @@ public:
         block.nTime = nTime;
         block.nBits = nBits;
         block.subblockHashes = subblockHashes;
+        block.subblockNTxMap = subblockNTxMap;
         return block;
     }
 

@@ -87,21 +87,21 @@ public:
 
 };
 
+// this class can not have any public data members, all datamembers are
+// protected by cs_dagset
 class CBobtailDagSet
 {
-public:
-    std::map<uint256, CDagNode> mapAllNodes;
 protected:
-    CRecursiveSharedCriticalSection cs_dagset;
-
+    CSharedCriticalSection cs_dagset;
+    std::map<uint256, CDagNode*> mapAllNodes;
     std::vector<CBobtailDag> vdags;
 
 private:
     void SetNewIds(std::priority_queue<int16_t> &removed_ids);
 
 protected:
-    void CreateNewDag(CDagNode *newNode);
-    bool MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id);
+    void _CreateNewDag(CDagNode *newNode);
+    bool _MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id);
 
 public:
     CBobtailDagSet()
@@ -116,10 +116,9 @@ public:
     bool Find(const uint256 &hash, CSubBlock &subblock);
     bool Contains(const uint256 &hash);
     bool Insert(const CSubBlock &sub_block);
-    void TemporalSort();
-    bool IsTemporallySorted();
     bool GetBestDag(std::set<CDagNode> &dag);
     BestDagInfo GetBestDagInfo();
+    std::map<uint256, CDagNode> GetAllNodes();
 };
 
 extern CBobtailDagSet bobtailDagSet;
