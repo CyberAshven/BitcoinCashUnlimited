@@ -2,7 +2,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-DIST_SUBDIRS = rsm secp256k1 univalue
+DIST_SUBDIRS = secp256k1 thread-support univalue
 
 AM_LDFLAGS = $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS)
 AM_LIBTOOLFLAGS = --preserve-dup-deps
@@ -39,8 +39,8 @@ BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
 BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
+BITCOIN_INCLUDES += -I$(srcdir)/thread-support/include
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
-BITCOIN_INCLUDES += -I$(srcdir)/rsm/include
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -51,8 +51,8 @@ LIBBITCOIN_CRYPTO=crypto/libbitcoin_crypto.a
 LIBBITCOIN_CRYPTO_SSE41=crypto/libbitcoin_crypto_sse41.a
 LIBBITCOIN_CRYPTO_AVX2=crypto/libbitcoin_crypto_avx2.a
 LIBBITCOINQT=qt/libbitcoinqt.a
-LIBRSM=rsm/librsm.la
 LIBSECP256K1=secp256k1/libsecp256k1.la
+LIBTHREADSUPPORT=thread-support/libthreadsupport.la
 LIBUNIVALUE=univalue/libunivalue.la
 
 if ENABLE_ZMQ
@@ -70,10 +70,10 @@ if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 endif
 
-$(LIBRSM): $(wildcard rsm/lib/*) $(wildcard rsm/include/*)
+$(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-$(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
+$(LIBTHREADSUPPORT): $(wildcard thread-support/lib/*) $(wildcard thread-support/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
 $(LIBUNIVALUE): $(wildcard univalue/lib/*) $(wildcard univalue/include/*)
@@ -606,8 +606,8 @@ bitcoind_LDADD = \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
-  $(LIBRSM) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBTHREADSUPPORT)
 
 
 bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
@@ -629,7 +629,8 @@ bitcoin_cli_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBBITCOIN_CRYPTO_SSE41) \
   $(LIBBITCOIN_CRYPTO_AVX2) \
-  $(LIBRSM)
+  $(LIBTHREADSUPPORT)
+
 
 bitcoin_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
@@ -653,7 +654,7 @@ bitcoin_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO_SSE41) \
   $(LIBBITCOIN_CRYPTO_AVX2) \
   $(LIBSECP256K1) \
-  $(LIBRSM)
+  $(LIBTHREADSUPPORT)
 
 bitcoin_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 #
@@ -681,7 +682,7 @@ bitcoin_miner_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBBITCOIN_CRYPTO_SSE41) \
   $(LIBBITCOIN_CRYPTO_AVX2) \
-  $(LIBRSM)
+  $(LIBTHREADSUPPORT)
 
 bitcoin_miner_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
@@ -743,8 +744,8 @@ CLEANFILES += obj/build.h
 EXTRA_DIST = leveldb $(CTAES_DIST)
 
 clean-local:
-	-$(MAKE) -C rsm clean
 	-$(MAKE) -C secp256k1 clean
+	-$(MAKE) -C thread-support clean
 	-$(MAKE) -C univalue clean
 	-rm -f leveldb/*/*.gcda leveldb/*/*.gcno leveldb/helpers/memenv/*.gcda leveldb/helpers/memenv/*.gcno
 	-rm -rf test/__pycache__
