@@ -568,11 +568,7 @@ void CTxMemPoolEntry::UpdateIncludedDags(const uint16_t &dag_id, const bool &add
     }
 }
 
-bool CTxMemPoolEntry::IsInDag(const uint16_t &dag_id) const
-{
-    return includedDags.count(dag_id);
-}
-
+bool CTxMemPoolEntry::IsInDag(const uint16_t &dag_id) const { return includedDags.count(dag_id); }
 CTxMemPool::CTxMemPool() : nTransactionsUpdated(0), m_dspStorage(new DoubleSpendProofStorage())
 {
     _clear(); // lock free clear
@@ -1252,8 +1248,8 @@ CTransactionRef CTxMemPool::get(const uint256 &hash) const
 
 static TxMempoolInfo GetInfo(CTxMemPool::indexed_transaction_set::const_iterator it)
 {
-    return TxMempoolInfo{it->GetSharedTx(), it->GetTime(), CFeeRate(it->GetFee(), it->GetTxSize()),
-        it->GetModifiedFee() - it->GetFee()};
+    return TxMempoolInfo{
+        it->GetSharedTx(), it->GetTime(), CFeeRate(it->GetFee(), it->GetTxSize()), it->GetModifiedFee() - it->GetFee()};
 }
 
 std::vector<TxMempoolInfo> CTxMemPool::AllTxMempoolInfo() const

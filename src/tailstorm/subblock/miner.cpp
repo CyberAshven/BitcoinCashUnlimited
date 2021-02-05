@@ -4,10 +4,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bobtail/subblock_miner.h"
+// tailstorm file includes
+#include "miner.h"
+#include "validation.h"
 
-#include "bobtail/subblock_validation.h"
-
+// other bitcoin includes
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -42,13 +43,13 @@
 #include <thread>
 
 // Track timing information for Score and Package mining.
-std::atomic<int64_t> bobtail_nTotalPackage{0};
-std::atomic<int64_t> bobtail_nTotalScore{0};
+std::atomic<int64_t> tailstorm_nTotalPackage{0};
+std::atomic<int64_t> tailstorm_nTotalScore{0};
 
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
-extern CBobtailDagSet bobtailDagSet;
+extern CTailstormDagSet tailstormDagSet;
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -61,8 +62,44 @@ extern CBobtailDagSet bobtailDagSet;
 // pool, we select by highest priority or fee rate, so we might consider
 // transactions that depend on transactions that aren't yet in the block.
 
-uint64_t bobtail_nLastBlockTx = 0;
-uint64_t bobtail_nLastBlockSize = 0;
+uint64_t tailstorm_nLastBlockTx = 0;
+uint64_t tailstorm_nLastBlockSize = 0;
+
+void IncrementExtraNonce(CSubBlock *pblock, unsigned int &nExtraNonce)
+{
+    // Update nExtraNonce
+    static uint256 hashPrevBlock;
+    if (hashPrevBlock != pblock->hashPrevBlock)
+    {
+        nExtraNonce = 0;
+        hashPrevBlock = pblock->hashPrevBlock;
+    }
+    ++nExtraNonce;
+    // height not required for subblocks
+    CMutableTransaction txCoinbase(*pblock->vtx[0]);
+
+    CScript script = (CScript() << CScriptNum(nExtraNonce));
+    CScript cbFlags;
+    {
+        LOCK(cs_coinbaseFlags);
+        cbFlags = COINBASE_FLAGS;
+    }
+    if (script.size() + cbFlags.size() > MAX_COINBASE_SCRIPTSIG_SIZE)
+    {
+        cbFlags.resize(MAX_COINBASE_SCRIPTSIG_SIZE - script.size());
+    }
+    txCoinbase.vin[0].scriptSig = script + cbFlags;
+    assert(txCoinbase.vin[0].scriptSig.size() <= MAX_COINBASE_SCRIPTSIG_SIZE);
+
+    // On BCH if Nov15th 2018 has been activated make sure the coinbase is big enough
+    uint64_t nCoinbaseSize = ::GetSerializeSize(txCoinbase, SER_NETWORK, PROTOCOL_VERSION);
+    if (nCoinbaseSize < MIN_TX_SIZE && IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
+    {
+        txCoinbase.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
+    }
+    pblock->vtx[0] = (MakeTransactionRef(std::move(txCoinbase)));
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+}
 
 SubBlockAssembler::SubBlockAssembler(const CChainParams &_chainparams)
     : chainparams(_chainparams), nBlockSize(0), nBlockTx(0), nBlockSigOps(0), nFees(0), nHeight(0), nLockTimeCutoff(0),
@@ -106,7 +143,7 @@ uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int6
     assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
 
-    BestDagInfo bdi = bobtailDagSet.GetBestDagInfo();
+    BestDagInfo bdi = tailstormDagSet.GetBestDagInfo();
     // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
     // signed integer taking up 4 bytes for heights 32768-8388607 (around the year 2167) after which it will use 5
     nCoinbaseSize = ::GetSerializeSize(proofbaseTx(scriptPubKeyIn, 400000, bdi), SER_NETWORK, PROTOCOL_VERSION);
@@ -219,7 +256,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     maxSigOpsAllowed = maxSigChecks.Value();
     {
         // we must get the tips before locking mempool because we can not recursively lock mempool
-        BestDagInfo bdi = bobtailDagSet.GetBestDagInfo();
+        BestDagInfo bdi = tailstormDagSet.GetBestDagInfo();
         READLOCK(mempool.cs_txmempool);
         nHeight = pindexPrev->nHeight + 1;
 
@@ -238,10 +275,10 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
 
         int64_t nStartScore = GetStopwatchMicros();
         addPackageTxs(&vtxe, bdi);
-        bobtail_nTotalScore += GetStopwatchMicros() - nStartScore;
+        tailstorm_nTotalScore += GetStopwatchMicros() - nStartScore;
 
-        bobtail_nLastBlockTx = nBlockTx;
-        bobtail_nLastBlockSize = nBlockSize;
+        tailstorm_nLastBlockTx = nBlockTx;
+        tailstorm_nLastBlockSize = nBlockSize;
         LOGA("CreateNewSubBlock: total size %llu txs: %llu of %llu fees: %lld sigops %u\n", nBlockSize, nBlockTx,
             mempool._size(), nFees, nBlockSigOps);
 
@@ -409,8 +446,7 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
         uint64_t nNoLimit = std::numeric_limits<uint64_t>::max();
         std::string dummy;
         const CTxMemPoolEntry &entry = *iter;
-        mempool._CalculateMemPoolAncestors(
-            entry, ancestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, dummy, &inBlock, false);
+        mempool._CalculateMemPoolAncestors(entry, ancestors, nNoLimit, nNoLimit, dummy, &inBlock, false);
 
         // Include in the package the current txn we're working with
         ancestors.insert(iter);

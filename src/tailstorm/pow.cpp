@@ -2,15 +2,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+// tailstorm file includes
 #include "pow.h"
-#include "bobtailblock.h"
 #include "dag.h"
 
+// other bitcoin includes
 #include "net.h"
 
 #include <boost/math/distributions/gamma.hpp>
 
-bool CheckBobtailPoW(const CBobtailBlockHeader &header, const Consensus::Params &params, uint8_t k)
+bool CheckTailstormPoW(const CTailstormBlockHeader &header, const Consensus::Params &params, uint8_t k)
 {
     bool fNegative;
     bool fOverflow;
@@ -45,10 +46,10 @@ bool CheckBobtailPoW(const CBobtailBlockHeader &header, const Consensus::Params 
         iter++;
     }
 
-    return CheckBobtailPoWFromOrderedProofs(lowestK, bnTarget, k);
+    return CheckTailstormPoWFromOrderedProofs(lowestK, bnTarget, k);
 }
 
-bool CheckBobtailPoWFromOrderedProofs(std::vector<arith_uint256> proofs, arith_uint256 target, uint8_t k)
+bool CheckTailstormPoWFromOrderedProofs(std::vector<arith_uint256> proofs, arith_uint256 target, uint8_t k)
 {
     arith_uint256 average(0);
     arith_uint256 kTarget(k);
@@ -98,9 +99,9 @@ bool IsBelowKOSThreshold(arith_uint256 pow, arith_uint256 target, uint8_t k, int
     arith_uint256 scaledTarget = arith_uint256(scaleFactor);
     arith_uint256 scaledPow = pow / scalar;
 
-    boost::math::gamma_distribution<> bobtail_gamma(k, scaledTarget.getdouble());
+    boost::math::gamma_distribution<> tailstorm_gamma(k, scaledTarget.getdouble());
 
-    return cdf(bobtail_gamma, scaledPow.getdouble()) <= KOS_INCLUSION_PROB;
+    return cdf(tailstorm_gamma, scaledPow.getdouble()) <= KOS_INCLUSION_PROB;
 }
 
 uint32_t GetBestK(uint16_t desiredDagNodes, double probability)

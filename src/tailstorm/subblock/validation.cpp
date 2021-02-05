@@ -2,10 +2,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "subblock_validation.h"
+// tailstorm file includes
+#include "tailstorm/dag.h"
+#include "tailstorm/pow.h"
+#include "validation.h"
 
-#include "bobtail/dag.h"
-#include "bobtail/pow.h"
+// other bitcoin includes
+#include "chain.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
@@ -15,7 +18,7 @@
 
 bool CheckSubBlockHeader(const CSubBlockHeader &block, CValidationState &state, bool fCheckPOW)
 {
-    if (fCheckPOW && !CheckSubBlockPoW(block, Params().GetConsensus(), BOBTAIL_K))
+    if (fCheckPOW && !CheckSubBlockPoW(block, Params().GetConsensus(), TAILSTORM_K))
     {
         return state.DoS(50, error("%s(): subblock proof of work failed", __func__), REJECT_INVALID, "high-hash");
     }
@@ -176,7 +179,7 @@ bool ProcessNewSubBlock(const CSubBlock &subblock)
     CValidationState state;
     if (CheckSubBlock(subblock, state, true, true))
     {
-        if (bobtailDagSet.Insert(subblock))
+        if (tailstormDagSet.Insert(subblock))
         {
             LOCK(cs_vNodes);
             for (CNode *pnode : vNodes)

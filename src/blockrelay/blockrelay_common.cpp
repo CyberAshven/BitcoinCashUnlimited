@@ -4,12 +4,11 @@
 
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
-#include "bobtail/compactrelay.h"
-#include "bobtail/graphenerelay.h"
 #include "net.h"
 #include "random.h"
 #include "requestManager.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
 #include "util.h"
 
 // When a node disconnects it may not be removed from the peer tracking sets immediately and so the size
@@ -184,7 +183,14 @@ bool ThinTypeRelay::AreTooManyBlocksInFlight()
     {
         // add the size of the sets of each entry
         // it is possible for a set to be empty
-        mapSize = mapSize + entry.second.size();
+        for (const auto &inFlightBlock : entry.second)
+        {
+            // dont add subblocks to the count
+            if (inFlightBlock.thinType != NetMsgType::SB_GRAPHENEBLOCK)
+            {
+                ++mapSize;
+            }
+        }
     }
     return (mapSize >= MAX_THINTYPE_BLOCKS_IN_FLIGHT);
 }
@@ -239,9 +245,10 @@ void ThinTypeRelay::BlockWasReceived(CNode *pfrom, const uint256 &hash)
 bool ThinTypeRelay::AddBlockInFlight(CNode *pfrom, const uint256 &hash, const std::string thinType)
 {
     LOCK(cs_inflight);
-    //TODO: Figure out why BobCompactBlocks do not work with this
-    //if (AreTooManyBlocksInFlight())
-    //    return false;
+    if (AreTooManyBlocksInFlight())
+    {
+        return false;
+    }
 
     // this insert returns a pair <iterator,bool> where the bool denotes whether the insertion took place
     auto key = mapThinTypeBlocksInFlight.find(pfrom->GetId());

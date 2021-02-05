@@ -26,7 +26,7 @@ const char *GETBLOCKS = "getblocks";
 const char *GETHEADERS = "getheaders";
 const char *TX = "tx";
 const char *HEADERS = "headers";
-const char *BOBTAIL_HEADERS = "bobheaders";
+const char *TAILSTORM_HEADERS = "bobheaders";
 const char *BLOCK = "block";
 const char *GETADDR = "getaddr";
 const char *MEMPOOL = "mempool";
@@ -83,7 +83,7 @@ const char *GETBOBSUB = "getbobsub";
 const char *BOBSUB = "bobsub";
 const char *DBMISSTX = "dbmisstx";
 const char *SUBBLOCK = "subblock";
-const char *BOBTAILBLOCK = "bobtailblock";
+const char *TAILSTORMBLOCK = "tailstormblk";
 const char *DSPROOF = "dsproof";
 
 const char *REQTXVAL = "req-txval";
@@ -256,7 +256,8 @@ CInv::CInv(const std::string &strType, const uint256 &hashIn)
 }
 
 bool operator<(const CInv &a, const CInv &b) { return (a.type < b.type || (a.type == b.type && a.hash < b.hash)); }
-bool CInv::IsKnownType() const { return (type >= 1 && type <= 7); }
+bool CInv::IsKnownType() const { return (type >= 1 && type <= 12); }
+
 const char *CInv::GetCommand() const
 {
     if (!IsKnownType())

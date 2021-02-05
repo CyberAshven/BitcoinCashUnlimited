@@ -30,8 +30,6 @@ namespace Consensus
 struct Params;
 };
 
-static const bool DEFAULT_PRINTPRIORITY = false;
-
 // Determine the correct version bits based on bip135 choices and passed settings
 int32_t UtilMkBlockTmplVersionBits(int32_t version,
     const std::set<std::string> &setClientRules,
@@ -45,32 +43,6 @@ struct CBlockTemplate
     std::vector<CAmount> vTxFees;
     std::vector<int64_t> vTxSigOps;
 };
-
-
-/** Comparator for CTxMemPool::txiter objects.
- *  It simply compares the internal memory address of the CTxMemPoolEntry object
- *  pointed to. This means it has no meaning, and is only useful for using them
- *  as key in other indexes.
- */
-struct CompareCTxMemPoolIter
-{
-    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const { return &(*a) < &(*b); }
-};
-
-/** A comparator that sorts transactions based on number of ancestors.
- * This is sufficient to sort an ancestor package in an order that is valid
- * to appear in a block.
- */
-struct CompareTxIterByAncestorCount
-{
-    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b)
-    {
-        if (a->GetCountWithAncestors() != b->GetCountWithAncestors())
-            return a->GetCountWithAncestors() < b->GetCountWithAncestors();
-        return CTxMemPool::CompareIteratorByHash()(a, b);
-    }
-};
-
 
 /** Generate a new block, without valid proof-of-work */
 class BlockAssembler
@@ -145,14 +117,11 @@ private:
 
 /** Submit a mined block */
 UniValue SubmitBlock(CBlock &block);
-/** Make a block template to send to miners. */
-// implemented in mining.cpp
-UniValue mkblocktemplate(const UniValue &params,
-    int64_t coinbaseSize = -1,
-    CBlock *pblockOut = nullptr,
-    const CScript &coinbaseScript = CScript());
 
 // Force block template recalculation the next time a template is requested
 void SignalBlockTemplateChange();
+
+/** Modify the extranonce in a block */
+void IncrementExtraNonce(CBlock *pblock, unsigned int &nExtraNonce);
 
 #endif // BITCOIN_MINER_H

@@ -10,10 +10,13 @@
 #include <unordered_map>
 #include <vector>
 
-#include "bobtail/compactrelay.h"
-#include "bobtail/compactblock.h"
-#include "bobtail/dag.h"
-#include "bobtail/validation.h"
+// tailstorm file includes
+#include "compactrelay.h"
+#include "compactblock.h"
+#include "tailstorm/block/validation.h"
+#include "tailstorm/dag.h"
+
+// other bitcoin includes
 #include "blockstorage/blockstorage.h"
 #include "chainparams.h"
 #include "connmgr.h"
@@ -39,9 +42,8 @@
 #include "util.h"
 #include "utiltime.h"
 #include "validation/validation.h"
-#include "validation.h"
 
-extern CBobtailDagSet bobtailDagSet;
+extern CTailstormDagSet tailstormDagSet;
 
 static bool BobReconstructBlock(CNode *pfrom,
     int &missingCount,
@@ -57,8 +59,8 @@ uint64_t BobGetShortID(const uint64_t &shorttxidk0, const uint64_t &shorttxidk1,
 
 #define MIN_TRANSACTION_SIZE (::GetSerializeSize(CTransaction(), SER_NETWORK, PROTOCOL_VERSION))
 
-BobCompactBlock::BobCompactBlock(const CBobtailBlock &block)
-    : nSize(0), nonce(GetRand(std::numeric_limits<uint64_t>::max())), nWaitingFor(0), coinbase(block.vtx[0]), ::CBobtailBlock(block)
+BobCompactBlock::BobCompactBlock(const CTailstormBlock &block)
+    : nSize(0), nonce(GetRand(std::numeric_limits<uint64_t>::max())), nWaitingFor(0), coinbase(block.vtx[0]), ::CTailstormBlock(block)
 {
     FillShortTxIDSelector();
 
@@ -88,7 +90,7 @@ uint64_t BobCompactBlock::BobGetShortID(const uint256 &txhash) const
 void validateBobCompactBlock(std::shared_ptr<BobCompactBlock> bobcmpctblock)
 {
     if (bobcmpctblock->IsNull() || bobcmpctblock->shorttxids.empty())
-        throw std::invalid_argument("empty data in bobtail compact block");
+        throw std::invalid_argument("empty data in tailstorm compact block");
 }
 
 /**
@@ -117,7 +119,7 @@ bool HandleBobCompactMessage(CDataStream &vRecv, CNode *pfrom)
             compactBlock->hashPrevBlock.ToString());
 
     CValidationState state;
-    if (!CheckBobtailBlockHeader(*(compactBlock.get()), state))
+    if (!CheckTailstormBlockHeader(*(compactBlock.get()), state))
     {
         // compact block does not fit within our blockchain
         dosMan.Misbehaving(pfrom, 100);
@@ -172,7 +174,7 @@ bool BobCompactBlock::process(CNode *pfrom)
     bool fMerkleRootCorrect = true;
     uint256 merkleroot;
     {
-        for (auto kv : bobtailDagSet.GetAllNodes())
+        for (auto kv : tailstormDagSet.GetAllNodes())
         {
             CSubBlock subblock = kv.second.subblock;
             uint64_t cheapHash = BobGetShortID(subblock.GetHash());
@@ -282,7 +284,7 @@ bool BobCompactBlock::process(CNode *pfrom)
     CValidationState state;
     const CChainParams &chainparams = Params();
     bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
-    ProcessNewBobtailBlock(state, chainparams, pfrom, this, forceProcessing, nullptr);
+    ProcessNewTailstormBlock(state, chainparams, pfrom, this, forceProcessing, nullptr);
     return true;
 }
 
@@ -302,7 +304,7 @@ bool BobCompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     CInv inv(MSG_TX, compactReRequest.blockhash);
     LOG(CMPCT, "received BobCompactReRequest for %s peer=%s\n", inv.hash.ToString(), pfrom->GetLogName());
 
-    CBobtailBlock block;
+    CTailstormBlock block;
     {
         READLOCK(cs_mapBlockIndex);
         auto iter = mapBlockIndex.find(inv.hash);
@@ -313,7 +315,7 @@ bool BobCompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         else
         {
             dosMan.Misbehaving(pfrom, 20);
-            return error("Required bobtail block is not available");
+            return error("Required tailstorm block is not available");
         }
     }
 
@@ -370,11 +372,11 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     // Subblocks needed
     int subNeeded = bobcmpctblock->vSubHashes.size() - bobcmpctblock->vSubHashes256.size();
 
-    // Update compact bobtail block and insert subblocks into dag
+    // Update compact tailstorm block and insert subblocks into dag
     for (auto subblock : compactReReqResponse.subBlocks)
     {
         bobcmpctblock->vSubHashes256.push_back(subblock.GetHash());
-        bobtailDagSet.Insert(subblock);
+        tailstormDagSet.Insert(subblock);
     }
 
     LOG(CMPCT, "Got %d Re-requested subblocks, needed %d of them from peer=%s\n", compactReReqResponse.subBlocks.size(), subNeeded,
@@ -444,7 +446,7 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         CValidationState state;
         const CChainParams &chainparams = Params();
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
-        ProcessNewBobtailBlock(state, chainparams, pfrom, bobcmpctblock.get(), forceProcessing, nullptr);
+        ProcessNewTailstormBlock(state, chainparams, pfrom, bobcmpctblock.get(), forceProcessing, nullptr);
     }
 
     return true;
@@ -474,7 +476,7 @@ static bool BobReconstructBlock(CNode *pfrom,
     for (const uint256 &hash : bobcmpctblock->vSubHashes256)
     {
         CSubBlock subblock;
-        bool found = bobtailDagSet.Find(hash, subblock);
+        bool found = tailstormDagSet.Find(hash, subblock);
 
         if (!found)
             return false;
@@ -489,7 +491,7 @@ static bool BobReconstructBlock(CNode *pfrom,
 
     bobcmpctblock->UpdateTxLists();
 
-    // TODO: evaluate if bobtail needs fXVal
+    // TODO: evaluate if tailstorm needs fXVal
     // Now that we've rebuilt the block successfully we can set the XVal flag which is used in
     // ConnectBlock() to determine which if any inputs we can skip the checking of inputs.
     //pblock->fXVal = true;
@@ -871,7 +873,7 @@ void CBobCompactBlockData::FillCompactBlockQuickStats(BobCompactBlockQuickStats 
 }
 
 bool IsBobCompactBlocksEnabled() { return GetBoolArg("-use-BobCompactBlocks", true); }
-void BobSendCompactBlock(const CBobtailBlock &pblock, CNode *pfrom, const CInv &inv)
+void BobSendCompactBlock(const CTailstormBlock &pblock, CNode *pfrom, const CInv &inv)
 {
     if (inv.type == MSG_BOB_CMPCT_BLOCK)
     {
@@ -897,7 +899,7 @@ void BobSendCompactBlock(const CBobtailBlock &pblock, CNode *pfrom, const CInv &
         }
         else // send full block
         {
-            pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, pblock);
+            pfrom->PushMessage(NetMsgType::TAILSTORMBLOCK, pblock);
             LOG(CMPCT, "Sent regular block instead - BobCompactBlock size: %d vs block size: %d , peer: %s\n",
                 compactBlock.GetSize(), nSizeBlock, pfrom->GetLogName());
         }
@@ -916,7 +918,7 @@ bool IsBobCompactBlockValid(CNode *pfrom, std::shared_ptr<BobCompactBlock> compa
 
     // check block header
     CValidationState state;
-    if (!CheckBobtailBlockHeader(*(compactBlock.get()), state))
+    if (!CheckTailstormBlockHeader(*(compactBlock.get()), state))
     {
         return error("Received invalid header for BobCompactBlock %s from peer %s",
             compactBlock->GetHash().ToString(), pfrom->GetLogName());

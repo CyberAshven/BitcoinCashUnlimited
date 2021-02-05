@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_SUBBLOCK_H
-#define BITCOIN_BOBTAIL_SUBBLOCK_H
+#ifndef BITCOIN_TAILSTORM_SUBBLOCK_SUBBLOCK_H
+#define BITCOIN_TAILSTORM_SUBBLOCK_SUBBLOCK_H
 
 #include "primitives/transaction.h"
 #include "serialize.h"

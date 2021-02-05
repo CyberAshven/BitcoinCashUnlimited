@@ -2,14 +2,15 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bobtail/validation.h"
+// tailstorm file includes
+#include "tailstorm/dag.h"
+#include "tailstorm/pow.h"
+#include "validation.h"
 
+// other bitcoin includes
 #include "blockrelay/blockrelay_common.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
-#include "bobtail/pow.h"
-#include "bobtail/bobtailblock.h"
-#include "bobtail/dag.h"
 #include "checkpoints.h"
 #include "connmgr.h"
 #include "consensus/merkle.h"
@@ -18,6 +19,7 @@
 #include "expedited.h"
 #include "index/txindex.h"
 #include "init.h"
+#include "net.h"
 #include "requestManager.h"
 #include "sync.h"
 #include "timedata.h"
@@ -38,12 +40,12 @@ extern std::set<CBlockIndex *, CBlockIndexWorkComparator> setBlockIndexCandidate
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
 
-bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState &state)
+bool CheckTailstormBlockHeader(const CTailstormBlockHeader &header, CValidationState &state)
 {
     // Check proof-of-work
-    if (!CheckBobtailPoW(header, Params().GetConsensus(), BOBTAIL_K))
+    if (!CheckTailstormPoW(header, Params().GetConsensus(), TAILSTORM_K))
     {
-        return state.DoS(50, error("%s(): bobtail block validity check failed", __func__), REJECT_INVALID, "high-hash");
+        return state.DoS(50, error("%s(): tailstorm block validity check failed", __func__), REJECT_INVALID, "high-hash");
     }
     // Check timestamp
     if (header.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
@@ -54,7 +56,7 @@ bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState
     return true;
 }
 
-bool ContextualCheckBlockHeader(const CBobtailBlockHeader &block, CValidationState &state, CBlockIndex *const pindexPrev)
+bool ContextualCheckBlockHeader(const CTailstormBlockHeader &block, CValidationState &state, CBlockIndex *const pindexPrev)
 {
     const Consensus::Params &consensusParams = Params().GetConsensus();
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
@@ -103,7 +105,7 @@ static void NotifyHeaderTip()
     }
 }
 
-CBlockIndex *AddToBlockIndex(const CBobtailBlockHeader &block)
+CBlockIndex *AddToBlockIndex(const CTailstormBlockHeader &block)
 {
     WRITELOCK(cs_mapBlockIndex);
     // Check for duplicate
@@ -162,7 +164,7 @@ CBlockIndex *AddToBlockIndex(const CBobtailBlockHeader &block)
     return pindexNew;
 }
 
-bool AcceptBobtailBlockHeader(const CBobtailBlockHeader &block,
+bool AcceptTailstormBlockHeader(const CTailstormBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex)
@@ -189,7 +191,7 @@ bool AcceptBobtailBlockHeader(const CBobtailBlockHeader &block,
             return true;
         }
 
-        if (!CheckBobtailBlockHeader(block, state))
+        if (!CheckTailstormBlockHeader(block, state))
             return false;
 
         // Get prev block index
@@ -228,7 +230,7 @@ bool AcceptBobtailBlockHeader(const CBobtailBlockHeader &block,
 }
 
 
-bool ContextualCheckBobtailBlock(const CBobtailBlock &block,
+bool ContextualCheckTailstormBlock(const CTailstormBlock &block,
     CValidationState &state,
     CBlockIndex *const pindexPrev)
 {
@@ -305,9 +307,9 @@ bool ContextualCheckBobtailBlock(const CBobtailBlock &block,
     return true;
 }
 
-bool TestBobtailBlockValidity(CValidationState &state,
+bool TestTailstormBlockValidity(CValidationState &state,
     const CChainParams &chainparams,
-    const CBobtailBlock &block,
+    const CTailstormBlock &block,
     CBlockIndex *pindexPrev,
     bool fCheckPOW,
     bool fCheckMerkleRoot)
@@ -324,15 +326,15 @@ bool TestBobtailBlockValidity(CValidationState &state,
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
     // NOTE: CheckBlockHeader is called by CheckBlock
-    if (!CheckBobtailBlockHeader(block, state))
+    if (!CheckTailstormBlockHeader(block, state))
     {
         return false;
     }
-    if (!ContextualCheckBobtailBlock(block, state, pindexPrev))
+    if (!ContextualCheckTailstormBlock(block, state, pindexPrev))
     {
         return false;
     }
-    if (!ConnectBobtailBlock(block, state, &indexDummy, viewNew, chainparams, true))
+    if (!ConnectTailstormBlock(block, state, &indexDummy, viewNew, chainparams, true))
     {
         return false;
     }
@@ -340,11 +342,11 @@ bool TestBobtailBlockValidity(CValidationState &state,
     return true;
 }
 
-bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
+bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
 {
-    if (!CheckBobtailPoW(block, Params().GetConsensus(), BOBTAIL_K))
+    if (!CheckTailstormPoW(block, Params().GetConsensus(), TAILSTORM_K))
     {
-        return state.DoS(50, error("%s(): bobtail proof of work failed", __func__), REJECT_INVALID, "high-hash");
+        return state.DoS(50, error("%s(): tailstorm proof of work failed", __func__), REJECT_INVALID, "high-hash");
     }
 
     // Check timestamp
@@ -357,7 +359,7 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBobtailBlockHeader(block, state))
+    if (!CheckTailstormBlockHeader(block, state))
     {
         return false;
     }
@@ -418,7 +420,7 @@ bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state)
 }
 
 /** Mark a block as having its data received and checked (up to BLOCK_VALID_TRANSACTIONS). */
-bool ReceivedBlockTransactions(const CBobtailBlock &block,
+bool ReceivedBlockTransactions(const CTailstormBlock &block,
     CValidationState &state,
     CBlockIndex *pindexNew,
     const CDiskBlockPos &pos)
@@ -477,7 +479,7 @@ bool ReceivedBlockTransactions(const CBobtailBlock &block,
 }
 
 /** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
-bool AcceptBobtailBlock(const CBobtailBlock &block,
+bool AcceptTailstormBlock(const CTailstormBlock &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex,
@@ -488,12 +490,12 @@ bool AcceptBobtailBlock(const CBobtailBlock &block,
 
     CBlockIndex *&pindex = *ppindex;
 
-    if (!AcceptBobtailBlockHeader(block, state, chainparams, &pindex))
+    if (!AcceptTailstormBlockHeader(block, state, chainparams, &pindex))
     {
         return false;
     }
 
-    LOG(PARALLEL, "Check BobtailBlock %s with chain work %s block height %d\n", pindex->phashBlock->ToString(),
+    LOG(PARALLEL, "Check TailstormBlock %s with chain work %s block height %d\n", pindex->phashBlock->ToString(),
         pindex->nChainWork.ToString(), pindex->nHeight);
 
     // Try to process all requested blocks that we don't have, but only
@@ -528,7 +530,7 @@ bool AcceptBobtailBlock(const CBobtailBlock &block,
         if (fTooFarAhead)
             return true; // Block height is too high
     }
-    if ((!CheckBobtailBlock(block, state)) || !ContextualCheckBobtailBlock(block, state, pindex->pprev))
+    if ((!CheckTailstormBlock(block, state)) || !ContextualCheckTailstormBlock(block, state, pindex->pprev))
     {
         if (state.IsInvalid() && !state.CorruptionPossible())
         {
@@ -579,7 +581,7 @@ bool AcceptBobtailBlock(const CBobtailBlock &block,
     return true;
 }
 
-bool ConnectBobtailBlock(const CBobtailBlock &block,
+bool ConnectTailstormBlock(const CTailstormBlock &block,
     CValidationState &state,
     CBlockIndex *pindex,
     CCoinsViewCache &view,
@@ -603,7 +605,7 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
     AssertLockHeld(cs_main);
 
     // Check it again in case a previous version let a bad block in
-    if (!CheckBobtailBlock(block, state))
+    if (!CheckTailstormBlock(block, state))
     {
         return false;
     }
@@ -948,10 +950,10 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
  * Connect a new block to chainActive. pblock is either nullptr or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
  */
-bool ConnectTipBobtail(CValidationState &state,
+bool ConnectTipTailstorm(CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex *pindexNew,
-    const CBobtailBlock *pblock)
+    const CTailstormBlock *pblock)
 {
     AssertLockHeld(cs_main);
 
@@ -970,7 +972,7 @@ bool ConnectTipBobtail(CValidationState &state,
         return false;
 
     // Read block from disk.
-    CBobtailBlock block;
+    CTailstormBlock block;
     if (!pblock)
     {
         if (!ReadBlockFromDisk(block, pindexNew, chainparams.GetConsensus()))
@@ -980,8 +982,8 @@ bool ConnectTipBobtail(CValidationState &state,
     // Apply the block atomically to the chain state.
     {
         CCoinsViewCache view(pcoinsTip);
-        bool rv = ConnectBobtailBlock(*pblock, state, pindexNew, view, chainparams, false);
-        GetMainSignals().BobtailBlockChecked(*pblock, state);
+        bool rv = ConnectTailstormBlock(*pblock, state, pindexNew, view, chainparams, false);
+        GetMainSignals().TailstormBlockChecked(*pblock, state);
         if (!rv)
         {
             if (state.IsInvalid())
@@ -1016,7 +1018,7 @@ bool ConnectTipBobtail(CValidationState &state,
     {
         // txChanges: only if some unconfirmed tx push is turned on, track what transactions may need to be pushed while
         // confirmed transactions are removed from the mempool.
-        mempool.removeForBlock(*pblock, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload(),
+        mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload(),
             (unconfPushAction.Value() == 0) ? nullptr : &txChanges);
     }
     else
@@ -1051,10 +1053,10 @@ bool ConnectTipBobtail(CValidationState &state,
  * Try to make some progress towards making pindexMostWork the active block.
  * pblock is either nullptr or a pointer to a CBlock corresponding to pindexMostWork.
  */
-bool ActivateBestChainStepBobtail(CValidationState &state,
+bool ActivateBestChainStepTailstorm(CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex *pindexMostWork,
-    const CBobtailBlock *pblock)
+    const CTailstormBlock *pblock)
 {
     if (!pindexMostWork)
     {
@@ -1124,7 +1126,7 @@ bool ActivateBestChainStepBobtail(CValidationState &state,
                 LOG(PARALLEL, "Returning because chain work has changed while connecting blocks\n");
                 return true;
             }
-            if (!ConnectTipBobtail(state, chainparams, pindexConnect,
+            if (!ConnectTipTailstorm(state, chainparams, pindexConnect,
                     pindexConnect == pindexMostWork && fBlock ? pblock : nullptr))
             {
                 if (state.IsInvalid())
@@ -1271,9 +1273,9 @@ bool ActivateBestChainStepBobtail(CValidationState &state,
  * or an activated best chain. pblock is either nullptr or a pointer to a block
  * that is already loaded (to avoid loading it again from disk).
  */
-bool ActivateBestChainBobtail(CValidationState &state,
+bool ActivateBestChainTailstorm(CValidationState &state,
     const CChainParams &chainparams,
-    const CBobtailBlock *pblock,
+    const CTailstormBlock *pblock,
     CNode *pfrom)
 {
     bool result = true;
@@ -1306,7 +1308,7 @@ bool ActivateBestChainBobtail(CValidationState &state,
             }
         }
 
-        if (!ActivateBestChainStepBobtail(state, chainparams, pindexMostWork,
+        if (!ActivateBestChainStepTailstorm(state, chainparams, pindexMostWork,
                 ((pblock) && pblock->GetHash() == pindexMostWork->GetBlockHash() ? pblock : nullptr)))
         {
             // If we fail to activate a chain because it is bad, send a reject message
@@ -1355,10 +1357,10 @@ bool ActivateBestChainBobtail(CValidationState &state,
     return result;
 }
 
-bool ProcessNewBobtailBlock(CValidationState &state,
+bool ProcessNewTailstormBlock(CValidationState &state,
     const CChainParams &chainparams,
     CNode *pfrom,
-    CBobtailBlock *pblock,
+    CTailstormBlock *pblock,
     bool fForceProcessing,
     CDiskBlockPos *dbp)
 {
@@ -1368,17 +1370,17 @@ bool ProcessNewBobtailBlock(CValidationState &state,
     // if (IsChainNearlySyncd() && !fImporting && !fReindex)
     //    SendExpeditedBlock(*pblock, pfrom);
 
-    bool checked = CheckBobtailBlock(*pblock, state);
+    bool checked = CheckTailstormBlock(*pblock, state);
     if (!checked)
     {
-        LOGA("%s(): Invalid bobtail block: ver:%x time:%d Tx size:%d len:%d\n", __func__, pblock->nVersion, pblock->nTime,
+        LOGA("%s(): Invalid tailstorm block: ver:%x time:%d Tx size:%d len:%d\n", __func__, pblock->nVersion, pblock->nTime,
             pblock->vtx.size(), pblock->GetBlockSize());
     }
 
-    // WARNING: cs_main is not locked here throughout but is released and then re-locked during ActivateBestChainBobtail
+    // WARNING: cs_main is not locked here throughout but is released and then re-locked during ActivateBestChainTailstorm
     //          If you lock cs_main throughout ProcessNewBlock then you will in effect prevent PV from happening.
-    //          TODO: in order to lock cs_main all the way through we must remove the locking from ActivateBestChainBobtail
-    //                but it will require great care because ActivateBestChainBobtail requires cs_main however it is also
+    //          TODO: in order to lock cs_main all the way through we must remove the locking from ActivateBestChainTailstorm
+    //                but it will require great care because ActivateBestChainTailstorm requires cs_main however it is also
     //                called from other places.  Currently it seems best to leave cs_main here as is.
     {
         LOCK(cs_main);
@@ -1387,12 +1389,12 @@ bool ProcessNewBobtailBlock(CValidationState &state,
         fRequested |= fForceProcessing;
         if (!checked)
         {
-            return error("%s: CheckBobtailBlock FAILED", __func__);
+            return error("%s: CheckTailstormBlock FAILED", __func__);
         }
 
         // Store to disk
         CBlockIndex *pindex = nullptr;
-        bool ret = AcceptBobtailBlock(*pblock, state, chainparams, &pindex, fRequested, dbp);
+        bool ret = AcceptTailstormBlock(*pblock, state, chainparams, &pindex, fRequested, dbp);
         if (pindex && pfrom)
         {
             const uint256 blockhash = pindex->GetBlockHash();
@@ -1400,7 +1402,7 @@ bool ProcessNewBobtailBlock(CValidationState &state,
         }
         CheckBlockIndex(chainparams.GetConsensus());
 
-        CInv inv(MSG_BOBTAILBLOCK, hash);
+        CInv inv(MSG_TAILSTORMBLOCK, hash);
         if (!ret)
         {
             // BU TODO: if block comes out of order (before its parent) this will happen.  We should cache the block
@@ -1416,15 +1418,15 @@ bool ProcessNewBobtailBlock(CValidationState &state,
 			LOCK(cs_vNodes);
 			for (CNode *pnode : vNodes)
 			{
-				pnode->PushInventory(CInv(MSG_BOBTAILBLOCK, pblock->GetHash()));
+				pnode->PushInventory(CInv(MSG_TAILSTORMBLOCK, pblock->GetHash()));
 			}
 		}
     }
 
-    if (!ActivateBestChainBobtail(state, chainparams, pblock, pfrom))
+    if (!ActivateBestChainTailstorm(state, chainparams, pblock, pfrom))
     {
         if (state.IsInvalid() || state.IsError())
-            return error("%s: ActivateBestChainBobtail failed", __func__);
+            return error("%s: ActivateBestChainTailstorm failed", __func__);
         else
             return false;
     }
@@ -1460,7 +1462,7 @@ bool ProcessNewBobtailBlock(CValidationState &state,
         }
 
         LOG(BENCH,
-            "ProcessNewBobtailBlock, time: %d, block: %s, len: %d, numTx: %d, maxVin: %llu, maxVout: %llu, maxTx:%llu\n",
+            "ProcessNewTailstormBlock, time: %d, block: %s, len: %d, numTx: %d, maxVin: %llu, maxVout: %llu, maxTx:%llu\n",
             end - start, pblock->GetHash().ToString(), pblock->GetBlockSize(), pblock->vtx.size(), maxVin,
             maxVout, maxTxSizeLocal);
         LOG(BENCH, "tx: %s, vin: %llu, vout: %llu, len: %d\n", txIn.GetHash().ToString(), txIn.vin.size(),

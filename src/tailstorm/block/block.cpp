@@ -1,12 +1,27 @@
-#include "miner_common.h"
-#include "bobtailblock.h"
+// Copyright (c) 2020 The Bitcoin Unlimited developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+// tailstorm file includes
+#include "block.h"
+
+// other bitcoin includes
 #include "rank_items.h"
 
 #include <cmath>
 #include <numeric>
 #include <unordered_map>
 
-void CBobtailBlock::UpdateTxLists()
+struct TxEncodeHashComparator
+{
+public:
+    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const
+    {
+        return a->GetHash() < b->GetHash();
+    }
+};
+
+void CTailstormBlock::UpdateTxLists()
 {
     // account for all txs in all subblocks in dag
     std::map<uint256, CTransactionRef> allTxRefs;
@@ -27,7 +42,7 @@ void CBobtailBlock::UpdateTxLists()
         vtx[idx] = pair.second;
         idx++;
     }
-    std::sort(vtx.begin() + 1, vtx.end(), NumericallyLessTxHashComparator());
+    std::sort(vtx.begin() + 1, vtx.end(), TxEncodeHashComparator());
 
     std::vector<int> idxs(vtx.size());
     std::iota (std::begin(idxs), std::end(idxs), 0);
@@ -56,7 +71,7 @@ void CBobtailBlock::UpdateTxLists()
     }
 }
 
-std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CBobtailBlock::DecodeTxLists()
+std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CTailstormBlock::DecodeTxLists()
 {
     uint8_t nBitsPerItem = ceil(log2(vtx.size()));
 
@@ -85,7 +100,7 @@ std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CB
     return subblockTxLists;
 }
 
-uint64_t CBobtailBlock::GetBlockSize() const
+uint64_t CTailstormBlock::GetBlockSize() const
 {
     if (nBlockSize == 0)
         nBlockSize = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);

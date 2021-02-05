@@ -5,6 +5,7 @@
 
 #include "merkle.h"
 #include "hashwrapper.h"
+#include "tailstorm/block/block.h"
 #include "utilstrencodings.h"
 
 /*     WARNING! If you're reading this because you're learning about crypto
@@ -237,7 +238,7 @@ uint256 BlockMerkleRoot(const CSubBlock &block, bool *mutated)
     return ComputeMerkleRoot(std::move(leaves), mutated);
 }
 
-uint256 BlockMerkleRoot(const CBobtailBlock &block, bool *mutated)
+uint256 BlockMerkleRoot(const CTailstormBlock &block, bool *mutated)
 {
     std::vector<uint256> leaves;
     leaves.resize(block.vtx.size());

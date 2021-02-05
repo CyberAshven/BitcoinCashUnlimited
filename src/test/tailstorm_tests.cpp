@@ -1,12 +1,10 @@
-#include "bobtail/pow.h"
-#include "bobtail/dag.h"
-#include "bobtail/subblock.h"
+#include "tailstorm/tailstorm.h"
 #include "test/test_bitcoin.h"
 #include <boost/math/distributions/gamma.hpp>
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 
-BOOST_FIXTURE_TEST_SUITE(bobtail_tests, BasicTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(tailstorm_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(test_dag_score)
 {
@@ -39,7 +37,7 @@ BOOST_AUTO_TEST_CASE(test_dag_score)
     node4->AddAncestor(node3);
 
     // create dag
-    CBobtailDag dag(0, node1);
+    CTailstormDag dag(0, node1);
     dag.Insert(node2);
     dag.Insert(node3);
     dag.Insert(node4);
@@ -74,8 +72,8 @@ BOOST_AUTO_TEST_CASE(gamma_sanity_check)
     // The quantile of the density of a gamma at its mean should be equal to k*scale_parameter
     uint8_t k = 3;
     arith_uint256 scale = arith_uint256(1e6);
-    boost::math::gamma_distribution<> bobtail_gamma(k, scale.getdouble());
-    BOOST_CHECK(quantile(bobtail_gamma, cdf(bobtail_gamma, mean(bobtail_gamma))) == k*scale.getdouble());
+    boost::math::gamma_distribution<> tailstorm_gamma(k, scale.getdouble());
+    BOOST_CHECK(quantile(tailstorm_gamma, cdf(tailstorm_gamma, mean(tailstorm_gamma))) == k*scale.getdouble());
 }
 
 BOOST_AUTO_TEST_CASE(test_scaling_gamma, *boost::unit_test::tolerance(0.000001))
@@ -84,11 +82,11 @@ BOOST_AUTO_TEST_CASE(test_scaling_gamma, *boost::unit_test::tolerance(0.000001))
     arith_uint256 scale = arith_uint256(1e6);
     arith_uint256 scaler = arith_uint256(13);
     arith_uint256 scaled_scale = scale / scaler;
-    boost::math::gamma_distribution<> bobtail_gamma(k, scale.getdouble());
-    boost::math::gamma_distribution<> bobtail_gamma_scaled(k, scaled_scale.getdouble());
+    boost::math::gamma_distribution<> tailstorm_gamma(k, scale.getdouble());
+    boost::math::gamma_distribution<> tailstorm_gamma_scaled(k, scaled_scale.getdouble());
 
-    double mean1 = mean(bobtail_gamma);
-    double mean2 = scaler.getdouble()*mean(bobtail_gamma_scaled);
+    double mean1 = mean(tailstorm_gamma);
+    double mean2 = scaler.getdouble()*mean(tailstorm_gamma_scaled);
     double relative_error = std::abs(mean1 - mean2) / mean1;
 }
 
@@ -162,7 +160,7 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     subref2->vtx.push_back(tx22);
 
     // form block
-    CBobtailBlock block;
+    CTailstormBlock block;
     block.vdag.push_back(subref1);
     block.vdag.push_back(subref2);
     block.UpdateTxLists();

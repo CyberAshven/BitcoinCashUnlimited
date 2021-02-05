@@ -24,7 +24,7 @@ arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
     const int64_t nHalfLife) noexcept;
 
 uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params,
     const CBlockIndex *pindexReferenceBlock) noexcept;
 

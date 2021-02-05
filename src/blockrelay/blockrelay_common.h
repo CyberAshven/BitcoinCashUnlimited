@@ -5,7 +5,6 @@
 #ifndef BITCOIN_BLOCKRELAY_COMMON_H
 #define BITCOIN_BLOCKRELAY_COMMON_H
 
-#include "bobtail/bobtailblock.h"
 #include "net.h"
 #include "utiltime.h"
 
@@ -14,9 +13,10 @@
 
 class CNode;
 class uint256;
+
 class CSBGrapheneBlock;
 class BobCompactBlock;
-class CBobtailBlock;
+class CTailstormBlock;
 
 typedef int NodeId;
 

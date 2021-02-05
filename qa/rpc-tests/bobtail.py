@@ -8,7 +8,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
 
-class BobtailBlocksTest(BitcoinTestFramework):
+class TailstormBlocksTest(BitcoinTestFramework):
     def __init__(self):
         self.rep = False
         BitcoinTestFramework.__init__(self)
@@ -48,18 +48,18 @@ class BobtailBlocksTest(BitcoinTestFramework):
         miner_node = 0
         other_node = 1
         for i in range(30):
-            new_block = self.nodes[miner_node].generatebobtailblocks(1)
+            new_block = self.nodes[miner_node].generatetailstormblocks(1)
             self.sync_blocks()
-            assert_equal(new_block[miner_node], self.nodes[miner_node].getbobtailinfo()['chaintip'])
+            assert_equal(new_block[miner_node], self.nodes[miner_node].gettailstorminfo()['chaintip'])
 
             # compare miner node and another node to check for proper relay
-            assert_equal(self.nodes[-1].getbobtailinfo()['chaintip'], self.nodes[other_node].getbobtailinfo()['chaintip'])
+            assert_equal(self.nodes[-1].gettailstorminfo()['chaintip'], self.nodes[other_node].gettailstorminfo()['chaintip'])
 
-        new_block = self.nodes[miner_node].generatebobtailblocks(10)
+        new_block = self.nodes[miner_node].generatetailstormblocks(10)
         self.sync_blocks()
-        assert_equal(new_block[-1], self.nodes[miner_node].getbobtailinfo()['chaintip'])
+        assert_equal(new_block[-1], self.nodes[miner_node].gettailstorminfo()['chaintip'])
         # compare miner node and another node to check for proper relay
-        assert_equal(self.nodes[miner_node].getbobtailinfo()['chaintip'], self.nodes[other_node].getbobtailinfo()['chaintip'])
+        assert_equal(self.nodes[miner_node].gettailstorminfo()['chaintip'], self.nodes[other_node].gettailstorminfo()['chaintip'])
 
 if __name__ == '__main__':
-    BobtailBlocksTest().main()
+    TailstormBlocksTest().main()

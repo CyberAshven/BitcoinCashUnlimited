@@ -2,14 +2,17 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_SUBBLOCKVALIDATION_H
-#define BITCOIN_BOBTAIL_SUBBLOCKVALIDATION_H
+#ifndef BITCOIN_TAILSTORM_SUBBLOCK_VALIDATION_H
+#define BITCOIN_TAILSTORM_SUBBLOCK_VALIDATION_H
 
-#include "chain.h"
+// tailstorm file includes
+#include "subblock.h"
+
+// other bitcoin includes
 #include "chainparams.h"
 #include "consensus/validation.h"
-#include "primitives/block.h"
-#include "subblock.h"
+
+class CBlockIndex;
 
 /** Context-independent validity checks */
 bool CheckSubBlockHeader(const CSubBlockHeader &block, CValidationState &state, bool fCheckPOW = true);

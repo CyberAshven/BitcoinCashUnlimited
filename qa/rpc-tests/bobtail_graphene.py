@@ -8,7 +8,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
 
-class BobtailGrapheneTest(BitcoinTestFramework):
+class TailstormGrapheneTest(BitcoinTestFramework):
     def __init__(self):
         self.rep = False
         BitcoinTestFramework.__init__(self)
@@ -57,4 +57,4 @@ class BobtailGrapheneTest(BitcoinTestFramework):
             assert_equal(sorted(self.nodes[miner_node].getdagtips()), sorted(self.nodes[other_node].getdagtips()))
 
 if __name__ == '__main__':
-    BobtailGrapheneTest().main()
+    TailstormGrapheneTest().main()

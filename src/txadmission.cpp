@@ -266,7 +266,7 @@ void ThreadCommitToMempool()
     }
 }
 
-void LimitMempoolSize(CTxMemPool &pool, size_t limit, int64_t age)
+void LimitMempoolSize(CTxMemPool &pool, size_t limit, unsigned long age)
 {
     std::vector<COutPoint> vCoinsToUncache;
     int expired = pool.Expire(GetTime() - age, vCoinsToUncache);

@@ -4,11 +4,11 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bobtail/bobtail_miner.h"
+// tailstorm file includes
+#include "miner.h"
+#include "validation.h"
 
-#include "bobtail/dag.h"
-#include "bobtail/validation.h"
-
+// other bitcoin includes
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -45,11 +45,11 @@
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
-extern CBobtailDagSet bobtailDagSet;
+extern CTailstormDagSet tailstormDagSet;
 
-/*CBobtailBlockAssembler*/
+/*CTailstormBlockAssembler*/
 
-BobtailBlockAssembler::BobtailBlockAssembler(const CChainParams &_chainparams)
+TailstormBlockAssembler::TailstormBlockAssembler(const CChainParams &_chainparams)
     : chainparams(_chainparams), nBlockSize(0), nBlockTx(0), nBlockSigOps(0), nFees(0), nHeight(0), nLockTimeCutoff(0),
       lastFewTxs(0), blockFinished(false)
 {
@@ -66,7 +66,7 @@ BobtailBlockAssembler::BobtailBlockAssembler(const CChainParams &_chainparams)
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 }
 
-void BobtailBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
+void TailstormBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
 {
     inBlock.clear();
 
@@ -81,7 +81,7 @@ void BobtailBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t co
     blockFinished = false;
 }
 
-uint64_t BobtailBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
+uint64_t TailstormBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
 {
     CBlockHeader h;
     uint64_t nHeaderSize;
@@ -94,20 +94,20 @@ uint64_t BobtailBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, 
     return nHeaderSize;
 }
 
-CTransactionRef BobtailBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _nHeight, CAmount nValue, const std::set<CDagNode> &dag)
+CTransactionRef TailstormBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _nHeight, CAmount nValue, const std::set<CDagNode> &dag)
 {
     CMutableTransaction tx;
 
     tx.vin.resize(1);
     tx.vin[0].prevout.SetNull();
     tx.vin[0].scriptSig = CScript() << _nHeight << OP_0;
-    // set the vout to be bobtail K at least
-    tx.vout.resize(BOBTAIL_K);
-    CAmount valuePer = nValue / BOBTAIL_K;
+    // set the vout to be tailstorm K at least
+    tx.vout.resize(TAILSTORM_K);
+    CAmount valuePer = nValue / TAILSTORM_K;
     unsigned int i = 0;
     std::set<CDagNode>::iterator iter = dag.begin();
     CAmount total_paid = 0;
-    while (i < BOBTAIL_K && iter != dag.end())
+    while (i < TAILSTORM_K && iter != dag.end())
     {
         tx.vout[i].scriptPubKey = (*iter).subblock.vtx[0]->vin[0].scriptSig;
         tx.vout[i].nValue = valuePer;
@@ -115,7 +115,7 @@ CTransactionRef BobtailBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn,
 	    ++i;
     }
     unsigned int k = 0;
-    unsigned int zero_indexed_K = BOBTAIL_K - 1;
+    unsigned int zero_indexed_K = TAILSTORM_K - 1;
     while (total_paid < nValue)
     {
         tx.vout[k % zero_indexed_K].nValue = tx.vout[k % zero_indexed_K].nValue + 1;
@@ -151,15 +151,15 @@ CTransactionRef BobtailBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn,
     return MakeTransactionRef(std::move(tx));
 }
 
-std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBlock(const CScript &scriptPubKeyIn,
+std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTailstormBlock(const CScript &scriptPubKeyIn,
     int64_t coinbaseSize)
 {
     resetBlock(scriptPubKeyIn, coinbaseSize);
 
     // The constructed block template
-    std::unique_ptr<CBobtailBlockTemplate> pblocktemplate(new CBobtailBlockTemplate());
+    std::unique_ptr<CTailstormBlockTemplate> pblocktemplate(new CTailstormBlockTemplate());
 
-    CBobtailBlock *pblock = pblocktemplate->bobtailblock.get();
+    CTailstormBlock *pblock = pblocktemplate->tailstormblock.get();
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
@@ -174,7 +174,7 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
     {
         // we must get the best dag before locking mempool because we can not recursively lock mempool
         std::set<CDagNode> bestdag;
-        if (bobtailDagSet.GetBestDag(bestdag) == false)
+        if (tailstormDagSet.GetBestDag(bestdag) == false)
         {
             return nullptr;
         }
@@ -194,7 +194,7 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
 
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
-        LOGA("CreateNewBobtailBlock: total size %llu txs: %llu of %llu fees: %lld sigops %u\n", nBlockSize, nBlockTx,
+        LOGA("CreateNewTailstormBlock: total size %llu txs: %llu of %llu fees: %lld sigops %u\n", nBlockSize, nBlockTx,
             mempool._size(), nFees, nBlockSigOps);
 
         // Populate vdag with subblocks and create coinbase tx
@@ -264,7 +264,7 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
     }
 
     CValidationState state;
-    if (!TestBobtailBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
+    if (!TestTailstormBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
     {
         throw std::runtime_error(
             strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
@@ -273,7 +273,7 @@ std::unique_ptr<CBobtailBlockTemplate> BobtailBlockAssembler::CreateNewBobtailBl
     return pblocktemplate;
 }
 
-void BobtailBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter)
+void TailstormBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter)
 {
     const CTxMemPoolEntry &tmp = *iter;
     vtxe->push_back(&tmp);
@@ -295,7 +295,7 @@ void BobtailBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtx
     }
 }
 
-void BobtailBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry)
+void TailstormBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry)
 {
     vtxe->push_back(entry);
     nBlockSize += entry->GetTxSize();

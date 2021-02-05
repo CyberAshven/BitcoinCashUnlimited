@@ -2,38 +2,43 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_VALIDATION_H
-#define BITCOIN_BOBTAIL_VALIDATION_H
+#ifndef BITCOIN_TAILSTORM_BLOCK_VALIDATION_H
+#define BITCOIN_TAILSTORM_BLOCK_VALIDATION_H
 
-#include "bobtail/bobtailblock.h"
+// tailstorm file includes
+#include "block.h"
+
+// other bitcoin includes
 #include "chainparams.h"
 #include "consensus/validation.h"
-#include "validation/forks.h"
 #include "parallel.h"
 #include "txdebugger.h"
 #include "txmempool.h"
+#include "validation/forks.h"
 #include "versionbits.h"
 
-bool CheckBobtailBlockHeader(const CBobtailBlockHeader &header, CValidationState &state);
+class CNode;
 
-bool AcceptBobtailBlockHeader(const CBobtailBlockHeader &block,
+bool CheckTailstormBlockHeader(const CTailstormBlockHeader &header, CValidationState &state);
+
+bool AcceptTailstormBlockHeader(const CTailstormBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex = nullptr);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main
  * held) */
-bool TestBobtailBlockValidity(CValidationState &state,
+bool TestTailstormBlockValidity(CValidationState &state,
     const CChainParams &chainparams,
-    const CBobtailBlock &block,
+    const CTailstormBlock &block,
     CBlockIndex *pindexPrev,
     bool fCheckPOW = true,
     bool fCheckMerkleRoot = true);
 
-bool CheckBobtailBlock(const CBobtailBlock &block, CValidationState &state);
+bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
-bool ConnectBobtailBlock(const CBobtailBlock &block,
+bool ConnectTailstormBlock(const CTailstormBlock &block,
     CValidationState &state,
     CBlockIndex *pindex,
     CCoinsViewCache &view,
@@ -58,10 +63,10 @@ bool ConnectBobtailBlock(const CBobtailBlock &block,
  * @param[out]  dbp     If pblock is stored to disk (or already there), this will be set to its location.
  * @return True if state.IsValid()
  */
-bool ProcessNewBobtailBlock(CValidationState &state,
+bool ProcessNewTailstormBlock(CValidationState &state,
     const CChainParams &chainparams,
     CNode *pfrom,
-    CBobtailBlock *pblock,
+    CTailstormBlock *pblock,
     bool fForceProcessing,
     CDiskBlockPos *dbp);
 

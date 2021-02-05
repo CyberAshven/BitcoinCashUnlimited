@@ -12,7 +12,6 @@
 #include <set>
 
 #include "amount.h"
-#include "bobtail/bobtailblock.h"
 #include "coins.h"
 #include "primitives/transaction.h"
 #include "random.h"
@@ -163,9 +162,6 @@ public:
     void UpdateIncludedDags(const uint16_t &dag_id, const bool &add);
     bool IsInDag(const uint16_t &dag_id) const;
 
-    uint64_t GetCountWithDescendants() const { return nCountWithDescendants; }
-    uint64_t GetSizeWithDescendants() const { return nSizeWithDescendants; }
-    CAmount GetModFeesWithDescendants() const { return nModFeesWithDescendants; }
     bool GetSpendsCoinbase() const { return spendsCoinbase; }
     uint64_t GetCountWithAncestors() const { return nCountWithAncestors; }
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
@@ -271,10 +267,7 @@ struct mempoolentry_txid
 class CompareTxMemPoolEntryByEntryTime
 {
 public:
-    bool operator()(const CTxMemPoolEntry &a, const CTxMemPoolEntry &b) const
-    {
-        return a.GetTime() < b.GetTime();
-    }
+    bool operator()(const CTxMemPoolEntry &a, const CTxMemPoolEntry &b) const { return a.GetTime() < b.GetTime(); }
 };
 
 class CompareTxMemPoolEntryByAncestorFee

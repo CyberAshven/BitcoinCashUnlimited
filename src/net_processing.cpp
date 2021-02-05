@@ -16,11 +16,6 @@
 #include "blockrelay/mempool_sync.h"
 #include "blockrelay/thinblock.h"
 #include "blockstorage/blockstorage.h"
-#include "bobtail/bobtailblock.h"
-#include "bobtail/compactblock.h"
-#include "bobtail/dag.h"
-#include "bobtail/graphene.h"
-#include "bobtail/validation.h"
 #include "chain.h"
 #include "dosman.h"
 #include "electrum/electrs.h"
@@ -30,6 +25,7 @@
 #include "merkleblock.h"
 #include "nodestate.h"
 #include "requestManager.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "validation/validation.h"
@@ -41,7 +37,7 @@ extern std::atomic<int64_t> nTimeBestReceived;
 extern std::atomic<int> nPreferredDownload;
 extern int nSyncStarted;
 extern std::map<uint256, std::pair<CBlockHeader, int64_t> > mapUnConnectedHeaders;
-extern std::map<uint256, std::pair<CBobtailBlockHeader, int64_t> > mapBobUnConnectedHeaders;
+extern std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> > mapBobUnConnectedHeaders;
 extern CTweak<unsigned int> maxBlocksInTransitPerPeer;
 extern CTweak<uint64_t> grapheneMinVersionSupported;
 extern CTweak<uint64_t> grapheneMaxVersionSupported;
@@ -124,18 +120,28 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         {
             // this is safe todo without a lock
             CSubBlock subblock;
-            if (bobtailDagSet.Find(inv.hash, subblock))
+            if (tailstormDagSet.Find(inv.hash, subblock))
             {
                 pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
             }
             else
             {
-                vNotFound.push_back(inv);
+                std::map<uint256, CDagNode>::iterator iter;
+                LOCK(cs_tipDagCache);
+                iter = tipDagCache.find(inv.hash);
+                if (iter != tipDagCache.end())
+                {
+                    subblock = iter->second.subblock;
+                }
+                else
+                {
+                    vNotFound.push_back(inv);
+                }
             }
         }
-        else if (inv.type == MSG_BOBTAILBLOCK)
+        else if (inv.type == MSG_TAILSTORMBLOCK)
         {
-            CBobtailBlock block;
+            CTailstormBlock block;
             READLOCK(cs_mapBlockIndex);
             auto iter = mapBlockIndex.find(inv.hash);
             if (iter != mapBlockIndex.end())
@@ -143,12 +149,13 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
                 {
                     // We don't have the block yet, although we know about it.
-                    LOG(NET,"Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+                    LOG(NET, "Peer %s requested block %s that cannot be read", pfrom->GetLogName(),
+                        inv.hash.ToString());
                     vNotFound.push_back(inv);
                 }
                 else
                 {
-                    pfrom->PushMessage(NetMsgType::BOBTAILBLOCK, block);
+                    pfrom->PushMessage(NetMsgType::TAILSTORMBLOCK, block);
                 }
             }
             else
@@ -158,7 +165,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_BOB_CMPCT_BLOCK)
         {
-            CBobtailBlock block;
+            CTailstormBlock block;
             READLOCK(cs_mapBlockIndex);
             auto iter = mapBlockIndex.find(inv.hash);
             if (iter != mapBlockIndex.end())
@@ -166,13 +173,14 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
                 {
                     // We don't have the block yet, although we know about it.
-                    LOG(NET,"Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+                    LOG(NET, "Peer %s requested block %s that cannot be read", pfrom->GetLogName(),
+                        inv.hash.ToString());
                     vNotFound.push_back(inv);
                 }
                 else
                 {
                     BobSendCompactBlock(block, pfrom, inv);
-                    LOG(CMPCT, "Sending compact bobtail block via getdata message\n");
+                    LOG(CMPCT, "Sending compact tailstorm block via getdata message\n");
                 }
             }
             else
@@ -987,7 +995,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF) ||
-                (inv.type == MSG_BOBTAILBLOCK) || (inv.type == MSG_SUBBLOCK)))
+                    (inv.type == MSG_TAILSTORMBLOCK) || (inv.type == MSG_SUBBLOCK)))
             {
                 LOG(NET, "message inv invalid type = %u hash %s", inv.type, inv.hash.ToString());
                 return false;
@@ -1000,13 +1008,21 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             if (inv.type == MSG_SUBBLOCK)
             {
-                if (bobtailDagSet.Contains(inv.hash) == false)
+                if (tailstormDagSet.Contains(inv.hash) == false)
                 {
+                    bool found = false;
+                    LOCK(cs_tipDagCache);
+                    {
+                        found = tipDagCache.count(inv.hash);
+                    }
                     // we dont have it so request it
-                    requester.AskFor(inv, pfrom);
+                    if (found == false)
+                    {
+                        requester.AskFor(inv, pfrom);
+                    }
                 }
             }
-            else if (inv.type == MSG_BOBTAILBLOCK)
+            else if (inv.type == MSG_TAILSTORMBLOCK)
             {
                 READLOCK(cs_mapBlockIndex);
                 if (mapBlockIndex.count(inv.hash) == 0)
@@ -1111,7 +1127,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_FILTERED_BLOCK) ||
-                    (inv.type == MSG_CMPCT_BLOCK) || (inv.type == MSG_SUBBLOCK) || (inv.type == MSG_BOBTAILBLOCK) ||
+                    (inv.type == MSG_CMPCT_BLOCK) || (inv.type == MSG_SUBBLOCK) || (inv.type == MSG_TAILSTORMBLOCK) ||
                     (inv.type == MSG_BOB_CMPCT_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF)))
             {
                 dosMan.Misbehaving(pfrom, 20, BanReasonInvalidInventory);
@@ -1214,7 +1230,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
 
         std::vector<CBlock> vHeaders;
-        std::vector<CBobtailBlockHeader> vBobHeaders;
+        std::vector<CTailstormBlockHeader> vBobHeaders;
         {
             LOCK(cs_main); // for chainActive
             if (!locator.IsNull())
@@ -1231,9 +1247,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 hashStop.ToString(), pfrom->GetLogName());
             for (; pindex; pindex = chainActive.Next(pindex))
             {
-		if (pindex->isBobtail)
-                    vBobHeaders.push_back(pindex->GetBobtailBlockHeader());
-		else
+                if (pindex->isTailstorm)
+                    vBobHeaders.push_back(pindex->GetTailstormBlockHeader());
+                else
                     vHeaders.push_back(pindex->GetBlockHeader());
                 if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                     break;
@@ -1247,10 +1263,10 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             CNodeStateAccessor state(nodestate, pfrom->GetId());
             state->pindexBestHeaderSent = pindex ? pindex : chainActive.Tip();
         }
-	if (!vHeaders.empty())
+        if (!vHeaders.empty())
             pfrom->PushMessage(NetMsgType::HEADERS, vHeaders);
-	if (!vBobHeaders.empty())
-            pfrom->PushMessage(NetMsgType::BOBTAIL_HEADERS, vHeaders);
+        if (!vBobHeaders.empty())
+            pfrom->PushMessage(NetMsgType::TAILSTORM_HEADERS, vHeaders);
     }
 
 
@@ -1623,7 +1639,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         CheckBlockIndex(chainparams.GetConsensus());
     }
 
-    else if (strCommand == NetMsgType::BOBTAIL_HEADERS) // Ignore headers received while importing
+    else if (strCommand == NetMsgType::TAILSTORM_HEADERS) // Ignore headers received while importing
     {
         if (fImporting)
         {
@@ -1635,7 +1651,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             LOG(NET, "skipping processing of HEADERS because reindexing\n");
             return true;
         }
-        std::vector<CBobtailBlockHeader> headers;
+        std::vector<CTailstormBlockHeader> headers;
 
         // Bypass the normal CBlock deserialization, as we don't want to risk deserializing 2000 full blocks.
         unsigned int nCount = ReadCompactSize(vRecv);
@@ -1648,7 +1664,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         for (unsigned int n = 0; n < nCount; n++)
         {
             vRecv >> headers[n];
-            //ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
+            // ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
         }
 
         LOCK(cs_main);
@@ -1663,7 +1679,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         bool fNewUnconnectedHeaders = false;
         uint256 hashLastBlock;
         hashLastBlock.SetNull();
-        for (const CBobtailBlockHeader &header : headers)
+        for (const CTailstormBlockHeader &header : headers)
         {
             // check that the first header has a previous block in the blockindex.
             if (hashLastBlock.IsNull())
@@ -1708,10 +1724,10 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             return true;
 
         // If possible add any previously unconnected headers to the headers vector and remove any expired entries.
-        std::map<uint256, std::pair<CBobtailBlockHeader, int64_t> >::iterator mi = mapBobUnConnectedHeaders.begin();
+        std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> >::iterator mi = mapBobUnConnectedHeaders.begin();
         while (mi != mapBobUnConnectedHeaders.end())
         {
-            std::map<uint256, std::pair<CBobtailBlockHeader, int64_t> >::iterator toErase = mi;
+            std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> >::iterator toErase = mi;
 
             // Add the header if it connects to the previous header
             if (headers.back().GetHash() == (*mi).second.first.hashPrevBlock)
@@ -1738,7 +1754,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             // check if the header is equal to some other header in the list. If so then remove it from the cache.
             else
             {
-                for (const CBobtailBlockHeader &header : headers)
+                for (const CTailstormBlockHeader &header : headers)
                 {
                     if (header.GetHash() == headerHash)
                     {
@@ -1752,10 +1768,10 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         // Check and accept each header in dependency order (oldest block to most recent)
         CBlockIndex *pindexLast = nullptr;
         int i = 0;
-        for (const CBobtailBlockHeader &header : headers)
+        for (const CTailstormBlockHeader &header : headers)
         {
             CValidationState state;
-            if (!AcceptBobtailBlockHeader(header, state, chainparams, &pindexLast))
+            if (!AcceptTailstormBlockHeader(header, state, chainparams, &pindexLast))
             {
                 int nDos;
                 if (state.IsInvalid(nDos))
@@ -1772,12 +1788,12 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             }
             else
             {
-               PV->UpdateBobMostWorkOurFork(header);
+                PV->UpdateBobMostWorkOurFork(header);
             }
             i++;
         }
 
-        //if (pindexLast)
+        // if (pindexLast)
         //    requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
 
         if (nCount == MAX_HEADERS_RESULTS && pindexLast)
@@ -1902,7 +1918,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             {
                 CBlockIndex *pindex = *pindex_iter;
                 // pindex must be nonnull because we populated vToFetch a few lines above
-                CInv inv(MSG_BOBTAILBLOCK, pindex->GetBlockHash());
+                CInv inv(MSG_TAILSTORMBLOCK, pindex->GetBlockHash());
                 if (!AlreadyHaveBlock(inv))
                 {
                     requester.AskFor(inv, pfrom);
@@ -2147,7 +2163,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         return CSBGrapheneBlockTx::HandleMessage(vRecv, pfrom);
     }
 
-    else if (strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    else if (strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() &&
+             grapheneVersionCompatible)
     {
         if (!requester.CheckForRequestDOS(pfrom, chainparams))
             return false;
@@ -2188,7 +2205,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         return CompactReReqResponse::HandleMessage(vRecv, pfrom);
     }
 
-    // Handle Compact Bobtail Blocks
+    // Handle Compact Tailstorm Blocks
     else if (strCommand == NetMsgType::BOBCMPCTBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
              IsCompactBlocksEnabled())
     {
@@ -2237,18 +2254,18 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     {
         CSubBlock subblock;
         vRecv >> subblock;
-        bobtailDagSet.Insert(subblock);
+        tailstormDagSet.Insert(subblock);
     }
 
-    else if (strCommand == NetMsgType::BOBTAILBLOCK && !fImporting && !fReindex)
+    else if (strCommand == NetMsgType::TAILSTORMBLOCK && !fImporting && !fReindex)
     {
-        CBobtailBlock bobtailblock;
-        vRecv >> bobtailblock;
+        CTailstormBlock tailstormblock;
+        vRecv >> tailstormblock;
 
         CValidationState state;
         const CChainParams &chainparams = Params();
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
-        ProcessNewBobtailBlock(state, chainparams, pfrom, &bobtailblock, forceProcessing, nullptr);
+        ProcessNewTailstormBlock(state, chainparams, pfrom, &tailstormblock, forceProcessing, nullptr);
     }
 
     // Handle full blocks
@@ -3150,7 +3167,7 @@ bool SendMessages(CNode *pto)
             }
 
             std::vector<CBlock> vHeaders;
-            std::vector<CBobtailBlockHeader> vBobtailHeaders;
+            std::vector<CTailstormBlockHeader> vTailstormHeaders;
             bool fRevertToInv = (!state->fPreferHeaders || vBlocksToAnnounce.size() > MAX_BLOCKS_TO_ANNOUNCE);
             CBlockIndex *pBestIndex = nullptr; // last header queued for delivery
 
@@ -3194,8 +3211,8 @@ bool SendMessages(CNode *pto)
                         // add this to the headers message
                         try
                         {
-                            if (pindex->isBobtail)
-                                vBobtailHeaders.push_back(pindex->GetBobtailBlockHeader());
+                            if (pindex->isTailstorm)
+                                vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
                             else
                                 vHeaders.push_back(pindex->GetBlockHeader());
                         }
@@ -3215,8 +3232,8 @@ bool SendMessages(CNode *pto)
                         fFoundStartingHeader = true;
                         try
                         {
-                            if (pindex->isBobtail)
-                                vBobtailHeaders.push_back(pindex->GetBobtailBlockHeader());
+                            if (pindex->isTailstorm)
+                                vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
                             else
                                 vHeaders.push_back(pindex->GetBlockHeader());
                         }
@@ -3224,7 +3241,6 @@ bool SendMessages(CNode *pto)
                         {
                             throw std::runtime_error("Unknown header type");
                         }
-
                     }
                     else
                     {
@@ -3262,7 +3278,7 @@ bool SendMessages(CNode *pto)
                     }
                 }
             }
-            else if (!vHeaders.empty() || !vBobtailHeaders.empty())
+            else if (!vHeaders.empty() || !vTailstormHeaders.empty())
             {
                 if (!vHeaders.empty())
                 {
@@ -3281,21 +3297,22 @@ bool SendMessages(CNode *pto)
                         pto->PushMessage(NetMsgType::HEADERS, vHeaders);
                     }
                 }
-                if (!vBobtailHeaders.empty())
+                if (!vTailstormHeaders.empty())
                 {
-                    if (vBobtailHeaders.size() > 1)
+                    if (vTailstormHeaders.size() > 1)
                     {
-                        LOG(NET, "%s: %u headers, range (%s, %s), to peer=%d\n", __func__, vBobtailHeaders.size(),
-                            vBobtailHeaders.front().GetHash().ToString(), vBobtailHeaders.back().GetHash().ToString(), pto->id);
+                        LOG(NET, "%s: %u headers, range (%s, %s), to peer=%d\n", __func__, vTailstormHeaders.size(),
+                            vTailstormHeaders.front().GetHash().ToString(),
+                            vTailstormHeaders.back().GetHash().ToString(), pto->id);
                     }
                     else
                     {
-                        LOG(NET, "%s: sending bobtail header %s to peer=%d\n", __func__, vBobtailHeaders.front().GetHash().ToString(),
-                            pto->id);
+                        LOG(NET, "%s: sending tailstorm header %s to peer=%d\n", __func__,
+                            vTailstormHeaders.front().GetHash().ToString(), pto->id);
                     }
                     {
                         LOCK(pto->cs_vSend);
-                        pto->PushMessage(NetMsgType::BOBTAIL_HEADERS, vBobtailHeaders);
+                        pto->PushMessage(NetMsgType::TAILSTORM_HEADERS, vTailstormHeaders);
                     }
                 }
                 CNodeStateAccessor(nodestate, pto->GetId())->pindexBestHeaderSent = pBestIndex;

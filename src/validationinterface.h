@@ -13,7 +13,7 @@
 #include <boost/signals2/signal.hpp>
 
 class CBlock;
-class CBobtailBlock;
+class CTailstormBlock;
 struct CBlockLocator;
 class CBlockIndex;
 class CReserveScript;
@@ -32,7 +32,7 @@ void UnregisterAllValidationInterfaces();
 /** Push an updated transaction to all registered wallets, pass nullptr if block not known, pass -1 if txIdx not known
  */
 void SyncWithWallets(const CTransactionRef &ptx, const CBlock *pblock, int txIdx);
-void SyncWithWallets_BT(const CTransactionRef &ptx, const CBobtailBlock *pblock, int txIdx);
+void SyncWithWallets_BT(const CTransactionRef &ptx, const CTailstormBlock *pblock, int txIdx);
 
 class RaiiRegisterValidationInterface
 {
@@ -48,13 +48,13 @@ protected:
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {}
     virtual void SyncTransaction(const CTransactionRef &ptx, const CBlock *pblock, int txIdx) {}
     virtual void SyncDoubleSpend(const CTransactionRef ptx) {}
-    virtual void SyncTransaction_BT(const CTransactionRef &ptx, const CBobtailBlock *pblock, int txIdx) {}
+    virtual void SyncTransaction_BT(const CTransactionRef &ptx, const CTailstormBlock *pblock, int txIdx) {}
     virtual void SetBestChain(const CBlockLocator &locator) {}
     virtual void UpdatedTransaction(const uint256 &hash) {}
     virtual void Inventory(const uint256 &hash) {}
     virtual void ResendWalletTransactions(int64_t nBestBlockTime) {}
     virtual void BlockChecked(const CBlock &, const CValidationState &) {}
-    virtual void BobtailBlockChecked(const CBobtailBlock &, const CValidationState &) {}
+    virtual void TailstormBlockChecked(const CTailstormBlock &, const CValidationState &) {}
     virtual void GetScriptForMining(boost::shared_ptr<CReserveScript> &){};
     virtual void ResetRequestCount(const uint256 &hash){};
     friend void ::RegisterValidationInterface(CValidationInterface *);
@@ -70,7 +70,7 @@ struct CMainSignals
     boost::signals2::signal<void(const CTransactionRef &, const CBlock *, int txIndex)> SyncTransaction;
     /** Notifies listeners of a transaction in the mempool that was double spent. */
     boost::signals2::signal<void(const CTransactionRef)> SyncDoubleSpend;
-    boost::signals2::signal<void(const CTransactionRef &, const CBobtailBlock *, int txIndex)> SyncTransaction_BT;
+    boost::signals2::signal<void(const CTransactionRef &, const CTailstormBlock *, int txIndex)> SyncTransaction_BT;
     /** Notifies listeners of an updated transaction without new data (for now: a coinbase potentially becoming
      * visible). */
     boost::signals2::signal<void(const uint256 &)> UpdatedTransaction;
@@ -82,7 +82,7 @@ struct CMainSignals
     boost::signals2::signal<void(int64_t nBestBlockTime)> Broadcast;
     /** Notifies listeners of a block validation result */
     boost::signals2::signal<void(const CBlock &, const CValidationState &)> BlockChecked;
-    boost::signals2::signal<void(const CBobtailBlock &, const CValidationState &)> BobtailBlockChecked;
+    boost::signals2::signal<void(const CTailstormBlock &, const CValidationState &)> TailstormBlockChecked;
     /** Notifies listeners that a key for mining is required (coinbase) */
     boost::signals2::signal<void(boost::shared_ptr<CReserveScript> &)> ScriptForMining;
     /** Notifies listeners that a block has been successfully mined */

@@ -2,21 +2,19 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_COMPACTBLOCK_H
-#define BITCOIN_BOBTAIL_COMPACTBLOCK_H
+#ifndef BITCOIN_TAILSTORM_BLOCKRELAY_COMPACTBLOCK_H
+#define BITCOIN_TAILSTORM_BLOCKRELAY_COMPACTBLOCK_H
 
-#include "bobtail/subblock.h"
-#include "bobtail/bobtailblock.h"
+// tailstorm file includes
+#include "tailstorm/block/block.h"
+
+// other bitcoin includes
 #include "bloom.h"
 #include "consensus/validation.h"
 #include "fastfilter.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
 #include "protocol.h"
-#include "serialize.h"
 #include "stat.h"
-#include "sync.h"
-#include "uint256.h"
+
 #include <atomic>
 #include <memory>
 #include <vector>
@@ -58,7 +56,7 @@ public:
 
     BobCompactReReqResponse() {}
     BobCompactReReqResponse(const BobCompactReRequest &req) : blockhash(req.blockhash), subBlocks(req.subBlockHashes.size()) {}
-    BobCompactReReqResponse(const CBobtailBlock &block, const std::set<uint64_t> subBlockHashes, uint64_t shorttxidk0, uint64_t shorttxidk1)
+    BobCompactReReqResponse(const CTailstormBlock &block, const std::set<uint64_t> subBlockHashes, uint64_t shorttxidk0, uint64_t shorttxidk1)
     {
         blockhash = block.GetHash();
         if (subBlockHashes.size() > block.vdag.size())
@@ -91,7 +89,7 @@ public:
     }
 };
 
-class BobCompactBlock : public CBobtailBlock
+class BobCompactBlock : public CTailstormBlock
 {
 public:
     mutable uint64_t shorttxidk0, shorttxidk1;
@@ -109,8 +107,8 @@ public:
     mutable unsigned int nWaitingFor; // Number of subblocks we are still needing to recontruct the block
 
     // memory only
-    std::vector<uint256> vSubHashes256; // List of all 256 bit subblock hashes in the bobtail block
-    std::vector<uint64_t> vSubHashes; // List of all 64 bit subblock hashes in the bobtail block
+    std::vector<uint256> vSubHashes256; // List of all 256 bit subblock hashes in the tailstorm block
+    std::vector<uint64_t> vSubHashes; // List of all 64 bit subblock hashes in the tailstorm block
     std::map<uint64_t, CSubBlockRef> mapMissingTx; // Map of subblocks that were re-requested
 
     //! Track the current block size during reconstruction: (memory only)
@@ -123,7 +121,7 @@ public:
 
     // Dummy for deserialization
     BobCompactBlock() : nSize(0), nWaitingFor(0) {}
-    BobCompactBlock(const CBobtailBlock &block);
+    BobCompactBlock(const CTailstormBlock &block);
 
     bool process(CNode *pfrom);
     CInv GetInv()
@@ -315,7 +313,7 @@ public:
 extern CBobCompactBlockData bobcompactdata; // Singleton class
 
 bool IsBobCompactBlocksEnabled();
-void BobSendCompactBlock(const CBobtailBlock &pblock, CNode *pfrom, const CInv &inv);
+void BobSendCompactBlock(const CTailstormBlock &pblock, CNode *pfrom, const CInv &inv);
 bool IsBobCompactBlockValid(CNode *pfrom, std::shared_ptr<BobCompactBlock> compactBlock);
 
-#endif // BOBTAIL_COMPACTBLOCK_H
+#endif // TAILSTORM_COMPACTBLOCK_H

@@ -194,7 +194,7 @@ bool TxIndex::WriteBlock(const CBlock &block, const CBlockIndex *pindex)
     return db->WriteTxs(vPos);
 }
 
-bool TxIndex::WriteBlock(const CBobtailBlock &block, const CBlockIndex *pindex)
+bool TxIndex::WriteBlock(const CTailstormBlock &block, const CBlockIndex *pindex)
 {
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
@@ -242,7 +242,7 @@ void TxIndex::BlockConnected(const CBlock &block, CBlockIndex *pindex)
     }
 }
 
-void TxIndex::BlockConnected(const CBobtailBlock &block, CBlockIndex *pindex)
+void TxIndex::BlockConnected(const CTailstormBlock &block, CBlockIndex *pindex)
 {
     if (!fSynced.load())
         return;

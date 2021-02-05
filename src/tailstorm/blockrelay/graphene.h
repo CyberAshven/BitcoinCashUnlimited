@@ -2,24 +2,22 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_GRAPHENE_H
-#define BITCOIN_BOBTAIL_GRAPHENE_H
+#ifndef BITCOIN_TAILSTORM_BLOCKRELAY_GRAPHENE_H
+#define BITCOIN_TAILSTORM_BLOCKRELAY_GRAPHENE_H
+
+// tailstorm file includes
+#include "tailstorm/subblock/subblock.h"
 
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/graphene_set.h"
-#include "bobtail/subblock.h"
 #include "bloom.h"
 #include "config.h"
 #include "consensus/validation.h"
 #include "fastfilter.h"
 #include "iblt.h"
-#include "primitives/block.h"
 #include "protocol.h"
-#include "serialize.h"
 #include "stat.h"
-#include "sync.h"
-#include "uint256.h"
 #include "unlimited.h"
 
 #include <atomic>
@@ -525,4 +523,4 @@ uint64_t SBGetShortID(uint64_t shorttxidk0, uint64_t shorttxidk1, const uint256 
 bool SBNegotiateFastFilterSupport(CNode *pfrom);
 uint64_t SBNegotiateGrapheneVersion(CNode *pfrom);
 
-#endif // BOBTAIL_GRAPHENE_H
+#endif // TAILSTORM_GRAPHENE_H

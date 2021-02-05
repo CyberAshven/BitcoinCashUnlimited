@@ -8,7 +8,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
 
-class BobtailCompactTest(BitcoinTestFramework):
+class TailstormCompactTest(BitcoinTestFramework):
     def __init__(self):
         self.rep = False
         BitcoinTestFramework.__init__(self)
@@ -49,16 +49,16 @@ class BobtailCompactTest(BitcoinTestFramework):
         miner_node = 0
         other_node = 1
         for i in range(3):
-            new_block = self.nodes[miner_node].generatebobtailblocks(1)
+            new_block = self.nodes[miner_node].generatetailstormblocks(1)
             self.sync_blocks()
-            assert_equal(new_block[miner_node], self.nodes[miner_node].getbobtailinfo()['chaintip'])
+            assert_equal(new_block[miner_node], self.nodes[miner_node].gettailstorminfo()['chaintip'])
 
             # compare miner node and another node to check for proper relay
-            assert_equal(self.nodes[miner_node].getbobtailinfo()['chaintip'], self.nodes[other_node].getbobtailinfo()['chaintip'])
+            assert_equal(self.nodes[miner_node].gettailstorminfo()['chaintip'], self.nodes[other_node].gettailstorminfo()['chaintip'])
             new_block = self.nodes[miner_node].generatesubblocks(1)
 
             summary = self.nodes[1].getnetworkinfo()['bobcompactblockstats']['summary']
             assert f'{i+1} inbound and 0 outbound BobCompactBlocks' in summary
 
 if __name__ == '__main__':
-    BobtailCompactTest().main()
+    TailstormCompactTest().main()

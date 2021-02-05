@@ -18,7 +18,6 @@
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
-#include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "connmgr.h"
 #include "consensus/consensus.h"
@@ -29,6 +28,7 @@
 #include "iblt.h"
 #include "primitives/transaction.h"
 #include "requestManager.h"
+#include "tailstorm/tailstorm.h"
 #include "ui_interface.h"
 #include "unlimited.h"
 #include "utilstrencodings.h"
@@ -81,7 +81,7 @@ extern CTweak<bool> ignoreNetTimeouts;
 #endif
 
 extern std::atomic<bool> fRescan;
-extern bool fReindex;
+extern std::atomic<bool> fReindex;
 extern CTxMemPool mempool;
 extern CTweak<uint64_t> grapheneMinVersionSupported;
 extern CTweak<uint64_t> grapheneMaxVersionSupported;
@@ -647,15 +647,14 @@ static bool IsPriorityMsg(std::string strCommand)
         strCommand == NetMsgType::GET_GRAPHENETX || strCommand == NetMsgType::GET_XTHIN ||
         strCommand == NetMsgType::GET_SB_GRAPHENE || strCommand == NetMsgType::SB_GRAPHENETX ||
         strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY || strCommand == NetMsgType::SB_GRAPHENE_RECOVERY ||
-        strCommand == NetMsgType::GET_SB_GRAPHENETX ||
-        strCommand == NetMsgType::GET_THIN || strCommand == NetMsgType::XTHINBLOCK ||
-        strCommand == NetMsgType::THINBLOCK || strCommand == NetMsgType::XBLOCKTX ||
-        strCommand == NetMsgType::GET_XBLOCKTX || strCommand == NetMsgType::XPEDITEDREQUEST ||
-        strCommand == NetMsgType::XPEDITEDBLK || strCommand == NetMsgType::XPEDITEDTXN ||
-        strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::GETBLOCKTXN ||
-        strCommand == NetMsgType::BLOCKTXN || strCommand == NetMsgType::BLOCK ||
-        strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::GETBOBSUB || 
-        strCommand == NetMsgType::BOBSUB)
+        strCommand == NetMsgType::GET_SB_GRAPHENETX || strCommand == NetMsgType::GET_THIN ||
+        strCommand == NetMsgType::XTHINBLOCK || strCommand == NetMsgType::THINBLOCK ||
+        strCommand == NetMsgType::XBLOCKTX || strCommand == NetMsgType::GET_XBLOCKTX ||
+        strCommand == NetMsgType::XPEDITEDREQUEST || strCommand == NetMsgType::XPEDITEDBLK ||
+        strCommand == NetMsgType::XPEDITEDTXN || strCommand == NetMsgType::CMPCTBLOCK ||
+        strCommand == NetMsgType::GETBLOCKTXN || strCommand == NetMsgType::BLOCKTXN ||
+        strCommand == NetMsgType::BLOCK || strCommand == NetMsgType::BOBCMPCTBLOCK ||
+        strCommand == NetMsgType::GETBOBSUB || strCommand == NetMsgType::BOBSUB)
     {
         return true;
     }

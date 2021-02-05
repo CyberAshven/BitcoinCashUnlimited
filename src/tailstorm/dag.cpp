@@ -2,8 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+// tailstorm file includes
 #include "dag.h"
 
+// other bitcoin includes
 #include "consensus/consensus.h"
 #include "txmempool.h"
 
@@ -34,12 +36,12 @@ bool CDagNode::IsValid()
     return (subblock.IsNull() == false && dag_id >= 0);
 }
 
-void CBobtailDag::SetId(int16_t new_id)
+void CTailstormDag::SetId(int16_t new_id)
 {
     id = new_id;
 }
 
-bool CBobtailDag::CheckForCompatibility(CDagNode* newNode)
+bool CTailstormDag::CheckForCompatibility(CDagNode* newNode)
 {
     // we are already incompatible with this node, no need to check its inputs
     if (incompatible_dags.count(newNode->dag_id))
@@ -68,7 +70,7 @@ bool CBobtailDag::CheckForCompatibility(CDagNode* newNode)
     return true;
 }
 
-void CBobtailDag::UpdateCompatibility(const int16_t &new_id, const std::set<int16_t> &old_ids)
+void CTailstormDag::UpdateCompatibility(const int16_t &new_id, const std::set<int16_t> &old_ids)
 {
     // the old_ids are being merged into a dag with the new_id. This merge means these dags
     // were compatible. if a given dag was incompatible with one of the old_ids it will be
@@ -87,7 +89,7 @@ void CBobtailDag::UpdateCompatibility(const int16_t &new_id, const std::set<int1
     }
 }
 
-void CBobtailDag::UpdateDagScore()
+void CTailstormDag::UpdateDagScore()
 {
     // keep track of what has been mapNodeScore
     std::map<CDagNode*, uint64_t> mapNodeScore;
@@ -162,7 +164,7 @@ void CBobtailDag::UpdateDagScore()
     score = total_score;
 }
 
-bool CBobtailDag::Insert(CDagNode* new_node)
+bool CTailstormDag::Insert(CDagNode* new_node)
 {
     std::map<COutPoint, uint256> new_spends;
     for (auto &tx : new_node->subblock.vtx)
@@ -192,7 +194,7 @@ bool CBobtailDag::Insert(CDagNode* new_node)
     return true;
 }
 
-void CBobtailDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
+void CTailstormDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
 {
     WRITELOCK(cs_dagset);
     int16_t last_value;
@@ -227,7 +229,7 @@ void CBobtailDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
     }
 }
 
-void CBobtailDagSet::_CreateNewDag(CDagNode *newNode)
+void CTailstormDagSet::_CreateNewDag(CDagNode *newNode)
 {
     AssertWriteLockHeld(cs_dagset);
     int16_t new_id = vdags.size();
@@ -243,7 +245,7 @@ void CBobtailDagSet::_CreateNewDag(CDagNode *newNode)
     }
 }
 
-bool CBobtailDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
+bool CTailstormDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
 {
     AssertWriteLockHeld(cs_dagset);
     int16_t base_dag_id = *(tree_ids.begin());
@@ -292,7 +294,7 @@ bool CBobtailDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
     return true;
 }
 
-void CBobtailDagSet::Clear()
+void CTailstormDagSet::Clear()
 {
     WRITELOCK(cs_dagset);
     vdags.clear();
@@ -303,13 +305,13 @@ void CBobtailDagSet::Clear()
     mapAllNodes.clear();
 }
 
-size_t CBobtailDagSet::Size()
+size_t CTailstormDagSet::Size()
 {
     READLOCK(cs_dagset);
     return mapAllNodes.size();
 }
 
-bool CBobtailDagSet::Find(const uint256 &hash, CSubBlock &subblock)
+bool CTailstormDagSet::Find(const uint256 &hash, CSubBlock &subblock)
 {
     READLOCK(cs_dagset);
     std::map<uint256, CDagNode*>::iterator iter = mapAllNodes.find(hash);
@@ -321,13 +323,13 @@ bool CBobtailDagSet::Find(const uint256 &hash, CSubBlock &subblock)
     return false;
 }
 
-bool CBobtailDagSet::Contains(const uint256 &hash)
+bool CTailstormDagSet::Contains(const uint256 &hash)
 {
     READLOCK(cs_dagset);
     return (mapAllNodes.count(hash) != 0);
 }
 
-bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
+bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
 {
     WRITELOCK(cs_dagset);
     const uint256 sub_block_hash = sub_block.GetHash();
@@ -405,7 +407,7 @@ bool CBobtailDagSet::Insert(const CSubBlock &sub_block)
     return true;
 }
 
-bool CBobtailDagSet::GetBestDag(std::set<CDagNode> &dag)
+bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
 {
     READLOCK(cs_dagset);
     if (vdags.empty())
@@ -417,7 +419,7 @@ bool CBobtailDagSet::GetBestDag(std::set<CDagNode> &dag)
     // Get all dags that are big enough
     for (size_t i = 0; i < vdags.size(); ++i)
     {
-        if (vdags[i]._dag.size() < BOBTAIL_K)
+        if (vdags[i]._dag.size() < TAILSTORM_K)
         {
             continue;
         }
@@ -443,7 +445,7 @@ bool CBobtailDagSet::GetBestDag(std::set<CDagNode> &dag)
     return true;
 }
 
-BestDagInfo CBobtailDagSet::GetBestDagInfo()
+BestDagInfo CTailstormDagSet::GetBestDagInfo()
 {
     READLOCK(cs_dagset);
     BestDagInfo bestdaginfo;
@@ -503,7 +505,7 @@ BestDagInfo CBobtailDagSet::GetBestDagInfo()
     return bestdaginfo;
 }
 
-std::map<uint256, CDagNode> CBobtailDagSet::GetAllNodes()
+std::map<uint256, CDagNode> CTailstormDagSet::GetAllNodes()
 {
     READLOCK(cs_dagset);
     std::map<uint256, CDagNode> allNodes;

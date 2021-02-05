@@ -2,22 +2,25 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bobtail/graphene.h"
+// tailstorm file includes
+#include "graphene.h"
+#include "tailstorm/blockrelay/graphenerelay.h"
+#include "tailstorm/dag.h"
+#include "tailstorm/subblock/validation.h"
+
+// other bitcoin includes
 #include "blockstorage/blockstorage.h"
-#include "bobtail/dag.h"
-#include "bobtail/subblock.h"
-#include "bobtail/graphenerelay.h"
 #include "chainparams.h"
 #include "connmgr.h"
 #include "consensus/merkle.h"
 #include "dosman.h"
 #include "expedited.h"
+#include "extversionkeys.h"
 #include "net.h"
 #include "parallel.h"
 #include "policy/policy.h"
 #include "pow.h"
 #include "requestManager.h"
-#include "subblock_validation.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "txmempool.h"
@@ -25,13 +28,12 @@
 #include "util.h"
 #include "utiltime.h"
 #include "validation/validation.h"
-#include "xversionkeys.h"
 
 #include <iomanip>
 extern CTweak<uint64_t> grapheneMinVersionSupported;
 extern CTweak<uint64_t> grapheneMaxVersionSupported;
 extern CTweak<uint64_t> grapheneFastFilterCompatibility;
-extern CBobtailDagSet bobtailDagSet;
+extern CTailstormDagSet tailstormDagSet;
 
 bool ReconstructBlock(CNode *pfrom, CSBGrapheneBlock* grapheneBlock, const std::map<uint64_t, CTransactionRef> &mapTxFromPools)
 {
@@ -308,7 +310,7 @@ void CSBGrapheneBlock::AddNewTransactions(std::vector<CTransaction> vMissingTx, 
         uint64_t cheapHash = SBGetShortID(
             pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(), hash, SBNegotiateGrapheneVersion(pfrom));
 
-        // Insert in arbitrary order if canonical ordering is enabled and xversion is recent enough
+        // Insert in arbitrary order if canonical ordering is enabled and extversion is recent enough
         if (fCanonicalTxsOrder && SBNegotiateGrapheneVersion(pfrom) >= 1)
         {
             if (idx >= missingTxIdxs.size())
@@ -403,7 +405,7 @@ bool CSBGrapheneBlock::ValidateAndRecontructBlock(uint256 blockhash,
     LOG(GRAPHENE, "Graphene block stats: %s\n", sb_graphenedata.ToString());
 
     // Create full subblock
-    bobtailDagSet.Insert(*(pblock.get()));
+    tailstormDagSet.Insert(*(pblock.get()));
 
     return true;
 }
@@ -416,7 +418,7 @@ CSBGrapheneBlockTx::CSBGrapheneBlockTx(uint256 blockHash, std::vector<CTransacti
 
 bool CSBGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 {
-    std::string strCommand = NetMsgType::GRAPHENETX;
+    std::string strCommand = NetMsgType::SB_GRAPHENETX;
     CSBGrapheneBlockTx grapheneBlockTx;
     vRecv >> grapheneBlockTx;
 
@@ -552,7 +554,7 @@ bool CSBRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         std::vector<CTransaction> vTx =
             SBTransactionsFromBlockByCheapHash(grapheneRequestBlockTx.setCheapHashesToRequest, blkHash, pfrom);
         CSBGrapheneBlockTx grapheneBlockTx(grapheneRequestBlockTx.blockhash, vTx);
-        pfrom->PushMessage(NetMsgType::GRAPHENETX, grapheneBlockTx);
+        pfrom->PushMessage(NetMsgType::SB_GRAPHENETX, grapheneBlockTx);
         pfrom->txsSent += vTx.size();
         if (vTx.size() == 0)
         {
@@ -571,7 +573,7 @@ bool CSBRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CSBGrapheneBlock::CheckBlockHeader(const CSubBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckSubBlockPoW(block, Params().GetConsensus(), BOBTAIL_K))
+    if (!CheckSubBlockPoW(block, Params().GetConsensus(), TAILSTORM_K))
     {
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
     }
@@ -633,7 +635,7 @@ bool HandleSBGMessage(CDataStream &vRecv, CNode *pfrom, std::string strCommand, 
         // requester.UpdateBlockAvailability(pfrom->GetId(), inv.hash);
 
         // Return early if we already have the block data
-        if (bobtailDagSet.Contains(inv.hash))
+        if (tailstormDagSet.Contains(inv.hash))
         {
             // Tell the Request Manager we received this block
             requester.AlreadyReceived(pfrom, inv);
@@ -741,7 +743,7 @@ std::set<uint64_t> CSBGrapheneBlock::UpdateResolvedTxsAndIdentifyMissing(
     {
         uint64_t cheapHash = blockCheapHashes[i];
 
-        // If canonical order is not enabled or xversion is less than 1, update mapHashOrderIndex so
+        // If canonical order is not enabled or extversion is less than 1, update mapHashOrderIndex so
         // it is available if we later receive missing txs
         if (!fCanonicalTxsOrder || grapheneVersion < 1)
             mapHashOrderIndex[cheapHash] = i;
@@ -907,7 +909,7 @@ bool CSBGrapheneBlock::process(CNode *pfrom, std::string strCommand)
     {
         this->nWaitingFor = setHashesToRequest.size();
         CSBRequestGrapheneBlockTx grapheneBlockTx(GetHash(), setHashesToRequest);
-        pfrom->PushMessage(NetMsgType::GET_GRAPHENETX, grapheneBlockTx);
+        pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENETX, grapheneBlockTx);
 
         // Update run-time statistics of graphene block bandwidth savings
         sb_graphenedata.UpdateInBoundReRequestedTx(this->nWaitingFor);
@@ -1399,12 +1401,8 @@ void SBSendGrapheneBlock(const CSubBlock &pblock, CNode *pfrom, const CInv &inv,
         // exclude coinbase
         uint64_t nSenderMempoolPlusBlock = SBGetGrapheneMempoolInfo().nTx + pblock.vtx.size() - 1;
 
-        LOGA("SUBBLOCK TO STRING = %s \n", pblock.ToString().c_str());
-
         CSBGrapheneBlock grapheneBlock(pblock, mempoolinfo.nTx, nSenderMempoolPlusBlock,
             SBNegotiateGrapheneVersion(pfrom), SBNegotiateFastFilterSupport(pfrom));
-
-        LOGA("GRAPHENE SUBBLOCK TO STRING = %s \n", grapheneBlock.ToString().c_str());
 
         LOG(GRAPHENE, "Block %s to peer %s using Graphene version %d\n", grapheneBlock.GetHash().ToString(),
             pfrom->GetLogName(), grapheneBlock.version);
@@ -1474,14 +1472,24 @@ bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChain
         return error("invalid GET_GRAPHENE message type=%u hash=%s", inv.type, inv.hash.ToString());
     }
     CSubBlock subblock;
-    LOG(GRAPHENE, "GRAPHENE bobtailDagSet.Find %d\n", bobtailDagSet.Find(inv.hash, subblock));
-    if (bobtailDagSet.Find(inv.hash, subblock))
+    LOG(GRAPHENE, "GRAPHENE tailstormDagSet.Find %d\n", tailstormDagSet.Find(inv.hash, subblock));
+    if (tailstormDagSet.Find(inv.hash, subblock))
     {
 		SBSendGrapheneBlock(subblock, pfrom, inv, mempoolinfo);
     }
     else
 	{
-        return error("Peer %s requested subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+        std::map<uint256, CDagNode>::iterator iter;
+        {
+            LOCK(cs_tipDagCache);
+            iter = tipDagCache.find(inv.hash);
+            if (iter == tipDagCache.end())
+            {
+                return error("Peer %s requested tailstorm subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+            }
+            subblock = iter->second.subblock;
+        }
+        SBSendGrapheneBlock(subblock, pfrom, inv, mempoolinfo);
 	}
     return true;
 }
@@ -1501,7 +1509,7 @@ bool SBHandleGrapheneBlockRecoveryRequest(CDataStream &vRecv, CNode *pfrom, cons
 
     CSBGrapheneReceiverRecover recoveryResponse = CSBGrapheneReceiverRecover(
         *recoveryRequest.pReceiverFilter, *grapheneBlock, recoveryRequest.nSenderFilterPositives, pfrom);
-    pfrom->PushMessage(NetMsgType::GRAPHENE_RECOVERY, recoveryResponse);
+    pfrom->PushMessage(NetMsgType::SB_GRAPHENE_RECOVERY, recoveryResponse);
 
     return true;
 }
@@ -1597,7 +1605,7 @@ bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, con
     {
         pblock->nWaitingFor = setHashesToRequest.size();
         CSBRequestGrapheneBlockTx grapheneBlockTx(recoveryResponse.blockhash, setHashesToRequest);
-        pfrom->PushMessage(NetMsgType::GET_GRAPHENETX, grapheneBlockTx);
+        pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENETX, grapheneBlockTx);
 
         // Update run-time statistics of graphene block bandwidth savings
         sb_graphenedata.UpdateInBoundReRequestedTx(grapheneBlock.nWaitingFor);
@@ -1606,7 +1614,7 @@ bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, con
     }
 
     if (!pblock->ValidateAndRecontructBlock(
-            recoveryResponse.blockhash, pblock, mapTxFromPools, NetMsgType::GRAPHENE_RECOVERY, pfrom, vRecv))
+            recoveryResponse.blockhash, pblock, mapTxFromPools, NetMsgType::SB_GRAPHENE_RECOVERY, pfrom, vRecv))
     {
         SBRequestFailoverBlock(pfrom, pblock.get());
         return error("Graphene ValidateAndRecontructBlock failed");
@@ -1683,7 +1691,7 @@ void SBRequestFailureRecovery(CNode *pfrom,
     CSBRequestGrapheneReceiverRecover recoveryRequest = CSBRequestGrapheneReceiverRecover(
         vSenderFilterPositiveHahses, grapheneBlock, vSenderFilterPositiveHahses.size());
 
-    pfrom->PushMessage(NetMsgType::GET_GRAPHENE_RECOVERY, recoveryRequest);
+    pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENE_RECOVERY, recoveryRequest);
 }
 
 void SBRequestFailoverBlock(CNode *pfrom, CSBGrapheneBlock* subblock)
@@ -1744,7 +1752,7 @@ std::vector<CTransaction> SBTransactionsFromBlockByCheapHash(std::set<uint64_t> 
 {
 	CSubBlock subblock;
     std::vector<CTransaction> vTx;
-	if (!bobtailDagSet.Find(blockhash, subblock))
+	if (!tailstormDagSet.Find(blockhash, subblock))
     {
         throw std::runtime_error("Requested block is not available");
     }
@@ -1782,8 +1790,8 @@ bool SBNegotiateFastFilterSupport(CNode *pfrom)
 {
     uint64_t peerFastFilterPref;
     {
-        LOCK(pfrom->cs_xversion);
-        peerFastFilterPref = pfrom->xVersion.as_u64c(XVer::BU_GRAPHENE_FAST_FILTER_PREF);
+        LOCK(pfrom->cs_extversion);
+        peerFastFilterPref = pfrom->extversion.as_u64c(XVer::BU_GRAPHENE_FAST_FILTER_PREF);
     }
 
     if (grapheneFastFilterCompatibility.Value() == EITHER)
@@ -1821,9 +1829,9 @@ uint64_t SBNegotiateGrapheneVersion(CNode *pfrom)
     uint64_t selfMin = grapheneMinVersionSupported.Value();
     uint64_t peerMin, peerMax;
     {
-        LOCK(pfrom->cs_xversion);
-        peerMin = pfrom->xVersion.as_u64c(XVer::BU_GRAPHENE_MIN_VERSION_SUPPORTED);
-        peerMax = pfrom->xVersion.as_u64c(XVer::BU_GRAPHENE_MAX_VERSION_SUPPORTED);
+        LOCK(pfrom->cs_extversion);
+        peerMin = pfrom->extversion.as_u64c(XVer::BU_GRAPHENE_MIN_VERSION_SUPPORTED);
+        peerMax = pfrom->extversion.as_u64c(XVer::BU_GRAPHENE_MAX_VERSION_SUPPORTED);
     }
 
     uint64_t upper = (uint64_t)std::min(peerMax, selfMax);

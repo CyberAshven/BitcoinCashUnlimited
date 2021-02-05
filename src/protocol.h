@@ -135,7 +135,7 @@ extern const char *TX;
  * @see https://bitcoin.org/en/developer-reference#headers
  */
 extern const char *HEADERS;
-extern const char *BOBTAIL_HEADERS;
+extern const char *TAILSTORM_HEADERS;
 /**
  * The block message transmits a single serialized block.
  * @see https://bitcoin.org/en/developer-reference#block
@@ -370,15 +370,15 @@ extern const char *GETBLOCKTXN;
  */
 extern const char *BLOCKTXN;
 /**
- * Contains a Bobtail compact block.
+ * Contains a Tailstorm compact block.
  */
 extern const char *BOBCMPCTBLOCK;
 /**
- * A request for missing subblocks for a Bobtail block.
+ * A request for missing subblocks for a Tailstorm block.
  */
 extern const char *GETBOBSUB;
 /**
- * A missing subblock for a Bobtail block 
+ * A missing subblock for a Tailstorm block
  */
 extern const char *BOBSUB;
 /**
@@ -561,7 +561,8 @@ enum
     //
     MSG_SUBBLOCK = 11,
 
-    MSG_BOBTAILBLOCK = 12
+    MSG_TAILSTORMBLOCK = 12
+
 };
 
 #endif // BITCOIN_PROTOCOL_H

@@ -45,7 +45,7 @@ bool CBlockLevelDB::WriteBlock(const CBlock &block)
     }
 }
 
-bool CBlockLevelDB::WriteBlock(const CBobtailBlock &block)
+bool CBlockLevelDB::WriteBlock(const CTailstormBlock &block)
 {
     // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
     // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
@@ -73,7 +73,7 @@ bool CBlockLevelDB::ReadBlock(const CBlockIndex *pindex, CBlock &block)
     return pwrapperblock->Read(key.str(), block);
 }
 
-bool CBlockLevelDB::ReadBlock(const CBlockIndex *pindex, CBobtailBlock &block)
+bool CBlockLevelDB::ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block)
 {
     // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
     // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
@@ -90,7 +90,7 @@ bool CBlockLevelDB::EraseBlock(CBlock &block)
     return pwrapperblock->Erase(key.str(), true);
 }
 
-bool CBlockLevelDB::EraseBlock(CBobtailBlock &block)
+bool CBlockLevelDB::EraseBlock(CTailstormBlock &block)
 {
     std::ostringstream key;
     key << block.GetBlockTime() << ":" << block.GetHash().ToString();

@@ -2,13 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_BLOCKRELAY_H
-#define BITCOIN_BOBTAIL_BLOCKRELAY_H
+#ifndef BITCOIN_TAILSTORM_BLOCKRELAY_COMPACTRELAY_H
+#define BITCOIN_TAILSTORM_BLOCKRELAY_COMPACTRELAY_H
 
+// tailstorm file includes
 #include "compactblock.h"
 #include "graphene.h"
-#include "sync.h"
-#include "uint256.h"
 
 #include <map>
 #include <memory>
