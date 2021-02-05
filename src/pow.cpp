@@ -112,7 +112,7 @@ static const CBlockIndex *GetASERTAnchorBlock(const CBlockIndex *const pindex, c
  * double or halve the difficulty.
  */
 uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params,
     const CBlockIndex *pindexAnchorBlock) noexcept
 {
@@ -132,7 +132,7 @@ uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
     if (params.fPowAllowMinDifficultyBlocks &&
-        (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+        (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }
@@ -351,7 +351,7 @@ uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const int64_t &block
     if (IsNov2020Activated(params, pindexPrev))
     {
         const CBlockIndex *panchorBlock = GetASERTAnchorBlock(pindexPrev, params);
-        return GetNextASERTWorkRequired(pindexPrev, pblock, params, panchorBlock);
+        return GetNextASERTWorkRequired(pindexPrev, blockTime, params, panchorBlock);
     }
 
     if (pindexPrev->nHeight >= params.daaHeight)

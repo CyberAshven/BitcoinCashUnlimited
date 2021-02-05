@@ -1016,7 +1016,7 @@ bool ConnectTipBobtail(CValidationState &state,
     {
         // txChanges: only if some unconfirmed tx push is turned on, track what transactions may need to be pushed while
         // confirmed transactions are removed from the mempool.
-        mempool.removeForBlock(*pblock, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload(),
+        mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload(),
             (unconfPushAction.Value() == 0) ? nullptr : &txChanges);
     }
     else

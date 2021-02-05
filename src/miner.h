@@ -31,8 +31,6 @@ namespace Consensus
 struct Params;
 };
 
-static const bool DEFAULT_PRINTPRIORITY = false;
-
 // Determine the correct version bits based on bip135 choices and passed settings
 int32_t UtilMkBlockTmplVersionBits(int32_t version,
     const std::set<std::string> &setClientRules,

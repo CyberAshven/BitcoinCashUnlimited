@@ -409,8 +409,7 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
         uint64_t nNoLimit = std::numeric_limits<uint64_t>::max();
         std::string dummy;
         const CTxMemPoolEntry &entry = *iter;
-        mempool._CalculateMemPoolAncestors(
-            entry, ancestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, dummy, &inBlock, false);
+        mempool._CalculateMemPoolAncestors(entry, ancestors, nNoLimit, nNoLimit, dummy, &inBlock, false);
 
         // Include in the package the current txn we're working with
         ancestors.insert(iter);

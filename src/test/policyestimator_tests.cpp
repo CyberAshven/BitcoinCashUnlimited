@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_no_fee_inc)
     tx.vout[0].nValue = 0LL;
 
     // Create a fake block
-    CBlock block;
+    std::vector<CTransactionRef> vtx;
     int blocknum = 0;
     int32_t curfee = 0;
     // Loop through 200 blocks with no change in submitted fee
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_no_fee_inc)
         }
 
         // include 40 transactions into a block
-        while (block.vtx.size() < 40)
+        while (vtx.size() < 40)
         {
             if (curfee >= 0) // cant access negative index in array
             {
@@ -88,14 +88,14 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_no_fee_inc)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 assert((txHashesSize - 1) >= curfee);
                 txHashes[curfee].pop_back();
             }
         }
-        mpool.removeForBlock(block, ++blocknum, dummyConflicted);
-        block.SetNull();
+        mpool.removeForBlock(vtx, ++blocknum, dummyConflicted);
+        vtx.clear();
         if (blocknum % 5 == 0)
         {
             // regardless of backlog, if everyone is only paying minTxFee, we should only pay mintxfee.
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_gradual_fee_inc)
     tx.vout.resize(1);
     tx.vout[0].nValue = 0LL;
     // Create a fake block
-    CBlock block;
+    std::vector<CTransactionRef> vtx;
     int blocknum = 0;
     int32_t curfee = 0;
     // Loop through some blocks to test increasing fee
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_gradual_fee_inc)
             txHashes[curfee].push_back(hash);
         }
         // include 40 transactions into a block
-        while (block.vtx.size() < 40)
+        while (vtx.size() < 40)
         {
             if (curfee >= 0) // cant access negative index in array
             {
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_gradual_fee_inc)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 assert((txHashesSize - 1) >= curfee);
                 txHashes[curfee].pop_back();
@@ -198,9 +198,8 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_gradual_fee_inc)
                 break;
             }
         }
-        mpool.removeForBlock(block, ++blocknum, dummyConflicted);
-        block.SetNull();
-        ;
+        mpool.removeForBlock(vtx, ++blocknum, dummyConflicted);
+        vtx.clear();
         if (blocknum % 5 == 0)
         {
             // we use *6 because our tx size is 188 bytes, if we add 1 sat to our fee it will make our fee rate go up by
@@ -250,7 +249,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_partial_fee_inc)
     tx.vout.resize(1);
     tx.vout[0].nValue = 0LL;
     // Create a fake block
-    CBlock block;
+    std::vector<CTransactionRef> vtx;
     int blocknum = 0;
     int32_t curfee = 0;
     // Loop through some blocks to test a sudden rise in fees at block 100
@@ -301,7 +300,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_partial_fee_inc)
             }
         }
         // include 40 transactions into a block
-        while (block.vtx.size() < 40)
+        while (vtx.size() < 40)
         {
             if (!highfeeholder.empty())
             {
@@ -309,7 +308,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_partial_fee_inc)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 highfeeholder.pop_back();
             }
@@ -327,7 +326,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_partial_fee_inc)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 assert((txHashesSize - 1) >= curfee);
                 txHashes[curfee].pop_back();
@@ -337,8 +336,8 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_partial_fee_inc)
                 break;
             }
         }
-        mpool.removeForBlock(block, ++blocknum, dummyConflicted);
-        block.SetNull();
+        mpool.removeForBlock(vtx, ++blocknum, dummyConflicted);
+        vtx.clear();
         if (blocknum % 5 == 0)
         {
             // we use *6 because our tx size is 188 bytes, if we add 1 sat to our fee it will make our fee rate go up by
@@ -393,7 +392,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_full_fee_inc)
     tx.vout.resize(1);
     tx.vout[0].nValue = 0LL;
     // Create a fake block
-    CBlock block;
+    std::vector<CTransactionRef> vtx;
     int blocknum = 0;
     int32_t curfee = 0;
     // Loop through some blocks to test a sudden rise in fees at block 1000
@@ -443,7 +442,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_full_fee_inc)
             }
         }
         // include 40 transactions into a block
-        while (block.vtx.size() < 40)
+        while (vtx.size() < 40)
         {
             if (!highfeeholder.empty())
             {
@@ -451,7 +450,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_full_fee_inc)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 highfeeholder.pop_back();
             }
@@ -469,7 +468,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_full_fee_inc)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 assert((txHashesSize - 1) >= curfee);
                 txHashes[curfee].pop_back();
@@ -479,8 +478,8 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_full_fee_inc)
                 break;
             }
         }
-        mpool.removeForBlock(block, ++blocknum, dummyConflicted);
-        block.SetNull();
+        mpool.removeForBlock(vtx, ++blocknum, dummyConflicted);
+        vtx.clear();
         if (blocknum % 5 == 0)
         {
             // we use *6 because our tx size is 188 bytes, if we add 1 sat to our fee it will make our fee rate go up by
@@ -534,7 +533,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_tx_bell_curve)
     tx.vout.resize(1);
     tx.vout[0].nValue = 0LL;
     // Create a fake block
-    CBlock block;
+    std::vector<CTransactionRef> vtx;
     int blocknum = 0;
     int32_t curfee = 0;
     int feebumper = 0;
@@ -565,7 +564,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_tx_bell_curve)
         }
         // include 40 transactions into a block
         int index = curfee;
-        while (block.vtx.size() < 40)
+        while (vtx.size() < 40)
         {
             if (index >= 0) // cant access negative index in array
             {
@@ -581,7 +580,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_tx_bell_curve)
                 CTransactionRef ptx = mpool.get(txhash);
                 if (ptx)
                 {
-                    block.vtx.push_back(ptx);
+                    vtx.push_back(ptx);
                 }
                 assert((txHashesSize - 1) >= curfee);
                 txHashes[index].pop_back();
@@ -591,8 +590,8 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_tx_bell_curve)
                 break;
             }
         }
-        mpool.removeForBlock(block, ++blocknum, dummyConflicted);
-        block.SetNull();
+        mpool.removeForBlock(vtx, ++blocknum, dummyConflicted);
+        vtx.clear();
         if (blocknum % 5 == 0)
         {
             // we use *6 because our tx size is 188 bytes, if we add 1 sat to our fee it will make our fee rate go up by

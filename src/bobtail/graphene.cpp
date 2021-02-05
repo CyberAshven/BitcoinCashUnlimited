@@ -12,6 +12,7 @@
 #include "consensus/merkle.h"
 #include "dosman.h"
 #include "expedited.h"
+#include "extversionkeys.h"
 #include "net.h"
 #include "parallel.h"
 #include "policy/policy.h"
@@ -25,7 +26,6 @@
 #include "util.h"
 #include "utiltime.h"
 #include "validation/validation.h"
-#include "xversionkeys.h"
 
 #include <iomanip>
 extern CTweak<uint64_t> grapheneMinVersionSupported;
@@ -308,7 +308,7 @@ void CSBGrapheneBlock::AddNewTransactions(std::vector<CTransaction> vMissingTx, 
         uint64_t cheapHash = SBGetShortID(
             pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(), hash, SBNegotiateGrapheneVersion(pfrom));
 
-        // Insert in arbitrary order if canonical ordering is enabled and xversion is recent enough
+        // Insert in arbitrary order if canonical ordering is enabled and extversion is recent enough
         if (fCanonicalTxsOrder && SBNegotiateGrapheneVersion(pfrom) >= 1)
         {
             if (idx >= missingTxIdxs.size())
@@ -741,7 +741,7 @@ std::set<uint64_t> CSBGrapheneBlock::UpdateResolvedTxsAndIdentifyMissing(
     {
         uint64_t cheapHash = blockCheapHashes[i];
 
-        // If canonical order is not enabled or xversion is less than 1, update mapHashOrderIndex so
+        // If canonical order is not enabled or extversion is less than 1, update mapHashOrderIndex so
         // it is available if we later receive missing txs
         if (!fCanonicalTxsOrder || grapheneVersion < 1)
             mapHashOrderIndex[cheapHash] = i;
@@ -1782,8 +1782,8 @@ bool SBNegotiateFastFilterSupport(CNode *pfrom)
 {
     uint64_t peerFastFilterPref;
     {
-        LOCK(pfrom->cs_xversion);
-        peerFastFilterPref = pfrom->xVersion.as_u64c(XVer::BU_GRAPHENE_FAST_FILTER_PREF);
+        LOCK(pfrom->cs_extversion);
+        peerFastFilterPref = pfrom->extversion.as_u64c(XVer::BU_GRAPHENE_FAST_FILTER_PREF);
     }
 
     if (grapheneFastFilterCompatibility.Value() == EITHER)
@@ -1821,9 +1821,9 @@ uint64_t SBNegotiateGrapheneVersion(CNode *pfrom)
     uint64_t selfMin = grapheneMinVersionSupported.Value();
     uint64_t peerMin, peerMax;
     {
-        LOCK(pfrom->cs_xversion);
-        peerMin = pfrom->xVersion.as_u64c(XVer::BU_GRAPHENE_MIN_VERSION_SUPPORTED);
-        peerMax = pfrom->xVersion.as_u64c(XVer::BU_GRAPHENE_MAX_VERSION_SUPPORTED);
+        LOCK(pfrom->cs_extversion);
+        peerMin = pfrom->extversion.as_u64c(XVer::BU_GRAPHENE_MIN_VERSION_SUPPORTED);
+        peerMax = pfrom->extversion.as_u64c(XVer::BU_GRAPHENE_MAX_VERSION_SUPPORTED);
     }
 
     uint64_t upper = (uint64_t)std::min(peerMax, selfMax);

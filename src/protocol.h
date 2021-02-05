@@ -378,7 +378,7 @@ extern const char *BOBCMPCTBLOCK;
  */
 extern const char *GETBOBSUB;
 /**
- * A missing subblock for a Bobtail block 
+ * A missing subblock for a Bobtail block
  */
 extern const char *BOBSUB;
 /**
@@ -556,10 +556,6 @@ enum
     // Uses Graphene set reconciliation to syncronize mempools between two peers.
     MSG_MEMPOOLSYNC,
     //
-    MSG_SUBBLOCK,
-    
-    MSG_BOBTAILBLOCK,
-
     MSG_DOUBLESPENDPROOF = 0x94a0
 };
 
