@@ -1399,12 +1399,8 @@ void SBSendGrapheneBlock(const CSubBlock &pblock, CNode *pfrom, const CInv &inv,
         // exclude coinbase
         uint64_t nSenderMempoolPlusBlock = SBGetGrapheneMempoolInfo().nTx + pblock.vtx.size() - 1;
 
-        LOGA("SUBBLOCK TO STRING = %s \n", pblock.ToString().c_str());
-
         CSBGrapheneBlock grapheneBlock(pblock, mempoolinfo.nTx, nSenderMempoolPlusBlock,
             SBNegotiateGrapheneVersion(pfrom), SBNegotiateFastFilterSupport(pfrom));
-
-        LOGA("GRAPHENE SUBBLOCK TO STRING = %s \n", grapheneBlock.ToString().c_str());
 
         LOG(GRAPHENE, "Block %s to peer %s using Graphene version %d\n", grapheneBlock.GetHash().ToString(),
             pfrom->GetLogName(), grapheneBlock.version);
@@ -1481,7 +1477,17 @@ bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChain
     }
     else
 	{
-        return error("Peer %s requested subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+        std::map<uint256, CDagNode>::iterator iter;
+        {
+            LOCK(cs_tipDagCache);
+            iter = tipDagCache.find(inv.hash);
+            if (iter == tipDagCache.end())
+            {
+                return error("Peer %s requested bobtail subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+            }
+            subblock = iter->second.subblock;
+        }
+        SBSendGrapheneBlock(subblock, pfrom, inv, mempoolinfo);
 	}
     return true;
 }

@@ -80,7 +80,9 @@
  */
 
 /*! Known, complete delta blocks. */
+CCriticalSection cs_tipDagCache;
 CBobtailDagSet bobtailDagSet;
+std::map<uint256, CDagNode> tipDagCache GUARDED_BY(cs_tipDagCache);
 
 std::atomic<bool> fImporting{false};
 std::atomic<bool> fReindex{false};

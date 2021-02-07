@@ -121,6 +121,8 @@ public:
     std::map<uint256, CDagNode> GetAllNodes();
 };
 
+extern CCriticalSection cs_tipDagCache;
 extern CBobtailDagSet bobtailDagSet;
+extern std::map<uint256, CDagNode> tipDagCache;
 
 #endif

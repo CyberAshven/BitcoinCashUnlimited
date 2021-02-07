@@ -3105,6 +3105,11 @@ void UpdateTip(CBlockIndex *pindexNew)
 
     cvBlockChange.notify_all();
 
+    LOCK(cs_tipDagCache);
+    {
+        tipDagCache.clear();
+        tipDagCache = bobtailDagSet.GetAllNodes();
+    }
     bobtailDagSet.Clear();
 
     LOGA("%s: new best=%s  height=%d bits=%d log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utxo)\n",

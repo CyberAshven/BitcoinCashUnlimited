@@ -130,7 +130,17 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             }
             else
             {
-                vNotFound.push_back(inv);
+                std::map<uint256, CDagNode>::iterator iter;
+                LOCK(cs_tipDagCache);
+                iter = tipDagCache.find(inv.hash);
+                if (iter != tipDagCache.end())
+                {
+                    subblock = iter->second.subblock;
+                }
+                else
+                {
+                    vNotFound.push_back(inv);
+                }
             }
         }
         else if (inv.type == MSG_BOBTAILBLOCK)
@@ -1002,8 +1012,16 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             {
                 if (bobtailDagSet.Contains(inv.hash) == false)
                 {
+                    bool found = false;
+                    LOCK(cs_tipDagCache);
+                    {
+                        found = tipDagCache.count(inv.hash);
+                    }
                     // we dont have it so request it
-                    requester.AskFor(inv, pfrom);
+                    if (found == false)
+                    {
+                        requester.AskFor(inv, pfrom);
+                    }
                 }
             }
             else if (inv.type == MSG_BOBTAILBLOCK)
