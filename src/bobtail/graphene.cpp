@@ -416,7 +416,7 @@ CSBGrapheneBlockTx::CSBGrapheneBlockTx(uint256 blockHash, std::vector<CTransacti
 
 bool CSBGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 {
-    std::string strCommand = NetMsgType::GRAPHENETX;
+    std::string strCommand = NetMsgType::SB_GRAPHENETX;
     CSBGrapheneBlockTx grapheneBlockTx;
     vRecv >> grapheneBlockTx;
 
@@ -552,7 +552,7 @@ bool CSBRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         std::vector<CTransaction> vTx =
             SBTransactionsFromBlockByCheapHash(grapheneRequestBlockTx.setCheapHashesToRequest, blkHash, pfrom);
         CSBGrapheneBlockTx grapheneBlockTx(grapheneRequestBlockTx.blockhash, vTx);
-        pfrom->PushMessage(NetMsgType::GRAPHENETX, grapheneBlockTx);
+        pfrom->PushMessage(NetMsgType::SB_GRAPHENETX, grapheneBlockTx);
         pfrom->txsSent += vTx.size();
         if (vTx.size() == 0)
         {
@@ -907,7 +907,7 @@ bool CSBGrapheneBlock::process(CNode *pfrom, std::string strCommand)
     {
         this->nWaitingFor = setHashesToRequest.size();
         CSBRequestGrapheneBlockTx grapheneBlockTx(GetHash(), setHashesToRequest);
-        pfrom->PushMessage(NetMsgType::GET_GRAPHENETX, grapheneBlockTx);
+        pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENETX, grapheneBlockTx);
 
         // Update run-time statistics of graphene block bandwidth savings
         sb_graphenedata.UpdateInBoundReRequestedTx(this->nWaitingFor);
@@ -1507,7 +1507,7 @@ bool SBHandleGrapheneBlockRecoveryRequest(CDataStream &vRecv, CNode *pfrom, cons
 
     CSBGrapheneReceiverRecover recoveryResponse = CSBGrapheneReceiverRecover(
         *recoveryRequest.pReceiverFilter, *grapheneBlock, recoveryRequest.nSenderFilterPositives, pfrom);
-    pfrom->PushMessage(NetMsgType::GRAPHENE_RECOVERY, recoveryResponse);
+    pfrom->PushMessage(NetMsgType::SB_GRAPHENE_RECOVERY, recoveryResponse);
 
     return true;
 }
@@ -1603,7 +1603,7 @@ bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, con
     {
         pblock->nWaitingFor = setHashesToRequest.size();
         CSBRequestGrapheneBlockTx grapheneBlockTx(recoveryResponse.blockhash, setHashesToRequest);
-        pfrom->PushMessage(NetMsgType::GET_GRAPHENETX, grapheneBlockTx);
+        pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENETX, grapheneBlockTx);
 
         // Update run-time statistics of graphene block bandwidth savings
         sb_graphenedata.UpdateInBoundReRequestedTx(grapheneBlock.nWaitingFor);
@@ -1612,7 +1612,7 @@ bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, con
     }
 
     if (!pblock->ValidateAndRecontructBlock(
-            recoveryResponse.blockhash, pblock, mapTxFromPools, NetMsgType::GRAPHENE_RECOVERY, pfrom, vRecv))
+            recoveryResponse.blockhash, pblock, mapTxFromPools, NetMsgType::SB_GRAPHENE_RECOVERY, pfrom, vRecv))
     {
         SBRequestFailoverBlock(pfrom, pblock.get());
         return error("Graphene ValidateAndRecontructBlock failed");
@@ -1689,7 +1689,7 @@ void SBRequestFailureRecovery(CNode *pfrom,
     CSBRequestGrapheneReceiverRecover recoveryRequest = CSBRequestGrapheneReceiverRecover(
         vSenderFilterPositiveHahses, grapheneBlock, vSenderFilterPositiveHahses.size());
 
-    pfrom->PushMessage(NetMsgType::GET_GRAPHENE_RECOVERY, recoveryRequest);
+    pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENE_RECOVERY, recoveryRequest);
 }
 
 void SBRequestFailoverBlock(CNode *pfrom, CSBGrapheneBlock* subblock)
