@@ -184,7 +184,14 @@ bool ThinTypeRelay::AreTooManyBlocksInFlight()
     {
         // add the size of the sets of each entry
         // it is possible for a set to be empty
-        mapSize = mapSize + entry.second.size();
+        for (const auto& inFlightBlock : entry.second)
+        {
+            // dont add subblocks to the count
+            if (inFlightBlock.thinType != NetMsgType::SB_GRAPHENEBLOCK)
+            {
+                ++mapSize;
+            }
+        }
     }
     return (mapSize >= MAX_THINTYPE_BLOCKS_IN_FLIGHT);
 }
@@ -240,7 +247,9 @@ bool ThinTypeRelay::AddBlockInFlight(CNode *pfrom, const uint256 &hash, const st
 {
     LOCK(cs_inflight);
     if (AreTooManyBlocksInFlight())
+    {
         return false;
+    }
 
     // this insert returns a pair <iterator,bool> where the bool denotes whether the insertion took place
     auto key = mapThinTypeBlocksInFlight.find(pfrom->GetId());
