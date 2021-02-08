@@ -15,8 +15,6 @@
 #include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
-#include "bobtail/bobtailblock.h"
-#include "bobtail/dag.h"
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
@@ -46,6 +44,7 @@
 #include "script/script.h"
 #include "script/sigcache.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txadmission.h"
 #include "txdb.h"
@@ -81,7 +80,7 @@
 
 /*! Known, complete delta blocks. */
 CCriticalSection cs_tipDagCache;
-CBobtailDagSet bobtailDagSet;
+CTailstormDagSet tailstormDagSet;
 std::map<uint256, CDagNode> tipDagCache GUARDED_BY(cs_tipDagCache);
 
 std::atomic<bool> fImporting{false};

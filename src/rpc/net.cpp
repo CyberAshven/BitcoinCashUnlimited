@@ -7,8 +7,6 @@
 
 #include "blockrelay/graphene.h"
 #include "blockrelay/thinblock.h"
-#include "bobtail/compactblock.h"
-#include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "clientversion.h"
 #include "dosman.h"
@@ -17,6 +15,7 @@
 #include "netbase.h"
 #include "protocol.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "tweak.h"
 #include "txadmission.h"

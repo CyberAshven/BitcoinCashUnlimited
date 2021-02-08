@@ -477,7 +477,9 @@ bool WriteBlockToDisk(const CBlock &block,
     }
     return pblockdb->WriteBlock(block);
 }
-bool WriteBlockToDisk(const CBobtailBlock &block, CDiskBlockPos &pos, const CMessageHeader::MessageStartChars &messageStart)
+bool WriteBlockToDisk(const CTailstormBlock &block,
+    CDiskBlockPos &pos,
+    const CMessageHeader::MessageStartChars &messageStart)
 {
     if (!pblockdb)
     {
@@ -528,7 +530,7 @@ CBlockRef ReadBlockFromDisk(const CBlockIndex *pindex, const Consensus::Params &
     return pblockRef;
 }
 
-bool ReadBlockFromDisk(CBobtailBlock &block, const CBlockIndex *pindex, const Consensus::Params &consensusParams)
+bool ReadBlockFromDisk(CTailstormBlock &block, const CBlockIndex *pindex, const Consensus::Params &consensusParams)
 {
     if (!pblockdb)
     {

@@ -12,7 +12,6 @@
 #include <set>
 
 #include "amount.h"
-#include "bobtail/bobtailblock.h"
 #include "coins.h"
 #include "primitives/transaction.h"
 #include "random.h"
@@ -268,10 +267,7 @@ struct mempoolentry_txid
 class CompareTxMemPoolEntryByEntryTime
 {
 public:
-    bool operator()(const CTxMemPoolEntry &a, const CTxMemPoolEntry &b) const
-    {
-        return a.GetTime() < b.GetTime();
-    }
+    bool operator()(const CTxMemPoolEntry &a, const CTxMemPoolEntry &b) const { return a.GetTime() < b.GetTime(); }
 };
 
 class CompareTxMemPoolEntryByAncestorFee

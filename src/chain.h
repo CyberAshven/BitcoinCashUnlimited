@@ -8,7 +8,6 @@
 #define BITCOIN_CHAIN_H
 
 #include "arith_uint256.h"
-#include "bobtail/bobtailblock.h"
 #include "pow.h"
 #include "primitives/block.h"
 #include "sync.h"
@@ -18,6 +17,8 @@
 
 #include <atomic>
 #include <vector>
+
+class CTailstormBlockHeader;
 
 extern CSharedCriticalSection cs_mapBlockIndex;
 
@@ -195,7 +196,7 @@ public:
     //! Verification status of this block. See enum BlockStatus
     unsigned int nStatus;
 
-    bool isBobtail;
+    bool isTailstorm;
 
     //! block header
     int nVersion;
@@ -204,7 +205,7 @@ public:
     uint64_t nTime;
     unsigned int nBits;
     unsigned int nNonce;
-    // Needed for bobtail blocks only
+    // Needed for tailstorm blocks only
     std::set<uint256> subblockHashes;
     std::map<uint256, uint32_t> subblockNTxMap;
 
@@ -230,7 +231,7 @@ public:
         nSequenceId = 0;
         nTimeReceived = 0;
 
-        isBobtail = false;
+        isTailstorm = false;
         nVersion = 0;
         hashMerkleRoot = uint256();
         nTime = 0;
@@ -243,7 +244,7 @@ public:
     {
         SetNull();
 
-        isBobtail = false;
+        isTailstorm = false;
         nVersion = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime = block.nTime;
@@ -251,20 +252,7 @@ public:
         nNonce = block.nNonce;
     }
 
-    CBlockIndex(const CBobtailBlockHeader &block)
-    {
-        SetNull();
-
-        isBobtail = true;
-        nVersion = block.nVersion;
-        hashMerkleRoot = block.hashMerkleRoot;
-        nTime = block.nTime;
-        nBits = block.nBits;
-        // bobtail blocks dont have a nonce
-        //nNonce = block.nNonce;
-        subblockHashes = block.subblockHashes;
-        subblockNTxMap = block.subblockNTxMap;
-    }
+    CBlockIndex(const CTailstormBlockHeader &block);
 
     CDiskBlockPos GetBlockPos() const
     {
@@ -290,10 +278,10 @@ public:
 
     CBlockHeader GetBlockHeader() const
     {
-        if (isBobtail)
-	{
+        if (isTailstorm)
+        {
             throw std::invalid_argument("Incorrect header type");
-	}
+        }
 
         CBlockHeader block;
         block.nVersion = nVersion;
@@ -306,22 +294,7 @@ public:
         return block;
     }
 
-    CBobtailBlockHeader GetBobtailBlockHeader() const
-    {
-        if (!isBobtail)
-            throw std::invalid_argument("Incorrect bobtail header type");
-
-        CBobtailBlockHeader block;
-        block.nVersion = nVersion;
-        if (pprev)
-            block.hashPrevBlock = pprev->GetBlockHash();
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime = nTime;
-        block.nBits = nBits;
-        block.subblockHashes = subblockHashes;
-        block.subblockNTxMap = subblockNTxMap;
-        return block;
-    }
+    CTailstormBlockHeader GetTailstormBlockHeader() const;
 
     /** return true for every block from fork block and forward [x,+inf)
      * state: fork activated */

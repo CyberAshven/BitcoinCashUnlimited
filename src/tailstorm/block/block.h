@@ -2,14 +2,17 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_BOBTAILBLOCK_H
-#define BITCOIN_BOBTAIL_BOBTAILBLOCK_H
+#ifndef BITCOIN_TAILSTORM_BLOCK_BLOCK_H
+#define BITCOIN_TAILSTORM_BLOCK_BLOCK_H
 
+// tailstorm file includes
+#include "tailstorm/subblock/subblock.h"
+
+// other bitcoin includes
 #include "hashwrapper.h"
 #include "primitives/block.h"
-#include "subblock.h"
 
-class CBobtailBlockHeader
+class CTailstormBlockHeader
 {
 public:
     // header
@@ -22,7 +25,7 @@ public:
     std::set<uint256> subblockHashes;
     std::map<uint256, uint32_t> subblockNTxMap;
 
-    CBobtailBlockHeader() { SetNull(); }
+    CTailstormBlockHeader() { SetNull(); }
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -53,7 +56,7 @@ public:
     int64_t GetBlockTime() const { return nTime; }
 };
 
-class CBobtailBlock : public CBobtailBlockHeader
+class CTailstormBlock : public CTailstormBlockHeader
 {
 private:
     // memory only
@@ -74,9 +77,9 @@ public:
     std::set<uint256> setUnVerifiedTxns;
 
 public:
-    CBobtailBlockHeader GetBlockHeader()
+    CTailstormBlockHeader GetBlockHeader()
     {
-        CBobtailBlockHeader header;
+        CTailstormBlockHeader header;
         header.nVersion = nVersion;
         header.hashPrevBlock = hashPrevBlock;
         header.hashMerkleRoot = hashMerkleRoot;
@@ -91,7 +94,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
-        READWRITE(*(CBobtailBlockHeader *)this);
+        READWRITE(*(CTailstormBlockHeader *)this);
         READWRITE(dagEncodingMap);
         READWRITE(vtx);
     }
@@ -101,7 +104,7 @@ public:
         vtx.clear();
         vdag.clear();
         dagEncodingMap.clear();
-        CBobtailBlockHeader::SetNull();
+        CTailstormBlockHeader::SetNull();
     }
     void UpdateTxLists();
     std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists();
@@ -168,6 +171,6 @@ public:
     }
 };
 
-typedef std::shared_ptr<CBobtailBlock> CBobtailBlockRef;
+typedef std::shared_ptr<CTailstormBlock> CTailstormBlockRef;
 
 #endif

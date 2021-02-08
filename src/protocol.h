@@ -135,7 +135,7 @@ extern const char *TX;
  * @see https://bitcoin.org/en/developer-reference#headers
  */
 extern const char *HEADERS;
-extern const char *BOBTAIL_HEADERS;
+extern const char *TAILSTORM_HEADERS;
 /**
  * The block message transmits a single serialized block.
  * @see https://bitcoin.org/en/developer-reference#block
@@ -370,15 +370,15 @@ extern const char *GETBLOCKTXN;
  */
 extern const char *BLOCKTXN;
 /**
- * Contains a Bobtail compact block.
+ * Contains a Tailstorm compact block.
  */
 extern const char *BOBCMPCTBLOCK;
 /**
- * A request for missing subblocks for a Bobtail block.
+ * A request for missing subblocks for a Tailstorm block.
  */
 extern const char *GETBOBSUB;
 /**
- * A missing subblock for a Bobtail block
+ * A missing subblock for a Tailstorm block
  */
 extern const char *BOBSUB;
 /**
@@ -542,10 +542,10 @@ enum
     // reconstruct the block
     MSG_GRAPHENEBLOCK,
     MSG_SUBBLOCK,
-    MSG_BOBTAILBLOCK,
+    MSG_TAILSTORMBLOCK,
     // Graphene for subblocks
     MSG_SB_GRAPHENEBLOCK,
-    // Compact bobtail blocks
+    // Compact tailstorm blocks
     MSG_BOB_CMPCT_BLOCK,
     // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
     // and also provides the missing transactions that are needed at the other end to reconstruct the block.

@@ -2,11 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_BOBTAIL_DAG_H
-#define BITCOIN_BOBTAIL_DAG_H
+#ifndef BITCOIN_TAILSTORM_DAG_H
+#define BITCOIN_TAILSTORM_DAG_H
 
+// tailstorm file includes
+#include "subblock/subblock.h"
+
+// other bitcoin includes
 #include "uint256.h"
-#include "subblock.h"
 #include "sync.h"
 
 #include <deque>
@@ -54,9 +57,9 @@ public:
     bool IsValid();
 };
 
-class CBobtailDag
+class CTailstormDag
 {
-friend class CBobtailDagSet;
+friend class CTailstormDagSet;
 
 protected:
     uint16_t id; // should match the index of the vector in which this dag is in the dag set
@@ -69,7 +72,7 @@ public:
     std::set<int16_t>incompatible_dags;
 
 private:
-    CBobtailDag(){} // disable default constructor
+    CTailstormDag(){} // disable default constructor
 
 protected:
     void SetId(int16_t new_id);
@@ -78,7 +81,7 @@ protected:
     void UpdateDagScore();
 
 public:
-    CBobtailDag(uint16_t _id, CDagNode* first_node)
+    CTailstormDag(uint16_t _id, CDagNode* first_node)
     {
         id = _id;
         Insert(first_node);
@@ -89,12 +92,12 @@ public:
 
 // this class can not have any public data members, all datamembers are
 // protected by cs_dagset
-class CBobtailDagSet
+class CTailstormDagSet
 {
 protected:
     CSharedCriticalSection cs_dagset;
     std::map<uint256, CDagNode*> mapAllNodes;
-    std::vector<CBobtailDag> vdags;
+    std::vector<CTailstormDag> vdags;
 
 private:
     void SetNewIds(std::priority_queue<int16_t> &removed_ids);
@@ -104,7 +107,7 @@ protected:
     bool _MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id);
 
 public:
-    CBobtailDagSet()
+    CTailstormDagSet()
     {
         Clear();
     }
@@ -122,7 +125,7 @@ public:
 };
 
 extern CCriticalSection cs_tipDagCache;
-extern CBobtailDagSet bobtailDagSet;
+extern CTailstormDagSet tailstormDagSet;
 extern std::map<uint256, CDagNode> tipDagCache;
 
 #endif

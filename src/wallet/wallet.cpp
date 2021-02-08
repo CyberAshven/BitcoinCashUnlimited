@@ -923,7 +923,10 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx, const CBlock 
     return false;
 }
 
-bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx, const CBobtailBlock *pblock, bool fUpdate, int txIndex)
+bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx,
+    const CTailstormBlock *pblock,
+    bool fUpdate,
+    int txIndex)
 {
     AssertLockHeld(cs_wallet);
 
@@ -1126,7 +1129,7 @@ void CWallet::SyncTransaction(const CTransactionRef &ptx, const CBlock *pblock, 
     }
 }
 
-void CWallet::SyncTransaction_BT(const CTransactionRef &ptx, const CBobtailBlock *pblock, int txIdx)
+void CWallet::SyncTransaction_BT(const CTransactionRef &ptx, const CTailstormBlock *pblock, int txIdx)
 {
     LOCK(cs_wallet);
 
@@ -4146,7 +4149,7 @@ int CMerkleTx::SetMerkleBranch(const CBlock &block, int txIdx)
     return chainActive.Height() - pindex->nHeight + 1;
 }
 
-int CMerkleTx::SetMerkleBranch(const CBobtailBlock &block, int txIdx)
+int CMerkleTx::SetMerkleBranch(const CTailstormBlock &block, int txIdx)
 {
     // txIdx never == -1 since the caller already know txIdx
     assert(txIdx >= 0);

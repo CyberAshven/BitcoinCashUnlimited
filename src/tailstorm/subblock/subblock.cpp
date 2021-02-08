@@ -2,9 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+// tailstorm file includes
+#include "subblock.h"
+
+// other bitcoin includes
 #include "hashwrapper.h"
 #include "serialize.h"
-#include "subblock.h"
 #include "version.h"
 
 uint256 CSubBlockHeader::GetHash() const { return SerializeHash(*this); }

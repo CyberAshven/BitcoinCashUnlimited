@@ -11,8 +11,8 @@
 
 #include "blockrelay/graphene.h"
 #include "blockrelay/thinblock.h"
-#include "bobtail/graphene.h"
 #include "net.h"
+#include "tailstorm/tailstorm.h"
 
 #include <QCompleter>
 #include <QWidget>

@@ -4,12 +4,7 @@
 
 #include "amount.h"
 #include "blockstorage/blockstorage.h"
-#include "bobtail/pow.h"
-#include "bobtail/dag.h"
-#include "bobtail/bobtail_miner.h"
-#include "bobtail/subblock_miner.h"
-#include "bobtail/subblock_validation.h"
-#include "bobtail/validation.h"
+#include "tailstorm/tailstorm.h"
 #include "chain.h"
 #include "chainparams.h"
 #include "consensus/consensus.h"
@@ -36,10 +31,10 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/shared_ptr.hpp>
 
-extern CBobtailDagSet bobtailDagSet;
-extern std::set<CBobtailBlock> bobtailBlocks;
+extern CTailstormDagSet tailstormDagSet;
+extern std::set<CTailstormBlock> tailstormBlocks;
 
-UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
+UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     int nSubGenerate=0,
     int nBobGenerate=0,
     uint64_t nMaxTries=0,
@@ -82,7 +77,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
 
         // Generally look for weak PoW
         while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount &&
-               !CheckSubBlockPoW(*pblock, Params().GetConsensus(), BOBTAIL_K))
+               !CheckSubBlockPoW(*pblock, Params().GetConsensus(), TAILSTORM_K))
         {
             ++pblock->nNonce;
             --nMaxTries;
@@ -93,7 +88,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
         if (pblock->nNonce == nInnerLoopCount)
             continue;
 
-        if (CheckSubBlockPoW(*pblock, Params().GetConsensus(), BOBTAIL_K))
+        if (CheckSubBlockPoW(*pblock, Params().GetConsensus(), TAILSTORM_K))
         {
             // In we are mining our own block or not running in parallel for any reason
             // we must terminate any block validation threads that are currently running,
@@ -128,24 +123,24 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
 
             if (fSubBlocksOnly == false)
             {
-                // Assemble bobtail block
-                std::unique_ptr<CBobtailBlockTemplate> pBobtailBlockTemplate;
+                // Assemble tailstorm block
+                std::unique_ptr<CTailstormBlockTemplate> pTailstormBlockTemplate;
 
                 TxAdmissionPause lock; // flush any tx waiting to enter the mempool
-                pBobtailBlockTemplate = BobtailBlockAssembler(Params()).CreateNewBobtailBlock(coinbaseScript->reserveScript);
-                if (pBobtailBlockTemplate.get())
+                pTailstormBlockTemplate = TailstormBlockAssembler(Params()).CreateNewTailstormBlock(coinbaseScript->reserveScript);
+                if (pTailstormBlockTemplate.get())
                 {
-                    CBobtailBlock *pBobtailBlock = pBobtailBlockTemplate->bobtailblock.get();
+                    CTailstormBlock *pTailstormBlock = pTailstormBlockTemplate->tailstormblock.get();
 
-                    // Check if bobtail block meets strong PoW
-                    if (CheckBobtailPoW(*pBobtailBlock, Params().GetConsensus(), BOBTAIL_K))
+                    // Check if tailstorm block meets strong PoW
+                    if (CheckTailstormPoW(*pTailstormBlock, Params().GetConsensus(), TAILSTORM_K))
                     {
-                        PV->StopAllValidationThreads(pBobtailBlock->GetBlockHeader().nBits);
+                        PV->StopAllValidationThreads(pTailstormBlock->GetBlockHeader().nBits);
 
                         CValidationState state;
-                        if (!ProcessNewBobtailBlock(state, Params(), nullptr, pBobtailBlock, true, nullptr))
+                        if (!ProcessNewTailstormBlock(state, Params(), nullptr, pTailstormBlock, true, nullptr))
                         {
-                            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBobtailBlock, bobtail block not accepted");
+                            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewTailstormBlock, tailstorm block not accepted");
                         }
 
                         // mark script as important because it was used at least for one coinbase output if the script came from the
@@ -158,7 +153,7 @@ UniValue generateBobtailBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
 
                         if (nBobGenerate > 0)
                         {
-                            blockHashes.push_back(pBobtailBlock->GetHash().GetHex());
+                            blockHashes.push_back(pTailstormBlock->GetHash().GetHex());
                         }
                         if (numBobBlocks >= nBobGenerate)
                         {
@@ -206,22 +201,22 @@ UniValue generatesubblocks(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateBobtailBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, true, true);
+    return generateTailstormBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, true, true);
 }
 
-UniValue generatebobtailblocks(const UniValue &params, bool fHelp)
+UniValue generatetailstormblocks(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
-        throw std::runtime_error("generatebobtailblocks numBobtailBlocks ( maxtries )\n"
-                            "\nMine up to numBobtailBlocks bobtailBlocks immediately (before the RPC call returns)\n"
+        throw std::runtime_error("generatetailstormblocks numTailstormBlocks ( maxtries )\n"
+                            "\nMine up to numTailstormBlocks tailstormBlocks immediately (before the RPC call returns)\n"
                             "\nArguments:\n"
-                            "1. numBobtailBlocks    (numeric, required) How many bobtailBlocks are generated immediately.\n"
+                            "1. numTailstormBlocks    (numeric, required) How many tailstormBlocks are generated immediately.\n"
                             "2. maxtries     (numeric, optional) How many iterations to try (default = 1000000).\n"
                             "\nResult\n"
                             "[ blockhashes ]     (array) hashes of blocks generated\n"
                             "\nExamples:\n"
-                            "\nGenerate 11 bobtailBlocks\n" +
-                            HelpExampleCli("generatebobtailblocks", "11"));
+                            "\nGenerate 11 tailstormBlocks\n" +
+                            HelpExampleCli("generatetailstormblocks", "11"));
 
     int nBobGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
@@ -241,7 +236,7 @@ UniValue generatebobtailblocks(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateBobtailBlocks(coinbaseScript, 0, nBobGenerate, nMaxTries, true);
+    return generateTailstormBlocks(coinbaseScript, 0, nBobGenerate, nMaxTries, true);
 }
 
 UniValue generatesubblockstoaddress(const UniValue &params, bool fHelp)
@@ -275,23 +270,23 @@ UniValue generatesubblockstoaddress(const UniValue &params, bool fHelp)
     boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    return generateBobtailBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, false, true);
+    return generateTailstormBlocks(coinbaseScript, nSubGenerate, 0, nMaxTries, false, true);
 }
 
-UniValue generatebobtailblockstoaddress(const UniValue &params, bool fHelp)
+UniValue generatetailstormblockstoaddress(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 3)
-        throw std::runtime_error("generatebobtailblockstoaddress numBobtailBlocks address (maxtries)\n"
-                            "\nMine bobtail blocks immediately to a specified address (before the RPC call returns)\n"
+        throw std::runtime_error("generatetailstormblockstoaddress numTailstormBlocks address (maxtries)\n"
+                            "\nMine tailstorm blocks immediately to a specified address (before the RPC call returns)\n"
                             "\nArguments:\n"
-                            "1. numBobtailBlocks    (numeric, required) How many subBlocks are generated immediately.\n"
+                            "1. numTailstormBlocks    (numeric, required) How many subBlocks are generated immediately.\n"
                             "2. address    (string, required) The address to send the newly generated bitcoin to.\n"
                             "3. maxtries     (numeric, optional) How many iterations to try (default = 1000000).\n"
                             "\nResult\n"
                             "[ blockhashes ]     (array) hashes of blocks generated\n"
                             "\nExamples:\n"
-                            "\nGenerate 11 bobtailblocks to myaddress\n" +
-                            HelpExampleCli("generatebobtailblockstoaddress", "11 \"myaddress\""));
+                            "\nGenerate 11 tailstormblocks to myaddress\n" +
+                            HelpExampleCli("generatetailstormblockstoaddress", "11 \"myaddress\""));
 
     int nBobGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
@@ -309,7 +304,7 @@ UniValue generatebobtailblockstoaddress(const UniValue &params, bool fHelp)
     boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    return generateBobtailBlocks(coinbaseScript, 0, nBobGenerate, nMaxTries, false);
+    return generateTailstormBlocks(coinbaseScript, 0, nBobGenerate, nMaxTries, false);
 }
 
 
@@ -319,7 +314,7 @@ UniValue getdaginfo(const UniValue &params, bool fHelp)
     {
         throw std::runtime_error(
             "getdaginfo\n"
-            "Returns an object containing info about the current bobtail dag.\n"
+            "Returns an object containing info about the current tailstorm dag.\n"
             "\nResult:\n"
             "{\n"
             "  \"size\": xxxxx,           (numeric) the number of dag nodes in the dag\n"
@@ -329,7 +324,7 @@ UniValue getdaginfo(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("size", bobtailDagSet.Size());
+    obj.pushKV("size", tailstormDagSet.Size());
 
     return obj;
 }
@@ -340,7 +335,7 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     {
         throw std::runtime_error(
             "getdaginfo\n"
-            "Returns an object containing info about the current bobtail dag.\n"
+            "Returns an object containing info about the current tailstorm dag.\n"
             "\nResult:\n"
             "{\n"
                 "[ blockhashes ]     (array) hashes of the subblocks at the dag tips\n"
@@ -350,7 +345,7 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VARR);
-    std::vector<uint256> tip_hashes = bobtailDagSet.GetBestDagInfo().tip_hashes;
+    std::vector<uint256> tip_hashes = tailstormDagSet.GetBestDagInfo().tip_hashes;
     for (auto &hash : tip_hashes)
     {
         obj.push_back(hash.GetHex());
@@ -358,19 +353,19 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     return obj;
 }
 
-UniValue getbobtailinfo(const UniValue &params, bool fHelp)
+UniValue gettailstorminfo(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
     {
         throw std::runtime_error(
-            "getbobtailinfo\n"
-            "Returns an object containing info about the current bobtail blocks.\n"
+            "gettailstorminfo\n"
+            "Returns an object containing info about the current tailstorm blocks.\n"
             "\nResult:\n"
             "{\n"
-                "chaintip: hash     (array) hash of bobtail block at tip of current chain\n"
+                "chaintip: hash     (array) hash of tailstorm block at tip of current chain\n"
             "}\n"
             "\nExamples:\n" +
-            HelpExampleCli("getbobtailinfo", "") + HelpExampleRpc("getbobtailinfo", ""));
+            HelpExampleCli("gettailstorminfo", "") + HelpExampleRpc("gettailstorminfo", ""));
     }
 
     UniValue obj(UniValue::VOBJ);
@@ -382,12 +377,12 @@ UniValue getbobtailinfo(const UniValue &params, bool fHelp)
 static const CRPCCommand commands[] = {
     //  category              name                      actor (function)         okSafeMode
     //  --------------------- ------------------------  -----------------------  ----------
-    {"generating", "generatesubblocks", &generatesubblocks, true}, {"generating", "generatebobtailblocks", &generatebobtailblocks, true},
+    {"generating", "generatesubblocks", &generatesubblocks, true}, {"generating", "generatetailstormblocks", &generatetailstormblocks, true},
     {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true}, {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
-    {"bobtail", "getdaginfo", &getdaginfo, true}, {"bobtail", "getdagtips", &getdagtips, true}, {"bobtail", "getbobtailinfo", &getbobtailinfo, true}
+    {"tailstorm", "getdaginfo", &getdaginfo, true}, {"tailstorm", "getdagtips", &getdagtips, true}, {"tailstorm", "gettailstorminfo", &gettailstorminfo, true}
 };
 
-void RegisterBobtailRPCCommands(CRPCTable &table)
+void RegisterTailstormRPCCommands(CRPCTable &table)
 {
     for (auto cmd : commands)
         table.appendCommand(cmd);

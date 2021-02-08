@@ -5,8 +5,8 @@
 #ifndef BITCOIN_DBABSTRACT_H
 #define BITCOIN_DBABSTRACT_H
 
-#include "bobtail/bobtailblock.h"
 #include "chain.h"
+#include "tailstorm/block/block.h"
 #include "undo.h"
 
 enum BlockDBMode
@@ -31,15 +31,15 @@ class CDatabaseAbstract
 public:
     //! Write a block to the database
     virtual bool WriteBlock(const CBlock &block) = 0;
-    virtual bool WriteBlock(const CBobtailBlock &block) = 0;
+    virtual bool WriteBlock(const CTailstormBlock &block) = 0;
 
     //! Read a block from the database
     virtual bool ReadBlock(const CBlockIndex *pindex, CBlock &block) = 0;
-    virtual bool ReadBlock(const CBlockIndex *pindex, CBobtailBlock &block) = 0;
+    virtual bool ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block) = 0;
 
     //! Remove a block from the database
     virtual bool EraseBlock(CBlock &block) = 0;
-    virtual bool EraseBlock(CBobtailBlock &block) = 0;
+    virtual bool EraseBlock(CTailstormBlock &block) = 0;
 
     //! remove a block from the database using the blockindex
     virtual bool EraseBlock(const CBlockIndex *pindex) = 0;

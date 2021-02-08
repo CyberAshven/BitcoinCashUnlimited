@@ -4,12 +4,12 @@
 
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
-#include "bobtail/compactrelay.h"
-#include "bobtail/graphenerelay.h"
 #include "net.h"
 #include "random.h"
 #include "requestManager.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
+#include "tailstorm/tailstorm.h"
 #include "util.h"
 
 // When a node disconnects it may not be removed from the peer tracking sets immediately and so the size
@@ -184,7 +184,7 @@ bool ThinTypeRelay::AreTooManyBlocksInFlight()
     {
         // add the size of the sets of each entry
         // it is possible for a set to be empty
-        for (const auto& inFlightBlock : entry.second)
+        for (const auto &inFlightBlock : entry.second)
         {
             // dont add subblocks to the count
             if (inFlightBlock.thinType != NetMsgType::SB_GRAPHENEBLOCK)

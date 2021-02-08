@@ -130,18 +130,6 @@ BITCOIN_CORE_H = \
   blockstorage/blockcache.h \
   bitnodes.h \
   bloom.h \
-  bobtail/bobtail_miner.h \
-  bobtail/bobtailblock.h \
-  bobtail/compactblock.h \
-  bobtail/compactrelay.h \
-  bobtail/dag.h \
-  bobtail/graphene.h \
-  bobtail/graphenerelay.h \
-  bobtail/pow.h \
-  bobtail/subblock_miner.h \
-  bobtail/subblock_validation.h \
-  bobtail/subblock.h \
-  bobtail/validation.h \
   cashaddr.h \
   cashaddrenc.h \
   chain.h \
@@ -238,6 +226,19 @@ BITCOIN_CORE_H = \
   support/cleanse.h \
   support/pagelocker.h \
   sync.h \
+  tailstorm/block/block.h \
+  tailstorm/block/miner.h \
+  tailstorm/block/validation.h \
+  tailstorm/blockrelay/compactblock.h \
+  tailstorm/blockrelay/compactrelay.h \
+  tailstorm/blockrelay/graphene.h \
+  tailstorm/blockrelay/graphenerelay.h \
+  tailstorm/dag.h \
+  tailstorm/pow.h \
+  tailstorm/tailstorm.h \
+  tailstorm/subblock/miner.h \
+  tailstorm/subblock/subblock.h \
+  tailstorm/subblock/validation.h \
   threadgroup.h \
   threadsafety.h \
   timedata.h \
@@ -304,18 +305,18 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockstorage.cpp \
   blockstorage/blockcache.cpp \
   bloom.cpp \
-  bobtail/bobtail_miner.cpp \
-  bobtail/bobtailblock.cpp \
-  bobtail/compactblock.cpp \
-  bobtail/compactrelay.cpp \
-  bobtail/dag.cpp \
-  bobtail/graphene.cpp \
-  bobtail/graphenerelay.cpp \
-  bobtail/pow.cpp \
-  bobtail/subblock_miner.cpp \
-  bobtail/subblock_validation.cpp \
-  bobtail/subblock.cpp \
-  bobtail/validation.cpp \
+  tailstorm/block/block.cpp \
+  tailstorm/block/miner.cpp \
+  tailstorm/block/validation.cpp \
+  tailstorm/blockrelay/compactblock.cpp \
+  tailstorm/blockrelay/compactrelay.cpp \
+  tailstorm/blockrelay/graphene.cpp \
+  tailstorm/blockrelay/graphenerelay.cpp \
+  tailstorm/dag.cpp \
+  tailstorm/pow.cpp \
+  tailstorm/subblock/miner.cpp \
+  tailstorm/subblock/subblock.cpp \
+  tailstorm/subblock/validation.cpp \
   chain.cpp \
   checkpoints.cpp \
   connmgr.cpp \
@@ -350,7 +351,7 @@ libbitcoin_server_a_SOURCES = \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
-  rpc/bobtail.cpp \
+  rpc/tailstorm.cpp \
   rpc/client.cpp \
   rpc/electrum.cpp \
   rpc/mining.cpp \

@@ -8,14 +8,13 @@
 #include "blockrelay/compactblock.h"
 #include "blockrelay/graphene.h"
 #include "blockstorage/blockstorage.h"
-#include "bobtail/compactblock.h"
-#include "bobtail/graphene.h"
 #include "chainparams.h"
 #include "dosman.h"
 #include "net.h"
 #include "pow.h"
 #include "requestManager.h"
 #include "script/sigcache.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txorphanpool.h"
 #include "unlimited.h"
@@ -448,7 +447,7 @@ void CParallelValidation::UpdateMostWorkOurFork(const CBlockHeader &header)
     }
 }
 
-void CParallelValidation::UpdateBobMostWorkOurFork(const CBobtailBlockHeader &header)
+void CParallelValidation::UpdateBobMostWorkOurFork(const CTailstormBlockHeader &header)
 {
     LOCK(cs_blockvalidationthread);
     map<boost::thread::id, CHandleBlockMsgThreads>::iterator mi = mapBlockValidationThreads.begin();

@@ -8,10 +8,10 @@
 #include "pow.h"
 
 #include "arith_uint256.h"
-#include "bobtail/pow.h"
 #include "chain.h"
 #include "consensus/consensus.h"
 #include "primitives/block.h"
+#include "tailstorm/tailstorm.h"
 #include "uint256.h"
 #include "util.h"
 #include "validation/forks.h"
@@ -131,8 +131,7 @@ uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }
@@ -444,7 +443,7 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params 
     }
 
     // Check proof of work matches claimed amount
-    if (!IsBelowKOSThreshold(UintToArith256(hash), bnTarget, BOBTAIL_K))
+    if (!IsBelowKOSThreshold(UintToArith256(hash), bnTarget, TAILSTORM_K))
     {
         if (weak_mode)
         {
@@ -578,8 +577,7 @@ uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet:
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }

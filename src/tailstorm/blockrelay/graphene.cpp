@@ -2,11 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bobtail/graphene.h"
+// tailstorm file includes
+#include "graphene.h"
+#include "tailstorm/blockrelay/graphenerelay.h"
+#include "tailstorm/dag.h"
+#include "tailstorm/subblock/validation.h"
+
+// other bitcoin includes
 #include "blockstorage/blockstorage.h"
-#include "bobtail/dag.h"
-#include "bobtail/subblock.h"
-#include "bobtail/graphenerelay.h"
 #include "chainparams.h"
 #include "connmgr.h"
 #include "consensus/merkle.h"
@@ -18,7 +21,6 @@
 #include "policy/policy.h"
 #include "pow.h"
 #include "requestManager.h"
-#include "subblock_validation.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "txmempool.h"
@@ -31,7 +33,7 @@
 extern CTweak<uint64_t> grapheneMinVersionSupported;
 extern CTweak<uint64_t> grapheneMaxVersionSupported;
 extern CTweak<uint64_t> grapheneFastFilterCompatibility;
-extern CBobtailDagSet bobtailDagSet;
+extern CTailstormDagSet tailstormDagSet;
 
 bool ReconstructBlock(CNode *pfrom, CSBGrapheneBlock* grapheneBlock, const std::map<uint64_t, CTransactionRef> &mapTxFromPools)
 {
@@ -403,7 +405,7 @@ bool CSBGrapheneBlock::ValidateAndRecontructBlock(uint256 blockhash,
     LOG(GRAPHENE, "Graphene block stats: %s\n", sb_graphenedata.ToString());
 
     // Create full subblock
-    bobtailDagSet.Insert(*(pblock.get()));
+    tailstormDagSet.Insert(*(pblock.get()));
 
     return true;
 }
@@ -571,7 +573,7 @@ bool CSBRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CSBGrapheneBlock::CheckBlockHeader(const CSubBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckSubBlockPoW(block, Params().GetConsensus(), BOBTAIL_K))
+    if (!CheckSubBlockPoW(block, Params().GetConsensus(), TAILSTORM_K))
     {
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
     }
@@ -633,7 +635,7 @@ bool HandleSBGMessage(CDataStream &vRecv, CNode *pfrom, std::string strCommand, 
         // requester.UpdateBlockAvailability(pfrom->GetId(), inv.hash);
 
         // Return early if we already have the block data
-        if (bobtailDagSet.Contains(inv.hash))
+        if (tailstormDagSet.Contains(inv.hash))
         {
             // Tell the Request Manager we received this block
             requester.AlreadyReceived(pfrom, inv);
@@ -1470,8 +1472,8 @@ bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChain
         return error("invalid GET_GRAPHENE message type=%u hash=%s", inv.type, inv.hash.ToString());
     }
     CSubBlock subblock;
-    LOG(GRAPHENE, "GRAPHENE bobtailDagSet.Find %d\n", bobtailDagSet.Find(inv.hash, subblock));
-    if (bobtailDagSet.Find(inv.hash, subblock))
+    LOG(GRAPHENE, "GRAPHENE tailstormDagSet.Find %d\n", tailstormDagSet.Find(inv.hash, subblock));
+    if (tailstormDagSet.Find(inv.hash, subblock))
     {
 		SBSendGrapheneBlock(subblock, pfrom, inv, mempoolinfo);
     }
@@ -1483,7 +1485,7 @@ bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChain
             iter = tipDagCache.find(inv.hash);
             if (iter == tipDagCache.end())
             {
-                return error("Peer %s requested bobtail subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+                return error("Peer %s requested tailstorm subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
             }
             subblock = iter->second.subblock;
         }
@@ -1750,7 +1752,7 @@ std::vector<CTransaction> SBTransactionsFromBlockByCheapHash(std::set<uint64_t> 
 {
 	CSubBlock subblock;
     std::vector<CTransaction> vTx;
-	if (!bobtailDagSet.Find(blockhash, subblock))
+	if (!tailstormDagSet.Find(blockhash, subblock))
     {
         throw std::runtime_error("Requested block is not available");
     }

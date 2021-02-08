@@ -3108,9 +3108,9 @@ void UpdateTip(CBlockIndex *pindexNew)
     LOCK(cs_tipDagCache);
     {
         tipDagCache.clear();
-        tipDagCache = bobtailDagSet.GetAllNodes();
+        tipDagCache = tailstormDagSet.GetAllNodes();
     }
-    bobtailDagSet.Clear();
+    tailstormDagSet.Clear();
 
     LOGA("%s: new best=%s  height=%d bits=%d log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utxo)\n",
         __func__, chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(), chainActive.Tip()->nBits,
