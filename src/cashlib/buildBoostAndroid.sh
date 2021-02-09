@@ -6,18 +6,6 @@ echo "Building boost $version..."
 
 set -eu
 
-toolchain=$PWD/toolchain
-if [ ! -d "$toolchain" ]; then
-  echo "Building toolchain..."
-  $ANDROID_NDK_ROOT/build/tools/make-standalone-toolchain.sh \
-      --arch=arm --platform=android-21 \
-      --install-dir="$toolchain" \
-      --toolchain=arm-linux-androideabi-clang \
-      --use-llvm --stl=libc++
-else
-  echo "Toolchain already built"
-fi
-
 dir_name=boost_$(sed 's#\.#_#g' <<< $version)
 archive=${dir_name}.tar.bz2
 if [ ! -f "$archive" ]; then
@@ -34,6 +22,19 @@ else
   echo "Archive $archive already unpacked into $dir_name"
 fi
 cd $dir_name
+
+
+toolchain=$PWD/toolchain
+if [ ! -d "$toolchain" ]; then
+  echo "Building toolchain..."
+  $ANDROID_NDK_ROOT/build/tools/make-standalone-toolchain.sh \
+      --arch=arm --platform=android-21 \
+      --install-dir="$toolchain" \
+      --toolchain=arm-linux-androideabi-clang \
+      --use-llvm --stl=libc++
+else
+  echo "Toolchain already built"
+fi
 
 echo "Generating config..."
 user_config=tools/build/src/user-config.jam

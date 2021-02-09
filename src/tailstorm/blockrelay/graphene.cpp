@@ -1701,49 +1701,15 @@ void SBRequestFailoverBlock(CNode *pfrom, CSBGrapheneBlock* subblock)
     //
     // This must be done before we request the failover block otherwise it will still appear
     // as though we have a graphene block in flight, which could prevent us from receiving
-    // the new thinblock or compactblock, if such is requested.
+    // the recovery block.
     uint256 blockhash = subblock->GetHash();
     thinrelay.ClearAllBlockData(pfrom, blockhash);
 
-    if (IsThinBlocksEnabled() && pfrom->ThinBlockCapable())
-    {
-        if (!thinrelay.AddBlockInFlight(pfrom, blockhash, NetMsgType::XTHINBLOCK))
-            return;
-
-        LOG(GRAPHENE | THIN, "Requesting xthinblock %s as failover from peer %s\n", blockhash.ToString(),
-            pfrom->GetLogName());
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        CBloomFilter filterMemPool;
-        CInv inv(MSG_XTHINBLOCK, blockhash);
-
-        std::vector<uint256> vOrphanHashes;
-        {
-            READLOCK(orphanpool.cs_orphanpool);
-            for (auto &mi : orphanpool.mapOrphanTransactions)
-                vOrphanHashes.emplace_back(mi.first);
-        }
-        BuildSeededBloomFilter(filterMemPool, vOrphanHashes, inv.hash, pfrom);
-        ss << inv;
-        ss << filterMemPool;
-        pfrom->PushMessage(NetMsgType::GET_XTHIN, ss);
-    }
-    else if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
-    {
-        if (!thinrelay.AddBlockInFlight(pfrom, blockhash, NetMsgType::CMPCTBLOCK))
-            return;
-
-        LOG(GRAPHENE | CMPCT, "Requesting a compactblock %s as failover from peer %s\n", blockhash.ToString(),
-            pfrom->GetLogName());
-        CInv inv(MSG_CMPCT_BLOCK, blockhash);
-        std::vector<CInv> vGetData;
-        vGetData.push_back(inv);
-        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
-    }
-    else
-    {
-        LOG(GRAPHENE, "Requesting full block %s as failover from peer %s\n", blockhash.ToString(), pfrom->GetLogName());
-        thinrelay.RequestBlock(pfrom, blockhash);
-    }
+    LOG(GRAPHENE, "Requesting full sub block %s as failover from peer %s\n", blockhash.ToString(), pfrom->GetLogName());
+    CInv inv(MSG_SUBBLOCK, blockhash);
+    std::vector<CInv> vGetData;
+    vGetData.push_back(inv);
+    pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
 }
 
 std::vector<CTransaction> SBTransactionsFromBlockByCheapHash(std::set<uint64_t> &vCheapHashes,

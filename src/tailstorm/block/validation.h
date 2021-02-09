@@ -11,7 +11,7 @@
 // other bitcoin includes
 #include "chainparams.h"
 #include "consensus/validation.h"
-#include "parallel.h"
+//#include "parallel.h"
 #include "txdebugger.h"
 #include "txmempool.h"
 #include "validation/forks.h"

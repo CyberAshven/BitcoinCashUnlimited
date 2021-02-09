@@ -401,7 +401,7 @@ static uint256 sha256(uint256 data)
     return ret;
 }
 
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params &params)
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params &params, const bool weak_mode)
 {
     bool fNegative;
     bool fOverflow;

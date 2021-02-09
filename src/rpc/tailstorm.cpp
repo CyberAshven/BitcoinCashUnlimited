@@ -324,7 +324,7 @@ UniValue getdaginfo(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("size", tailstormDagSet.Size());
+    obj.pushKV("size", (int) tailstormDagSet.Size());
 
     return obj;
 }
