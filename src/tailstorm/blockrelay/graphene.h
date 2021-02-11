@@ -16,12 +16,8 @@
 #include "consensus/validation.h"
 #include "fastfilter.h"
 #include "iblt.h"
-#include "primitives/block.h"
 #include "protocol.h"
-#include "serialize.h"
 #include "stat.h"
-#include "sync.h"
-#include "uint256.h"
 #include "unlimited.h"
 
 #include <atomic>

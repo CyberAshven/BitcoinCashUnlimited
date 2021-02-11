@@ -9,10 +9,6 @@
 #include "compactblock.h"
 #include "graphene.h"
 
-// other bitcoin includes
-#include "sync.h"
-#include "uint256.h"
-
 #include <map>
 #include <memory>
 #include <string>

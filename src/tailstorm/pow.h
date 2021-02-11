@@ -8,7 +8,6 @@
 #include "arith_uint256.h"
 #include "block/block.h"
 #include "consensus/params.h"
-#include "subblock/subblock.h"
 
 const double KOS_INCLUSION_PROB = 0.99999;
 const int DEFAULT_SCALE_FACTOR = 1000;

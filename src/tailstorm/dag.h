@@ -9,7 +9,6 @@
 #include "subblock/subblock.h"
 
 // other bitcoin includes
-#include "uint256.h"
 #include "sync.h"
 
 #include <deque>

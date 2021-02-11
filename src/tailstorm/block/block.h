@@ -10,13 +10,14 @@
 
 // other bitcoin includes
 #include "hashwrapper.h"
-#include "primitives/block.h"
+
+const uint32_t TAILSTORM_BASE_VERSION = 0x20000000;
 
 class CTailstormBlockHeader
 {
 public:
     // header
-    static const int32_t CURRENT_VERSION = BASE_VERSION;
+    static const int32_t CURRENT_VERSION = TAILSTORM_BASE_VERSION;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;

@@ -7,19 +7,14 @@
 
 // tailstorm file includes
 #include "tailstorm/block/block.h"
-#include "tailstorm/subblock/subblock.h"
 
 // other bitcoin includes
 #include "bloom.h"
 #include "consensus/validation.h"
 #include "fastfilter.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
 #include "protocol.h"
-#include "serialize.h"
 #include "stat.h"
-#include "sync.h"
-#include "uint256.h"
+
 #include <atomic>
 #include <memory>
 #include <vector>

@@ -9,7 +9,6 @@
 #include "requestManager.h"
 #include "sync.h"
 #include "tailstorm/tailstorm.h"
-#include "tailstorm/tailstorm.h"
 #include "util.h"
 
 // When a node disconnects it may not be removed from the peer tracking sets immediately and so the size
