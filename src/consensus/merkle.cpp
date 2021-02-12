@@ -5,6 +5,7 @@
 
 #include "merkle.h"
 #include "hashwrapper.h"
+#include "tailstorm/block/block.h"
 #include "utilstrencodings.h"
 
 /*     WARNING! If you're reading this because you're learning about crypto

@@ -563,6 +563,10 @@ libbitcoin_consensus_a_SOURCES = \
   script/scripttemplate.cpp \
   script/sighashtype.h \
   serialize.h \
+  tailstorm/block/block.cpp \
+  tailstorm/block/block.h \
+  tailstorm/subblock/subblock.cpp \
+  tailstorm/subblock/subblock.h \
   tinyformat.h \
   uint256.cpp \
   uint256.h \

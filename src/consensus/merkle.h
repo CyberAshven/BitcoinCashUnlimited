@@ -11,8 +11,10 @@
 
 #include "primitives/block.h"
 #include "primitives/transaction.h"
-#include "tailstorm/tailstorm.h"
 #include "uint256.h"
+
+class CSubBlock;
+class CTailstormBlock;
 
 uint256 ComputeMerkleRoot(std::vector<uint256> hashes, bool *mutated = nullptr);
 
