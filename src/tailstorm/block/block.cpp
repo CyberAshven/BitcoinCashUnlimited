@@ -6,12 +6,20 @@
 #include "block.h"
 
 // other bitcoin includes
-#include "miner_common.h"
 #include "rank_items.h"
 
 #include <cmath>
 #include <numeric>
 #include <unordered_map>
+
+struct TxEncodeHashComparator
+{
+public:
+    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const
+    {
+        return a->GetHash() < b->GetHash();
+    }
+};
 
 void CTailstormBlock::UpdateTxLists()
 {
@@ -34,7 +42,7 @@ void CTailstormBlock::UpdateTxLists()
         vtx[idx] = pair.second;
         idx++;
     }
-    std::sort(vtx.begin() + 1, vtx.end(), NumericallyLessTxHashComparator());
+    std::sort(vtx.begin() + 1, vtx.end(), TxEncodeHashComparator());
 
     std::vector<int> idxs(vtx.size());
     std::iota (std::begin(idxs), std::end(idxs), 0);
