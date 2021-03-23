@@ -236,7 +236,7 @@ BITCOIN_CORE_H = \
   tailstorm/dag.h \
   tailstorm/pow.h \
   tailstorm/tailstorm.h \
-  tailstorm/subblock/merkleblock.h \
+  tailstorm/subblock/merklesubblock.h \
   tailstorm/subblock/miner.h \
   tailstorm/subblock/subblock.h \
   tailstorm/subblock/validation.h \
@@ -315,7 +315,7 @@ libbitcoin_server_a_SOURCES = \
   tailstorm/blockrelay/graphenerelay.cpp \
   tailstorm/dag.cpp \
   tailstorm/pow.cpp \
-  tailstorm/subblock/merkleblock.cpp \
+  tailstorm/subblock/merklesubblock.cpp \
   tailstorm/subblock/miner.cpp \
   tailstorm/subblock/subblock.cpp \
   tailstorm/subblock/validation.cpp \

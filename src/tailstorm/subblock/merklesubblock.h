@@ -9,9 +9,8 @@
 
 #include "bloom.h"
 #include "merkleblock.h"
-#include "primitives/block.h"
 #include "serialize.h"
-#include "tailstorm/subblock/subblock.h"
+#include "subblock.h"
 #include "uint256.h"
 
 #include <vector>
