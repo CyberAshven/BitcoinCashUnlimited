@@ -18,7 +18,7 @@
 
 bool CheckSubBlockHeader(const CSubBlockHeader &block, CValidationState &state, bool fCheckPOW)
 {
-    if (fCheckPOW && !CheckSubBlockPoW(block, Params().GetConsensus(), TAILSTORM_K))
+    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()))
     {
         return state.DoS(50, error("%s(): subblock proof of work failed", __func__), REJECT_INVALID, "high-hash");
     }
@@ -162,7 +162,7 @@ bool TestSubBlockValidity(CValidationState &state,
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == chainActive.Tip());
 
-    if (!CheckSubBlockHeader(subblock, state, pindexPrev))
+    if (!CheckSubBlockHeader(subblock, state, fCheckPOW))
         return false;
     if (!CheckSubBlock(subblock, state, fCheckPOW, fCheckMerkleRoot))
         return false;

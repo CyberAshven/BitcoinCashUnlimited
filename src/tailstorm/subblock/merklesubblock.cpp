@@ -6,8 +6,7 @@
 
 #include "consensus/consensus.h"
 #include "hashwrapper.h"
-#include "merkleblock.h"
-#include "tailstorm/subblock/merkleblock.h"
+#include "merklesubblock.h"
 #include "utilstrencodings.h"
 
 using namespace std;
@@ -49,7 +48,7 @@ CMerkleSubBlock::CMerkleSubBlock(const CSubBlock &block, CBloomFilter &filter)
 
 CMerkleSubBlock::CMerkleSubBlock(const CSubBlock &block, const std::set<uint256> &txids)
 {
-    header = block.GetSubBlockHeader();
+    header = block.GetBlockHeader();
 
     vector<bool> vMatch;
     vector<uint256> vHashes;

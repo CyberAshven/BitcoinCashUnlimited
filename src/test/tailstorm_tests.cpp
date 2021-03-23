@@ -90,35 +90,6 @@ BOOST_AUTO_TEST_CASE(test_scaling_gamma, *boost::unit_test::tolerance(0.000001))
     double relative_error = std::abs(mean1 - mean2) / mean1;
 }
 
-BOOST_AUTO_TEST_CASE(test_is_below_kos_threshold)
-{
-    uint8_t k = 3;
-    arith_uint256 target(1e6);
-    arith_uint256 lowPow(k*1e5);
-    arith_uint256 highPow(k*1e7);
-
-    // the first two tests do not use scaling
-    // low pow should pass
-    BOOST_CHECK(IsBelowKOSThreshold(lowPow, target, k, (int)target.getdouble()));
-    // high pow should fail
-    BOOST_CHECK(!IsBelowKOSThreshold(highPow, target, k, (int)target.getdouble()));
-
-    // now check with default scaling
-    BOOST_CHECK(IsBelowKOSThreshold(lowPow, target, k));
-    BOOST_CHECK(!IsBelowKOSThreshold(highPow, target, k));
-}
-
-BOOST_AUTO_TEST_CASE(test_best_k)
-{
-    uint16_t desiredDagNodes = 30;
-    double probability = 0.9;
-
-    uint32_t k = GetBestK(desiredDagNodes, probability);
-
-    // wolfram alpha 90th percentile from query: "gamma quantile shape=23 scale=1 "
-    BOOST_CHECK(k == 23);
-}
-
 BOOST_AUTO_TEST_CASE(test_update_tx_lists)
 {
     /* n1 -> n2

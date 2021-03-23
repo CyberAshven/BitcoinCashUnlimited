@@ -573,7 +573,7 @@ bool CSBRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CSBGrapheneBlock::CheckBlockHeader(const CSubBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckSubBlockPoW(block, Params().GetConsensus(), TAILSTORM_K))
+    if (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()))
     {
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
     }

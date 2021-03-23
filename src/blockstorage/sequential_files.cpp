@@ -7,6 +7,7 @@
 #include "sequential_files.h"
 
 #include "blockstorage.h"
+#include "tailstorm/tailstorm.h"
 
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");

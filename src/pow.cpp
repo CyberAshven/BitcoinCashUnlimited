@@ -11,7 +11,7 @@
 #include "chain.h"
 #include "consensus/consensus.h"
 #include "primitives/block.h"
-#include "tailstorm/tailstorm.h"
+#include "tailstorm/pow.h"
 #include "uint256.h"
 #include "util.h"
 #include "validation/forks.h"
@@ -401,12 +401,12 @@ static uint256 sha256(uint256 data)
     return ret;
 }
 
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params &params, const bool weak_mode)
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params &params)
 {
     bool fNegative;
     bool fOverflow;
     arith_uint256 bnTarget;
-
+    /*
     if (params.powAlgorithm == 1)
     {
         // This algorithm uses the hash as a priv key to sign sha256(hash) using deterministic k.
@@ -427,28 +427,18 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params 
         sha.Write(&vchSig[0], vchSig.size());
         sha.Finalize(hash.begin());
     }
-
+    */
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
 
     // Check range
-    if (fNegative || bnTarget == 0 || fOverflow || (bnTarget > UintToArith256(params.powLimit) && !weak_mode))
+    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(params.powLimit))
     {
-        if (weak_mode)
-        {
-            LOG(WB, "A POW check failed. fNegative=%d, bnTarget=%s, fOverflow=%d, "
-                    "UintToArith256(params.powLimit)=%s, nBits=%d\n",
-                fNegative, bnTarget.GetHex(), fOverflow, UintToArith256(params.powLimit).GetHex(), nBits);
-        }
         return false;
     }
 
     // Check proof of work matches claimed amount
-    if (!IsBelowKOSThreshold(UintToArith256(hash), bnTarget, TAILSTORM_K))
+    if (UintToArith256(hash) > bnTarget)
     {
-        if (weak_mode)
-        {
-            LOG(WB, "weak POW target check failed. !( %s > %s)\n", UintToArith256(hash).GetHex(), bnTarget.GetHex());
-        }
         return false;
     }
 

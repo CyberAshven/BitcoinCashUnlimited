@@ -77,7 +77,7 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
 
         // Generally look for weak PoW
         while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount &&
-               !CheckSubBlockPoW(*pblock, Params().GetConsensus(), TAILSTORM_K))
+               !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
         {
             ++pblock->nNonce;
             --nMaxTries;
@@ -88,7 +88,7 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
         if (pblock->nNonce == nInnerLoopCount)
             continue;
 
-        if (CheckSubBlockPoW(*pblock, Params().GetConsensus(), TAILSTORM_K))
+        if (CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
         {
             // In we are mining our own block or not running in parallel for any reason
             // we must terminate any block validation threads that are currently running,

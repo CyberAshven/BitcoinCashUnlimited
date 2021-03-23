@@ -314,7 +314,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     if (!TestSubBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
     {
         throw std::runtime_error(
-            strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
+            strprintf("%s: TestSubBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
 
     // TODO : maybe add in some excessive size check, subblocks should always be small enough that
