@@ -19,6 +19,7 @@
 #include "random.h"
 #include "script/sign.h"
 #include "streams.h"
+#include "tailstorm/tailstorm.h"
 #include "uint256.h"
 #include "util.h"
 #include "utilstrencodings.h"
@@ -48,15 +49,15 @@ uint64_t categoriesEnabled = 0; // 64 bit log id mask.
 // I don't want to pull in the args stuff so always pick the defaults
 bool GetBoolArg(const std::string &strArg, bool fDefault) { return fDefault; }
 // cashlib does not support versionbits right now so just supply this which is used in chainparams
-struct ForkDeploymentInfo
-{
-    /** Deployment name */
-    const char *name;
-    /** Whether GBT clients can safely ignore this rule in simplified usage */
-    bool gbt_force;
-    /** What is this client's vote? */
-    bool myVote;
-};
+//struct ForkDeploymentInfo
+//{
+//    /** Deployment name */
+//    const char *name;
+//    /** Whether GBT clients can safely ignore this rule in simplified usage */
+//    bool gbt_force;
+//    /** What is this client's vote? */
+//    bool myVote;
+//};
 struct ForkDeploymentInfo VersionBitsDeploymentInfo[Consensus::MAX_VERSION_BITS_DEPLOYMENTS];
 
 // Must match the equivalent object in calling language code
