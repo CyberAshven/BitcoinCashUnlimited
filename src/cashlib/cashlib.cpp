@@ -1216,6 +1216,65 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_bitcoinunlimited_libbitcoincash_M
     return ret;
 }
 
+extern "C" JNIEXPORT jobjectArray JNICALL Java_bitcoinunlimited_libbitcoincash_MerkleSubBlock_Extract(JNIEnv *env,
+    jobject ths,
+    jint numTxes,
+    jbyteArray merkleProofPath,
+    jobjectArray hashArray)
+{
+    const unsigned int HASH_LEN = 32;
+    size_t hashArrayLen = env->GetArrayLength(hashArray);
+
+    jbyte *mppData = env->GetByteArrayElements(merkleProofPath, 0);
+    size_t mppLen = env->GetArrayLength(merkleProofPath);
+    CDecodablePartialMerkleTree tree(numTxes, (char *)mppData, mppLen);
+    env->ReleaseByteArrayElements(merkleProofPath, mppData, 0);
+
+    // Copy the hashes out of the java wrapper objects into the PartialMerkleTree
+    auto &hashes = tree.accessHashes();
+    hashes.resize(hashArrayLen);
+    for (size_t i = 0; i < hashArrayLen; i++)
+    {
+        jbyteArray elem = (jbyteArray)env->GetObjectArrayElement(hashArray, i);
+        jbyte *elemData = env->GetByteArrayElements(elem, 0);
+        size_t elemLen = env->GetArrayLength(elem);
+        if (elemLen != HASH_LEN)
+        {
+            triggerJavaIllegalStateException(env, "invalid hash: bad length");
+            return nullptr;
+        }
+        hashes[i] = uint256((unsigned char *)elemData);
+        env->ReleaseByteArrayElements(elem, elemData, 0);
+    }
+
+    std::vector<uint256> matches;
+    std::vector<unsigned int> matchIndexes;
+    uint256 merkleRoot = tree.ExtractMatches(matches, matchIndexes);
+
+    jclass elementClass = env->GetObjectClass(merkleProofPath); // get the class of a jbyteArray
+    jobjectArray ret = env->NewObjectArray(matches.size() + 1, elementClass, nullptr);
+
+    // Put the merkle root in the first slot
+    {
+        jbyteArray bArray = env->NewByteArray(HASH_LEN);
+        jbyte *dest = env->GetByteArrayElements(bArray, 0);
+        memcpy(dest, merkleRoot.begin(), HASH_LEN);
+        env->ReleaseByteArrayElements(bArray, dest, 0);
+        env->SetObjectArrayElement(ret, 0, bArray);
+    }
+
+    // Fill the rest with transactions hashes
+    for (size_t i = 0; i < matches.size(); i++)
+    {
+        jbyteArray bArray = env->NewByteArray(HASH_LEN);
+        jbyte *dest = env->GetByteArrayElements(bArray, 0);
+        memcpy(dest, matches[i].begin(), HASH_LEN);
+        env->ReleaseByteArrayElements(bArray, dest, 0);
+        env->SetObjectArrayElement(ret, i + 1, bArray);
+    }
+    return ret;
+}
+
 extern "C" JNIEXPORT jstring JNICALL Java_bitcoinunlimited_libbitcoincash_Initialize_LibBitcoinCash(JNIEnv *env,
     jobject ths,
     jbyte chainSelector)
