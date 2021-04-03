@@ -11,7 +11,7 @@
 #include "chain.h"
 #include "consensus/consensus.h"
 #include "primitives/block.h"
-#include "tailstorm/tailstorm.h"
+#include "tailstorm/pow.h"
 #include "uint256.h"
 #include "util.h"
 #include "validation/forks.h"

@@ -727,6 +727,8 @@ bitcoin_miner_SOURCES = bitcoin-miner.cpp \
   pow.cpp \
   arith_uint256.cpp \
   arith_uint256.h \
+  tailstorm/pow.cpp \
+  tailstorm/pow.h \
   validation/forks.cpp \
   validation/forks.h \
   uint256.cpp \
