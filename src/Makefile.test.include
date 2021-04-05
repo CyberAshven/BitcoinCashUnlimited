@@ -73,6 +73,7 @@ BITCOIN_TESTS =\
   test/checkdatasig_tests.cpp \
   test/Checkpoints_tests.cpp \
   test/tailstorm_tests.cpp \
+  test/tailstorm_serialization_objs.cpp \
   test/bswap_tests.cpp \
   test/cashaddr_tests.cpp \
   test/cashaddrenc_tests.cpp \
