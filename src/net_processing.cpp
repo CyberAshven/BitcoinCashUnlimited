@@ -268,7 +268,8 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (fSend && mi->nStatus & BLOCK_HAVE_DATA)
                 {
                     // Send block from disk
-                    CBlockRef pblock = ReadBlockFromDisk(mi, consensusParams);
+                    CBlockRef pblock(new CBlock());
+                    ReadBlockFromDisk(*pblock, mi, consensusParams, false);
                     if (!pblock)
                     {
                         // its possible that I know about it but haven't stored it yet
@@ -1975,7 +1976,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             }
 
             const Consensus::Params &consensusParams = Params().GetConsensus();
-            CBlockRef pblock = ReadBlockFromDisk(invIndex, consensusParams);
+            CBlockRef pblock(new CBlock());
+            ReadBlockFromDisk(*pblock, invIndex, consensusParams, false);
             if (!pblock)
             {
                 // We don't have the block yet, although we know about it.
@@ -2011,7 +2013,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock = ReadBlockFromDisk(invIndex, consensusParams);
+        CBlockRef pblock(new CBlock());
+        ReadBlockFromDisk(*pblock, invIndex, consensusParams, false);
         if (!pblock)
         {
             // We don't have the block yet, although we know about it.

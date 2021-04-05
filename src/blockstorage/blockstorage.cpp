@@ -6,7 +6,6 @@
 
 #include "blockstorage.h"
 
-#include "blockcache.h"
 #include "blockleveldb.h"
 #include "chainparams.h"
 #include "dbwrapper.h"
@@ -29,8 +28,8 @@ uint64_t blockfile_chunk_size = DEFAULT_BLOCKFILE_CHUNK_SIZE;
 uint64_t undofile_chunk_size = DEFAULT_UNDOFILE_CHUNK_SIZE;
 
 /**
- * Config param to determine what DB type we are using
- */
+  * Config param to determine what DB type we are using
+  */
 BlockDBMode BLOCK_DB_MODE = DEFAULT_BLOCK_DB_MODE;
 
 void InitializeBlockStorage(const int64_t &_nBlockTreeDBCache,
@@ -207,8 +206,6 @@ void SyncStorage(const CChainParams &chainparams)
                 pindexNew->nNonce = item.second.nNonce;
                 pindexNew->nStatus = item.second.nStatus;
                 pindexNew->nTx = item.second.nTx;
-                pindexNew->nSequenceId = item.second.nSequenceId;
-                pindexNew->nTimeReceived = item.second.nTimeReceived;
                 index = pindexNew;
             }
 
@@ -380,24 +377,21 @@ void SyncStorage(const CChainParams &chainparams)
                 pindexNew->nNonce = item.second.nNonce;
                 pindexNew->nStatus = item.second.nStatus;
                 pindexNew->nTx = item.second.nTx;
-                pindexNew->nSequenceId = item.second.nSequenceId;
-                pindexNew->nTimeReceived = item.second.nTimeReceived;
                 index = pindexNew;
             }
 
             // Update the block data
             if (index->nStatus & BLOCK_HAVE_DATA && !index->GetBlockPos().IsNull())
             {
-                CBlockRef pblock_seq;
-                pblock_seq = ReadBlockFromDiskSequential(index->GetBlockPos(), chainparams.GetConsensus());
-                if (!pblock_seq)
+                CBlock block_seq;
+                if (!ReadBlockFromDiskSequential(block_seq, index->GetBlockPos(), chainparams.GetConsensus()))
                 {
                     LOGA("SyncStorage(): critical error, failure to read block data from sequential files \n");
                     assert(false);
                 }
-                unsigned int nBlockSize = ::GetSerializeSize(*pblock_seq, SER_DISK, CLIENT_VERSION);
+                unsigned int nBlockSize = ::GetSerializeSize(block_seq, SER_DISK, CLIENT_VERSION);
                 index->nDataPos = nBlockSize;
-                if (!pblockdb->WriteBlock(*pblock_seq))
+                if (!pblockdb->WriteBlock(block_seq))
                 {
                     LOGA("critical error, failed to write block to db, asserting false \n");
                     assert(false);
@@ -463,14 +457,8 @@ void SyncStorage(const CChainParams &chainparams)
         delete pblockdbsync;
 }
 
-bool WriteBlockToDisk(const CBlock &block,
-    CDiskBlockPos &pos,
-    const CMessageHeader::MessageStartChars &messageStart,
-    const int *pHeight)
+bool WriteBlockToDisk(const CBlock &block, CDiskBlockPos &pos, const CMessageHeader::MessageStartChars &messageStart)
 {
-    if (pHeight)
-        blockcache.AddBlock(MakeBlockRef(block), *pHeight);
-
     if (!pblockdb)
     {
         return WriteBlockToDiskSequential(block, pos, messageStart);
@@ -488,7 +476,7 @@ bool WriteBlockToDisk(const CTailstormBlock &block,
     return pblockdb->WriteBlock(block);
 }
 
-CBlockRef ReadBlockFromDisk(const CBlockIndex *pindex, const Consensus::Params &consensusParams)
+bool ReadBlockFromDisk(CBlock &block, const CBlockIndex *pindex, const Consensus::Params &consensusParams, bool tryboth)
 {
     // First check the in memory cache
     CBlockRef pblock;
@@ -500,34 +488,48 @@ CBlockRef ReadBlockFromDisk(const CBlockIndex *pindex, const Consensus::Params &
     }
     if (!pblockdb)
     {
-        pblock = ReadBlockFromDiskSequential(pindex->GetBlockPos(), consensusParams);
-
-        if (!pblock)
+        if (tryboth == true && pindex->isTailstorm == true)
         {
-            return nullptr;
+            CTailstormBlock bblock;
+            bblock.SetNull();
+            if (!ReadBlockFromDiskSequential(bblock, pindex->GetBlockPos(), consensusParams))
+            {
+                return false;
+            }
+            if (bblock.GetHash() != pindex->GetBlockHash())
+            {
+                return error(
+                    "ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
+                    __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
+            }
+            block.nVersion = bblock.nVersion;
+            block.hashPrevBlock = bblock.hashPrevBlock;
+            block.hashMerkleRoot = bblock.hashMerkleRoot;
+            block.nTime = (uint32_t)bblock.nTime;
+            block.nBits = bblock.nBits;
+            block.vtx = bblock.vtx;
         }
-        if (pblock->GetHash() != pindex->GetBlockHash())
+        else
         {
-            LOGA("ERROR: ReadBlockFromDisk(CBlockRef, CBlockIndex*): GetHash() doesn't match index for %s at %s",
-                pindex->ToString(), pindex->GetBlockPos().ToString());
-            return nullptr;
+            LOG(WB, "!!!read from disk (this is correct): %s  read from block index (this is incorrect): %s", bblock.GetHash().ToString(), pindex->GetBlockHash().ToString());
+            return error(
+                "ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
+                __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
         }
-        return pblock;
+        return true;
     }
-
-    std::shared_ptr<CBlock> pblockRef = MakeBlockRef(CBlock());
-    if (!pblockdb->ReadBlock(pindex, *pblockRef))
+    block.SetNull();
+    if (!pblockdb->ReadBlock(pindex, block))
     {
         LOGA("failed to read block with hash %s from leveldb \n", pindex->GetBlockHash().GetHex().c_str());
-        return nullptr;
+        return false;
     }
-    if (pblockRef->GetHash() != pindex->GetBlockHash())
+    if (block.GetHash() != pindex->GetBlockHash())
     {
-        LOGA("ERROR: ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
-            pindex->ToString(), pindex->GetBlockPos().ToString());
-        return nullptr;
+        return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
+            __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
     }
-    return pblockRef;
+    return true;
 }
 
 bool ReadBlockFromDisk(CTailstormBlock &block, const CBlockIndex *pindex, const Consensus::Params &consensusParams)
@@ -799,9 +801,8 @@ bool FlushStateToDiskInternal(CValidationState &state,
 
         nSizeAfterLastFlush = pcoinsTip->DynamicMemoryUsage();
     }
-    if (fDoFullFlush || fFlushForPrune ||
-        ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) &&
-            nNow > nLastSetChain + (int64_t)DATABASE_WRITE_INTERVAL * 1000000))
+    if (fDoFullFlush || fFlushForPrune || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) &&
+                                              nNow > nLastSetChain + (int64_t)DATABASE_WRITE_INTERVAL * 1000000))
     {
         // Update best block in wallet (so we can detect restored wallets).
         GetMainSignals().SetBestChain(chainActive.GetLocator());

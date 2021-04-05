@@ -387,6 +387,17 @@ extern const char *BOBSUB;
 extern const char *DSPROOF;
 
 /**
+ *  * Contains a CSubBlock
+ *   * Sent to peers to inform them about new sub blocks
+ *    */
+extern const char *SUBBLOCK;
+/**
+ *  * Contains a CTailstormBlock
+ *   * Sent to peers to inform them about new tailstorm blocks
+ *    */
+extern const char *TAILSTORMBLOCK;
+
+/**
  * Contains a request to get validation information about a tx
  * A p2p message for the validaterawtransaction rpc request
  */

@@ -33,7 +33,15 @@ void UnlinkPrunedFiles(std::set<int> &setFilesToPrune);
 bool WriteBlockToDiskSequential(const CBlock &block,
     CDiskBlockPos &pos,
     const CMessageHeader::MessageStartChars &messageStart);
-CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus::Params &consensusParams);
+bool WriteBlockToDiskSequential(const CTailstormBlock &block,
+    CDiskBlockPos &pos,
+    const CMessageHeader::MessageStartChars &messageStart);
+
+bool ReadBlockFromDiskSequential(CBlock &block, const CDiskBlockPos &pos, const Consensus::Params &consensusParams);
+bool ReadBlockFromDiskSequential(CTailstormBlock &block,
+    const CDiskBlockPos &pos,
+    const Consensus::Params &consensusParams);
+
 void FindFilesToPruneSequential(std::set<int> &setFilesToPrune, uint64_t nPruneAfterHeight);
 bool WriteUndoToDiskSequenatial(const CBlockUndo &blockundo,
     CDiskBlockPos &pos,

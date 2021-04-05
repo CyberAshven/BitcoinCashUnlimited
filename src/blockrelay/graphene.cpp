@@ -1430,7 +1430,8 @@ bool HandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChainPa
             return error("Peer %s requested nonexistent block %s", pfrom->GetLogName(), inv.hash.ToString());
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock = ReadBlockFromDisk(hdr, consensusParams);
+        CBlockRef pblock(new CBlock());
+        ReadBlockFromDisk(*pblock, hdr, consensusParams, false);
         if (!pblock)
         {
             // We don't have the block yet, although we know about it.
@@ -1713,7 +1714,8 @@ std::vector<CTransaction> TransactionsFromBlockByCheapHash(std::set<uint64_t> &v
             throw std::runtime_error("get_grblocktx request too far from the tip");
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock = ReadBlockFromDisk(hdr, consensusParams);
+        CBlockRef pblock(new CBlock());
+        ReadBlockFromDisk(*pblock, hdr, consensusParams, false);
         if (!pblock)
         {
             // We do not assign misbehavior for not being able to read a block from disk because we already

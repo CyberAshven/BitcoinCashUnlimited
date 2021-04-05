@@ -811,7 +811,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // If we consult DAA, then it uses cw144 which returns a significantly lower target because
     // we have been mining too fast by a ratio 600/500 for a whole day.
     BOOST_CHECK(!IsNov2020Activated(params, pindexPreActivation));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(pindexPreActivation, &blkHeaderDummy, params), 0x180236e1);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(pindexPreActivation, blkHeaderDummy.nTime, params), 0x180236e1);
 
     // ASERT has never run yet, so cache is unpopulated.
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), nullptr);
@@ -825,7 +825,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // saw. Since solvetime is expected the next target is unchanged.
     CBlockIndex indexActivation0 = GetBlockIndex(pindexPreActivation, 600, 0x180236e1);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation0));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, &blkHeaderDummy, params), 0x180236e1);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, blkHeaderDummy.nTime, params), 0x180236e1);
     // second call will have used anchor cache, shouldn't change anything
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation0);
     BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, blkHeaderDummy.nTime, params), 0x180236e1);
@@ -850,14 +850,14 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     uint32_t anchorBits2 = 0x180210fe;
     CBlockIndex indexActivation2 = GetBlockIndex(pindexPreActivation, 600, anchorBits2);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation2));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation2, &blkHeaderDummy, params), anchorBits2);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation2, blkHeaderDummy.nTime, params), anchorBits2);
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation2);
 
     // Try a three-month solvetime which will cause us to hit powLimit.
     uint32_t anchorBits3 = 0x18034567;
     CBlockIndex indexActivation3 = GetBlockIndex(pindexPreActivation, 86400 * 90, anchorBits3);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation2));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3, &blkHeaderDummy, params), 0x1d00ffff);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3, blkHeaderDummy.nTime, params), 0x1d00ffff);
     // If the next block jumps back in time, we get back our original difficulty level.
     CBlockIndex indexActivation3_return = GetBlockIndex(&indexActivation3, -86400 * 90 + 2 * 600, anchorBits3);
     BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3_return, blkHeaderDummy.nTime, params), anchorBits3);
@@ -871,7 +871,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     indexActivation4.nTime = activationTime;
     BOOST_CHECK_EQUAL(indexActivation4.GetMedianTimePast(), activationTime);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation4));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation4, &blkHeaderDummy, params), 0x18010db3);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation4, blkHeaderDummy.nTime, params), 0x18010db3);
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation4);
 
     // Finally create a random chain on top of our second activation, using ASERT targets all the way.

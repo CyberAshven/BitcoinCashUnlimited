@@ -227,6 +227,7 @@ BITCOIN_CORE_H = \
   support/pagelocker.h \
   sync.h \
   tailstorm/block/block.h \
+  tailstorm/block/merkletailblock.h \
   tailstorm/block/miner.h \
   tailstorm/block/validation.h \
   tailstorm/blockrelay/compactblock.h \
@@ -307,6 +308,7 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockcache.cpp \
   bloom.cpp \
   tailstorm/block/block.cpp \
+  tailstorm/block/merkletailblock.cpp \
   tailstorm/block/miner.cpp \
   tailstorm/block/validation.cpp \
   tailstorm/blockrelay/compactblock.cpp \

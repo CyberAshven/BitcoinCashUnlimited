@@ -15,7 +15,6 @@
 #include "init.h"
 #include "main.h"
 #include "net.h"
-#include "parallel.h"
 #include "pow.h"
 #include "rpc/server.h"
 #include "txadmission.h"
@@ -24,6 +23,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "validationinterface.h"
+#include "validation/parallel.h"
 
 #include <cstdlib>
 #include <stdint.h>

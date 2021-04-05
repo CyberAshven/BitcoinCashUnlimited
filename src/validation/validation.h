@@ -76,6 +76,8 @@ bool AcceptBlockHeader(const CBlockHeader &block,
     const CChainParams &chainparams,
     CBlockIndex **ppindex = nullptr);
 
+void PruneBlockIndexCandidates();
+
 /** Create a new block index entry for a new block or header that has arrived.
  *  This updates setDirtyBlockIndex only.
  */

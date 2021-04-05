@@ -78,7 +78,7 @@ public:
     std::set<uint256> setUnVerifiedTxns;
 
 public:
-    CTailstormBlockHeader GetBlockHeader()
+    CTailstormBlockHeader GetBlockHeader() const
     {
         CTailstormBlockHeader header;
         header.nVersion = nVersion;

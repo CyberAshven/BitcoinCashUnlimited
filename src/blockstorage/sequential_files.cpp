@@ -113,36 +113,88 @@ bool WriteBlockToDiskSequential(const CBlock &block,
     return true;
 }
 
-CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus::Params &consensusParams)
+bool WriteBlockToDiskSequential(const CTailstormBlock &block,
+    CDiskBlockPos &pos,
+    const CMessageHeader::MessageStartChars &messageStart)
 {
+    // Open history file to append
+    CAutoFile fileout(OpenBlockFile(pos), SER_DISK, CLIENT_VERSION);
+    if (fileout.IsNull())
+    {
+        return error("WriteBlockToDisk: OpenBlockFile failed");
+    }
+
+    // Write index header
+    unsigned int nSize = GetSerializeSize(fileout, block);
+    fileout << FLATDATA(messageStart) << nSize;
+
+    // Write block
+    long fileOutPos = ftell(fileout.Get());
+    if (fileOutPos < 0)
+    {
+        return error("WriteBlockToDisk: ftell failed");
+    }
+    pos.nPos = (unsigned int)fileOutPos;
+    fileout << block;
+    return true;
+}
+
+bool ReadBlockFromDiskSequential(CBlock &block, const CDiskBlockPos &pos, const Consensus::Params &consensusParams)
+{
+    block.SetNull();
     // Open history file to read
     CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull())
     {
-        LOGA("ERROR: ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
-        return nullptr;
+        return error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
     }
 
     // Read block
-    std::shared_ptr<CBlock> pblock = MakeBlockRef(CBlock());
     try
     {
-        filein >> *pblock;
+        filein >> block;
     }
     catch (const std::exception &e)
     {
-        LOGA("Error - %s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
-        return nullptr;
+        return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
     // Check the header
-    if (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, consensusParams))
+    if (!CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
     {
-        LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
-        return nullptr;
+        return error("%s: Errors in block header at %s", __func__, pos.ToString());
+    }
+    return true;
+}
+
+bool ReadBlockFromDiskSequential(CTailstormBlock &block,
+    const CDiskBlockPos &pos,
+    const Consensus::Params &consensusParams)
+{
+    block.SetNull();
+    // Open history file to read
+    CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull())
+    {
+        return error("ReadBlockFromDisk::Tailstorm: OpenBlockFile failed for %s", pos.ToString());
     }
 
-    return pblock;
+    // Read block
+    try
+    {
+        filein >> block;
+    }
+    catch (const std::exception &e)
+    {
+        return error("%s::Tailstorm: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
+    }
+
+    // Check the header
+    if (!CheckTailstormPoW(block, consensusParams, TAILSTORM_K))
+    {
+        return error("%s::Tailstorm: Errors in block header at %s", __func__, pos.ToString());
+    }
+    return true;
 }
 
 /* Calculate the amount of disk space the block & undo files currently use */
