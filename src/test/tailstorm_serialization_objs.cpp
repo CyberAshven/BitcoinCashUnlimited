@@ -1,4 +1,5 @@
 #include "bloom.h"
+#include "consensus/merkle.h"
 #include "streams.h"
 #include "tailstorm/subblock/merklesubblock.h"
 #include "tailstorm/tailstorm.h"
@@ -24,6 +25,7 @@ BOOST_AUTO_TEST_CASE(generate_merkle_block_hex)
     filter.insert(tx->GetHash());
     CBlock block;
     block.vtx.push_back(tx);
+    block.hashMerkleRoot = BlockMerkleRoot(block);
     CMerkleBlock mb(block, filter);
 
     // Serialize
@@ -57,8 +59,7 @@ BOOST_AUTO_TEST_CASE(generate_merkle_subblock_hex)
     filter.insert(tx->GetHash());
     CSubBlockRef subref = std::make_shared<CSubBlock>();
     subref->vtx.push_back(tx);
-    CTailstormBlock block;
-    block.vdag.push_back(subref);
+    subref->hashMerkleRoot = BlockMerkleRoot(*subref);
     CMerkleSubBlock msb(*subref, filter);
 
     // Serialize
