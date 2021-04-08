@@ -39,6 +39,10 @@ BOOST_AUTO_TEST_CASE(generate_merkle_block_hex)
     CDataStream ssData(msbData, SER_NETWORK, PROTOCOL_VERSION);
     ssData >> mb2;
     BOOST_CHECK(mb2.header == mb.header);
+    std::vector<uint256> vMatch;
+    std::vector<unsigned int> vnIndex;
+    mb2.txn.ExtractMatches(vMatch, vnIndex);
+    BOOST_CHECK(vMatch[0] == tx->GetHash());
 
     // Write to file
     std::ofstream outfile;
@@ -73,6 +77,10 @@ BOOST_AUTO_TEST_CASE(generate_merkle_subblock_hex)
     CDataStream ssData(msbData, SER_NETWORK, PROTOCOL_VERSION);
     ssData >> msb2;
     BOOST_CHECK(msb2.header.GetHash() == msb.header.GetHash());
+    std::vector<uint256> vMatch;
+    std::vector<unsigned int> vnIndex;
+    msb2.txn.ExtractMatches(vMatch, vnIndex);
+    BOOST_CHECK(vMatch[0] == tx->GetHash());
 
     // Write to file
     std::ofstream outfile;
