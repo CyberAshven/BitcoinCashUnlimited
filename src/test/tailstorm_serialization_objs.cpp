@@ -97,12 +97,19 @@ BOOST_AUTO_TEST_CASE(generate_merkle_tailblock_hex)
     CTransactionRef tx = std::make_shared<const CTransaction>(mtx);
     std::set<uint256> txids;
     txids.insert(tx->GetHash());
-    CSubBlockRef subref = std::make_shared<CSubBlock>();
-    subref->vtx.push_back(tx);
-    subref->hashMerkleRoot = BlockMerkleRoot(*subref);
+    CSubBlockRef subref1 = std::make_shared<CSubBlock>();
+    subref1->vtx.push_back(tx);
+    subref1->hashMerkleRoot = BlockMerkleRoot(*subref1);
+    CSubBlockRef subref2 = std::make_shared<CSubBlock>();
+    subref2->vtx.push_back(tx);
+    subref2->hashMerkleRoot = BlockMerkleRoot(*subref2);
     CTailstormBlock block;
-    block.vdag.push_back(subref);
+    block.vdag.push_back(subref1);
+    block.vdag.push_back(subref2);
     block.UpdateTxLists();
+    // add coinbase
+    block.vtx[0] = std::make_shared<const CTransaction>();
+    block.hashMerkleRoot = BlockMerkleRoot(block);
     CMerkleTailBlock mtb(block, txids);
 
     // Serialize
@@ -116,10 +123,15 @@ BOOST_AUTO_TEST_CASE(generate_merkle_tailblock_hex)
     CDataStream ssData(mtbData, SER_NETWORK, PROTOCOL_VERSION);
     ssData >> mtb2;
     BOOST_CHECK(mtb2.header.GetHash() == mtb.header.GetHash());
-    std::vector<uint256> vMatch;
-    std::vector<unsigned int> vnIndex;
-    mtb2.subblocks[0].txn.ExtractMatches(vMatch, vnIndex);
-    BOOST_CHECK(vMatch[0] == tx->GetHash());
+    std::vector<uint256> vMatch1;
+    std::vector<unsigned int> vnIndex1;
+    mtb2.subblocks[0].txn.ExtractMatches(vMatch1, vnIndex1);
+    BOOST_CHECK(vMatch1[0] == tx->GetHash());
+    std::vector<uint256> vMatch2;
+    std::vector<unsigned int> vnIndex2;
+    mtb2.subblocks[1].txn.ExtractMatches(vMatch2, vnIndex2);
+    BOOST_CHECK(vMatch2[0] == tx->GetHash());
+    BOOST_CHECK(mtb.header.GetHash() == mtb2.header.GetHash());
 
     // Write to file
     std::ofstream outfile;
