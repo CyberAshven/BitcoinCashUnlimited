@@ -105,7 +105,11 @@ BOOST_AUTO_TEST_CASE(generate_merkle_tailblock_hex)
     subref2->hashMerkleRoot = BlockMerkleRoot(*subref2);
     CTailstormBlock block;
     block.vdag.push_back(subref1);
+    block.subblockHashes.emplace(subref1->GetHash());
+    block.subblockNTxMap[subref1->GetHash()] = subref1->vtx.size();
     block.vdag.push_back(subref2);
+    block.subblockHashes.emplace(subref2->GetHash());
+    block.subblockNTxMap[subref2->GetHash()] = subref2->vtx.size();
     block.UpdateTxLists();
     // add coinbase
     block.vtx[0] = std::make_shared<const CTransaction>();
