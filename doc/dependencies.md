@@ -21,7 +21,7 @@ These are the dependencies currently used by Bitcoin Unlimited. You can find ins
 | protobuf | [2.6.3](https://github.com/google/protobuf/releases) |  | No |  |  |
 | Python (tests) |  | [3.6](https://www.python.org/downloads) |  |  |  |
 | qrencode | [3.4.4](https://fukuchi.org/works/qrencode) |  | No |  |  |
-| Qt | [5.9.7](https://download.qt.io/official_releases/qt/) | 5.3+ | No |  |  |
+| Qt | [5.12.11](https://download.qt.io/official_releases/qt/) | [5.9.5](https://github.com/bitcoin/bitcoin/issues/20104) | No |  |  |
 | XCB |  |  |  |  | [Yes](https://github.com/bitcoin/bitcoin/blob/master/depends/packages/qt.mk) (Linux only) |
 | xkbcommon |  |  |  |  | [Yes](https://github.com/bitcoin/bitcoin/blob/master/depends/packages/qt.mk) (Linux only) |
 | ZeroMQ | [4.3.1](https://github.com/zeromq/libzmq/releases) |  | Yes |  |  |
