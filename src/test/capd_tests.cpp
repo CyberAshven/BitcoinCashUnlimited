@@ -7,7 +7,7 @@
 #include "capd.h"
 #include "streams.h"
 #include "test/test_bitcoin.h"
-#include "test/test_random.h"
+// #include "test/test_random.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -62,12 +62,13 @@ BOOST_AUTO_TEST_CASE(vector_span)
 
 BOOST_AUTO_TEST_CASE(capd_msg_test_vectors)
 {
+    FastRandomContext insecure_rand;
     {
         arith_uint256 tmp;
         double val = 1;
         for (int i = 1; i < 10; i++)
         {
-            val *= insecure_rand() & 0xffff;
+            val *= insecure_rand.rand32() & 0xffff;
 
             printf("val = %f\n", val);
             tmp.setdouble(val);
@@ -113,13 +114,13 @@ BOOST_AUTO_TEST_CASE(capd_msg_test_vectors)
         {
             // numbers that are too big overflow, and too small have rounding errors but difficulty will not
             // be either of these extremes anyway.
-            int zeros = insecure_rand() % 26 + 2;
+            int zeros = insecure_rand.rand32() % 26 + 2;
 
             for (unsigned int j = 0; j < tmp.size(); j++)
                 if (j > tmp.size() - zeros)
                     *(tmp.begin() + j) = 0;
                 else
-                    *(tmp.begin() + j) = insecure_rand() & 255;
+                    *(tmp.begin() + j) = insecure_rand.rand32() & 255;
 
             auto utmp = UintToArith256(tmp);
             auto priority = Priority(utmp, 2 * NOMINAL_MSG_SIZE, 0);
@@ -557,17 +558,19 @@ BOOST_AUTO_TEST_CASE(capd_p2p)
     {
         CDataStream pkt(SER_NETWORK, CLIENT_VERSION);
         pkt << CMessageHeader(node1.GetMagic(Params()), NetMsgType::CAPDINV, 0);
-        pkt = MsgMaker(node1, NetMsgType::CAPDINV, [](auto &p) {
-            std::vector<uint256> invs;
-            for (unsigned int i = 0; i < CAPD_MAX_INV_TO_SEND + 2; i++)
+        pkt = MsgMaker(node1, NetMsgType::CAPDINV,
+            [](auto &p)
             {
-                uint256 h;
-                *h.begin() = i; // don't really care what it is
-                invs.push_back(h);
-            }
-            WriteCompactSize(p, CapdProtocol::CAPD_MSG_TYPE);
-            p << invs;
-        });
+                std::vector<uint256> invs;
+                for (unsigned int i = 0; i < CAPD_MAX_INV_TO_SEND + 2; i++)
+                {
+                    uint256 h;
+                    *h.begin() = i; // don't really care what it is
+                    invs.push_back(h);
+                }
+                WriteCompactSize(p, CapdProtocol::CAPD_MSG_TYPE);
+                p << invs;
+            });
 
         bool result = HandleCapdMessage(node1, pkt);
         BOOST_CHECK(result == false);
@@ -587,54 +590,62 @@ BOOST_AUTO_TEST_CASE(capd_p2p)
     BOOST_CHECK(msgpool.Size() == msg1.RamSize()); // Message was accepted into the pool
 
     // Request a message from the pool
-    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG, [msg1](auto &p) {
-        std::vector<uint256> msgs;
-        msgs.push_back(msg1.GetHash());
-        p << MIN_RELAY_PRIORITY << msgs;
-    });
+    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG,
+        [msg1](auto &p)
+        {
+            std::vector<uint256> msgs;
+            msgs.push_back(msg1.GetHash());
+            p << MIN_RELAY_PRIORITY << msgs;
+        });
     result = HandleCapdMessage(node1, pkt);
     BOOST_CHECK(result == true);
     // There should be a message waiting to be sent since we asked for one
     BOOST_CHECK(capdNode1.sendMsgs.size() == 1);
 
     // Request a nonexistent message from the pool
-    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG, [msg1](auto &p) {
-        std::vector<uint256> msgs;
-        uint256 h;
-        *h.begin() = 5;
-        msgs.push_back(h);
-        p << MIN_RELAY_PRIORITY << msgs;
-    });
+    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG,
+        [msg1](auto &p)
+        {
+            std::vector<uint256> msgs;
+            uint256 h;
+            *h.begin() = 5;
+            msgs.push_back(h);
+            p << MIN_RELAY_PRIORITY << msgs;
+        });
     result = HandleCapdMessage(node1, pkt);
     BOOST_CHECK(result == true); // if the message does not exist, drop the request so fn returns true
     // No addtl message should be enqueued
     BOOST_CHECK(capdNode1.sendMsgs.size() == 1);
 
     // Request too many messages
-    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG, [msg1](auto &p) {
-        std::vector<uint256> msgs;
-        for (unsigned int i = 0; i < CAPD_MAX_MSG_TO_REQUEST + 1; i++)
+    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG,
+        [msg1](auto &p)
         {
-            uint256 h;
-            *h.begin() = i; // don't really care what it is
-            msgs.push_back(h);
-        }
-        p << MIN_RELAY_PRIORITY << msgs;
-    });
+            std::vector<uint256> msgs;
+            for (unsigned int i = 0; i < CAPD_MAX_MSG_TO_REQUEST + 1; i++)
+            {
+                uint256 h;
+                *h.begin() = i; // don't really care what it is
+                msgs.push_back(h);
+            }
+            p << MIN_RELAY_PRIORITY << msgs;
+        });
     result = HandleCapdMessage(node1, pkt);
     BOOST_CHECK(result == false);
 
     // Request exact maximum messages
-    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG, [msg1](auto &p) {
-        std::vector<uint256> msgs;
-        for (unsigned int i = 0; i < CAPD_MAX_MSG_TO_REQUEST; i++)
+    pkt = MsgMaker(node1, NetMsgType::CAPDGETMSG,
+        [msg1](auto &p)
         {
-            uint256 h;
-            *h.begin() = i; // don't really care what it is
-            msgs.push_back(h);
-        }
-        p << MIN_RELAY_PRIORITY << msgs;
-    });
+            std::vector<uint256> msgs;
+            for (unsigned int i = 0; i < CAPD_MAX_MSG_TO_REQUEST; i++)
+            {
+                uint256 h;
+                *h.begin() = i; // don't really care what it is
+                msgs.push_back(h);
+            }
+            p << MIN_RELAY_PRIORITY << msgs;
+        });
     result = HandleCapdMessage(node1, pkt);
     BOOST_CHECK(result == true);
 

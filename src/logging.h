@@ -112,7 +112,7 @@ To add a new log category:
             {SELECTCOINS, "selectcoins"}, {ESTIMATEFEE, "estimatefee"}, {QT, "qt"}, {IBD, "ibd"},               \
             {GRAPHENE, "graphene"}, {RESPEND, "respend"}, {WB, "weakblocks"}, {CMPCT, "cmpctblock"},            \
             {ELECTRUM, "electrum"}, {MPOOLSYNC, "mempoolsync"}, {PRIORITYQ, "priorityq"}, {DSPROOF, "dsproof"}, \
-            {TWEAKS, "tweaks"},    {CAPD, "capd"},                                                              \
+            {TWEAKS, "tweaks"}, {CAPD, "capd"},                                                                 \
         {                                                                                                       \
             ZMQ, "zmq"                                                                                          \
         }                                                                                                       \

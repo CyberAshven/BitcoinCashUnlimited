@@ -372,15 +372,12 @@ public:
     CSharedCriticalSection csMsgSerializer;
 
     // socket
-<<<<<<< HEAD
-=======
-    uint64_t nServices;
-    //! Set to true if capd is enabled in this node (based on XVersion config)
-    bool isCapdEnabled = false;
-    //! The "hook" into capd functionality
-    CapdNode *capd = nullptr;
->>>>>>> a88668462... p2p messages, RPC call, unit tests
     SOCKET hSocket;
+
+    /** Set to true if capd is enabled in this node (based on XVersion config) */
+    bool isCapdEnabled = false;
+    /** The "hook" into capd functionality */
+    CapdNode *capd = nullptr;
 
     CCriticalSection cs_vSend;
     CDataStream ssSend GUARDED_BY(cs_vSend);

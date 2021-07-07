@@ -3548,7 +3548,7 @@ void CNode::ReadConfigFromExtversion()
             negotiatedGrapheneVersion = upper;
     }
 
-    num = xVersion.as_u64c(XVer::BU_CAPD_VERSION);
+    uint64_t num = extversion.as_u64c(XVer::BU_CAPD_VERSION);
     if (num)
     {
         capd = new CapdNode(this);

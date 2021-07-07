@@ -28,7 +28,7 @@ class GetLogCategories (BitcoinTestFramework):
         node_opts1 = ["-debug=all,-thin,-graphene,-mempool,-net,-addrman,-tor,-coindb,-rpc"]
         node_opts2 = ["-debug=all,-thin,-graphene,-mempool,-net,-addrman,-tor,-coindb,-rpc,-evict,-blk,-lck,-proxy"]
 
-        #Append rpcauth to bitcoin.conf before initialization¶
+        #Append rpcauth to bitcoin.conf before initialization
         node_opts5 = ["debug=all","debug=-thin","debug=-graphene","debug=-mempool","debug=-net"]
         random.shuffle(node_opts5)
         with open(os.path.join(self.options.tmpdir+"/node3", "bitcoin.conf"), 'a') as f:
@@ -45,10 +45,10 @@ class GetLogCategories (BitcoinTestFramework):
         self.is_network_split = False
 
     def run_test (self):
-        exp0 = "coindb tor addrman libevent http rpc partitioncheck bench prune reindex mempoolrej blk evict parallel rand req bloom estimatefee lck proxy dbase selectcoins zmq qt ibd respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks"
-        exp1 = "libevent http partitioncheck bench prune reindex mempoolrej blk evict parallel rand req bloom estimatefee lck proxy dbase selectcoins zmq qt ibd respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks"
-        exp2 = "libevent http partitioncheck bench prune reindex mempoolrej parallel rand req bloom estimatefee dbase selectcoins zmq qt ibd respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks"
-        exp3 = "libevent http partitioncheck bench prune reindex mempoolrej parallel req bloom estimatefee dbase selectcoins respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks"
+        exp0 = "coindb tor addrman libevent http rpc partitioncheck bench prune reindex mempoolrej blk evict parallel rand req bloom estimatefee lck proxy dbase selectcoins zmq qt ibd respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks capd"
+        exp1 = "libevent http partitioncheck bench prune reindex mempoolrej blk evict parallel rand req bloom estimatefee lck proxy dbase selectcoins zmq qt ibd respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks capd"
+        exp2 = "libevent http partitioncheck bench prune reindex mempoolrej parallel rand req bloom estimatefee dbase selectcoins zmq qt ibd respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks capd"
+        exp3 = "libevent http partitioncheck bench prune reindex mempoolrej parallel req bloom estimatefee dbase selectcoins respend weakblocks cmpctblock electrum mempoolsync priorityq dsproof tweaks capd"
         exp4 = exp1
         exp5 = exp0
         exp6 = ""

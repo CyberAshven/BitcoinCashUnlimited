@@ -133,7 +133,9 @@ public:
     size_t start;
     size_t count;
 
-    PtrVectorSpan(std::vector<T, A> &_v, unsigned int _start, unsigned int _count) : v(_v), start(_start), count(_count) {}
+    PtrVectorSpan(std::vector<T, A> &_v, unsigned int _start, unsigned int _count) : v(_v), start(_start), count(_count)
+    {
+    }
     template <typename Stream>
     void Serialize(Stream &os) const
     {
@@ -524,8 +526,7 @@ struct MsgLookup16
 class CapdMsgPool
 {
 protected:
-    typedef boost::multi_index_container<
-        CapdMsgRef,
+    typedef boost::multi_index_container<CapdMsgRef,
         boost::multi_index::indexed_by<
             // sorted by message id (hash)
             boost::multi_index::ordered_unique<MsgHashExtractor>,
@@ -655,7 +656,7 @@ public:
 
 
     /** Content search */
-    std::vector<CapdMsgRef> find(const std::vector<unsigned char>& c) const;
+    std::vector<CapdMsgRef> find(const std::vector<unsigned char> &c) const;
 
     /** Remove enough lowest priority messages to make at least len bytes available in the msgpool */
     void pare(int len)

@@ -310,7 +310,7 @@ void CapdMsgPool::add(const CapdMsgRef &msg)
         }
         if (msg->Priority() < _GetLocalPriority())
         {
-            LOG(CAPD, "message priority %f below local priority %f", msg->Priority(),_GetLocalPriority());
+            LOG(CAPD, "message priority %f below local priority %f", msg->Priority(), _GetLocalPriority());
             // printf("Priority: msg: %s >=  local: %s\n", msg->Priority().GetHex().c_str(),
             // _GetLocalPriority().GetHex().c_str());
             // printf("Difficulty: msg: %s  local: %s\n", msg->GetDifficulty().GetHex().c_str(),
@@ -456,8 +456,8 @@ PriorityType CapdMsgPool::_GetLocalPriority()
     if (i == priorityIndexer.end())
         return MIN_LOCAL_PRIORITY;
 
-    //MsgIterByPriority last = priorityIndexer.end();
-    //last--;
+    // MsgIterByPriority last = priorityIndexer.end();
+    // last--;
 
     PriorityType ret = (*i)->Priority();
     if (ret < MIN_LOCAL_PRIORITY)
@@ -516,7 +516,7 @@ CapdMsgRef CapdMsgPool::find(const uint256 &hash) const
     return *i;
 }
 
-std::vector<CapdMsgRef> CapdMsgPool::find(const std::vector<unsigned char>& v) const
+std::vector<CapdMsgRef> CapdMsgPool::find(const std::vector<unsigned char> &v) const
 {
     READLOCK(csMsgPool);
     if (v.size() == 2)
@@ -635,7 +635,8 @@ bool CapdProtocol::HandleCapdMessage(CNode *pfrom,
     }
     else if (command == NetMsgType::CAPDGETINFO)
     {
-        pfrom->PushMessage(NetMsgType::CAPDINFO, msgpool.GetLocalPriority(), msgpool.GetRelayPriority(), msgpool.GetHighestPriority());
+        pfrom->PushMessage(
+            NetMsgType::CAPDINFO, msgpool.GetLocalPriority(), msgpool.GetRelayPriority(), msgpool.GetHighestPriority());
     }
     else if (command == NetMsgType::CAPDQUERY)
     {
@@ -653,19 +654,20 @@ bool CapdProtocol::HandleCapdMessage(CNode *pfrom,
             if (type == CAPD_QUERY_TYPE_MSG)
             {
                 quantity = std::min((int)CAPD_QUERY_MAX_MSGS, (int)quantity);
-                pfrom->PushMessage(NetMsgType::CAPDQUERYREPLY, cookie, msgs.size(), PtrVectorSpan<CapdMsgRef>(msgs, start, quantity));
+                pfrom->PushMessage(
+                    NetMsgType::CAPDQUERYREPLY, cookie, msgs.size(), PtrVectorSpan<CapdMsgRef>(msgs, start, quantity));
             }
             if (type == CAPD_QUERY_TYPE_MSG_HASH)
             {
-                int qty = std::min(std::min((int)CAPD_QUERY_MAX_INVS+start, (int)start+quantity), (int) msgs.size()-start);
+                int qty = std::min(
+                    std::min((int)CAPD_QUERY_MAX_INVS + start, (int)start + quantity), (int)msgs.size() - start);
                 std::vector<uint256> hashes;
-                for (int i=start; i<qty;i++)
+                for (int i = start; i < qty; i++)
                 {
                     hashes.push_back(msgs[i]->GetHash());
                 }
                 pfrom->PushMessage(NetMsgType::CAPDQUERYREPLY, cookie, msgs.size(), hashes);
             }
-            
         }
         else
         {
@@ -903,7 +905,10 @@ static const struct
     enum RetFormat rf;
     const char *name;
 } rf_names[] = {
-    {RF_UNDEF, ""}, {RF_BINARY, "bin"}, {RF_HEX, "hex"}, {RF_JSON, "json"},
+    {RF_UNDEF, ""},
+    {RF_BINARY, "bin"},
+    {RF_HEX, "hex"},
+    {RF_JSON, "json"},
 };
 
 static bool RETERR(HTTPRequest *req, enum HTTPStatusCode status, const std::string &message)
@@ -1050,7 +1055,8 @@ static const struct
     const char *prefix;
     bool (*handler)(HTTPRequest *req, const std::string &strReq);
 } uri_prefixes[] = {
-    {"/capd/get/", capdHttpGet}, {"/capd/send/", capdHttpSend},
+    {"/capd/get/", capdHttpGet},
+    {"/capd/send/", capdHttpSend},
 };
 
 bool StartCapd()

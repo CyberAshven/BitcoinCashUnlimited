@@ -560,7 +560,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             xver.set_u64c(XVer::BU_MEMPOOL_SYNC_MIN_VERSION_SUPPORTED, mempoolSyncMinVersionSupported.Value());
             xver.set_u64c(XVer::BU_XTHIN_VERSION, 2); // xthin version
             xver.set_u64c(XVer::BU_TXN_CONCATENATION, 1);
-            if (capdEnabled.Value())
+            if (capdPoolSize.Value() != 0)
                 xver.set_u64c(XVer::BU_CAPD_VERSION, 1); // capd version
 
             electrum::set_extversion_flags(xver, chainparams.NetworkIDString());
@@ -619,47 +619,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             pfrom->fDisconnect = true;
             return error("odd peer behavior: received verack message before extversion, disconnecting \n");
         }
-<<<<<<< HEAD
-=======
-    */
-
-    else if (strCommand == NetMsgType::VERACK)
-    {
-        if (!ensureConnectionState(
-                strCommand, ConnectionStateIncoming::ANY, ConnectionStateOutgoing::SENT_VERSION, pfrom))
-            return false;
-
-        pfrom->SetRecvVersion(std::min(pfrom->nVersion, PROTOCOL_VERSION));
-
-        // BU expedited procecessing requires the exchange of the listening port id
-        // The former BUVERSION message has now been integrated into the xmap field in CXVersionMessage.
-
-        // prepare xversion message. This *must* be the next message after the verack has been received,
-        // if it comes at all.
-        CXVersionMessage xver;
-        xver.set_u64c(XVer::BU_LISTEN_PORT, GetListenPort());
-        xver.set_u64c(XVer::BU_MSG_IGNORE_CHECKSUM, 1); // we will ignore 0 value msg checksums
-        xver.set_u64c(XVer::BU_GRAPHENE_MAX_VERSION_SUPPORTED, grapheneMaxVersionSupported.Value());
-        xver.set_u64c(XVer::BU_GRAPHENE_MIN_VERSION_SUPPORTED, grapheneMinVersionSupported.Value());
-        xver.set_u64c(XVer::BU_GRAPHENE_FAST_FILTER_PREF, grapheneFastFilterCompatibility.Value());
-        xver.set_u64c(XVer::BU_MEMPOOL_SYNC, syncMempoolWithPeers.Value());
-        xver.set_u64c(XVer::BU_MEMPOOL_SYNC_MAX_VERSION_SUPPORTED, mempoolSyncMaxVersionSupported.Value());
-        xver.set_u64c(XVer::BU_MEMPOOL_SYNC_MIN_VERSION_SUPPORTED, mempoolSyncMinVersionSupported.Value());
-        xver.set_u64c(XVer::BU_XTHIN_VERSION, 2); // xthin version
-
-        if (capdPoolSize.Value() > 0)
-            xver.set_u64c(XVer::BU_CAPD_VERSION, 1); // capd version
-
-        size_t nLimitAncestors = GetArg("-limitancestorcount", BU_DEFAULT_ANCESTOR_LIMIT);
-        size_t nLimitAncestorSize = GetArg("-limitancestorsize", BU_DEFAULT_ANCESTOR_SIZE_LIMIT) * 1000;
-        size_t nLimitDescendants = GetArg("-limitdescendantcount", BU_DEFAULT_DESCENDANT_LIMIT);
-        size_t nLimitDescendantSize = GetArg("-limitdescendantsize", BU_DEFAULT_DESCENDANT_SIZE_LIMIT) * 1000;
-
-        xver.set_u64c(XVer::BU_MEMPOOL_ANCESTOR_COUNT_LIMIT, nLimitAncestors);
-        xver.set_u64c(XVer::BU_MEMPOOL_ANCESTOR_SIZE_LIMIT, nLimitAncestorSize);
-        xver.set_u64c(XVer::BU_MEMPOOL_DESCENDANT_COUNT_LIMIT, nLimitDescendants);
-        xver.set_u64c(XVer::BU_MEMPOOL_DESCENDANT_SIZE_LIMIT, nLimitDescendantSize);
->>>>>>> 2a4654a7f... extended tests, var sized capd buffer
 
         LOCK(pfrom->cs_extversion);
         vRecv >> pfrom->extversion;

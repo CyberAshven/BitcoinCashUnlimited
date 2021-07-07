@@ -362,7 +362,7 @@ extern const char *RESTXVAL;
 
 /** all CAPD messages have this prefix
  * NOT AN ACTUAL MESSAGE
-*/
+ */
 extern const char *CAPDPREFIX;
 
 /**
