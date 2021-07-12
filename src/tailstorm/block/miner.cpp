@@ -20,7 +20,6 @@
 #include "hashwrapper.h"
 #include "main.h"
 #include "net.h"
-#include "parallel.h"
 #include "policy/policy.h"
 #include "pow.h"
 #include "primitives/transaction.h"
@@ -62,7 +61,7 @@ TailstormBlockAssembler::TailstormBlockAssembler(const CChainParams &_chainparam
 
     // Minimum block size you want to create; block will be filled with free transactions
     // until there are no more or the block reaches this size:
-    nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
+    nBlockMinSize = GetArg("-blockminsize", 0);
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 }
 

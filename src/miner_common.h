@@ -51,16 +51,6 @@ public:
     }
 };
 
-class ScoreCompare
-{
-public:
-    ScoreCompare() {}
-    bool operator()(const CTxMemPool::txiter a, const CTxMemPool::txiter b) const
-    {
-        return CompareTxMemPoolEntryByScore()(*b, *a); // Convert to less than
-    }
-};
-
 int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev);
 
 /** Make a block template to send to miners. */

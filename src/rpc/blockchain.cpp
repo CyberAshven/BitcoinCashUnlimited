@@ -706,7 +706,8 @@ static CBlock GetBlockChecked(const CBlockIndex *pblockindex)
     if (IsBlockPruned(pblockindex))
         throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
 
-    CBlockRef pblock = ReadBlockFromDisk(pblockindex, Params().GetConsensus());
+    CBlockRef pblock(new CBlock());
+    ReadBlockFromDisk(*pblock, pblockindex, Params().GetConsensus());
     if (!pblock)
     {
         // Block not found on disk. This could be because we have the block

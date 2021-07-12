@@ -133,22 +133,6 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
         while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount &&
                !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
         {
-            if (CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
-            {
-                // strong block
-                if (!(weak_mode & 1))
-                {
-                    pblock->nNonce = nInnerLoopCount; // ignore as only interested in weak blocks
-                }
-                break;
-            }
-            else if ((weak_mode & 2) &&
-                     CheckProofOfWork(pblock->GetHash(), weakPOWfromPOW(pblock->nBits), Params().GetConsensus(), true))
-            {
-                // weak block
-                weak = true;
-                break;
-            }
             ++pblock->nNonce;
             --nMaxTries;
         }
@@ -161,22 +145,23 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
             continue;
         }
 
-        if (pblocktemplate->delta_block != nullptr)
-        {
-            CNetDeltaBlock::processNew(pblocktemplate->delta_block, nullptr);
-        }
+        // In we are mining our own block or not running in parallel for any reason
+        // we must terminate any block validation threads that are currently running,
+        // Unless they have more work than our own block or are processing a chain
+        // that has more work than our block.
+        PV->StopAllValidationThreads(pblock->GetBlockHeader().nBits);
 
-        if (!weak)
-        {
-            // In we are mining our own block or not running in parallel for any reason
-            // we must terminate any block validation threads that are currently running,
-            // Unless they have more work than our own block or are processing a chain
-            // that has more work than our block.
-            PV->StopAllValidationThreads(pblock->GetBlockHeader().nBits);
+        CValidationState state;
+        if (!ProcessNewBlock(state, Params(), nullptr, pblock, true, nullptr, false))
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
+        ++nHeight;
+        blockHashes.push_back(pblock->GetHash().GetHex());
 
-            CValidationState state;
-            if (!ProcessNewBlock(state, Params(), nullptr, pblock.get(), true, nullptr, false))
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
+        // mark script as important because it was used at least for one coinbase output if the script came from the
+        // wallet
+        if (keepScript)
+        {
+            coinbaseScript->KeepScript();
         }
     }
 
