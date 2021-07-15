@@ -141,7 +141,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_TAILSTORMBLOCK)
         {
-            CTailstormBlock block;
+            CTailstormBlockRef block(new CTailstormBlock);
             READLOCK(cs_mapBlockIndex);
             auto iter = mapBlockIndex.find(inv.hash);
             if (iter != mapBlockIndex.end())
@@ -165,7 +165,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_BOB_CMPCT_BLOCK)
         {
-            CTailstormBlock block;
+            CTailstormBlockRef block;
             READLOCK(cs_mapBlockIndex);
             auto iter = mapBlockIndex.find(inv.hash);
             if (iter != mapBlockIndex.end())
@@ -179,7 +179,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 }
                 else
                 {
-                    BobSendCompactBlock(block, pfrom, inv);
+                    BobSendCompactBlock(*block, pfrom, inv);
                     LOG(CMPCT, "Sending compact tailstorm block via getdata message\n");
                 }
             }
@@ -269,8 +269,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 {
                     // Send block from disk
                     CBlockRef pblock(new CBlock());
-                    ReadBlockFromDisk(*pblock, mi, consensusParams, false);
-                    if (!pblock)
+                    if (!ReadBlockFromDisk(pblock, mi, consensusParams, false))
                     {
                         // its possible that I know about it but haven't stored it yet
                         LOG(THIN, "unable to load block %s from disk\n",
@@ -1977,8 +1976,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             const Consensus::Params &consensusParams = Params().GetConsensus();
             CBlockRef pblock(new CBlock());
-            ReadBlockFromDisk(*pblock, invIndex, consensusParams, false);
-            if (!pblock)
+            if (!ReadBlockFromDisk(pblock, invIndex, consensusParams, false))
             {
                 // We don't have the block yet, although we know about it.
                 return error(
@@ -2014,8 +2012,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
         CBlockRef pblock(new CBlock());
-        ReadBlockFromDisk(*pblock, invIndex, consensusParams, false);
-        if (!pblock)
+        if (!ReadBlockFromDisk(pblock, invIndex, consensusParams, false))
         {
             // We don't have the block yet, although we know about it.
             return error("Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());

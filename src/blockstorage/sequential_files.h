@@ -37,8 +37,8 @@ bool WriteBlockToDiskSequential(const CTailstormBlock &block,
     CDiskBlockPos &pos,
     const CMessageHeader::MessageStartChars &messageStart);
 
-bool ReadBlockFromDiskSequential(CBlock &block, const CDiskBlockPos &pos, const Consensus::Params &consensusParams);
-bool ReadBlockFromDiskSequential(CTailstormBlock &block,
+bool ReadBlockFromDiskSequential(CBlockRef block, const CDiskBlockPos &pos, const Consensus::Params &consensusParams);
+bool ReadBlockFromDiskSequential(CTailstormBlockRef block,
     const CDiskBlockPos &pos,
     const Consensus::Params &consensusParams);
 

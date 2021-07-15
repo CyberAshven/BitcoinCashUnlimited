@@ -303,7 +303,7 @@ bool BobCompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     CInv inv(MSG_TX, compactReRequest.blockhash);
     LOG(CMPCT, "received BobCompactReRequest for %s peer=%s\n", inv.hash.ToString(), pfrom->GetLogName());
 
-    CTailstormBlock block;
+    CTailstormBlockRef block;
     {
         READLOCK(cs_mapBlockIndex);
         auto iter = mapBlockIndex.find(inv.hash);
@@ -318,7 +318,7 @@ bool BobCompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         }
     }
 
-    BobCompactReReqResponse compactReqResponse(block, compactReRequest.subBlockHashes, compactReRequest.shorttxidk0, compactReRequest.shorttxidk1);
+    BobCompactReReqResponse compactReqResponse(*block, compactReRequest.subBlockHashes, compactReRequest.shorttxidk0, compactReRequest.shorttxidk1);
     pfrom->PushMessage(NetMsgType::BOBSUB, compactReqResponse);   //TODO: Needs new message type
     pfrom->txsSent += compactReRequest.subBlockHashes.size();       //TODO: updating wrong statistic here; add subblock ct?
 

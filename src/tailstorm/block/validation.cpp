@@ -972,12 +972,12 @@ bool ConnectTipTailstorm(CValidationState &state,
         return false;
 
     // Read block from disk.
-    CTailstormBlock block;
+    CTailstormBlockRef block(new CTailstormBlock);
     if (!pblock)
     {
         if (!ReadBlockFromDisk(block, pindexNew, chainparams.GetConsensus()))
             return AbortNode(state, "%s(): Failed to read block", __func__);
-        pblock = &block;
+        pblock = block.get();
     }
     // Apply the block atomically to the chain state.
     {

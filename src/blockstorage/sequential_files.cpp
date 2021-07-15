@@ -139,20 +139,18 @@ bool WriteBlockToDiskSequential(const CTailstormBlock &block,
     return true;
 }
 
-bool ReadBlockFromDiskSequential(CBlock &block, const CDiskBlockPos &pos, const Consensus::Params &consensusParams)
+bool ReadBlockFromDiskSequential(CBlockRef pblock, const CDiskBlockPos &pos, const Consensus::Params &consensusParams)
 {
-    block.SetNull();
     // Open history file to read
     CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull())
     {
         return error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
     }
-
     // Read block
     try
     {
-        filein >> block;
+        filein >> *pblock;
     }
     catch (const std::exception &e)
     {
@@ -160,18 +158,17 @@ bool ReadBlockFromDiskSequential(CBlock &block, const CDiskBlockPos &pos, const 
     }
 
     // Check the header
-    if (!CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
+    if (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, consensusParams))
     {
         return error("%s: Errors in block header at %s", __func__, pos.ToString());
     }
     return true;
 }
 
-bool ReadBlockFromDiskSequential(CTailstormBlock &block,
+bool ReadBlockFromDiskSequential(CTailstormBlockRef pblock,
     const CDiskBlockPos &pos,
     const Consensus::Params &consensusParams)
 {
-    block.SetNull();
     // Open history file to read
     CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
     if (filein.IsNull())
@@ -182,7 +179,7 @@ bool ReadBlockFromDiskSequential(CTailstormBlock &block,
     // Read block
     try
     {
-        filein >> block;
+        filein >> *pblock;
     }
     catch (const std::exception &e)
     {
@@ -190,7 +187,7 @@ bool ReadBlockFromDiskSequential(CTailstormBlock &block,
     }
 
     // Check the header
-    if (!CheckTailstormPoW(block, consensusParams, TAILSTORM_K))
+    if (!CheckTailstormPoW(*pblock, consensusParams, TAILSTORM_K))
     {
         return error("%s::Tailstorm: Errors in block header at %s", __func__, pos.ToString());
     }

@@ -355,8 +355,7 @@ bool GetTransaction(const uint256 &hash,
     if (pindexSlow)
     {
         CBlockRef pblock(new CBlock());
-        ReadBlockFromDisk(*pblock, pindexSlow, consensusParams);
-        if (pblock)
+        if (ReadBlockFromDisk(pblock, pindexSlow, consensusParams))
         {
             bool ctor_enabled = pindexSlow->nHeight >= consensusParams.nov2018Height;
             int64_t pos = FindTxPosition(*pblock, hash, ctor_enabled);
@@ -636,8 +635,7 @@ bool LoadExternalBlockFile(const CChainParams &chainparams, FILE *fileIn, CDiskB
                     {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         CBlockRef pblock(new CBlock());
-                        ReadBlockFromDiskSequential(*pblock, it->second, chainparams.GetConsensus());
-                        if (pblock)
+                        if (ReadBlockFromDiskSequential(pblock, it->second, chainparams.GetConsensus()))
                         {
                             LOGA("%s: Processing out of order child %s of %s\n", __func__, pblock->GetHash().ToString(),
                                 head.ToString());

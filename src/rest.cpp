@@ -235,7 +235,7 @@ static bool rest_block(HTTPRequest *req, const std::string &strURIPart, bool sho
         return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not available (pruned data)");
 
     CBlockRef pblock(new CBlock());
-    if (!ReadBlockFromDisk(*pblock, pblockindex, Params().GetConsensus()))
+    if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
         return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
