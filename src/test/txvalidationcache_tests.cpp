@@ -133,6 +133,7 @@ BOOST_FIXTURE_TEST_CASE(cache_configuration, TestChain100Setup)
     BOOST_CHECK(cacheConfig1.nTxIndexCache == 0);
     BOOST_CHECK(cacheConfig1.nCoinDBCache == 65829601);
     BOOST_CHECK(nCoinCacheMaxSize == 393698347);
+    BLOCK_DB_MODE = SEQUENTIAL_BLOCK_FILES;
 
     // check settings when txindex is on
     bool nTemp = GetBoolArg("-txindex", 0);

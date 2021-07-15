@@ -11,6 +11,7 @@
 #include "consensus/params.h"
 #include "primitives/block.h"
 #include "protocol.h"
+#include "tailstorm/block/block.h"
 
 #include <vector>
 
@@ -105,6 +106,18 @@ public:
     const CMessageHeader::MessageStartChars &CashMessageStart() const { return pchCashMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
     const CBlock &GenesisBlock() const { return genesis; }
+    CTailstormBlock GenesisTailstormBlock() const
+    {
+        CTailstormBlock tailstormGenesis;
+        tailstormGenesis.nVersion = genesis.nVersion;
+        tailstormGenesis.hashPrevBlock = genesis.hashPrevBlock;
+        tailstormGenesis.hashMerkleRoot = genesis.hashMerkleRoot;
+        tailstormGenesis.nTime = genesis.nTime;
+        tailstormGenesis.nBits = genesis.nBits;
+        tailstormGenesis.subblockHashes.clear();
+        tailstormGenesis.subblockNTxMap.clear();
+        return tailstormGenesis;
+    }
     /** Make miner wait to have peers to avoid wasting work */
     bool MiningRequiresPeers() const { return fMiningRequiresPeers; }
     /** Default value for -checkmempool and -checkblockindex argument */
@@ -126,6 +139,7 @@ public:
     uint64_t DefaultExcessiveBlockSize() const { return nDefaultExcessiveBlockSize; }
     uint64_t MinMaxBlockSize() const { return nMinMaxBlockSize; }
     uint64_t DefaultMaxBlockMiningSize() const { return nDefaultMaxBlockMiningSize; }
+    bool HasTailstormGenesis() const { return fTailstormGenesis; }
 
 protected:
     CChainParams() {}
@@ -149,6 +163,7 @@ protected:
     uint64_t nDefaultExcessiveBlockSize;
     uint64_t nMinMaxBlockSize;
     uint64_t nDefaultMaxBlockMiningSize;
+    bool fTailstormGenesis;
 };
 
 /**

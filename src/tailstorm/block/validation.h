@@ -19,7 +19,11 @@
 
 class CNode;
 
+bool InitTailstormBlockIndex(const CChainParams &chainparams);
+
 bool CheckTailstormBlockHeader(const CTailstormBlockHeader &header, CValidationState &state);
+
+CBlockIndex *AddToBlockIndex(const CTailstormBlockHeader &block);
 
 bool AcceptTailstormBlockHeader(const CTailstormBlockHeader &block,
     CValidationState &state,
@@ -36,6 +40,11 @@ bool TestTailstormBlockValidity(CValidationState &state,
     bool fCheckMerkleRoot = true);
 
 bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state);
+
+bool ReceivedBlockTransactions(const CTailstormBlock &block,
+    CValidationState &state,
+    CBlockIndex *pindexNew,
+    const CDiskBlockPos &pos);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectTailstormBlock(const CTailstormBlock &block,
@@ -63,6 +72,12 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
  * @param[out]  dbp     If pblock is stored to disk (or already there), this will be set to its location.
  * @return True if state.IsValid()
  */
+
+ bool ActivateBestChainTailstorm(CValidationState &state,
+     const CChainParams &chainparams,
+     const CTailstormBlock *pblock = nullptr,
+     CNode *pfrom = nullptr);
+
 bool ProcessNewTailstormBlock(CValidationState &state,
     const CChainParams &chainparams,
     CNode *pfrom,

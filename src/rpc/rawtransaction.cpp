@@ -404,8 +404,7 @@ UniValue getrawblocktransactions(const UniValue &params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
     CBlockRef pblock(new CBlock());
-    ReadBlockFromDisk(*pblock, pblockindex, Params().GetConsensus());
-    if (!pblock)
+    if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     UniValue resultSet(UniValue::VOBJ);
@@ -583,8 +582,7 @@ UniValue getrawtransactionssince(const UniValue &params, bool fHelp)
             break;
         }
         CBlockRef pblock(new CBlock());
-        ReadBlockFromDisk(*pblock, pblockindex, Params().GetConsensus());
-        if (!pblock)
+        if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
         {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
         }
@@ -700,8 +698,7 @@ UniValue gettxoutproof(const UniValue &params, bool fHelp)
     }
 
     CBlockRef pblock(new CBlock());
-    ReadBlockFromDisk(*pblock, pblockindex, Params().GetConsensus());
-    if (!pblock)
+    if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     unsigned int ntxFound = 0;
@@ -766,8 +763,7 @@ UniValue gettxoutproofs(const UniValue &params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
     CBlockRef pblock(new CBlock());
-    ReadBlockFromDisk(*pblock, pblockindex, Params().GetConsensus());
-    if (!pblock)
+    if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     UniValue resultSet(UniValue::VOBJ);

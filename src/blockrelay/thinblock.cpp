@@ -445,9 +445,8 @@ bool CXRequestThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             return error(THIN, "get_xblocktx request too far from the tip");
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock(new CBlock()); 
-        ReadBlockFromDisk(*pblock, hdr, consensusParams, false);
-        if (!pblock)
+        CBlockRef pblock(new CBlock());
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We do not assign misbehavior for not being able to read a block from disk because we already
             // know that the block is in the block index from the step above. Secondly, a failure to read may

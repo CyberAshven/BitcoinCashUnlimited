@@ -1431,8 +1431,7 @@ bool HandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChainPa
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
         CBlockRef pblock(new CBlock());
-        ReadBlockFromDisk(*pblock, hdr, consensusParams, false);
-        if (!pblock)
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We don't have the block yet, although we know about it.
             return error("Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
@@ -1715,8 +1714,7 @@ std::vector<CTransaction> TransactionsFromBlockByCheapHash(std::set<uint64_t> &v
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
         CBlockRef pblock(new CBlock());
-        ReadBlockFromDisk(*pblock, hdr, consensusParams, false);
-        if (!pblock)
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We do not assign misbehavior for not being able to read a block from disk because we already
             // know that the block is in the block index from the step above. Secondly, a failure to read may

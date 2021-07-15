@@ -71,8 +71,7 @@ bool TxIndex::Init()
 bool TxIndex::WriteGenesisTransaction()
 {
     CBlockRef pblock(new CBlock());
-    ReadBlockFromDisk(*pblock, chainActive.Genesis(), Params().GetConsensus());
-    if (!pblock)
+    if (!ReadBlockFromDisk(pblock, chainActive.Genesis(), Params().GetConsensus()))
     {
         FatalError("%s: Failed to read block %s from disk", __func__, chainActive.Genesis()->GetBlockHash().ToString());
         return false;
@@ -158,8 +157,7 @@ void TxIndex::ThreadSync()
             }
 
             CBlockRef pblock(new CBlock());
-            ReadBlockFromDisk(*pblock, pindex, consensus_params);
-            if (!pblock)
+            if (!ReadBlockFromDisk(pblock, pindex, consensus_params))
             {
                 FatalError("%s: Failed to read block %s from disk", __func__, pindex->GetBlockHash().ToString());
                 return;

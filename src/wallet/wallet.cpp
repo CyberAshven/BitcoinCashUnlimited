@@ -1648,8 +1648,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex *pindexStart, bool fUpdate)
                                                                        (dProgressTip - dProgressStart) * 100))));
 
             CBlockRef pblock(new CBlock());
-            ReadBlockFromDisk(*pblock, pindex, Params().GetConsensus());
-            if (!pblock)
+            if (!ReadBlockFromDisk(pblock, pindex, Params().GetConsensus()))
             {
                 LOGA("ERROR: Could not read block from disk\n");
                 fRescan = false;

@@ -342,7 +342,7 @@ bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
     // Create newz
     CDagNode* newNode = new CDagNode(sub_block);
     // this emplace will always succeed since we already checked for the hash above
-    auto result = mapAllNodes.emplace(newNode->hash, newNode);
+    mapAllNodes.emplace(newNode->hash, newNode);
 
     std::set<int16_t> merge_list;
     for (auto &hash : sub_block.GetAncestorHashes())

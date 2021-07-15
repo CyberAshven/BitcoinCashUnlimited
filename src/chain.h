@@ -445,6 +445,9 @@ public:
         // sequence id and time received
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
+        READWRITE(isTailstorm);
+        READWRITE(subblockHashes);
+        READWRITE(subblockNTxMap);
     }
 
     uint256 GetBlockHash() const
@@ -459,6 +462,7 @@ public:
         return block.GetHash();
     }
 
+    uint256 GetTailstormBlockHash() const;
 
     std::string ToString() const
     {

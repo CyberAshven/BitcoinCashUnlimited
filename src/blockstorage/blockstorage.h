@@ -36,20 +36,20 @@ void InitializeBlockStorage(const int64_t &_nBlockTreeDBCache,
 void SyncStorage(const CChainParams &chainparams);
 
 /** Functions for disk access for blocks */
-bool ReadBlockFromDisk(CBlock &block,
+bool ReadBlockFromDisk(CBlockRef& block,
     const CBlockIndex *pindex,
     const Consensus::Params &consensusParams,
     bool tryboth = true);
-bool ReadBlockFromDisk(CTailstormBlock &block, const CBlockIndex *pindex, const Consensus::Params &consensusParams);
-bool WriteBlockToDisk(const CBlock &block, CDiskBlockPos &pos, const CMessageHeader::MessageStartChars &messageStart);
+
+bool ReadBlockFromDisk(CTailstormBlockRef& block, const CBlockIndex *pindex, const Consensus::Params &consensusParams);
+bool WriteBlockToDisk(const CBlock &block, CDiskBlockPos &pos, const CMessageHeader::MessageStartChars &messageStart, const int *pHeight = nullptr);
 bool WriteBlockToDisk(const CTailstormBlock &block,
     CDiskBlockPos &pos,
-    const CMessageHeader::MessageStartChars &messageStart);
+    const CMessageHeader::MessageStartChars &messageStart,
+    const int *pHeight = nullptr);
 
-bool WriteUndoToDisk(const CBlockUndo &blockundo,
-    CDiskBlockPos &pos,
-    const CBlockIndex *pindex,
-    const CMessageHeader::MessageStartChars &messageStart);
+bool WriteUndoToDisk(const CBlockUndo &blockundo, CDiskBlockPos &pos, const CBlockIndex *pindex);
+
 bool ReadUndoFromDisk(CBlockUndo &blockundo, const CDiskBlockPos &pos, const CBlockIndex *pindex);
 
 /**

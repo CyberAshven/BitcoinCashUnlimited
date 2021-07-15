@@ -532,7 +532,7 @@ bool LoadBlockIndexDB()
             pindexBestHeader = pindex;
     }
 
-    if (!pblockdb) // sequential files
+    if (BLOCK_DB_MODE == SEQUENTIAL_BLOCK_FILES)
     {
         // Check presence of blk files
 
@@ -2815,7 +2815,7 @@ bool ConnectBlock(const CBlock &block,
                         state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
                     return error("ConnectBlock(): FindUndoPos failed");
 
-                if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev, chainparams.MessageStart()))
+                if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev))
                     return AbortNode(state, "Failed to write undo data");
 
                 // update nUndoPos in block index
@@ -3160,8 +3160,7 @@ bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusPa
     assert(pindexDelete);
     // Read block from disk.
     CBlockRef pblock(new CBlock());
-    ReadBlockFromDisk(*pblock, pindexDelete, consensusParams, false);
-    if (!pblock)
+    if (!ReadBlockFromDisk(pblock, pindexDelete, consensusParams, false))
         return AbortNode(state, "DisconnectTip(): Failed to read block");
     // Apply the block atomically to the chain state.
     int64_t nStart = GetStopwatchMicros();
@@ -3249,8 +3248,7 @@ bool ConnectTip(CValidationState &state,
     CBlockRef pblockRef(new CBlock());
     if (!pblock)
     {
-        ReadBlockFromDisk(*pblockRef, pindexNew, chainparams.GetConsensus(), false);
-        if (!pblockRef)
+        if (!ReadBlockFromDisk(pblockRef, pindexNew, chainparams.GetConsensus(), false))
             return AbortNode(state, "ConnectTip(): Failed to read block");
         pblock = pblockRef.get();
     }

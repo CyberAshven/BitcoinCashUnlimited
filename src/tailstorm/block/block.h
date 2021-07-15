@@ -173,5 +173,13 @@ public:
 };
 
 typedef std::shared_ptr<CTailstormBlock> CTailstormBlockRef;
+typedef std::shared_ptr<const CTailstormBlockRef> ConstCTailstormBlockRef;
+
+static inline CTailstormBlockRef MakeTailstormBlockRef() { return std::make_shared<CTailstormBlock>(); }
+template <typename Blk>
+static inline CTailstormBlockRef MakeTailstormBlockRef(Blk &&blkIn)
+{
+    return std::make_shared<CTailstormBlock>(std::forward<Blk>(blkIn));
+}
 
 #endif
