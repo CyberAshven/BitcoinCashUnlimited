@@ -900,8 +900,8 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
                 {
                     return error("%s(): FindUndoPos failed", __func__);
                 }
-
-                if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev, chainparams.MessageStart()))
+                // TODO maybe fix here
+                if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev))
                 {
                     return AbortNode(state, "Failed to write undo data");
                 }

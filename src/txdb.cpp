@@ -89,16 +89,16 @@ uint256 CCoinsViewDB::_GetBestBlock() const
 {
     AssertLockHeld(cs_utxo);
     uint256 hashBestChain;
-    std::string strmode = std::to_string(static_cast<int32_t>(BLOCK_DB_MODE));
-    if (pblockdb)
+    if (BLOCK_DB_MODE == SEQUENTIAL_BLOCK_FILES)
     {
-        // just use the int that is the db mode as its key for the best block it has
-        if (!db.Read(strmode, hashBestChain))
+        if (!db.Read(DB_BEST_BLOCK, hashBestChain))
             return uint256();
     }
     else
     {
-        if (!db.Read(DB_BEST_BLOCK, hashBestChain))
+        std::string strmode = std::to_string(static_cast<int32_t>(BLOCK_DB_MODE));
+        // just use the int that is the db mode as its key for the best block it has
+        if (!db.Read(strmode, hashBestChain))
             return uint256();
     }
     return hashBestChain;
@@ -141,17 +141,17 @@ void CCoinsViewDB::WriteBestBlock(const uint256 &hashBlock)
 void CCoinsViewDB::_WriteBestBlock(const uint256 &hashBlock)
 {
     AssertWriteLockHeld(cs_utxo);
-    std::string strmode = std::to_string(static_cast<int32_t>(BLOCK_DB_MODE));
     if (!hashBlock.IsNull())
     {
-        if (pblockdb)
-        {
-            // just use the int that is the db mode as its key for the best block it has
-            db.Write(strmode, hashBlock);
-        }
-        else // sequential files doesnt use the int of its mode for backwards compatibility reasons
+        if (BLOCK_DB_MODE == SEQUENTIAL_BLOCK_FILES)
         {
             db.Write(DB_BEST_BLOCK, hashBlock);
+        }
+        else
+        {
+            std::string strmode = std::to_string(static_cast<int32_t>(BLOCK_DB_MODE));
+            // just use the int that is the db mode as its key for the best block it has
+            db.Write(strmode, hashBlock);
         }
     }
 }
@@ -351,7 +351,7 @@ bool CBlockTreeDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockF
     {
         batch.Write(make_pair(DB_BLOCK_FILES, it->first), *it->second);
     }
-    if (!pblockdb)
+    if (BLOCK_DB_MODE == SEQUENTIAL_BLOCK_FILES)
     {
         batch.Write(DB_LAST_BLOCK, nLastFile);
     }

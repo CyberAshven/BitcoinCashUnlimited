@@ -532,7 +532,7 @@ bool LoadBlockIndexDB()
             pindexBestHeader = pindex;
     }
 
-    if (!pblockdb) // sequential files
+    if (BLOCK_DB_MODE == SEQUENTIAL_BLOCK_FILES)
     {
         // Check presence of blk files
 
@@ -2814,7 +2814,7 @@ bool ConnectBlock(const CBlock &block,
                         state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
                     return error("ConnectBlock(): FindUndoPos failed");
 
-                if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev, chainparams.MessageStart()))
+                if (!WriteUndoToDisk(blockundo, _pos, pindex->pprev))
                     return AbortNode(state, "Failed to write undo data");
 
                 // update nUndoPos in block index
