@@ -446,6 +446,8 @@ public:
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
         READWRITE(isTailstorm);
+        READWRITE(subblockHashes);
+        READWRITE(subblockNTxMap);
     }
 
     uint256 GetBlockHash() const

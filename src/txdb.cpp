@@ -454,6 +454,9 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nSequenceId = diskindex.nSequenceId;
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
                 pindexNew->isTailstorm = diskindex.isTailstorm;
+                pindexNew->subblockHashes = diskindex.subblockHashes;
+                pindexNew->subblockNTxMap = diskindex.subblockNTxMap;
+
                 if (pindexNew->isTailstorm)
                 {
                     if (!CheckTailstormPoW(pindexNew->GetTailstormBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
