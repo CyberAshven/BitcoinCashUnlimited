@@ -445,6 +445,7 @@ public:
         // sequence id and time received
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
+        READWRITE(isTailstorm);
     }
 
     uint256 GetBlockHash() const

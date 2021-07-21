@@ -453,10 +453,19 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nTx = diskindex.nTx;
                 pindexNew->nSequenceId = diskindex.nSequenceId;
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
-
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
-                    return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
-
+                pindexNew->isTailstorm = diskindex.isTailstorm;
+                if (pindexNew->isTailstorm)
+                {
+                    if (!CheckTailstormPoW(pindexNew->GetTailstormBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
+                    {
+                        return error("LoadBlockIndex(): CheckTailstormPoW failed: %s", pindexNew->ToString());
+                    }
+                }
+                else
+                {
+                    if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
+                        return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
+                }
                 pcursor->Next();
             }
             else
