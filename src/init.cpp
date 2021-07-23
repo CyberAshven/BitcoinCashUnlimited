@@ -494,7 +494,14 @@ void ThreadImport(std::vector<fs::path> vImportFiles, uint64_t nTxIndexCache)
         fReindex = false;
         LOGA("Reindexing finished\n");
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
-        InitBlockIndex(chainparams);
+        if (chainparams.HasTailstormGenesis())
+        {
+            InitTailstormBlockIndex(chainparams);
+        }
+        else
+        {
+            InitBlockIndex(chainparams);
+        }
     }
     if (fRequestShutdown)
         return;
@@ -1402,11 +1409,23 @@ bool AppInit2(Config &config)
                 }
 
                 // Initialize the block index (no-op if non-empty database was already loaded)
-                if (!InitBlockIndex(chainparams))
+                if (chainparams.HasTailstormGenesis())
                 {
-                    strLoadError = _("Error initializing block database");
-                    break;
+                    if(!InitTailstormBlockIndex(chainparams))
+                    {
+                        strLoadError = _("Error initializing block database");
+                        break;
+                    }
                 }
+                else
+                {
+                    if (!InitBlockIndex(chainparams))
+                    {
+                        strLoadError = _("Error initializing block database");
+                        break;
+                    }
+                }
+
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.

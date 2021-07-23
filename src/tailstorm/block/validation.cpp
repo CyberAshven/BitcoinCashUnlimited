@@ -40,6 +40,53 @@ extern std::set<CBlockIndex *, CBlockIndexWorkComparator> setBlockIndexCandidate
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
 
+bool InitTailstormBlockIndex(const CChainParams &chainparams)
+{
+    LOCK(cs_main);
+
+    // Initialize global variables that cannot be constructed at startup.
+
+    // Check whether we're already initialized
+    if (chainActive.Genesis() != nullptr)
+        return true;
+
+    LOGA("Initializing databases...\n");
+
+    try
+    {
+        CTailstormBlock block = chainparams.GenesisTailstormBlock();
+        // Start new block file
+        unsigned int nBlockSize = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION);
+        CDiskBlockPos blockPos;
+        CValidationState state;
+        if (!FindBlockPos(state, blockPos, nBlockSize + 8, 0, block.GetBlockTime()))
+        {
+            return error("LoadBlockIndex(): FindBlockPos failed");
+        }
+        if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart()))
+        {
+            return error("LoadBlockIndex(): writing genesis block to disk failed");
+        }
+        CBlockIndex *pindex = AddToBlockIndex(block);
+        if (!ReceivedBlockTransactions(block, state, pindex, blockPos))
+        {
+            return error("LoadBlockIndex(): genesis block not accepted");
+        }
+        if (!ActivateBestChainTailstorm(state, chainparams, &block))
+        {
+            return error("LoadBlockIndex(): genesis block cannot be activated");
+        }
+        // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
+        return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
+    }
+    catch (const std::runtime_error &e)
+    {
+        return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
+    }
+
+    return true;
+}
+
 bool CheckTailstormBlockHeader(const CTailstormBlockHeader &header, CValidationState &state)
 {
     // Check proof-of-work
