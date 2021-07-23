@@ -199,6 +199,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = false;
 
         // clang-format off
         // checkpoint related to various network upgrades need to be the first block
@@ -330,6 +331,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = false;
 
         checkpointData = (CCheckpointData){
             {{0, uint256S("0000000057e31bd2066c939a63b7b8623bd0f10d8c001304bdfc1a7902ae6d35")}}, 0, 0, 0};
@@ -441,6 +443,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         // checkpoint related to various network upgrades need to be the first block
@@ -560,6 +563,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
 
         checkpointData = (CCheckpointData){
             {{0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")}}, 0, 0, 0};
@@ -678,6 +682,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         checkpointData = CCheckpointData();
@@ -813,6 +818,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         checkpointData = CCheckpointData();
@@ -924,6 +930,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
 
         checkpointData = CCheckpointData();
     }
