@@ -267,3 +267,16 @@ bool AreOnTheSameFork(const CBlockIndex *pa, const CBlockIndex *pb)
     const CBlockIndex *pindexCommon = LastCommonAncestor(pa, pb);
     return pindexCommon == pa || pindexCommon == pb;
 }
+
+uint256 CDiskBlockIndex::GetTailstormBlockHash() const
+{
+    CTailstormBlockHeader block;
+    block.nVersion = nVersion;
+    block.hashPrevBlock = hashPrev;
+    block.hashMerkleRoot = hashMerkleRoot;
+    block.nTime = nTime;
+    block.nBits = nBits;
+    block.subblockHashes = subblockHashes;
+    block.subblockNTxMap = subblockNTxMap;
+    return block.GetHash();
+}

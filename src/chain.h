@@ -462,6 +462,7 @@ public:
         return block.GetHash();
     }
 
+    uint256 GetTailstormBlockHash() const;
 
     std::string ToString() const
     {

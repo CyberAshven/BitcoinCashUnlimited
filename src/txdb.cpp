@@ -439,7 +439,16 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
             {
                 // Construct block index object
                 LOG(WB, "!!!This is the last place where I can see pindexNew being set to the wrong hash value: %s\n", diskindex.GetBlockHash().ToString());
-                CBlockIndex *pindexNew = InsertBlockIndex(diskindex.GetBlockHash());
+                uint256 hash;
+                if (diskindex.isTailstorm)
+                {
+                    hash = diskindex.GetTailstormBlockHash();
+                }
+                else
+                {
+                    hash = diskindex.GetBlockHash();
+                }
+                CBlockIndex *pindexNew = InsertBlockIndex(hash);
                 pindexNew->pprev = InsertBlockIndex(diskindex.hashPrev);
                 pindexNew->nHeight = diskindex.nHeight;
                 pindexNew->nFile = diskindex.nFile;
