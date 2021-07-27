@@ -91,13 +91,18 @@ const char *RESTXVAL = "res-txval";
 }; // namespace NetMsgType
 
 static const char *ppszTypeName[] = {
-    "ERROR", // Should never occur
     NetMsgType::TX,
     NetMsgType::BLOCK,
     "filtered block", // Should never occur
     NetMsgType::THINBLOCK, // thinblock or compact block
     NetMsgType::XTHINBLOCK,
     NetMsgType::GRAPHENEBLOCK,
+    NetMsgType::SUBBLOCK,
+    NetMsgType::TAILSTORMBLOCK,
+    NetMsgType::SB_GRAPHENEBLOCK,
+    NetMsgType::BOBCMPCTBLOCK,
+    NetMsgType::CMPCTBLOCK,
+    NetMsgType::MEMPOOLSYNC,
     NetMsgType::DSPROOF,
 };
 

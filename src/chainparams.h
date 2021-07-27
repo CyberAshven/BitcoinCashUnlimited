@@ -7,7 +7,9 @@
 #ifndef BITCOIN_CHAINPARAMS_H
 #define BITCOIN_CHAINPARAMS_H
 
+#include "arith_uint256.h"
 #include "chainparamsbase.h"
+#include "consensus/consensus.h"
 #include "consensus/params.h"
 #include "primitives/block.h"
 #include "protocol.h"
@@ -76,6 +78,7 @@ enum
     DEFAULT_REGTESTNET_PORT = 18444,
     DEFAULT_TESTNET4_PORT = 28333,
     DEFAULT_SCALENET_PORT = 38333,
+    DEFAULT_TAILREG_PORT = 48333,
 };
 
 /**
@@ -114,7 +117,12 @@ public:
         tailstormGenesis.hashMerkleRoot = genesis.hashMerkleRoot;
         tailstormGenesis.nTime = genesis.nTime;
         tailstormGenesis.nBits = genesis.nBits;
+        tailstormGenesis.vtx.push_back(genesis.vtx[0]);
         tailstormGenesis.subblockHashes.clear();
+        for (uint32_t i=0;i < TAILSTORM_K;i++)
+        {
+            tailstormGenesis.subblockHashes.insert(ArithToUint256(arith_uint256(i)));
+        }
         tailstormGenesis.subblockNTxMap.clear();
         return tailstormGenesis;
     }

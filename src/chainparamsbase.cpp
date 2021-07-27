@@ -17,7 +17,8 @@ const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::TESTNET4 = "test4";
 const std::string CBaseChainParams::SCALENET = "scale";
 const std::string CBaseChainParams::REGTEST = "regtest";
-const std::string CBaseChainParams::NEXTCHAIN = "nex";
+const std::string CBaseChainParams::TAILREG = "tailreg";
+const std::string CBaseChainParams::NEXTCHAIN = NEXTCHAIN_TICKER;
 
 /**
  * Main network
@@ -109,6 +110,22 @@ public:
 };
 static CBaseNextchainParams nextChainParams;
 
+/*
+ * Tailstorm Regression test
+ */
+class CBaseTailRegParams : public CBaseChainParams
+{
+public:
+    CBaseTailRegParams()
+    {
+        nRPCPort = 48332;
+        strDataDir = "tailreg";
+    }
+};
+static CBaseTailRegParams tailRegParams;
+
+static CBaseChainParams nextChainParams(CBaseChainParams::NEXTCHAIN, 7227);
+
 static CBaseChainParams *pCurrentBaseParams = 0;
 
 const CBaseChainParams &BaseParams()
@@ -133,6 +150,8 @@ CBaseChainParams &BaseParams(const std::string &chain)
         return regTestParams;
     else if (chain == CBaseChainParams::NEXTCHAIN)
         return nextChainParams;
+    else if (chain == CBaseChainParams::TAILREG)
+        return tailRegParams;
     else
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
@@ -153,11 +172,13 @@ std::string ChainNameFromCommandLine()
     num_selected += fUnl;
     bool fNextChain = GetBoolArg("-nextchain", false);
     num_selected += fNextChain;
+    bool fTailReg = GetBoolArg("-tailreg", false);
+    num_selected += fTailReg;
     bool fBch = GetBoolArg("-bch", false);
     num_selected += fBch;
 
     if (num_selected > 1)
-        throw std::runtime_error("Invalid combination of -regtest, -testnet, -testnet4, -scalenet and -chain_nol.");
+        throw std::runtime_error("Invalid combination of -regtest, -testnet, -testnet4, -scalenet, -chain_nol, -xnex, -tailreg, and -bch.");
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
@@ -170,6 +191,8 @@ std::string ChainNameFromCommandLine()
         return CBaseChainParams::UNL;
     if (fNextChain)
         return CBaseChainParams::NEXTCHAIN;
+    if (fTailReg)
+        return CBaseChainParams::TAILREG;
     if (fBch)
         return CBaseChainParams::MAIN;
 
