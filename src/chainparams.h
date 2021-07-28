@@ -114,6 +114,7 @@ public:
         tailstormGenesis.hashMerkleRoot = genesis.hashMerkleRoot;
         tailstormGenesis.nTime = genesis.nTime;
         tailstormGenesis.nBits = genesis.nBits;
+        tailstormGenesis.vtx.push_back(genesis.vtx[0]);
         tailstormGenesis.subblockHashes.clear();
         tailstormGenesis.subblockNTxMap.clear();
         return tailstormGenesis;
