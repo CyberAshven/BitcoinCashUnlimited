@@ -199,6 +199,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = false;
 
         // clang-format off
         // checkpoint related to various network upgrades need to be the first block
@@ -325,11 +326,12 @@ public:
 
         vFixedSeeds = std::vector<SeedSpec6>();
 
-        fMiningRequiresPeers = true;
+        fMiningRequiresPeers = false;
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = false;
 
         checkpointData = (CCheckpointData){
             {{0, uint256S("0000000057e31bd2066c939a63b7b8623bd0f10d8c001304bdfc1a7902ae6d35")}}, 0, 0, 0};
@@ -441,6 +443,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         // checkpoint related to various network upgrades need to be the first block
@@ -546,11 +549,12 @@ public:
         nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
 
         genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN);
-        consensus.hashGenesisBlock = genesis.GetHash();
+        CTailstormBlock tailGenesis = GenesisTailstormBlock();
+        consensus.hashGenesisBlock = tailGenesis.GetHash();
         assert(consensus.hashGenesisBlock ==
-               uint256S("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
+               uint256S("0xce8663ccece055631a5f4f719c7dc0b9c9f5bbe9c1cc010d5eac33a78a455ca8"));
         assert(
-            genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+            tailGenesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
         vSeeds.clear(); //! Regtest mode doesn't have any DNS seeds.
@@ -560,9 +564,10 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
 
         checkpointData = (CCheckpointData){
-            {{0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")}}, 0, 0, 0};
+            {{0, uint256S("ce8663ccece055631a5f4f719c7dc0b9c9f5bbe9c1cc010d5eac33a78a455ca8")}}, 0, 0, 0};
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<uint8_t>(1, 111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<uint8_t>(1, 196);
         base58Prefixes[SECRET_KEY] = std::vector<uint8_t>(1, 239);
@@ -678,6 +683,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         checkpointData = CCheckpointData();
@@ -813,6 +819,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         checkpointData = CCheckpointData();
@@ -924,6 +931,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
 
         checkpointData = CCheckpointData();
     }

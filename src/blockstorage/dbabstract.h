@@ -6,12 +6,13 @@
 #define BITCOIN_DBABSTRACT_H
 
 #include "chain.h"
+#include "tailstorm/block/block.h"
 #include "undo.h"
 
 enum BlockDBMode
 {
-    SEQUENTIAL_BLOCK_FILES, // 0
-    LEVELDB_BLOCK_STORAGE, // 1
+    SEQUENTIAL_BLOCK_FILES = 0,
+    LEVELDB_BLOCK_STORAGE = 1,
 
     END_STORAGE_OPTIONS // should always be the last option in the list
 };
@@ -21,7 +22,7 @@ enum BlockDBMode
  * This allows us to use one "polymorphic pointer" for all database suport without editing the
  * code to check for BLOCK_DB_MODE and change function calls accordingly
  *
- * NOTE: not databases will use CondenseBlockData or CondenseUndoData because the database either
+ * NOTE: not all databases will use CondenseBlockData or CondenseUndoData because the database either
  * does not need or does not support data compaction.In this case the function should just return
  * immidiately
  */
@@ -29,13 +30,16 @@ class CDatabaseAbstract
 {
 public:
     //! Write a block to the database
-    virtual bool WriteBlock(const CBlock &block) = 0;
+    virtual bool WriteBlock(const CBlock &block, CDiskBlockPos &pos) = 0;
+    virtual bool WriteBlock(const CTailstormBlock &block, CDiskBlockPos &pos) = 0;
 
     //! Read a block from the database
     virtual bool ReadBlock(const CBlockIndex *pindex, CBlock &block) = 0;
+    virtual bool ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block) = 0;
 
     //! Remove a block from the database
     virtual bool EraseBlock(CBlock &block) = 0;
+    virtual bool EraseBlock(CTailstormBlock &block) = 0;
 
     //! remove a block from the database using the blockindex
     virtual bool EraseBlock(const CBlockIndex *pindex) = 0;
@@ -44,22 +48,22 @@ public:
     virtual void CondenseBlockData(const std::string &start, const std::string &end) = 0;
 
     //! Write undo data to the database
-    virtual bool WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex) = 0;
+    virtual bool WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex, CDiskBlockPos &pos) = 0;
 
     //! Read  undo data from the database
-    virtual bool ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex) = 0;
+    virtual bool ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex, const CDiskBlockPos &pos) = 0;
 
     //! Remove undo data from the database
     virtual bool EraseUndo(const CBlockIndex *pindex) = 0;
 
     //! Flush database files to disk
-    virtual void Flush() = 0;
+    virtual void Flush(bool fFinalize = false) = 0;
 
     // clean up the undo data if supported by the db
     virtual void CondenseUndoData(const std::string &start, const std::string &end) = 0;
 
     // prune the database
-    virtual uint64_t PruneDB(uint64_t nLastBlockWeCanPrune) = 0;
+    virtual uint64_t PruneDB(std::set<int> &setFilesToPrune, uint64_t nLastBlockWeCanPrune) = 0;
 
     virtual ~CDatabaseAbstract() {}
 };

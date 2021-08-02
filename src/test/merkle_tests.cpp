@@ -15,8 +15,9 @@ static uint256 BlockBuildMerkleTree(const CBlock &block, bool *fMutated, std::ve
 {
     vMerkleTree.clear();
     vMerkleTree.reserve(block.vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
-    for (std::vector<CTransactionRef>::const_iterator it(block.vtx.begin()); it != block.vtx.end(); ++it)
-        vMerkleTree.push_back((*it)->GetHash());
+    for (auto txref : block.vtx)
+        vMerkleTree.push_back(txref->GetHash());
+
     int j = 0;
     bool mutated = false;
     for (int nSize = block.vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
@@ -140,33 +141,31 @@ BOOST_AUTO_TEST_CASE(merkle_test)
             int duplicate3 = mutate >= 3 ? 1 << ctz(ntx2) : 0; // And for the third mutation.
             if (duplicate3 >= ntx2)
                 break;
-            int ntx3 = ntx2 + duplicate3;
+            // int ntx3 = ntx2 + duplicate3;
             // Build a block with ntx different transactions.
             CBlock block;
-            block.vtx.resize(ntx);
             for (int j = 0; j < ntx; j++)
             {
                 CMutableTransaction mtx;
                 mtx.nLockTime = j;
-                block.vtx[j] = MakeTransactionRef(std::move(mtx));
+                block.vtx.push_back(MakeTransactionRef(std::move(mtx)));
             }
             // Compute the root of the block before mutating it.
             bool unmutatedMutated = false;
             uint256 unmutatedRoot = BlockMerkleRoot(block, &unmutatedMutated);
             BOOST_CHECK(unmutatedMutated == false);
             // Optionally mutate by duplicating the last transactions, resulting in the same merkle root.
-            block.vtx.resize(ntx3);
             for (int j = 0; j < duplicate1; j++)
             {
-                block.vtx[ntx + j] = block.vtx[ntx + j - duplicate1];
+                block.vtx.push_back(block.vtx[ntx + j - duplicate1]);
             }
             for (int j = 0; j < duplicate2; j++)
             {
-                block.vtx[ntx1 + j] = block.vtx[ntx1 + j - duplicate2];
+                block.vtx.push_back(block.vtx[ntx1 + j - duplicate2]);
             }
             for (int j = 0; j < duplicate3; j++)
             {
-                block.vtx[ntx2 + j] = block.vtx[ntx2 + j - duplicate3];
+                block.vtx.push_back(block.vtx[ntx2 + j - duplicate3]);
             }
             // Compute the merkle root and merkle tree using the old mechanism.
             bool oldMutated = false;

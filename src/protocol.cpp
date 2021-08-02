@@ -26,6 +26,7 @@ const char *GETBLOCKS = "getblocks";
 const char *GETHEADERS = "getheaders";
 const char *TX = "tx";
 const char *HEADERS = "headers";
+const char *TAILSTORM_HEADERS = "bobheaders";
 const char *BLOCK = "block";
 const char *GETADDR = "getaddr";
 const char *MEMPOOL = "mempool";
@@ -54,6 +55,14 @@ const char *GET_GRAPHENE = "get_grblk";
 const char *GET_GRAPHENE_RECOVERY = "get_grrec";
 const char *GRAPHENE_RECOVERY = "grrec";
 // BUIPXXX Graphene - end section
+// Graphene subblock - begin section
+const char *SB_GRAPHENEBLOCK = "sbgrblk";
+const char *SB_GRAPHENETX = "sbgrblktx";
+const char *GET_SB_GRAPHENETX = "get_sbgrblktx";
+const char *GET_SB_GRAPHENE = "get_sbgrblk";
+const char *GET_SB_GRAPHENE_RECOVERY = "get_sbgrrec";
+const char *SB_GRAPHENE_RECOVERY = "sbgrrec";
+// Graphene subblock - end section
 // Mempool sync - begin section
 const char *MEMPOOLSYNC = "memsync";
 const char *MEMPOOLSYNCTX = "memsynctx";
@@ -69,7 +78,12 @@ const char *SENDCMPCT = "sendcmpct";
 const char *CMPCTBLOCK = "cmpctblock";
 const char *GETBLOCKTXN = "getblocktxn";
 const char *BLOCKTXN = "blocktxn";
-
+const char *BOBCMPCTBLOCK = "bobcmpblock";
+const char *GETBOBSUB = "getbobsub";
+const char *BOBSUB = "bobsub";
+const char *DBMISSTX = "dbmisstx";
+const char *SUBBLOCK = "subblock";
+const char *TAILSTORMBLOCK = "tailstormblk";
 const char *DSPROOF = "dsproof-beta";
 
 const char *REQTXVAL = "req-txval";
@@ -77,13 +91,19 @@ const char *RESTXVAL = "res-txval";
 }; // namespace NetMsgType
 
 static const char *ppszTypeName[] = {
-    "ERROR", // Should never occur
     NetMsgType::TX,
     NetMsgType::BLOCK,
     "filtered block", // Should never occur
     NetMsgType::THINBLOCK, // thinblock or compact block
     NetMsgType::XTHINBLOCK,
     NetMsgType::GRAPHENEBLOCK,
+    NetMsgType::SUBBLOCK,
+    NetMsgType::TAILSTORMBLOCK,
+    NetMsgType::SB_GRAPHENEBLOCK,
+    NetMsgType::BOBCMPCTBLOCK,
+    NetMsgType::CMPCTBLOCK,
+    NetMsgType::MEMPOOLSYNC,
+    NetMsgType::DSPROOF,
 };
 
 /** All known message types. Keep this in the same order as the list of
@@ -241,7 +261,7 @@ CInv::CInv(const std::string &strType, const uint256 &hashIn)
 }
 
 bool operator<(const CInv &a, const CInv &b) { return (a.type < b.type || (a.type == b.type && a.hash < b.hash)); }
-bool CInv::IsKnownType() const { return (type >= 1 && type <= 6) || type == MSG_DOUBLESPENDPROOF; }
+bool CInv::IsKnownType() const { return (type >= 1 && type <= 12) || type == MSG_DOUBLESPENDPROOF; }
 const char *CInv::GetCommand() const
 {
     if (!IsKnownType())

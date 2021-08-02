@@ -4,9 +4,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BLOCKDB_BLOCKSTORAGE_H
-#define BLOCKDB_BLOCKSTORAGE_H
-
 #include "blockleveldb.h"
 #include "main.h"
 #include "undo.h"
@@ -39,16 +36,20 @@ void InitializeBlockStorage(const int64_t &_nBlockTreeDBCache,
 void SyncStorage(const CChainParams &chainparams);
 
 /** Functions for disk access for blocks */
-CBlockRef ReadBlockFromDisk(const CBlockIndex *pindex, const Consensus::Params &consensusParams);
-bool WriteBlockToDisk(const CBlock &block,
+bool ReadBlockFromDisk(CBlockRef& block,
+    const CBlockIndex *pindex,
+    const Consensus::Params &consensusParams,
+    bool tryboth = true);
+
+bool ReadBlockFromDisk(CTailstormBlockRef& block, const CBlockIndex *pindex, const Consensus::Params &consensusParams);
+bool WriteBlockToDisk(const CBlock &block, CDiskBlockPos &pos, const CMessageHeader::MessageStartChars &messageStart, const int *pHeight = nullptr);
+bool WriteBlockToDisk(const CTailstormBlock &block,
     CDiskBlockPos &pos,
     const CMessageHeader::MessageStartChars &messageStart,
     const int *pHeight = nullptr);
 
-bool WriteUndoToDisk(const CBlockUndo &blockundo,
-    CDiskBlockPos &pos,
-    const CBlockIndex *pindex,
-    const CMessageHeader::MessageStartChars &messageStart);
+bool WriteUndoToDisk(const CBlockUndo &blockundo, CDiskBlockPos &pos, const CBlockIndex *pindex);
+
 bool ReadUndoFromDisk(CBlockUndo &blockundo, const CDiskBlockPos &pos, const CBlockIndex *pindex);
 
 /**
@@ -91,5 +92,3 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, uint64_
 
 
 extern BlockDBMode BLOCK_DB_MODE;
-
-#endif // BLOCKDB_BLOCKSTORAGE_H

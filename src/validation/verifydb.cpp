@@ -53,8 +53,8 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
             }
         }
         // check level 0: read from disk
-        CBlockRef pblock = ReadBlockFromDisk(pindex, chainparams.GetConsensus());
-        if (!pblock)
+        CBlockRef pblock(new CBlock());
+        if (!ReadBlockFromDisk(pblock, pindex, chainparams.GetConsensus()))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight,
                 pindex->GetBlockHash().ToString());
         nBlockSizeAtChainTip.store(pblock->GetBlockSize());
@@ -116,8 +116,8 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
                 std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) /
                                                      (double)nCheckDepth * 50))));
             pindex = chainActive.Next(pindex);
-            CBlockRef pblock = ReadBlockFromDisk(pindex, chainparams.GetConsensus());
-            if (!pblock)
+            CBlockRef pblock(new CBlock());
+            if (!ReadBlockFromDisk(pblock, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight,
                     pindex->GetBlockHash().ToString());
             if (!ConnectBlock(*pblock, state, pindex, coins, chainparams))

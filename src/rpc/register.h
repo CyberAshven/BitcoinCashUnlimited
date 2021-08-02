@@ -12,6 +12,8 @@ class CRPCTable;
 
 /** Register block chain RPC commands */
 void RegisterBlockchainRPCCommands(CRPCTable &tableRPC);
+/** Register tailstorm RPC commands */
+void RegisterTailstormRPCCommands(CRPCTable &tableRPC);
 /** Register P2P networking RPC commands */
 void RegisterNetRPCCommands(CRPCTable &tableRPC);
 /** Register miscellaneous RPC commands */
@@ -28,6 +30,7 @@ void RegisterNextChainRPCCommands(CRPCTable &table);
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
     RegisterBlockchainRPCCommands(tableRPC);
+    RegisterTailstormRPCCommands(tableRPC);
     RegisterNetRPCCommands(tableRPC);
     RegisterMiscRPCCommands(tableRPC);
     RegisterMiningRPCCommands(tableRPC);

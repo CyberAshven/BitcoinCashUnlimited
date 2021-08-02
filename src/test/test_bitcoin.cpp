@@ -7,6 +7,8 @@
 
 #include "test_bitcoin.h"
 
+#include "blockstorage/blockstorage.h"
+#include "blockstorage/sequential_files.h"
 #include "chainparams.h"
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
@@ -70,6 +72,7 @@ TestingSetup::TestingSetup(const std::string &chainName) : BasicTestingSetup(cha
     pathTemp =
         GetTempPath() / strprintf("test_bitcoin_%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30)));
     fs::create_directories(pathTemp);
+    pblockdb = new CBlockFileDB();
     pblocktree = new CBlockTreeDB(1 << 20, "", true);
     pcoinsdbview = new CCoinsViewDB(1 << 23, true);
     pcoinsTip = new CCoinsViewCache(pcoinsdbview);
@@ -105,12 +108,6 @@ TestingSetup::~TestingSetup()
     delete pblocktree;
     fs::remove_all(pathTemp);
 }
-
-struct NumericallyLessTxHashComparator
-{
-public:
-    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetHash() < b->GetHash(); }
-};
 
 TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 {

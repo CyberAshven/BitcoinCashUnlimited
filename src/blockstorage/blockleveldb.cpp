@@ -27,7 +27,25 @@ CBlockLevelDB::CBlockLevelDB(size_t nCacheSizeBlock, size_t nCacheSizeUndo, bool
         new CDBWrapper(GetDataDir() / "blockdb" / "undo", nCacheSizeUndo, fMemory, fWipe, obfuscate, &overrideundo);
 }
 
-bool CBlockLevelDB::WriteBlock(const CBlock &block)
+bool CBlockLevelDB::WriteBlock(const CBlock &block, CDiskBlockPos &pos)
+{
+    // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
+    // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
+    // compaction are the most recent files only.
+    std::ostringstream key;
+    key << block.GetBlockTime() << ":" << block.GetHash().ToString();
+
+    if (IsChainNearlySyncd())
+    {
+        return pwrapperblock->Write(key.str(), block, true);
+    }
+    else
+    {
+        return pwrapperblock->Write(key.str(), block, false);
+    }
+}
+
+bool CBlockLevelDB::WriteBlock(const CTailstormBlock &block, CDiskBlockPos &pos)
 {
     // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
     // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
@@ -55,7 +73,24 @@ bool CBlockLevelDB::ReadBlock(const CBlockIndex *pindex, CBlock &block)
     return pwrapperblock->Read(key.str(), block);
 }
 
+bool CBlockLevelDB::ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block)
+{
+    // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
+    // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
+    // compaction are the most recent files only.
+    std::ostringstream key;
+    key << pindex->GetBlockTime() << ":" << pindex->GetBlockHash().ToString();
+    return pwrapperblock->Read(key.str(), block);
+}
+
 bool CBlockLevelDB::EraseBlock(CBlock &block)
+{
+    std::ostringstream key;
+    key << block.GetBlockTime() << ":" << block.GetHash().ToString();
+    return pwrapperblock->Erase(key.str(), true);
+}
+
+bool CBlockLevelDB::EraseBlock(CTailstormBlock &block)
 {
     std::ostringstream key;
     key << block.GetBlockTime() << ":" << block.GetHash().ToString();
@@ -70,7 +105,7 @@ bool CBlockLevelDB::EraseBlock(const CBlockIndex *pindex)
 }
 
 
-bool CBlockLevelDB::WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex)
+bool CBlockLevelDB::WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex, CDiskBlockPos &pos)
 {
     // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
     // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
@@ -105,7 +140,7 @@ bool CBlockLevelDB::WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pi
     }
 }
 
-bool CBlockLevelDB::ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex)
+bool CBlockLevelDB::ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex, const CDiskBlockPos &pos)
 {
     // Create a key which will sort the database by the blocktime.  This is needed to prevent unnecessary
     // compactions which hamper performance. Will a key sorted by time the only files that need to undergo
@@ -161,7 +196,7 @@ bool CBlockLevelDB::EraseUndo(const CBlockIndex *pindex)
     return pwrapperundo->Erase(key.str(), true);
 }
 
-uint64_t CBlockLevelDB::PruneDB(uint64_t nLastBlockWeCanPrune)
+uint64_t CBlockLevelDB::PruneDB(std::set<int> &setFilesToPrune, uint64_t nLastBlockWeCanPrune)
 {
     CBlockIndex *pindexOldest = chainActive.Tip();
     while (pindexOldest->pprev && pindexOldest->pprev->nFile != 0)

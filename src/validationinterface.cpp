@@ -55,15 +55,22 @@ void UnregisterAllValidationInterfaces()
     g_signals.BlockFound.disconnect_all_slots();
     g_signals.ScriptForMining.disconnect_all_slots();
     g_signals.BlockChecked.disconnect_all_slots();
+    g_signals.TailstormBlockChecked.disconnect_all_slots();
     g_signals.Broadcast.disconnect_all_slots();
     g_signals.Inventory.disconnect_all_slots();
     g_signals.SetBestChain.disconnect_all_slots();
     g_signals.UpdatedTransaction.disconnect_all_slots();
     g_signals.SyncTransaction.disconnect_all_slots();
+    g_signals.SyncTransaction_BT.disconnect_all_slots();
     g_signals.UpdatedBlockTip.disconnect_all_slots();
 }
 
 void SyncWithWallets(const CTransactionRef &ptx, const CBlock *pblock, int txIdx)
 {
     g_signals.SyncTransaction(ptx, pblock, txIdx);
+}
+
+void SyncWithWallets_BT(const CTransactionRef &ptx, const CTailstormBlock *pblock, int txIdx)
+{
+    g_signals.SyncTransaction_BT(ptx, pblock, txIdx);
 }

@@ -44,6 +44,7 @@
 #include "script/script.h"
 #include "script/sigcache.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txadmission.h"
 #include "txdb.h"
@@ -76,6 +77,11 @@
 /**
  * Global state
  */
+
+/*! Known, complete delta blocks. */
+CCriticalSection cs_tipDagCache;
+CTailstormDagSet tailstormDagSet;
+std::map<uint256, CDagNode> tipDagCache GUARDED_BY(cs_tipDagCache);
 
 std::atomic<bool> fImporting{false};
 std::atomic<bool> fReindex{false};
@@ -348,8 +354,8 @@ bool GetTransaction(const uint256 &hash,
 
     if (pindexSlow)
     {
-        CBlockRef pblock = ReadBlockFromDisk(pindexSlow, consensusParams);
-        if (pblock)
+        CBlockRef pblock(new CBlock());
+        if (ReadBlockFromDisk(pblock, pindexSlow, consensusParams))
         {
             bool ctor_enabled = pindexSlow->nHeight >= consensusParams.nov2018Height;
             int64_t pos = FindTxPosition(*pblock, hash, ctor_enabled);
@@ -628,16 +634,32 @@ bool LoadExternalBlockFile(const CChainParams &chainparams, FILE *fileIn, CDiskB
                     while (range.first != range.second)
                     {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
-                        CBlockRef pblock = ReadBlockFromDiskSequential(it->second, chainparams.GetConsensus());
-                        if (pblock)
+                        CBlockRef pblock(new CBlock());
+                        CAutoFile filein(OpenBlockFile(it->second, true), SER_DISK, CLIENT_VERSION);
+                        if (filein.IsNull() == false)
                         {
-                            LOGA("%s: Processing out of order child %s of %s\n", __func__, pblock->GetHash().ToString(),
-                                head.ToString());
-                            CValidationState dummy;
-                            if (ProcessNewBlock(dummy, chainparams, nullptr, pblock.get(), true, &it->second, false))
+                            // Read block
+                            try
                             {
-                                nLoaded++;
-                                queue.push_back(pblock->GetHash());
+                                filein >> *pblock;
+                            }
+                            catch (const std::exception &e)
+                            {
+                                range.first++;
+                                mapBlocksUnknownParent.erase(it);
+                                continue;
+                            }
+                            // Check the header
+                            if (CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
+                            {
+                                LOGA("%s: Processing out of order child %s of %s\n", __func__, pblock->GetHash().ToString(),
+                                    head.ToString());
+                                CValidationState dummy;
+                                if (ProcessNewBlock(dummy, chainparams, nullptr, pblock.get(), true, &it->second, false))
+                                {
+                                    nLoaded++;
+                                    queue.push_back(pblock->GetHash());
+                                }
                             }
                         }
                         range.first++;

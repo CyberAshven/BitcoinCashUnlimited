@@ -12,6 +12,7 @@
 #include "serialize.h"
 #include "uint256.h"
 class arith_uint256;
+#include "util.h"
 
 const uint32_t BIP_009_MASK = 0x20000000;
 const uint32_t BASE_VERSION = 0x20000000;
@@ -90,6 +91,9 @@ private:
     mutable uint64_t nBlockSize; // Serialized block size in bytes
 
 public:
+    // network and disk
+    std::vector<CTransactionRef> vtx;
+
     // Xpress Validation: (memory only)
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
     std::set<uint256> setUnVerifiedTxns;
@@ -99,9 +103,6 @@ public:
     bool fXVal;
 
 public:
-    // network and disk
-    std::vector<CTransactionRef> vtx;
-
     // memory only
     // 0.11: mutable std::vector<uint256> vMerkleTree;
     mutable bool fChecked;
@@ -183,36 +184,6 @@ public:
     // Return the serialized block size in bytes. This is only done once and then the result stored
     // in nBlockSize for future reference, saving unncessary and expensive serializations.
     uint64_t GetBlockSize() const;
-};
-
-/**
- * Used for thin type blocks that we want to reconstruct into a full block. All the data
- * necessary to recreate the block are held within the thinrelay objects which are subsequently
- * stored within this class as smart pointers.
- */
-class CBlockThinRelay : public CBlock
-{
-public:
-    //! thinrelay block types: (memory only)
-    std::shared_ptr<CThinBlock> thinblock;
-    std::shared_ptr<CXThinBlock> xthinblock;
-    std::shared_ptr<CompactBlock> cmpctblock;
-    std::shared_ptr<CGrapheneBlock> grapheneblock;
-
-    //! Track the current block size during reconstruction: (memory only)
-    uint64_t nCurrentBlockSize;
-
-    CBlockThinRelay() { SetNull(); }
-    ~CBlockThinRelay() { SetNull(); }
-    void SetNull()
-    {
-        CBlock::SetNull();
-        nCurrentBlockSize = 0;
-        thinblock.reset();
-        xthinblock.reset();
-        cmpctblock.reset();
-        grapheneblock.reset();
-    }
 };
 
 /** Describes a place in the block chain to another node such that if the

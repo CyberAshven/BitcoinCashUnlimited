@@ -38,9 +38,9 @@ EXTRA_LIBRARIES = libgmp.a
 BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
 BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
 
+BITCOIN_INCLUDES += -I$(srcdir)/rsm/include
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
-BITCOIN_INCLUDES += -I$(srcdir)/rsm/include
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -186,6 +186,7 @@ BITCOIN_CORE_H = \
   memusage.h \
   merkleblock.h \
   miner.h \
+  miner_common.h \
   net.h \
   net_processing.h \
   nodestate.h \
@@ -199,6 +200,7 @@ BITCOIN_CORE_H = \
   pow.h \
   protocol.h \
   random.h \
+  rank_items.h \
   reverse_iterator.h \
   reverselock.h \
   rpc/blockchain.h \
@@ -224,6 +226,21 @@ BITCOIN_CORE_H = \
   support/cleanse.h \
   support/pagelocker.h \
   sync.h \
+  tailstorm/block/block.h \
+  tailstorm/block/merkletailblock.h \
+  tailstorm/block/miner.h \
+  tailstorm/block/validation.h \
+  tailstorm/blockrelay/compactblock.h \
+  tailstorm/blockrelay/compactrelay.h \
+  tailstorm/blockrelay/graphene.h \
+  tailstorm/blockrelay/graphenerelay.h \
+  tailstorm/dag.h \
+  tailstorm/pow.h \
+  tailstorm/tailstorm.h \
+  tailstorm/subblock/merklesubblock.h \
+  tailstorm/subblock/miner.h \
+  tailstorm/subblock/subblock.h \
+  tailstorm/subblock/validation.h \
   threadgroup.h \
   threadsafety.h \
   timedata.h \
@@ -290,6 +307,20 @@ libbitcoin_server_a_SOURCES = \
   blockstorage/blockstorage.cpp \
   blockstorage/blockcache.cpp \
   bloom.cpp \
+  tailstorm/block/block.cpp \
+  tailstorm/block/merkletailblock.cpp \
+  tailstorm/block/miner.cpp \
+  tailstorm/block/validation.cpp \
+  tailstorm/blockrelay/compactblock.cpp \
+  tailstorm/blockrelay/compactrelay.cpp \
+  tailstorm/blockrelay/graphene.cpp \
+  tailstorm/blockrelay/graphenerelay.cpp \
+  tailstorm/dag.cpp \
+  tailstorm/pow.cpp \
+  tailstorm/subblock/merklesubblock.cpp \
+  tailstorm/subblock/miner.cpp \
+  tailstorm/subblock/subblock.cpp \
+  tailstorm/subblock/validation.cpp \
   chain.cpp \
   checkpoints.cpp \
   connmgr.cpp \
@@ -313,6 +344,7 @@ libbitcoin_server_a_SOURCES = \
   main.cpp \
   merkleblock.cpp \
   miner.cpp \
+  miner_common.cpp \
   net.cpp \
   net_processing.cpp \
   nextchain.cpp \
@@ -323,6 +355,7 @@ libbitcoin_server_a_SOURCES = \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
+  rpc/tailstorm.cpp \
   rpc/client.cpp \
   rpc/electrum.cpp \
   rpc/mining.cpp \
@@ -409,6 +442,8 @@ libbitcoincash_a_SOURCES = \
   pubkey.h \
   random.cpp \
   random.h \
+  rank_items.cpp \
+  rank_items.h \
   script/bitfield.cpp \
   script/bitfield.h \
   script/pushtxstate.cpp \
@@ -532,6 +567,10 @@ libbitcoin_consensus_a_SOURCES = \
   script/scripttemplate.cpp \
   script/sighashtype.h \
   serialize.h \
+  tailstorm/block/block.cpp \
+  tailstorm/block/block.h \
+  tailstorm/subblock/subblock.cpp \
+  tailstorm/subblock/subblock.h \
   tinyformat.h \
   uint256.cpp \
   uint256.h \
@@ -583,6 +622,7 @@ libbitcoin_util_a_SOURCES = \
   deadlock-detection/threaddeadlock.cpp \
   fs.cpp \
   random.cpp \
+  rank_items.cpp \
   rpc/protocol.cpp \
   support/cleanse.cpp \
   sync.cpp \
@@ -689,6 +729,8 @@ bitcoin_miner_SOURCES = bitcoin-miner.cpp \
   pow.cpp \
   arith_uint256.cpp \
   arith_uint256.h \
+  tailstorm/pow.cpp \
+  tailstorm/pow.h \
   validation/forks.cpp \
   validation/forks.h \
   uint256.cpp \

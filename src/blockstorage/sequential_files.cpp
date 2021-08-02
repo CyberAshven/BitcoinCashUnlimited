@@ -7,156 +7,13 @@
 #include "sequential_files.h"
 
 #include "blockstorage.h"
-
+#include "tailstorm/tailstorm.h"
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
 extern bool fCheckForPruning;
 extern CCriticalSection cs_LastBlockFile;
 extern std::set<int> setDirtyFileInfo;
 extern std::multimap<CBlockIndex *, CBlockIndex *> mapBlocksUnlinked;
-
-fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix)
-{
-    return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, pos.nFile);
-}
-
-
-FILE *OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
-{
-    if (pos.IsNull())
-        return nullptr;
-    fs::path path = GetBlockPosFilename(pos, prefix);
-    fs::create_directories(path.parent_path());
-    FILE *file = fsbridge::fopen(path, "rb+");
-    if (!file && !fReadOnly)
-        file = fsbridge::fopen(path, "wb+");
-    if (!file)
-    {
-        LOGA("Unable to open file %s\n", path.string());
-        return nullptr;
-    }
-    if (pos.nPos)
-    {
-        if (fseek(file, pos.nPos, SEEK_SET))
-        {
-            LOGA("Unable to seek to position %u of %s\n", pos.nPos, path.string());
-            fclose(file);
-            return nullptr;
-        }
-    }
-    return file;
-}
-
-FILE *OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly) { return OpenDiskFile(pos, "blk", fReadOnly); }
-FILE *OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly) { return OpenDiskFile(pos, "rev", fReadOnly); }
-void FlushBlockFile(bool fFinalize)
-{
-    LOCK(cs_LastBlockFile);
-
-    CDiskBlockPos posOld(nLastBlockFile, 0);
-
-    FILE *fileOld = OpenBlockFile(posOld);
-    if (fileOld)
-    {
-        if (fFinalize)
-            TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nSize);
-        FileCommit(fileOld);
-        fclose(fileOld);
-    }
-
-    fileOld = OpenUndoFile(posOld);
-    if (fileOld)
-    {
-        if (fFinalize)
-            TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nUndoSize);
-        FileCommit(fileOld);
-        fclose(fileOld);
-    }
-}
-
-void UnlinkPrunedFiles(std::set<int> &setFilesToPrune)
-{
-    for (std::set<int>::iterator it = setFilesToPrune.begin(); it != setFilesToPrune.end(); ++it)
-    {
-        CDiskBlockPos pos(*it, 0);
-        fs::remove(GetBlockPosFilename(pos, "blk"));
-        fs::remove(GetBlockPosFilename(pos, "rev"));
-        LOG(PRUNE, "Prune: %s deleted blk/rev (%05u)\n", __func__, *it);
-    }
-}
-
-
-bool WriteBlockToDiskSequential(const CBlock &block,
-    CDiskBlockPos &pos,
-    const CMessageHeader::MessageStartChars &messageStart)
-{
-    // Open history file to append
-    CAutoFile fileout(OpenBlockFile(pos), SER_DISK, CLIENT_VERSION);
-    if (fileout.IsNull())
-    {
-        return error("WriteBlockToDisk: OpenBlockFile failed");
-    }
-
-    // Write index header
-    unsigned int nSize = GetSerializeSize(fileout, block);
-    fileout << FLATDATA(messageStart) << nSize;
-
-    // Write block
-    long fileOutPos = ftell(fileout.Get());
-    if (fileOutPos < 0)
-    {
-        return error("WriteBlockToDisk: ftell failed");
-    }
-    pos.nPos = (unsigned int)fileOutPos;
-    fileout << block;
-    return true;
-}
-
-CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus::Params &consensusParams)
-{
-    // Open history file to read
-    CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
-    if (filein.IsNull())
-    {
-        LOGA("ERROR: ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
-        return nullptr;
-    }
-
-    // Read block
-    std::shared_ptr<CBlock> pblock = MakeBlockRef(CBlock());
-    try
-    {
-        filein >> *pblock;
-    }
-    catch (const std::exception &e)
-    {
-        LOGA("Error - %s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
-        return nullptr;
-    }
-
-    // Check the header
-    if (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, consensusParams))
-    {
-        LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
-        return nullptr;
-    }
-
-    return pblock;
-}
-
-/* Calculate the amount of disk space the block & undo files currently use */
-uint64_t CalculateCurrentUsage()
-{
-    LOCK(cs_LastBlockFile);
-
-    uint64_t retval = 0;
-    for (const CBlockFileInfo &file : vinfoBlockFile)
-    {
-        retval += file.nSize + file.nUndoSize;
-    }
-    return retval;
-}
-
 
 /* Prune a block file (modify associated database entries)*/
 void PruneOneBlockFile(const int fileNumber)
@@ -197,7 +54,221 @@ void PruneOneBlockFile(const int fileNumber)
     setDirtyFileInfo.insert(fileNumber);
 }
 
-void FindFilesToPruneSequential(std::set<int> &setFilesToPrune, uint64_t nLastBlockWeCanPrune)
+bool CBlockFileDB::WriteBlock(const CBlock &block, CDiskBlockPos &pos)
+{
+    // Open history file to append
+    CAutoFile fileout(OpenBlockFile(pos), SER_DISK, CLIENT_VERSION);
+    if (fileout.IsNull())
+    {
+        return error("WriteBlockToDisk: OpenBlockFile failed");
+    }
+    // Write index header
+    unsigned int nSize = GetSerializeSize(fileout, block);
+    fileout << FLATDATA(Params().MessageStart()) << nSize;
+    // Write block
+    long fileOutPos = ftell(fileout.Get());
+    if (fileOutPos < 0)
+    {
+        return error("WriteBlockToDisk: ftell failed");
+    }
+    pos.nPos = (unsigned int)fileOutPos;
+    fileout << block;
+    return true;
+}
+
+bool CBlockFileDB::WriteBlock(const CTailstormBlock &block, CDiskBlockPos &pos)
+{
+    // Open history file to append
+    CAutoFile fileout(OpenBlockFile(pos), SER_DISK, CLIENT_VERSION);
+    if (fileout.IsNull())
+    {
+        return error("WriteBlockToDisk: OpenBlockFile failed");
+    }
+    // Write index header
+    unsigned int nSize = GetSerializeSize(fileout, block);
+    fileout << FLATDATA(Params().MessageStart()) << nSize;
+    // Write block
+    long fileOutPos = ftell(fileout.Get());
+    if (fileOutPos < 0)
+    {
+        return error("WriteBlockToDisk: ftell failed");
+    }
+    pos.nPos = (unsigned int)fileOutPos;
+    fileout << block;
+    return true;
+}
+
+bool CBlockFileDB::ReadBlock(const CBlockIndex *pindex, CBlock &block)
+{
+    // Open history file to read
+    const CDiskBlockPos pos = pindex->GetBlockPos();
+    CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull())
+    {
+        return error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString());
+    }
+    // Read block
+    try
+    {
+        filein >> block;
+    }
+    catch (const std::exception &e)
+    {
+        return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
+    }
+    // Check the header
+    if (!CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()))
+    {
+        return error("%s: Errors in block header at %s", __func__, pos.ToString());
+    }
+    return true;
+}
+
+bool CBlockFileDB::ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block)
+{
+    // Open history file to read
+    const CDiskBlockPos pos = pindex->GetBlockPos();
+    CAutoFile filein(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull())
+    {
+        return error("ReadBlockFromDisk::Tailstorm: OpenBlockFile failed for %s", pos.ToString());
+    }
+    // Read block
+    try
+    {
+        filein >> block;
+    }
+    catch (const std::exception &e)
+    {
+        return error("%s::Tailstorm: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
+    }
+    // Check the header
+    if (!CheckTailstormPoW(block, Params().GetConsensus(), TAILSTORM_K))
+    {
+        return error("%s::Tailstorm: Errors in block header at %s", __func__, pos.ToString());
+    }
+    return true;
+}
+
+bool CBlockFileDB::EraseBlock(CBlock &block)
+{
+    // intentionally left blank
+    return true;
+}
+
+bool CBlockFileDB::EraseBlock(CTailstormBlock &block)
+{
+    // intentionally left blank
+    return true;
+}
+
+bool CBlockFileDB::EraseBlock(const CBlockIndex *pindex)
+{
+    // intentionally left blank
+    return true;
+}
+
+void CBlockFileDB::Flush(bool fFinalize)
+{
+    LOCK(cs_LastBlockFile);
+
+    CDiskBlockPos posOld(nLastBlockFile, 0);
+
+    FILE *fileOld = OpenBlockFile(posOld);
+    if (fileOld)
+    {
+        if (fFinalize)
+            TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nSize);
+        FileCommit(fileOld);
+        fclose(fileOld);
+    }
+
+    fileOld = OpenUndoFile(posOld);
+    if (fileOld)
+    {
+        if (fFinalize)
+            TruncateFile(fileOld, vinfoBlockFile[nLastBlockFile].nUndoSize);
+        FileCommit(fileOld);
+        fclose(fileOld);
+    }
+}
+
+bool CBlockFileDB::WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex, CDiskBlockPos &pos)
+{
+    uint256 hashBlock;
+    if (pindex)
+    {
+        hashBlock = pindex->GetBlockHash();
+    }
+    else
+    {
+        hashBlock.SetNull();
+    }
+    // Open history file to append
+    CAutoFile fileout(OpenUndoFile(pos), SER_DISK, CLIENT_VERSION);
+    if (fileout.IsNull())
+    {
+        return error("%s: OpenUndoFile failed", __func__);
+    }
+
+    // Write index header
+    unsigned int nSize = GetSerializeSize(fileout, blockundo);
+    fileout << FLATDATA(Params().MessageStart()) << nSize;
+
+    // Write undo data
+    long fileOutPos = ftell(fileout.Get());
+    if (fileOutPos < 0)
+    {
+        return error("%s: ftell failed", __func__);
+    }
+    pos.nPos = (unsigned int)fileOutPos;
+    fileout << blockundo;
+
+    // calculate & write checksum
+    CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
+    hasher << hashBlock;
+    hasher << blockundo;
+    fileout << hasher.GetHash();
+
+    return true;
+}
+
+bool CBlockFileDB::ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex, const CDiskBlockPos &pos)
+{
+    // Open history file to read
+    CAutoFile filein(OpenUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull())
+    {
+        return error("%s: OpenUndoFile failed", __func__);
+    }
+    // Read block
+    uint256 hashChecksum;
+    CHashVerifier<CAutoFile> verifier(&filein); // We need a CHashVerifier as reserializing may lose data
+    try
+    {
+        verifier << pindex->GetBlockHash();
+        verifier >> blockundo;
+        filein >> hashChecksum;
+    }
+    catch (const std::exception &e)
+    {
+        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+    }
+    // Verify checksum
+    if (hashChecksum != verifier.GetHash())
+    {
+        return error("%s: Checksum mismatch", __func__);
+    }
+    return true;
+}
+
+bool CBlockFileDB::EraseUndo(const CBlockIndex *pindex)
+{
+    // intentionally do nothing
+    return true;
+}
+
+uint64_t CBlockFileDB::PruneDB(std::set<int> &setFilesToPrune, uint64_t nLastBlockWeCanPrune)
 {
     uint64_t nCurrentUsage = CalculateCurrentUsage();
     // We don't check to prune until after we've allocated new space for files
@@ -241,70 +312,87 @@ void FindFilesToPruneSequential(std::set<int> &setFilesToPrune, uint64_t nLastBl
     LOG(PRUNE, "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
         nPruneTarget / 1024 / 1024, nCurrentUsage / 1024 / 1024,
         ((int64_t)nPruneTarget - (int64_t)nCurrentUsage) / 1024 / 1024, nLastBlockWeCanPrune, count);
+    return count;
 }
 
-bool WriteUndoToDiskSequenatial(const CBlockUndo &blockundo,
-    CDiskBlockPos &pos,
-    const uint256 &hashBlock,
-    const CMessageHeader::MessageStartChars &messageStart)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix)
 {
-    // Open history file to append
-    CAutoFile fileout(OpenUndoFile(pos), SER_DISK, CLIENT_VERSION);
-    if (fileout.IsNull())
-    {
-        return error("%s: OpenUndoFile failed", __func__);
-    }
-
-    // Write index header
-    unsigned int nSize = GetSerializeSize(fileout, blockundo);
-    fileout << FLATDATA(messageStart) << nSize;
-
-    // Write undo data
-    long fileOutPos = ftell(fileout.Get());
-    if (fileOutPos < 0)
-    {
-        return error("%s: ftell failed", __func__);
-    }
-    pos.nPos = (unsigned int)fileOutPos;
-    fileout << blockundo;
-
-    // calculate & write checksum
-    CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
-    hasher << hashBlock;
-    hasher << blockundo;
-    fileout << hasher.GetHash();
-
-    return true;
+    return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, pos.nFile);
 }
 
-bool ReadUndoFromDiskSequential(CBlockUndo &blockundo, const CDiskBlockPos &pos, const uint256 &hashBlock)
+
+FILE *OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly)
 {
-    // Open history file to read
-    CAutoFile filein(OpenUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
-    if (filein.IsNull())
+    if (pos.IsNull())
+        return nullptr;
+    fs::path path = GetBlockPosFilename(pos, prefix);
+    fs::create_directories(path.parent_path());
+    FILE *file = fsbridge::fopen(path, "rb+");
+    if (!file && !fReadOnly)
+        file = fsbridge::fopen(path, "wb+");
+    if (!file)
     {
-        return error("%s: OpenUndoFile failed", __func__);
+        LOGA("Unable to open file %s\n", path.string());
+        return nullptr;
     }
+    if (pos.nPos)
+    {
+        if (fseek(file, pos.nPos, SEEK_SET))
+        {
+            LOGA("Unable to seek to position %u of %s\n", pos.nPos, path.string());
+            fclose(file);
+            return nullptr;
+        }
+    }
+    return file;
+}
 
-    // Read block
-    uint256 hashChecksum;
-    CHashVerifier<CAutoFile> verifier(&filein); // We need a CHashVerifier as reserializing may lose data
-    try
-    {
-        verifier << hashBlock;
-        verifier >> blockundo;
-        filein >> hashChecksum;
-    }
-    catch (const std::exception &e)
-    {
-        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
-    }
+FILE *OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly) { return OpenDiskFile(pos, "blk", fReadOnly); }
+FILE *OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly) { return OpenDiskFile(pos, "rev", fReadOnly); }
 
-    // Verify checksum
-    if (hashChecksum != verifier.GetHash())
+void UnlinkPrunedFiles(std::set<int> &setFilesToPrune)
+{
+    for (std::set<int>::iterator it = setFilesToPrune.begin(); it != setFilesToPrune.end(); ++it)
     {
-        return error("%s: Checksum mismatch", __func__);
+        CDiskBlockPos pos(*it, 0);
+        fs::remove(GetBlockPosFilename(pos, "blk"));
+        fs::remove(GetBlockPosFilename(pos, "rev"));
+        LOG(PRUNE, "Prune: %s deleted blk/rev (%05u)\n", __func__, *it);
     }
+}
 
-    return true;
+/* Calculate the amount of disk space the block & undo files currently use */
+uint64_t CalculateCurrentUsage()
+{
+    LOCK(cs_LastBlockFile);
+
+    uint64_t retval = 0;
+    for (const CBlockFileInfo &file : vinfoBlockFile)
+    {
+        retval += file.nSize + file.nUndoSize;
+    }
+    return retval;
 }

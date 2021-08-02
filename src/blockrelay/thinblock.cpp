@@ -42,9 +42,10 @@ CThinBlock::CThinBlock(const CBlock &block, const CBloomFilter &filter) : nSize(
 
     unsigned int nTx = block.vtx.size();
     vTxHashes.reserve(nTx);
-    for (unsigned int i = 0; i < nTx; i++)
+    size_t i = 0;
+    for (const auto &tx : block.vtx)
     {
-        const uint256 &hash = block.vtx[i]->GetHash();
+        const uint256 &hash = tx->GetHash();
         vTxHashes.push_back(hash);
 
         // Find the transactions that do not match the filter.
@@ -52,7 +53,8 @@ CThinBlock::CThinBlock(const CBlock &block, const CBloomFilter &filter) : nSize(
         // NOTE: We always add the first tx, the coinbase as it is the one
         //       most often missing.
         if (!filter.contains(hash) || i == 0)
-            vMissingTx.push_back(*block.vtx[i]);
+            vMissingTx.push_back(*tx);
+        i++;
     }
 }
 
@@ -163,6 +165,7 @@ bool CThinBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock)
         LOG(THIN, "Thinblock %s waiting for: %d, unnecessary: %d, total txns: %d received txns: %d peer=%s\n",
             pblock->GetHash().ToString(), nWaitingForTxns, unnecessaryCount, pblock->vtx.size(),
             pblock->thinblock->mapMissingTx.size(), pfrom->GetLogName());
+
     } // end lock orphanpool.cs, mempool.cs
     LOG(THIN, "Current in memory thinblockbytes size is %ld bytes\n", pblock->nCurrentBlockSize);
 
@@ -211,9 +214,11 @@ CXThinBlock::CXThinBlock(const CBlock &block, const CBloomFilter *filter) : nSiz
     unsigned int nTx = block.vtx.size();
     vTxHashes.reserve(nTx);
     std::set<uint64_t> setPartialTxHash;
-    for (unsigned int i = 0; i < nTx; i++)
+
+    size_t i = 0;
+    for (const auto &tx : block.vtx)
     {
-        const uint256 hash256 = block.vtx[i]->GetHash();
+        const uint256 hash256 = tx->GetHash();
         uint64_t cheapHash = hash256.GetCheapHash();
         vTxHashes.push_back(cheapHash);
 
@@ -226,7 +231,8 @@ CXThinBlock::CXThinBlock(const CBlock &block, const CBloomFilter *filter) : nSiz
         // NOTE: We always add the first tx, the coinbase as it is the one
         //       most often missing.
         if ((filter && !filter->contains(hash256)) || i == 0)
-            vMissingTx.push_back(*block.vtx[i]);
+            vMissingTx.push_back(*tx);
+        i++;
     }
 }
 
@@ -240,9 +246,10 @@ CXThinBlock::CXThinBlock(const CBlock &block) : nSize(0), collision(false)
     std::set<uint64_t> setPartialTxHash;
 
     READLOCK(orphanpool.cs_orphanpool);
-    for (unsigned int i = 0; i < nTx; i++)
+    size_t i = 0;
+    for (const auto &tx : block.vtx)
     {
-        const uint256 hash256 = block.vtx[i]->GetHash();
+        const uint256 hash256 = tx->GetHash();
         uint64_t cheapHash = hash256.GetCheapHash();
         vTxHashes.push_back(cheapHash);
 
@@ -254,12 +261,13 @@ CXThinBlock::CXThinBlock(const CBlock &block) : nSize(0), collision(false)
         if (!((mempool.exists(hash256)) ||
                 (orphanpool.mapOrphanTransactions.find(hash256) != orphanpool.mapOrphanTransactions.end())))
         {
-            vMissingTx.push_back(*block.vtx[i]);
+            vMissingTx.push_back(*tx);
         }
         // We always add the first tx, the coinbase as it is the one
         // most often missing.
         else if (i == 0)
-            vMissingTx.push_back(*block.vtx[i]);
+            vMissingTx.push_back(*tx);
+        i++;
     }
 }
 
@@ -437,8 +445,8 @@ bool CXRequestThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             return error(THIN, "get_xblocktx request too far from the tip");
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock = ReadBlockFromDisk(hdr, consensusParams);
-        if (!pblock)
+        CBlockRef pblock(new CBlock());
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We do not assign misbehavior for not being able to read a block from disk because we already
             // know that the block is in the block index from the step above. Secondly, a failure to read may
@@ -874,7 +882,7 @@ static bool ReconstructBlock(CNode *pfrom,
         }
 
         // Add this transaction. If the tx is null we still add it as a placeholder to keep the correct ordering.
-        pblock->vtx.emplace_back(ptx);
+        pblock->vtx.push_back(ptx);
     }
     // Now that we've rebuilt the block successfully we can set the XVal flag which is used in
     // ConnectBlock() to determine which if any inputs we can skip the checking of inputs.

@@ -89,7 +89,7 @@ std::string HexStrTx(const CMutableTransaction &tx)
 {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << tx;
-    return HexStr(ssTx.begin(), ssTx.end());
+    return HexStr(ssTx);
 }
 */
 

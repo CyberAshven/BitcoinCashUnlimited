@@ -72,6 +72,8 @@ BITCOIN_TESTS =\
   test/checkblock_tests.cpp \
   test/checkdatasig_tests.cpp \
   test/Checkpoints_tests.cpp \
+  test/tailstorm_tests.cpp \
+  test/tailstorm_serialization_objs.cpp \
   test/bswap_tests.cpp \
   test/cashaddr_tests.cpp \
   test/cashaddrenc_tests.cpp \
@@ -100,6 +102,7 @@ BITCOIN_TESTS =\
   test/forkscsv_tests.cpp \
   test/getarg_tests.cpp \
   test/graphene_tests.cpp \
+  test/graphene_sb_tests.cpp \
   test/hash_tests.cpp \
   test/iblt_tests.cpp \
   test/key_tests.cpp \
@@ -123,6 +126,7 @@ BITCOIN_TESTS =\
   test/prevector_tests.cpp \
   test/pushtxstate_tests.cpp \
   test/random_tests.cpp \
+  test/rank_items_tests.cpp \
   test/requestmanager_tests.cpp \
   test/reverselock_tests.cpp \
   test/rpc_tests.cpp \

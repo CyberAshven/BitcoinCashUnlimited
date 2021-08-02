@@ -24,7 +24,7 @@ arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
     const int64_t nHalfLife) noexcept;
 
 uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params,
     const CBlockIndex *pindexReferenceBlock) noexcept;
 
@@ -41,14 +41,13 @@ void ResetASERTAnchorBlockCache() noexcept;
  */
 const CBlockIndex *GetASERTAnchorBlockCache() noexcept;
 
-unsigned int GetNextWorkRequired(const CBlockIndex *pindexLast, const CBlockHeader *pblock, const Consensus::Params &);
+unsigned int GetNextWorkRequired(const CBlockIndex *pindexLast, const int64_t &blockTime, const Consensus::Params &);
 unsigned int CalculateNextWorkRequired(const CBlockIndex *pindexLast,
     int64_t nFirstBlockTime,
     const Consensus::Params &);
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params &);
-/** Get block's work: that is the work equivalent for the nBits of difficulty specified in this block */
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params &params);
 arith_uint256 GetBlockProof(const CBlockIndex &block);
 
 /** Return the time it would take to redo the work difference between from and to, assuming the current hashrate
@@ -62,7 +61,7 @@ int64_t GetBlockProofEquivalentTime(const CBlockIndex &to,
  * Bitcoin cash's difficulty adjustment mechanism.
  */
 uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params);
 
 #endif // BITCOIN_POW_H

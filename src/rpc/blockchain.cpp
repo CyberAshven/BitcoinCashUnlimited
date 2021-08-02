@@ -706,8 +706,8 @@ static CBlock GetBlockChecked(const CBlockIndex *pblockindex)
     if (IsBlockPruned(pblockindex))
         throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
 
-    CBlockRef pblock = ReadBlockFromDisk(pblockindex, Params().GetConsensus());
-    if (!pblock)
+    CBlockRef pblock(new CBlock());
+    if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
     {
         // Block not found on disk. This could be because we have the block
         // header in our index but don't have the block (for example if a
@@ -2102,31 +2102,31 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
 
     for (size_t i = 0; i < block.vtx.size(); ++i)
     {
-        const auto &tx = block.vtx.at(i);
-        outputs += tx->vout.size();
+        CTransactionRef txref = block.vtx[i];
+        outputs += txref->vout.size();
 
         CAmount tx_total_out = 0;
         if (loop_outputs)
         {
-            for (const CTxOut &out : tx->vout)
+            for (const CTxOut &out : txref->vout)
             {
                 tx_total_out += out.nValue;
                 utxo_size_inc += GetSerializeSize(out, SER_NETWORK, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
             }
         }
 
-        if (tx->IsCoinBase())
+        if (txref->IsCoinBase())
         {
             continue;
         }
 
-        inputs += tx->vin.size(); // Don't count coinbase's fake input
+        inputs += txref->vin.size(); // Don't count coinbase's fake input
         total_out += tx_total_out; // Don't count coinbase reward
 
         int64_t tx_size = 0;
         if (do_calculate_size)
         {
-            tx_size = tx->GetTxSize();
+            tx_size = txref->GetTxSize();
             if (do_mediantxsize)
             {
                 txsize_array.push_back(tx_size);

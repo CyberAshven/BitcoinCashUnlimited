@@ -35,6 +35,7 @@
 #include "script/standard.h"
 #include "stat.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
 #include "threadgroup.h"
 #include "timedata.h"
 #include "tinyformat.h"
@@ -87,6 +88,8 @@ CCriticalSection cs_rpcWarmup;
 
 CSharedCriticalSection cs_mapBlockIndex;
 BlockMap mapBlockIndex GUARDED_BY(cs_mapBlockIndex);
+CSharedCriticalSection cs_mapTailstormProofs;
+std::map<uint256, std::vector<uint256> > mapTailstormProofs GUARDED_BY(cs_mapTailstormProofs);
 
 std::atomic<CBlockIndex *> pindexBestHeader{nullptr};
 std::atomic<CBlockIndex *> pindexBestInvalid{nullptr};
@@ -105,6 +108,7 @@ CFeeRate minRelayTxFee GUARDED_BY(cs_main) = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 /** A cache to store headers that have arrived but can not yet be connected **/
 CCriticalSection csUnconnectedHeaders;
 std::map<uint256, std::pair<CBlockHeader, int64_t> > mapUnConnectedHeaders GUARDED_BY(csUnconnectedHeaders);
+std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> > mapBobUnConnectedHeaders GUARDED_BY(cs_main);
 /**
  * Every received block is assigned a unique and increasing identifier, so we
  * know which one to give priority in case of a fork.
@@ -611,7 +615,9 @@ CStatHistory<uint64_t> nBlockValidationTime("blockValidationTime", STAT_OP_MAX |
 // Single classes for gather thin type block relay statistics
 CThinBlockData thindata;
 CGrapheneBlockData graphenedata;
+CSBGrapheneBlockData sb_graphenedata;
 CCompactBlockData compactdata;
+CBobCompactBlockData bobcompactdata;
 ThinTypeRelay thinrelay;
 CCriticalSection cs_mempoolsync;
 std::map<NodeId, CMempoolSyncState> mempoolSyncRequested GUARDED_BY(cs_mempoolsync);

@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE(graphene_set_finds_brute_force_opt_for_small_blocks)
     uint64_t version = MAX_GRAPHENE_SET_VERSION;
     CGrapheneSet grapheneSet(version);
 
-    uint16_t approx_items_thresh = version >= 4 ? APPROX_ITEMS_THRESH_REDUCE_CHECK : APPROX_ITEMS_THRESH;   
+    uint16_t approx_items_thresh = version >= 4 ? APPROX_ITEMS_THRESH_REDUCE_CHECK : APPROX_ITEMS_THRESH;
     int n = (int)std::floor(approx_items_thresh / 2);
     int mu = 100;
     int m = (int)std::floor(n / 8) + mu;
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(graphene_set_finds_brute_force_opt_for_small_blocks)
 BOOST_AUTO_TEST_CASE(graphene_set_finds_approx_opt_for_large_blocks)
 {
     uint64_t version = MAX_GRAPHENE_SET_VERSION;
-    uint16_t approx_items_thresh = version >= 4 ? APPROX_ITEMS_THRESH_REDUCE_CHECK : APPROX_ITEMS_THRESH;   
+    uint16_t approx_items_thresh = version >= 4 ? APPROX_ITEMS_THRESH_REDUCE_CHECK : APPROX_ITEMS_THRESH;
     int n = 4 * approx_items_thresh;
     int mu = 1000;
     int m = approx_items_thresh + mu;
@@ -285,18 +285,6 @@ BOOST_AUTO_TEST_CASE(graphene_set_version_check)
     }
 }
 
-BOOST_AUTO_TEST_CASE(item_rank_encodes_and_decodes)
-{
-    uint64_t itemArr[4] = {1, 20, 500, 7000};
-    std::vector<uint64_t> inputItems(itemArr, itemArr + sizeof(itemArr) / sizeof(uint64_t));
-    uint16_t nBits = 13;
-
-    std::vector<unsigned char> encoded = CGrapheneSet::EncodeRank(inputItems, nBits);
-    std::vector<uint64_t> outputItems = CGrapheneSet::DecodeRank(encoded, inputItems.size(), nBits);
-
-    BOOST_CHECK_EQUAL_COLLECTIONS(outputItems.begin(), outputItems.end(), inputItems.begin(), inputItems.end());
-}
-
 BOOST_AUTO_TEST_CASE(compute_optimized_graphene_set_can_serde)
 {
     uint64_t version = MAX_GRAPHENE_SET_VERSION;
@@ -388,7 +376,7 @@ BOOST_AUTO_TEST_CASE(graphene_block_can_serde)
         ss << senderGrapheneBlock;
         ss >> receiverGrapheneBlock;
     }
-    
+
     // compute optimized graphene block
     {
         CBlock block;
@@ -415,7 +403,7 @@ BOOST_AUTO_TEST_CASE(graphene_block_can_serde)
 
 BOOST_AUTO_TEST_CASE(nchecksumbits_gives_correct_value)
 {
-    double tol = 1 / std::pow(2, 11); 
+    double tol = 1 / std::pow(2, 11);
     uint8_t bits = CGrapheneSet::NChecksumBits(10, 2, 1, 0.5, tol);
 
     BOOST_CHECK_EQUAL(bits, 11);

@@ -22,6 +22,7 @@
 #include "primitives/block.h"
 #include "rpc/server.h"
 #include "stat.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "txorphanpool.h"
@@ -67,7 +68,8 @@ extern bool CanDirectFetch(const Consensus::Params &consensusParams);
 static bool IsBlockType(const CInv &obj)
 {
     return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
-            (obj.type == MSG_GRAPHENEBLOCK));
+            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_TAILSTORMBLOCK) ||
+            (obj.type == MSG_SB_GRAPHENEBLOCK) || (obj.type == MSG_BOB_CMPCT_BLOCK));
 }
 
 // Constructor for CRequestManagerNodeState struct
@@ -540,10 +542,96 @@ static bool IsGrapheneVersionSupported(CNode *pfrom)
     }
 }
 
+static bool SBIsGrapheneVersionSupported(CNode *pfrom)
+{
+    try
+    {
+        SBNegotiateGrapheneVersion(pfrom);
+        return true;
+    }
+    catch (const std::runtime_error &error)
+    {
+        return false;
+    }
+}
+
 bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 {
     CInv inv2(obj);
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+
+    if (inv2.type == MSG_TAILSTORMBLOCK)
+    {
+        if (IsChainNearlySyncd() &&
+            (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
+        {
+            // Ask for compact Tailstorm block
+            // Must download a compact block from a compact block enabled peer.
+            if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::BOBCMPCTBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    std::vector<CInv> vGetData;
+                    inv2.type = MSG_BOB_CMPCT_BLOCK;
+                    vGetData.push_back(inv2);
+                    pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+                    LOG(CMPCT, "Requesting compact tailstorm block %s from peer %s\n", inv2.hash.ToString(),
+                        pfrom->GetLogName());
+                    return true;
+                }
+            }
+        }
+
+        // If we get here, then it was not possible to request a compact tailstorm block for some reason
+        std::vector<CInv> vGetData;
+        inv2.type = MSG_TAILSTORMBLOCK;
+        vGetData.push_back(inv2);
+        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        LOG(GRAPHENE, "Requesting Regular Tailstorm Block %s from peer %s\n", inv2.hash.ToString(),
+            pfrom->GetLogName());
+        return true;
+    }
+
+    if (inv2.type == MSG_SUBBLOCK)
+    {
+        if (IsChainNearlySyncd() &&
+            (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
+        {
+            // Ask for Graphene subblock
+            // Must download a graphene block from a graphene enabled peer.
+            if (SBIsGrapheneBlockEnabled() && pfrom->GrapheneCapable() && SBIsGrapheneVersionSupported(pfrom))
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::SB_GRAPHENEBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    // Instead of building a bloom filter here as we would for an xthin, we actually
+                    // just need to fill in CMempoolInfo
+                    inv2.type = MSG_SB_GRAPHENEBLOCK;
+                    CSBMemPoolInfo receiverMemPoolInfo = SBGetGrapheneMempoolInfo();
+                    ss << inv2;
+                    ss << receiverMemPoolInfo;
+                    sb_graphenedata.UpdateOutBoundMemPoolInfo(
+                        ::GetSerializeSize(receiverMemPoolInfo, SER_NETWORK, PROTOCOL_VERSION));
+
+                    pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENE, ss);
+                    LOG(GRAPHENE, "Requesting graphene subblock %s from peer %s\n", inv2.hash.ToString(),
+                        pfrom->GetLogName());
+                    return true;
+                }
+            }
+        }
+
+        // If we get here, then graphene failed for some reason, request a full subblock
+        std::vector<CInv> vGetData;
+        inv2.type = MSG_SUBBLOCK;
+        vGetData.push_back(inv2);
+        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        LOG(GRAPHENE, "Requesting Regular SubBlock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
+        return true;
+    }
 
     if (IsChainNearlySyncd() &&
         (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
@@ -739,8 +827,8 @@ void CRequestManager::SendRequests()
                         LOG(REQ, "Block took longer than %6.2f secs. Request timeout for %s.  Retrying\n",
                             ((double)(now - item.lastRequestTime) / 1000000), item.obj.ToString());
                     }
-
                     CInv obj = item.obj;
+
                     item.outstandingReqs++;
                     int64_t then = item.lastRequestTime;
                     int64_t nDownloadingSincePrev = item.nDownloadingSince;
@@ -1175,7 +1263,13 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
                     mapBlocksInFlight.find(blockHash);
                 if (itInFlight != mapBlocksInFlight.end() && !itInFlight->second.count(nodeid))
                 {
-                    AskFor(CInv(MSG_BLOCK, blockHash), node); // Add another source
+                    // Add another source
+                    if (mapBlkInfo[blockHash].obj.type == MSG_TAILSTORMBLOCK)
+                        AskFor(CInv(MSG_TAILSTORMBLOCK, blockHash), node);
+                    else if (mapBlkInfo[blockHash].obj.type == MSG_SUBBLOCK)
+                        AskFor(CInv(MSG_SUBBLOCK, blockHash), node);
+                    else
+                        AskFor(CInv(MSG_BLOCK, blockHash), node);
                     continue;
                 }
             }
@@ -1450,6 +1544,11 @@ bool CRequestManager::MarkBlockAsReceived(const uint256 &hash, CNode *pnode)
             if (thinrelay.IsBlockInFlight(pnode, NetMsgType::CMPCTBLOCK, hash))
             {
                 compactdata.UpdateResponseTime(nResponseTime);
+            }
+            // Update Compact Tailstorm Block stats
+            if (thinrelay.IsBlockInFlight(pnode, NetMsgType::BOBCMPCTBLOCK, hash))
+            {
+                bobcompactdata.UpdateResponseTime(nResponseTime);
             }
         }
 
