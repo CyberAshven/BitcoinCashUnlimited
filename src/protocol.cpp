@@ -91,20 +91,19 @@ const char *RESTXVAL = "res-txval";
 }; // namespace NetMsgType
 
 static const char *ppszTypeName[] = {
-    NetMsgType::VERSION, NetMsgType::VERACK, NetMsgType::ADDR, NetMsgType::INV, NetMsgType::GETDATA,
-    NetMsgType::MERKLEBLOCK, NetMsgType::GETBLOCKS, NetMsgType::GETHEADERS, NetMsgType::TX, NetMsgType::HEADERS,
-    NetMsgType::TAILSTORM_HEADERS, NetMsgType::BLOCK, NetMsgType::GETADDR, NetMsgType::MEMPOOL, NetMsgType::PING,
-    NetMsgType::PONG, NetMsgType::NOTFOUND, NetMsgType::FILTERLOAD, NetMsgType::FILTERADD, NetMsgType::FILTERCLEAR,
-    NetMsgType::FILTERSIZEXTHIN, NetMsgType::REJECT, NetMsgType::SENDHEADERS, NetMsgType::THINBLOCK,
-    NetMsgType::XTHINBLOCK, NetMsgType::XBLOCKTX, NetMsgType::GET_XBLOCKTX, NetMsgType::GET_XTHIN, NetMsgType::GET_THIN,
-    NetMsgType::GRAPHENEBLOCK, NetMsgType::GRAPHENETX, NetMsgType::GET_GRAPHENETX, NetMsgType::GET_GRAPHENE,
-    NetMsgType::SB_GRAPHENEBLOCK, NetMsgType::SB_GRAPHENETX, NetMsgType::GET_SB_GRAPHENETX, NetMsgType::GET_SB_GRAPHENE,
-    NetMsgType::MEMPOOLSYNC, NetMsgType::MEMPOOLSYNCTX, NetMsgType::GET_MEMPOOLSYNC, NetMsgType::GET_MEMPOOLSYNCTX,
-    NetMsgType::XPEDITEDREQUEST, NetMsgType::XPEDITEDBLK, NetMsgType::XPEDITEDTXN, NetMsgType::EXTVERSION,
-    NetMsgType::XUPDATE, NetMsgType::SENDCMPCT, NetMsgType::SENDCMPCT, NetMsgType::CMPCTBLOCK, NetMsgType::GETBLOCKTXN,
-    NetMsgType::BLOCKTXN, NetMsgType::BOBCMPCTBLOCK, NetMsgType::GETBOBSUB, NetMsgType::BOBSUB,
-    NetMsgType::GET_GRAPHENE_RECOVERY, NetMsgType::GRAPHENE_RECOVERY, NetMsgType::SUBBLOCK, NetMsgType::TAILSTORMBLOCK,
-    NetMsgType::GET_SB_GRAPHENE_RECOVERY, NetMsgType::SB_GRAPHENE_RECOVERY, NetMsgType::DSPROOF,
+    NetMsgType::TX,
+    NetMsgType::BLOCK,
+    "filtered block", // Should never occur
+    NetMsgType::THINBLOCK, // thinblock or compact block
+    NetMsgType::XTHINBLOCK,
+    NetMsgType::GRAPHENEBLOCK,
+    NetMsgType::SUBBLOCK,
+    NetMsgType::TAILSTORMBLOCK,
+    NetMsgType::SB_GRAPHENEBLOCK,
+    NetMsgType::BOBCMPCTBLOCK,
+    NetMsgType::CMPCTBLOCK,
+    NetMsgType::MEMPOOLSYNC,
+    NetMsgType::DSPROOF,
 };
 
 /** All known message types. Keep this in the same order as the list of
