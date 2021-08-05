@@ -481,6 +481,104 @@ public:
 static CTestNetParams testNetParams;
 
 /**
+ * Tailstorm Regression test
+ */
+class CTailRegTestParams : public CChainParams
+{
+public:
+    CTailRegTestParams()
+    {
+        strNetworkID = "tailreg";
+        consensus.nSubsidyHalvingInterval = 150;
+        consensus.BIP16Height = 0; // always enforce P2SH BIP16 on regtest
+        consensus.BIP34Height = 1000; // BIP34 has activated on regtest (Used in rpc activation tests)
+        consensus.BIP34Hash = uint256();
+        consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
+        consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in rpc activation tests)
+        consensus.BIP68Height = 576; // BIP68, 112, 113 has activated
+        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetSpacing = 10 * 60;
+        consensus.fPowAllowMinDifficultyBlocks = true;
+        consensus.fPowNoRetargeting = true;
+        // The half life for the ASERT DAA. For every (nASERTHalfLife) seconds behind schedule the blockchain gets,
+        // difficulty is cut in half. Doubled if blocks are ahead of schedule.
+        // Two days
+        consensus.nASERTHalfLife = 2 * 24 * 60 * 60;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 999999999999LL;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].windowsize = 144;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].threshold = 108; // 75% of 144
+
+        // Hard fork is always enabled on regtest.
+        consensus.uahfHeight = 0;
+        // Nov, 13 hard fork is always on on regtest.
+        consensus.daaHeight = 0;
+        // May, 15 2018 hard fork is always active on regtest
+        consensus.may2018Height = 0;
+        // Nov, 15 2018 hard fork is always active on regtest
+        consensus.nov2018Height = 0;
+        // May, 15 2019 hard fork
+        consensus.may2019Height = 0;
+        // Nov, 15 2019 hard fork is always active on regtest
+        consensus.nov2019Height = 0;
+        // May, 15 2020 hard fork
+        consensus.may2020Height = 0;
+        // Nov 15, 2020 12:00:00 UTC protocol upgrade¶
+        // we need to let this one around because scalenet is still used for asert activation
+        consensus.nov2020ActivationTime = NOV2020_ACTIVATION_TIME;
+        // Nov 15, 2020 upgrade
+        // FIXME regtest ASERT activation by time?
+
+        // May 15, 2021 12:00:00 UTC protocol upgrade
+        consensus.may2021ActivationTime = MAY2021_ACTIVATION_TIME;
+
+        pchMessageStart[0] = 0xfa;
+        pchMessageStart[1] = 0xbf;
+        pchMessageStart[2] = 0xb5;
+        pchMessageStart[3] = 0xda;
+        pchCashMessageStart[0] = 0xda;
+        pchCashMessageStart[1] = 0xb5;
+        pchCashMessageStart[2] = 0xbf;
+        pchCashMessageStart[3] = 0xfa;
+        nDefaultPort = DEFAULT_REGTESTNET_PORT;
+        nPruneAfterHeight = 1000;
+        nDefaultExcessiveBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
+        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE_REGTEST;
+        nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
+
+        genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        CTailstormBlock tailGenesis = GenesisTailstormBlock();
+        consensus.hashGenesisBlock = tailGenesis.GetHash();
+        assert(consensus.hashGenesisBlock ==
+               uint256S("0xb280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01"));
+        assert(
+            tailGenesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+
+        vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
+        vSeeds.clear(); //! Regtest mode doesn't have any DNS seeds.
+
+        fMiningRequiresPeers = false;
+        fDefaultConsistencyChecks = true;
+        fRequireStandard = false;
+        fMineBlocksOnDemand = true;
+        fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
+
+        checkpointData = (CCheckpointData){
+            {{0, uint256S("b280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01")}}, 0, 0, 0};
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<uint8_t>(1, 111);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<uint8_t>(1, 196);
+        base58Prefixes[SECRET_KEY] = std::vector<uint8_t>(1, 239);
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+        cashaddrPrefix = "tailreg";
+    }
+};
+static CTailRegTestParams tailRegTestParams;
+
+/**
  * Regression test
  */
 class CRegTestParams : public CChainParams
@@ -549,12 +647,11 @@ public:
         nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
 
         genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN);
-        CTailstormBlock tailGenesis = GenesisTailstormBlock();
-        consensus.hashGenesisBlock = tailGenesis.GetHash();
+        consensus.hashGenesisBlock = genesis.GetHash();
         assert(consensus.hashGenesisBlock ==
-               uint256S("0xce8663ccece055631a5f4f719c7dc0b9c9f5bbe9c1cc010d5eac33a78a455ca8"));
+               uint256S("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         assert(
-            tailGenesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+            genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
         vSeeds.clear(); //! Regtest mode doesn't have any DNS seeds.
@@ -564,10 +661,9 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
-        fTailstormGenesis = true;
 
         checkpointData = (CCheckpointData){
-            {{0, uint256S("ce8663ccece055631a5f4f719c7dc0b9c9f5bbe9c1cc010d5eac33a78a455ca8")}}, 0, 0, 0};
+            {{0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")}}, 0, 0, 0};
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<uint8_t>(1, 111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<uint8_t>(1, 196);
         base58Prefixes[SECRET_KEY] = std::vector<uint8_t>(1, 239);
@@ -963,6 +1059,8 @@ CChainParams &Params(const std::string &chain)
         return unlParams;
     else if (chain == CBaseChainParams::NEXTCHAIN)
         return nextChainParams;
+    else if (chain == CBaseChainParams::TAILREG)
+        return tailRegTestParams;
     else
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }

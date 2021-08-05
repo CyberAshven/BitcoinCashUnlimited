@@ -17,6 +17,7 @@ const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::TESTNET4 = "test4";
 const std::string CBaseChainParams::SCALENET = "scale";
 const std::string CBaseChainParams::REGTEST = "regtest";
+const std::string CBaseChainParams::TAILREG = "tailreg";
 const std::string CBaseChainParams::NEXTCHAIN = NEXTCHAIN_TICKER;
 
 /**
@@ -99,6 +100,20 @@ public:
 };
 static CBaseRegTestParams regTestParams;
 
+/*
+ * Tailstorm Regression test
+ */
+class CBaseTailRegParams : public CBaseChainParams
+{
+public:
+    CBaseTailRegParams()
+    {
+        nRPCPort = 48332;
+        strDataDir = "tailreg";
+    }
+};
+static CBaseTailRegParams tailRegParams;
+
 static CBaseChainParams nextChainParams(CBaseChainParams::NEXTCHAIN, 7227);
 
 static CBaseChainParams *pCurrentBaseParams = 0;
@@ -125,6 +140,8 @@ CBaseChainParams &BaseParams(const std::string &chain)
         return regTestParams;
     else if (chain == CBaseChainParams::NEXTCHAIN)
         return nextChainParams;
+    else if (chain == CBaseChainParams::TAILREG)
+        return tailRegParams;
     else
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
