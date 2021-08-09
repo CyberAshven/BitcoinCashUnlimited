@@ -33,7 +33,7 @@ enum
     // "excessive" onto the blockchain.
 
     DEFAULT_COINBASE_RESERVE_SIZE = 1000,
-    MAX_COINBASE_SCRIPTSIG_SIZE = 100,
+    MAX_COINBASE_SCRIPTSIG_SIZE = 102,
     EXCESSIVE_BLOCK_CHAIN_RESET = 6 * 24, // After 1 day of non-excessive blocks, reset the checker
     DEFAULT_CHECKPOINT_DAYS =
         30, // Default for the number of days in the past we check scripts during initial block download
