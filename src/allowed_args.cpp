@@ -706,7 +706,7 @@ static void addRpcServerOptions(AllowedArgs &allowedArgs)
                 BaseParams(CBaseChainParams::MAIN).RPCPort(), BaseParams(CBaseChainParams::TESTNET).RPCPort(),
                 BaseParams(CBaseChainParams::TESTNET4).RPCPort(), BaseParams(CBaseChainParams::SCALENET).RPCPort(),
                 BaseParams(CBaseChainParams::UNL).RPCPort(), BaseParams(CBaseChainParams::REGTEST).RPCPort(),
-                BaseParams(CBaseChainParams::REGTEST).RPCPort()))
+                BaseParams(CBaseChainParams::TAILREG).RPCPort()))
         .addArg("rpcallowip=<ip>", requiredStr,
             _("Allow JSON-RPC connections from specified source. Valid for <ip> are a single IP (e.g. 1.2.3.4), a "
               "network/netmask (e.g. 1.2.3.4/255.255.255.0) or a network/CIDR (e.g. 1.2.3.4/24). This option can be "
@@ -830,7 +830,7 @@ BitcoinCli::BitcoinCli() : AllowedArgs(true)
                 BaseParams(CBaseChainParams::MAIN).RPCPort(), BaseParams(CBaseChainParams::TESTNET).RPCPort(),
                 BaseParams(CBaseChainParams::TESTNET4).RPCPort(), BaseParams(CBaseChainParams::SCALENET).RPCPort(),
                 BaseParams(CBaseChainParams::UNL).RPCPort(), BaseParams(CBaseChainParams::REGTEST).RPCPort(), 
-                BaseParams(CBaseChainParams::REGTEST).RPCPort()))
+                BaseParams(CBaseChainParams::TAILREG).RPCPort()))
         .addArg("rpcwait", optionalBool, _("Wait for RPC server to start"))
         .addArg("rpcuser=<user>", requiredStr, _("Username for JSON-RPC connections"))
         .addArg("rpcpassword=<pw>", requiredStr, _("Password for JSON-RPC connections"))

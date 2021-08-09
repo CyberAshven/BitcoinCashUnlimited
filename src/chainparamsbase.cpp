@@ -162,11 +162,13 @@ std::string ChainNameFromCommandLine()
     num_selected += fUnl;
     bool fNextChain = GetBoolArg("-xnex", false);
     num_selected += fNextChain;
+    bool fTailReg = GetBoolArg("-tailreg", false);
+    num_selected += fTailReg;
     bool fBch = GetBoolArg("-bch", false);
     num_selected += fBch;
 
     if (num_selected > 1)
-        throw std::runtime_error("Invalid combination of -regtest, -testnet, -testnet4, -scalenet and -chain_nol.");
+        throw std::runtime_error("Invalid combination of -regtest, -testnet, -testnet4, -scalenet, -chain_nol, -xnex, -tailreg, and -bch.");
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
@@ -179,6 +181,8 @@ std::string ChainNameFromCommandLine()
         return CBaseChainParams::UNL;
     if (fNextChain)
         return CBaseChainParams::NEXTCHAIN;
+    if (fTailReg)
+        return CBaseChainParams::TAILREG;
     if (fBch)
         return CBaseChainParams::MAIN;
 
