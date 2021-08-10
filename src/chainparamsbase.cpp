@@ -178,7 +178,8 @@ std::string ChainNameFromCommandLine()
     num_selected += fBch;
 
     if (num_selected > 1)
-        throw std::runtime_error("Invalid combination of -regtest, -testnet, -testnet4, -scalenet, -chain_nol, -xnex, -tailreg, and -bch.");
+        throw std::runtime_error(
+            "Invalid combination of -regtest, -testnet, -testnet4, -scalenet, -chain_nol, -xnex, -tailreg, and -bch.");
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)

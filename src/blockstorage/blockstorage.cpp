@@ -29,8 +29,8 @@ uint64_t blockfile_chunk_size = DEFAULT_BLOCKFILE_CHUNK_SIZE;
 uint64_t undofile_chunk_size = DEFAULT_UNDOFILE_CHUNK_SIZE;
 
 /**
-  * Config param to determine what DB type we are using
-  */
+ * Config param to determine what DB type we are using
+ */
 BlockDBMode BLOCK_DB_MODE = DEFAULT_BLOCK_DB_MODE;
 
 void InitializeBlockStorage(const int64_t &_nBlockTreeDBCache,
@@ -484,7 +484,10 @@ bool WriteBlockToDisk(const CTailstormBlock &block,
     return pblockdb->WriteBlock(block, pos);
 }
 
-bool ReadBlockFromDisk(CBlockRef &pblock, const CBlockIndex *pindex, const Consensus::Params &consensusParams, bool tryboth)
+bool ReadBlockFromDisk(CBlockRef &pblock,
+    const CBlockIndex *pindex,
+    const Consensus::Params &consensusParams,
+    bool tryboth)
 {
     // First check the in memory cache
     if (blockcache.GetBlock(pindex->GetBlockHash(), pblock))
@@ -494,7 +497,7 @@ bool ReadBlockFromDisk(CBlockRef &pblock, const CBlockIndex *pindex, const Conse
         return true;
     }
     // if it is not in the memory cache, fetch from disk
-    CBlock* block = new CBlock();
+    CBlock *block = new CBlock();
     if (tryboth == true && pindex->isTailstorm == true)
     {
         CTailstormBlock bblock;
@@ -504,8 +507,7 @@ bool ReadBlockFromDisk(CBlockRef &pblock, const CBlockIndex *pindex, const Conse
         }
         if (bblock.GetHash() != pindex->GetBlockHash())
         {
-            return error(
-                "ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
+            return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
                 __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
         }
         block->nVersion = bblock.nVersion;
@@ -524,8 +526,8 @@ bool ReadBlockFromDisk(CBlockRef &pblock, const CBlockIndex *pindex, const Conse
     }
     if (block->GetHash() != pindex->GetBlockHash())
     {
-        return error("ReadBlockFromDisk(): GetHash() on %u doesn't match index for %s at %s",
-            __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
+        return error("ReadBlockFromDisk(): GetHash() on %u doesn't match index for %s at %s", __LINE__,
+            pindex->ToString(), pindex->GetBlockPos().ToString());
     }
     pblock.reset(std::move(block));
     return true;
@@ -540,7 +542,7 @@ bool ReadBlockFromDisk(CTailstormBlockRef &pblock, const CBlockIndex *pindex, co
             pblock->GetHash().ToString().c_str());
         return true;
     }
-    CTailstormBlock* block = new CTailstormBlock();
+    CTailstormBlock *block = new CTailstormBlock();
     if (!pblockdb->ReadBlock(pindex, *block))
     {
         LOGA("failed to read block with hash %s from leveldb \n", pindex->GetBlockHash().GetHex().c_str());
@@ -695,7 +697,7 @@ bool FlushStateToDiskInternal(CValidationState &state,
                     return AbortNode(state, "Files to write to block index database");
                 }
             }
-            else //we are using a db, not sequential files
+            else // we are using a db, not sequential files
             {
                 // vFiles should be empty for a DB call so insert a blank vector instead
                 std::vector<std::pair<int, const CBlockFileInfo *> > vFilesEmpty;
@@ -761,8 +763,9 @@ bool FlushStateToDiskInternal(CValidationState &state,
 
         nSizeAfterLastFlush = pcoinsTip->DynamicMemoryUsage();
     }
-    if (fDoFullFlush || fFlushForPrune || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) &&
-                                              nNow > nLastSetChain + (int64_t)DATABASE_WRITE_INTERVAL * 1000000))
+    if (fDoFullFlush || fFlushForPrune ||
+        ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) &&
+            nNow > nLastSetChain + (int64_t)DATABASE_WRITE_INTERVAL * 1000000))
     {
         // Update best block in wallet (so we can detect restored wallets).
         GetMainSignals().SetBestChain(chainActive.GetLocator());

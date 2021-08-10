@@ -316,28 +316,6 @@ uint64_t CBlockFileDB::PruneDB(std::set<int> &setFilesToPrune, uint64_t nLastBlo
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix)
 {
     return GetDataDir() / "blocks" / strprintf("%s%05u.dat", prefix, pos.nFile);

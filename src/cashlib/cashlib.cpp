@@ -49,7 +49,7 @@ uint64_t categoriesEnabled = 0; // 64 bit log id mask.
 // I don't want to pull in the args stuff so always pick the defaults
 bool GetBoolArg(const std::string &strArg, bool fDefault) { return fDefault; }
 // cashlib does not support versionbits right now so just supply this which is used in chainparams
-//struct ForkDeploymentInfo
+// struct ForkDeploymentInfo
 //{
 //    /** Deployment name */
 //    const char *name;

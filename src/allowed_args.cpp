@@ -829,7 +829,7 @@ BitcoinCli::BitcoinCli() : AllowedArgs(true)
                         "regtest: %u, tailreg: %u)"),
                 BaseParams(CBaseChainParams::MAIN).RPCPort(), BaseParams(CBaseChainParams::TESTNET).RPCPort(),
                 BaseParams(CBaseChainParams::TESTNET4).RPCPort(), BaseParams(CBaseChainParams::SCALENET).RPCPort(),
-                BaseParams(CBaseChainParams::UNL).RPCPort(), BaseParams(CBaseChainParams::REGTEST).RPCPort(), 
+                BaseParams(CBaseChainParams::UNL).RPCPort(), BaseParams(CBaseChainParams::REGTEST).RPCPort(),
                 BaseParams(CBaseChainParams::TAILREG).RPCPort()))
         .addArg("rpcwait", optionalBool, _("Wait for RPC server to start"))
         .addArg("rpcuser=<user>", requiredStr, _("Username for JSON-RPC connections"))

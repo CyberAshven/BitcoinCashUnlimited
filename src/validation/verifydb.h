@@ -17,6 +17,7 @@ class CVerifyDB
 private:
     bool _VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
     bool _VerifyDB_TS(const CChainParams &chainparams, CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
+
 public:
     CVerifyDB();
     ~CVerifyDB();
