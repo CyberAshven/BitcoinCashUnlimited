@@ -1412,7 +1412,7 @@ bool AppInit2(Config &config)
                 // Initialize the block index (no-op if non-empty database was already loaded)
                 if (chainparams.HasTailstormGenesis())
                 {
-                    if(!InitTailstormBlockIndex(chainparams))
+                    if (!InitTailstormBlockIndex(chainparams))
                     {
                         strLoadError = _("Error initializing block database");
                         break;

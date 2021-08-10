@@ -116,8 +116,8 @@ public:
 
     bool WriteBlock(const CBlock &block, CDiskBlockPos &pos);
     bool WriteBlock(const CTailstormBlock &block, CDiskBlockPos &pos);
-    bool ReadBlock(const CBlockIndex *pindex, CBlock& block);
-    bool ReadBlock(const CBlockIndex *pindex, CTailstormBlock& block);
+    bool ReadBlock(const CBlockIndex *pindex, CBlock &block);
+    bool ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block);
     bool EraseBlock(CBlock &block);
     bool EraseBlock(CTailstormBlock &block);
     bool EraseBlock(const CBlockIndex *pindex);

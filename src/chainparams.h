@@ -119,7 +119,7 @@ public:
         tailstormGenesis.nBits = genesis.nBits;
         tailstormGenesis.vtx.push_back(genesis.vtx[0]);
         tailstormGenesis.subblockHashes.clear();
-        for (uint32_t i=0;i < TAILSTORM_K;i++)
+        for (uint32_t i = 0; i < TAILSTORM_K; i++)
         {
             tailstormGenesis.subblockHashes.insert(ArithToUint256(arith_uint256(i)));
         }

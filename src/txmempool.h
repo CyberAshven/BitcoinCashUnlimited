@@ -243,6 +243,7 @@ struct update_included_dags
 {
     update_included_dags(const int16_t &_dag_id, const bool &_add) : dag_id(_dag_id), add(_add) {}
     void operator()(CTxMemPoolEntry &e) const { e.UpdateIncludedDags(dag_id, add); }
+
 private:
     const int16_t &dag_id;
     const bool &add;

@@ -62,8 +62,8 @@ bool CVerifyDB::_VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview
 
         // check level 1: verify block validity
         if (nCheckLevel >= 1 && !CheckBlock(*pblock, state))
-            return error(
-                "_VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
+            return error("_VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight,
+                pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex)
         {
@@ -180,8 +180,8 @@ bool CVerifyDB::_VerifyDB_TS(const CChainParams &chainparams, CCoinsView *coinsv
 
         // check level 1: verify block validity
         if (nCheckLevel >= 1 && !CheckTailstormBlock(*pblock, state))
-            return error(
-                "_VerifyDB_TS(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
+            return error("_VerifyDB_TS(): *** found bad block at %d, hash=%s\n", pindex->nHeight,
+                pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex)
         {
@@ -217,8 +217,8 @@ bool CVerifyDB::_VerifyDB_TS(const CChainParams &chainparams, CCoinsView *coinsv
             return true;
     }
     if (pindexFailure)
-        return error(
-            "_VerifyDB_TS(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n",
+        return error("_VerifyDB_TS(): *** coin database inconsistencies found (last %i blocks, %i good transactions "
+                     "before that)\n",
             chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
 
     // check level 4: try reconnecting blocks

@@ -652,10 +652,11 @@ bool LoadExternalBlockFile(const CChainParams &chainparams, FILE *fileIn, CDiskB
                             // Check the header
                             if (CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
                             {
-                                LOGA("%s: Processing out of order child %s of %s\n", __func__, pblock->GetHash().ToString(),
-                                    head.ToString());
+                                LOGA("%s: Processing out of order child %s of %s\n", __func__,
+                                    pblock->GetHash().ToString(), head.ToString());
                                 CValidationState dummy;
-                                if (ProcessNewBlock(dummy, chainparams, nullptr, pblock.get(), true, &it->second, false))
+                                if (ProcessNewBlock(
+                                        dummy, chainparams, nullptr, pblock.get(), true, &it->second, false))
                                 {
                                     nLoaded++;
                                     queue.push_back(pblock->GetHash());
