@@ -39,6 +39,7 @@ extern std::multimap<CBlockIndex *, CBlockIndex *> mapBlocksUnlinked;
 extern std::set<CBlockIndex *, CBlockIndexWorkComparator> setBlockIndexCandidates GUARDED_BY(cs_main);
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
+extern int ApplyTxInUndo(Coin &&undo, CCoinsViewCache &view, const COutPoint &out);
 
 bool InitTailstormBlockIndex(const CChainParams &chainparams)
 {
@@ -773,6 +774,10 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
         for (unsigned int i = 0; i < block.vtx.size(); i++)
         {
             const CTransaction &tx = *(block.vtx[i]);
+            if (tx.IsProofBase())
+            {
+                continue;
+            }
             try
             {
                 AddCoins(view, tx, pindex->nHeight);
@@ -992,6 +997,93 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
     return true;
 }
 
+/** Undo the effects of this block (with given index) on the UTXO set represented by coins.
+ *  When UNCLEAN or FAILED is returned, view is left in an indeterminate state. */
+DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CBlockIndex *pindex, CCoinsViewCache &view)
+{
+    assert(pindex->GetBlockHash() == view.GetBestBlock());
+
+    bool fClean = true;
+
+    CBlockUndo blockUndo;
+    CDiskBlockPos pos = pindex->GetUndoPos();
+    // blockdb mode does not use the file pos system
+    if (pos.IsNull() && BLOCK_DB_MODE == SEQUENTIAL_BLOCK_FILES)
+    {
+        error("DisconnectTailstormBlock(): no undo data available");
+        return DISCONNECT_FAILED;
+    }
+    if (!ReadUndoFromDisk(blockUndo, pos, pindex->pprev))
+    {
+        error("DisconnectTailstormBlock(): failure reading undo data");
+        return DISCONNECT_FAILED;
+    }
+    if (blockUndo.vtxundo.size() + 1 != block.vtx.size())
+    {
+        error("DisconnectTailstormBlock(): block and undo data inconsistent");
+        return DISCONNECT_FAILED;
+    }
+    // undo transactions in reverse of the OTI algorithm order (so add inputs first, then remove outputs)
+    // we can use this algorithm for both dtor and ctor because we are undoing a validated block so
+    // we already know that the block is valid.
+
+    // restore inputs
+    for (unsigned int i = 1; i < block.vtx.size(); i++) // i=1 to skip the coinbase, it has no inputs
+    {
+        const CTransaction &tx = *(block.vtx[i]);
+        // skip proofbase txs. they are not real transactions
+        if (tx.IsProofBase())
+        {
+            continue;
+        }
+        CTxUndo &txundo = blockUndo.vtxundo[i - 1];
+        if (txundo.vprevout.size() != tx.vin.size())
+        {
+            error("DisconnectTailstormBlock(): transaction and undo data inconsistent");
+            return DISCONNECT_FAILED;
+        }
+        for (unsigned int j = tx.vin.size(); j-- > 0;)
+        {
+            const COutPoint &out = tx.vin[j].prevout;
+            int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out);
+            if (res == DISCONNECT_FAILED)
+            {
+                error("DisconnectTailstormBlock(): ApplyTxInUndo failed");
+                return DISCONNECT_FAILED;
+            }
+            fClean = fClean && res != DISCONNECT_UNCLEAN;
+        }
+        // At this point, all of txundo.vprevout should have been moved out.
+    }
+
+    // remove outputs
+    for (unsigned int i = 0; i < block.vtx.size(); i++)
+    {
+        const CTransaction &tx = *(block.vtx[i]);
+        uint256 hash = tx.GetHash();
+
+        // Check that all outputs are available and match the outputs in the block itself exactly.
+        for (size_t o = 0; o < tx.vout.size(); o++)
+        {
+            if (!tx.vout[o].scriptPubKey.IsUnspendable())
+            {
+                COutPoint out(hash, o);
+                Coin coin;
+                view.SpendCoin(out, &coin);
+                if (tx.vout[o] != coin.out)
+                {
+                    error("DisconnectTailstormBlock(): transaction output mismatch");
+                    fClean = false; // transaction output mismatch
+                }
+            }
+        }
+    }
+
+    // move best block pointer to prevout block
+    view.SetBestBlock(pindex->pprev->GetBlockHash());
+
+    return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
+}
 
 /**
  * Connect a new block to chainActive. pblock is either nullptr or a pointer to a CBlock

@@ -54,6 +54,8 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
     const CChainParams &chainparams,
     bool fJustCheck = false);
 
+DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CBlockIndex *pindex, CCoinsViewCache &view);
+
 /**
  * Process an incoming block. This only returns after the best known valid
  * block is made active. Note that it does not, however, guarantee that the
