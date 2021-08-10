@@ -21,6 +21,13 @@ class CBlockIndex;
 class CScript;
 class CTxMemPoolEntry;
 
+enum DisconnectResult
+{
+    DISCONNECT_OK, // All good.
+    DISCONNECT_UNCLEAN, // Rolled back, but UTXO set was inconsistent with block.
+    DISCONNECT_FAILED // Something else went wrong.
+};
+
 // Return true if this transaction can only be committed post-fork
 bool IsTxUAHFOnly(const CTxMemPoolEntry &tx);
 
