@@ -774,6 +774,10 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
         for (unsigned int i = 0; i < block.vtx.size(); i++)
         {
             const CTransaction &tx = *(block.vtx[i]);
+            if (tx.IsProofBase())
+            {
+                continue;
+            }
             try
             {
                 AddCoins(view, tx, pindex->nHeight);
@@ -1027,6 +1031,11 @@ DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CB
     for (unsigned int i = 1; i < block.vtx.size(); i++) // i=1 to skip the coinbase, it has no inputs
     {
         const CTransaction &tx = *(block.vtx[i]);
+        // skip proofbase txs. they are not real transactions
+        if (tx.IsProofBase())
+        {
+            continue;
+        }
         CTxUndo &txundo = blockUndo.vtxundo[i - 1];
         if (txundo.vprevout.size() != tx.vin.size())
         {
