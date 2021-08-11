@@ -668,7 +668,6 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
-        fTailstormGenesis = true;
 
         checkpointData = (CCheckpointData){
             {{0, uint256S("0xaa258934f701130c37bba436aa497c2dcd25b884ef1f4f4ee80598fa76e81526")}}, 0, 0, 0};
