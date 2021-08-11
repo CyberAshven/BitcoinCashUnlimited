@@ -28,7 +28,11 @@ bool CBlockCache::GetBlock(const uint256 &hash, CTailstormBlockRef &pblock) cons
     return pblock != nullptr;
 }
 
-void CBlockCache::_AddBlock(const uint256 &hash, const BlockType &blockType, const uint64_t &blockSize, std::shared_ptr<void> pblock, uint64_t nHeight)
+void CBlockCache::_AddBlock(const uint256 &hash,
+    const BlockType &blockType,
+    const uint64_t &blockSize,
+    std::shared_ptr<void> pblock,
+    uint64_t nHeight)
 {
     WRITELOCK(cs_blockcache);
 
