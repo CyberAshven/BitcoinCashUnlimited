@@ -553,8 +553,8 @@ public:
         consensus.hashGenesisBlock = tailGenesis.GetHash();
         assert(consensus.hashGenesisBlock ==
                uint256S("0xb280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01"));
-        assert(
-            tailGenesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+        assert(tailGenesis.hashMerkleRoot ==
+               uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
         vSeeds.clear(); //! Regtest mode doesn't have any DNS seeds.

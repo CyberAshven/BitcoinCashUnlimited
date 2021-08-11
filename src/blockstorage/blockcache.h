@@ -58,8 +58,11 @@ public:
     void EraseBlock(const uint256 &hash);
 
 private:
-    void _AddBlock(const uint256 &hash, const BlockType &blockType,
-        const uint64_t &blockSize, std::shared_ptr<void> pblock, uint64_t nHeight);
+    void _AddBlock(const uint256 &hash,
+        const BlockType &blockType,
+        const uint64_t &blockSize,
+        std::shared_ptr<void> pblock,
+        uint64_t nHeight);
 
     std::shared_ptr<void> _GetBlock(const uint256 &hash, const BlockType &blockType) const;
 
