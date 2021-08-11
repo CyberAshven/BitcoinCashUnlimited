@@ -438,7 +438,8 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
             if (pcursor->GetValue(diskindex))
             {
                 // Construct block index object
-                LOG(WB, "!!!This is the last place where I can see pindexNew being set to the wrong hash value: %s\n", diskindex.GetBlockHash().ToString());
+                LOG(WB, "!!!This is the last place where I can see pindexNew being set to the wrong hash value: %s\n",
+                    diskindex.GetBlockHash().ToString());
                 uint256 hash;
                 if (diskindex.isTailstorm)
                 {

@@ -167,6 +167,8 @@ bool ValidateNetwork(const string& networkname)
         return true;
     else if (networkname == CBaseChainParams::REGTEST)
         return true;
+    else if (networkname == CBaseChainParams::TAILREG)
+        return true;
     else
         return false;
 }

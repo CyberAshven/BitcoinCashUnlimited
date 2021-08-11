@@ -830,7 +830,8 @@ void InitLogging()
     // Some QA tests depend on debug.log being written to, so default
     // to always print to log file on regtest.
     const bool regtest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
-    fPrintToDebugLog = GetBoolArg("-printtologfile", !fPrintToConsole || regtest);
+    const bool tailreg = Params().NetworkIDString() == CBaseChainParams::TAILREG;
+    fPrintToDebugLog = GetBoolArg("-printtologfile", !fPrintToConsole || regtest || tailreg);
 
     fLogTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     fLogTimeMicros = GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
@@ -924,7 +925,7 @@ bool AppInit2(Config &config)
 
     // also see: InitParameterInteraction()
 
-    if (chainparams.NetworkIDString() == "regtest")
+    if (chainparams.NetworkIDString() == "regtest" || chainparams.NetworkIDString() == "tailreg")
     {
         max_blockfile_size = MAX_BLOCKFILE_SIZE_REGTEST;
     }
@@ -1411,7 +1412,7 @@ bool AppInit2(Config &config)
                 // Initialize the block index (no-op if non-empty database was already loaded)
                 if (chainparams.HasTailstormGenesis())
                 {
-                    if(!InitTailstormBlockIndex(chainparams))
+                    if (!InitTailstormBlockIndex(chainparams))
                     {
                         strLoadError = _("Error initializing block database");
                         break;
@@ -1520,14 +1521,14 @@ bool AppInit2(Config &config)
     // Set fCanonicalTxsOrder for the BCH early in the bootstrap phase
     if (IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
     {
-        if (chainparams.NetworkIDString() != "regtest")
+        if (chainparams.NetworkIDString() != "regtest" && chainparams.NetworkIDString() != "tailreg")
         {
             fCanonicalTxsOrder = true;
         }
     }
     else
     {
-        if (chainparams.NetworkIDString() != "regtest")
+        if (chainparams.NetworkIDString() != "regtest" && chainparams.NetworkIDString() != "tailreg")
         {
             fCanonicalTxsOrder = false;
         }

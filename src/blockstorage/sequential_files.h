@@ -20,16 +20,14 @@
 class CBlockFileDB : public CDatabaseAbstract
 {
 public:
-    CBlockFileDB(){}
+    CBlockFileDB() {}
 
 private:
     CBlockFileDB(const CBlockFileDB &);
     void operator=(const CBlockFileDB &);
 
 public:
-    ~CBlockFileDB()
-    {
-    }
+    ~CBlockFileDB() {}
 
     bool WriteBlock(const CBlock &block, CDiskBlockPos &pos);
     bool WriteBlock(const CTailstormBlock &block, CDiskBlockPos &pos);

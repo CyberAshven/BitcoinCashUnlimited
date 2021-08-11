@@ -49,7 +49,7 @@ uint64_t categoriesEnabled = 0; // 64 bit log id mask.
 // I don't want to pull in the args stuff so always pick the defaults
 bool GetBoolArg(const std::string &strArg, bool fDefault) { return fDefault; }
 // cashlib does not support versionbits right now so just supply this which is used in chainparams
-//struct ForkDeploymentInfo
+// struct ForkDeploymentInfo
 //{
 //    /** Deployment name */
 //    const char *name;
@@ -68,6 +68,7 @@ typedef enum
     AddrBlockchainBCHregtest = 3,
     AddrBlockchainNol = 4,
     AddrBlockchainNextChain = 5,
+    AddrBlockchainTailReg = 6,
 } ChainSelector;
 
 CChainParams *GetChainParams(ChainSelector chainSelector)
@@ -82,6 +83,8 @@ CChainParams *GetChainParams(ChainSelector chainSelector)
         return &Params(CBaseChainParams::UNL);
     else if (chainSelector == AddrBlockchainNextChain)
         return &Params(CBaseChainParams::NEXTCHAIN);
+    else if (chainSelector == AddrBlockchainTailReg)
+        return &Params(CBaseChainParams::TAILREG);
     else
         return nullptr;
 }
