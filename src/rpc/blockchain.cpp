@@ -860,6 +860,15 @@ static UniValue getblock(const UniValue &params, bool fHelp)
         fListTxns = !(is_param_trueish(params[2]));
     }
 
+    bool fVerbose = false;
+    if (nVerbose == 1)
+        fVerbose = false;
+    else if (nVerbose == 2)
+        fVerbose = true;
+
+    if (pindex->isTailstorm)
+        return TailstormBlockToJSON(pindex, fVerbose, fListTxns);
+
     const CBlock block = GetBlockChecked(pindex);
 
     if (nVerbose == 0 && fListTxns == true)
@@ -869,12 +878,6 @@ static UniValue getblock(const UniValue &params, bool fHelp)
         std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
         return strHex;
     }
-
-    bool fVerbose = false;
-    if (nVerbose == 1)
-        fVerbose = false;
-    else if (nVerbose == 2)
-        fVerbose = true;
 
     return blockToJSON(block, pindex, fVerbose, fListTxns);
 }

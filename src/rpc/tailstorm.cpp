@@ -34,6 +34,74 @@
 extern CTailstormDagSet tailstormDagSet;
 extern std::set<CTailstormBlock> tailstormBlocks;
 
+UniValue TailstormBlockToJSON(CTailstormBlockRef block, const CBlockIndex *blockindex, bool txDetails, bool listTxns)
+{
+    DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
+    DbgAssert(blockindex->isTailstorm, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with normal block"));
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("hash", blockindex->GetBlockHash().GetHex());
+    int confirmations = -1;
+    // Only report confirmations if the block is on the main chain
+    if (chainActive.Contains(blockindex))
+        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+    result.pushKV("confirmations", confirmations);
+    result.pushKV("size", (int)::GetSerializeSize(*block, SER_NETWORK, PROTOCOL_VERSION));
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", block->nVersion);
+    result.pushKV("versionHex", strprintf("%08x", block->nVersion));
+    result.pushKV("time", block->GetBlockTime());
+    result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
+    result.pushKV("bits", strprintf("%08x", block->nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    if (blockindex->pprev)
+        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
+    CBlockIndex *pnext = chainActive.Next(blockindex);
+    if (pnext)
+        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+
+    UniValue txs(UniValue::VARR);
+    if (listTxns)
+    {
+        int64_t txTime = -1; // Don't display the time in the tx because its in the block data.
+        for (const auto &tx : block->vtx)
+        {
+            if (txDetails)
+            {
+                UniValue objTx(UniValue::VOBJ);
+                TxToJSON(*tx, txTime, uint256(), objTx);
+                txs.push_back(objTx);
+            }
+            else
+            {
+                txs.push_back(tx->GetHash().GetHex());
+            }
+        }
+        result.pushKV("tx", txs);
+    }
+    else
+    {
+        result.pushKV("txcount", (uint64_t)block->vtx.size());
+    }
+    return result;
+}
+
+UniValue TailstormBlockToJSON(const CBlockIndex *blockindex, bool txDetails, bool listTxns)
+{
+    DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
+    DbgAssert(blockindex->isTailstorm, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with normal block"));
+
+    CTailstormBlockRef block(new CTailstormBlock);
+    if (!ReadBlockFromDisk(block, blockindex, Params().GetConsensus()))
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot access tailstorm block");
+    }
+
+    return TailstormBlockToJSON(block, blockindex, txDetails, listTxns);
+}
+
+
 UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     int nSubGenerate=0,
     int nBobGenerate=0,

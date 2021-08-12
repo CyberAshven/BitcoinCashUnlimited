@@ -63,3 +63,14 @@ class TailstormBlocksTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     TailstormBlocksTest().main()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = TailstormBlocksTest()
+    t.drop_to_pdb = True
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+    }
+
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

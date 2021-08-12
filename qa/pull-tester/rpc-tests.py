@@ -274,10 +274,10 @@ testScripts = [ RpcTest(t) for t in [
     'schnorrmultisig',
     'uptime',
     'op_reversebytes',
-    'bobtail.py',
-    'bobtail_compact.py',
-    'bobtail_graphene.py',
-    'subblocks.py',
+    'bobtail',
+    'bobtail_compact',
+    'bobtail_graphene',
+    'subblocks',
 ] ]
 
 testScriptsExt = [ RpcTest(t) for t in [

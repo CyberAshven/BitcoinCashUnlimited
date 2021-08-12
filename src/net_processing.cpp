@@ -146,7 +146,13 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             auto iter = mapBlockIndex.find(inv.hash);
             if (iter != mapBlockIndex.end())
             {
-                if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
+                if (iter->second->isTailstorm == false)
+                {
+                    LOG(NET, "Peer %s requested non tailstorm block %s as tailstorm", pfrom->GetLogName(),
+                        inv.hash.ToString());
+                    vNotFound.push_back(inv);
+                }
+                else if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
                 {
                     // We don't have the block yet, although we know about it.
                     LOG(NET, "Peer %s requested block %s that cannot be read", pfrom->GetLogName(),
