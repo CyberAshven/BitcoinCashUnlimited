@@ -1447,7 +1447,7 @@ bool AppInit2(Config &config)
                 // we intentionally do not check if tip is a nullptr here
                 // ActivateBestChain has already been called in either LoadBlockIndex or InitBlockIndex, if tip
                 // is nullptr here then there is a critical error somewhere
-                if (tip->nTime > GetAdjustedTime() + 2 * 60 * 60)
+                if (tip->nTime > (uint64_t)GetAdjustedTime() + 2 * 60 * 60)
                 {
                     strLoadError = _("The block database contains a block which appears to be from the future. "
                                      "This may be due to your computer's date and time being set incorrectly. "

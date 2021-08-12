@@ -67,6 +67,8 @@ if __name__ == '__main__':
 # Create a convenient function for an interactive python debugging session
 def Test():
     t = TailstormBlocksTest()
+    # logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
     t.drop_to_pdb = True
     bitcoinConf = {
         "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],

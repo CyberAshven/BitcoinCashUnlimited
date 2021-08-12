@@ -2269,7 +2269,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         vRecv >> tailstormblock;
 
         CValidationState state;
-        const CChainParams &chainparams = Params();
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
         ProcessNewTailstormBlock(state, chainparams, pfrom, &tailstormblock, forceProcessing, nullptr);
     }

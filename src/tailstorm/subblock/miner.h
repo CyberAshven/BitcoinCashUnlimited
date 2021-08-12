@@ -107,6 +107,4 @@ private:
 // Force block template recalculation the next time a template is requested
 void SignalBlockTemplateChange();
 
-void IncrementExtraNonce(CSubBlock *pblock, unsigned int &nExtraNonce);
-
 #endif // BITCOIN_MINER_H

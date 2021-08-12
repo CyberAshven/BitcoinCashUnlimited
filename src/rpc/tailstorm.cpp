@@ -111,7 +111,6 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
 {
     static const int nInnerLoopCount = 0x10000;
 
-    unsigned int nExtraNonce = 0;
     UniValue blockHashes(UniValue::VARR);
 
     int numSubBlocks = 0;
@@ -138,10 +137,8 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
 
         LOG(WB, "Using delta block for RPC generate.\n");
         CSubBlock *pblock = pblocktemplate->subblock.get();
-        {
-            // LOCK(cs_main);
-            IncrementExtraNonce(pblock, nExtraNonce);
-        }
+        // GAS TODO: Bigger nonce to obsolete the extra nonce
+        //IncrementExtraNonce(pblock, nExtraNonce);
 
         // Generally look for weak PoW
         while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount &&
@@ -441,14 +438,19 @@ UniValue gettailstorminfo(const UniValue &params, bool fHelp)
     return obj;
 }
 
-
+/* clang-format off */
 static const CRPCCommand commands[] = {
     //  category              name                      actor (function)         okSafeMode
     //  --------------------- ------------------------  -----------------------  ----------
-    {"generating", "generatesubblocks", &generatesubblocks, true}, {"generating", "generatetailstormblocks", &generatetailstormblocks, true},
-    {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true}, {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
-    {"tailstorm", "getdaginfo", &getdaginfo, true}, {"tailstorm", "getdagtips", &getdagtips, true}, {"tailstorm", "gettailstorminfo", &gettailstorminfo, true}
+    {"generating", "generatesubblocks", &generatesubblocks, true},
+    {"generating", "generatetailstormblocks", &generatetailstormblocks, true},
+    {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
+    {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
+    {"tailstorm", "getdaginfo", &getdaginfo, true},
+    {"tailstorm", "getdagtips", &getdagtips, true},
+    {"tailstorm", "gettailstorminfo", &gettailstorminfo, true}
 };
+/* clang-format on */
 
 void RegisterTailstormRPCCommands(CRPCTable &table)
 {
