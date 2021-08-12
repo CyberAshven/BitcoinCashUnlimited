@@ -15,6 +15,8 @@ void RegisterValidationInterface(CValidationInterface *pwalletIn)
     g_signals.UpdatedBlockTip.connect(boost::bind(&CValidationInterface::UpdatedBlockTip, pwalletIn, boost::arg<1>()));
     g_signals.SyncTransaction.connect(boost::bind(
         &CValidationInterface::SyncTransaction, pwalletIn, boost::arg<1>(), boost::arg<2>(), boost::arg<3>()));
+    g_signals.SyncTransaction_BT.connect(boost::bind(
+        &CValidationInterface::SyncTransaction_BT, pwalletIn, boost::arg<1>(), boost::arg<2>(), boost::arg<3>()));
     g_signals.SyncDoubleSpend.connect(boost::bind(&CValidationInterface::SyncDoubleSpend, pwalletIn, boost::arg<1>()));
     g_signals.UpdatedTransaction.connect(
         boost::bind(&CValidationInterface::UpdatedTransaction, pwalletIn, boost::arg<1>()));

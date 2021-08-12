@@ -18,11 +18,14 @@ class CTailstormBlockHeader
 public:
     // header
     static const int32_t CURRENT_VERSION = TAILSTORM_BASE_VERSION;
+    // GAS TODO: Verify that time is deterministically derived from subblocks (how? maybe max)
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
+    // GAS TODO: Verify that time is deterministically derived from subblock time (max)
     int64_t nTime;
     uint32_t nBits;
+    // GAS TODO: redundant with subblockNTxMap, remove
     std::set<uint256> subblockHashes;
     std::map<uint256, uint32_t> subblockNTxMap;
 
@@ -37,8 +40,23 @@ public:
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
+        // GAS TODO sort these before hash serialization to prevent malleability
+        // add validation check to prove they are sorted
         READWRITE(subblockHashes);
+        // GAS TODO sort these before hash serialization to prevent malleability
+        // add validation check to prove they are sorted
         READWRITE(subblockNTxMap);
+    }
+
+    int GetSubblockHashes(std::set<uint256>& out)
+    {
+        int ret = 0;
+        for (auto const &item : subblockNTxMap)
+        {
+            out.insert(item.first);
+            ret++;
+        }
+        return ret;
     }
 
     void SetNull()
@@ -166,6 +184,7 @@ public:
                     return true;
                 }
             }
+            DbgAssert(false, return false); // its in hashes so must be in decodedMap
             return false;
         }
         return false;

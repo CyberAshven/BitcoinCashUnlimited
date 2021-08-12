@@ -95,6 +95,29 @@ const CWalletTx *CWallet::GetWalletTx(const uint256 &hash) const
     return &(it->second);
 }
 
+// create a pay to public key hash script
+CScript p2pkh(const CKeyID &dest)
+{
+    CScript script = CScript() << OP_DUP << OP_HASH160 << ToByteVector(dest) << OP_EQUALVERIFY << OP_CHECKSIG;
+    return script;
+}
+
+CScript p2pkh(const CPubKey &dest)
+{
+    CScript script = CScript() << OP_DUP << OP_HASH160 << ToByteVector(dest.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    return script;
+}
+
+CScript p2sh(const CScriptID &dest)
+{
+    CScript script;
+
+    script.clear();
+    script << OP_HASH160 << ToByteVector(dest) << OP_EQUAL;
+    return script;
+}
+
+
 CPubKey CWallet::GenerateNewKey()
 {
     AssertLockHeld(cs_wallet); // mapKeyMetadata
@@ -3694,7 +3717,9 @@ void CWallet::GetScriptForMining(boost::shared_ptr<CReserveScript> &script)
         return;
 
     script = rKey;
-    script->reserveScript = CScript() << ToByteVector(pubkey) << OP_CHECKSIG;
+    // P2PK script->reserveScript = CScript() << ToByteVector(pubkey) << OP_CHECKSIG;
+    // Use a P2PKH
+    script->reserveScript = p2pkh(pubkey);
 }
 
 void CWallet::LockCoin(COutPoint &output)

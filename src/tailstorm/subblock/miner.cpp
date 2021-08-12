@@ -64,41 +64,6 @@ extern CTailstormDagSet tailstormDagSet;
 uint64_t tailstorm_nLastBlockTx = 0;
 uint64_t tailstorm_nLastBlockSize = 0;
 
-void IncrementExtraNonce(CSubBlock *pblock, unsigned int &nExtraNonce)
-{
-    // Update nExtraNonce
-    static uint256 hashPrevBlock;
-    if (hashPrevBlock != pblock->hashPrevBlock)
-    {
-        nExtraNonce = 0;
-        hashPrevBlock = pblock->hashPrevBlock;
-    }
-    ++nExtraNonce;
-    // height not required for subblocks
-    CMutableTransaction txCoinbase(*pblock->vtx[0]);
-
-    CScript script = (CScript() << CScriptNum(nExtraNonce));
-    CScript cbFlags;
-    {
-        LOCK(cs_coinbaseFlags);
-        cbFlags = COINBASE_FLAGS;
-    }
-    if (script.size() + cbFlags.size() > MAX_COINBASE_SCRIPTSIG_SIZE)
-    {
-        cbFlags.resize(MAX_COINBASE_SCRIPTSIG_SIZE - script.size());
-    }
-    txCoinbase.vin[0].scriptSig = script + cbFlags;
-    assert(txCoinbase.vin[0].scriptSig.size() <= MAX_COINBASE_SCRIPTSIG_SIZE);
-
-    // On BCH if Nov15th 2018 has been activated make sure the coinbase is big enough
-    uint64_t nCoinbaseSize = ::GetSerializeSize(txCoinbase, SER_NETWORK, PROTOCOL_VERSION);
-    if (nCoinbaseSize < MIN_TX_SIZE && IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
-    {
-        txCoinbase.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
-    }
-    pblock->vtx[0] = (MakeTransactionRef(std::move(txCoinbase)));
-    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-}
 
 SubBlockAssembler::SubBlockAssembler(const CChainParams &_chainparams)
     : chainparams(_chainparams), nBlockSize(0), nBlockTx(0), nBlockSigOps(0), nFees(0), nHeight(0), nLockTimeCutoff(0),
@@ -191,6 +156,7 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
         }
     }
 
+    /* GAS remove, overwriting the scriptpubkeyin which was put in the scriptSig
     // BU005 add block size settings to the coinbase
     std::string cbmsg = FormatCoinbaseMessage(BUComments, minerComment);
     const char *cbcstr = cbmsg.c_str();
@@ -214,6 +180,7 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
     {
         tx.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
     }
+    */
 
     return MakeTransactionRef(std::move(tx));
 }
@@ -304,6 +271,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         pblocktemplate->vTxSigOps[0] = 0;
     }
 
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
     // All the transactions in this block are from the mempool and therefore we can use XVal to speed
     // up the testing of the block validity. Set XVal flag for new blocks to true unless otherwise
     // configured.

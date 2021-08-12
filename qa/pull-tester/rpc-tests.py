@@ -273,11 +273,11 @@ testScripts = [ RpcTest(t) for t in [
     'minimaldata',
     'schnorrmultisig',
     'uptime',
-    Disabled('op_reversebytes', "reversebytes activated from genesis on nextchain")
-    'bobtail.py',
-    'bobtail_compact.py',
-    'bobtail_graphene.py',
-    'subblocks.py',
+    Disabled('op_reversebytes',"reversebytes activated from genesis on nextchain")
+    'bobtail',
+    'bobtail_compact',
+    'bobtail_graphene',
+    'subblocks',
 ] ]
 
 testScriptsExt = [ RpcTest(t) for t in [

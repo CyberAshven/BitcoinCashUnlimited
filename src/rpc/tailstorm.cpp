@@ -33,6 +33,280 @@
 
 extern CTailstormDagSet tailstormDagSet;
 extern std::set<CTailstormBlock> tailstormBlocks;
+UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns);
+
+
+bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
+{
+    // This would be a lot faster if a map of subblocks to heights was maintained.  But it may not be worth doing
+    // this for this API which will be called rarely outside of test
+
+    // go backwards because likely most interested in recent subblocks
+    if (chain.Tip() == nullptr) return false;
+
+    int height = chain.Tip()->nHeight;
+    for (int h = height; h>0; h--)
+    {
+        CBlockIndex* blkidx = chain[h];
+        DbgAssert(blkidx, return false);  // Should never be null because we are starting from tip height to 1
+        if (!blkidx->isTailstorm) continue;
+        if (blkidx->subblockNTxMap.count(hash) == 0) continue;
+
+        CTailstormBlockRef block(new CTailstormBlock);
+        if (!ReadBlockFromDisk(block, blkidx, Params().GetConsensus()))
+        {
+            // TODO dont assert if pruned
+            DbgAssert(false, return false);  // We should be able to read every block we have data on
+        }
+        if (!block->GetSubBlock(hash, out))
+        {
+            DbgAssert(false, return false);  // Hash must be here because we found it in the NtxMap
+        }
+        return true;
+    }
+    return false;
+}
+
+static UniValue getsubblock(const UniValue &params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 3)
+        throw std::runtime_error(
+            "getsubblock hash_or_height ( verbosity ) ( tx_count )\n"
+            "\nUse blockHeight:subblockIndex to specify a subblock by height\n"
+            "If verbosity is 0, returns a string that is serialized, hex-encoded data for block 'hash'.\n"
+            "If verbosity is 1, returns the block header with a list of transaction hashes in the block\n"
+            "If verbosity is 2, returns the block header with a list of all decoded transaction details in the block\n"
+            "If tx_count is true, returns a block header with a count of all transactions in the block.\n"
+            "\nArguments:\n"
+            "1. \"hash_or_height\"      (string|numeric, required) The block hash or height.\n"
+            "2. \"verbosity\"           (numeric, optional, default=1) 0 for hex-encoded data, 1 \n"
+            "                          for a block header with list of txn hashes, and 2 for a block header with \n"
+            "                          detailed transaction data.\n"
+            "3. \"tx_count\"            (boolean, optional, default=false true to get a block header with a count of \n"
+            "                          of transactions in the block.\n"
+            "\nResult (for verbosity = 1, tx_count = false):\n"
+            "{\n"
+            "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
+            "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main "
+            "chain\n"
+            "  \"size\" : n,            (numeric) The block size\n"
+            "  \"height\" : n,          (numeric) The block height or index\n"
+            "  \"version\" : n,         (numeric) The block version\n"
+            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
+            "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"tx\" : [               (array of string) The transaction ids\n"
+            "     \"transactionid\"     (string) The transaction id\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"nonce\" : n,           (numeric) The nonce\n"
+            "  \"bits\" : \"1d00ffff\", (string) The bits\n"
+            "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
+            "  \"chainwork\" : \"xxxx\",  (string) Expected number of hashes required to produce the chain up to this "
+            "block (in hex)\n"
+            "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
+            "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
+            "}\n"
+            "\nResult (for verbosity = 2, tx_count = false):\n"
+            "{\n"
+            "Same as for verbosity = 1 but with all the un-encoded details of each transaction\n"
+            "}\n"
+            "\nResult (for verbosity=0):\n"
+            "\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n"
+            "\nExamples:\n" +
+            HelpExampleCli("getblock", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"") +
+            HelpExampleRpc("getblock", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\""));
+
+    const std::string param0 = params[0].get_str();
+    CSubBlock subblock;
+    bool found = false;
+    if (param0.find(':') == std::string::npos)  // not found, so must be a hash
+    {
+        // Grab the subblock by hash
+        const uint256 hash(uint256S(param0));
+
+        // Look to see if its an active subblock
+        {
+            LOCK(cs_tipDagCache);
+            CSubBlock sb;
+            found = tailstormDagSet.Find(hash, sb);
+        }
+
+        if (!found)  // Look for a dag subblock
+        {
+            std::map<uint256, CDagNode>::iterator iter;
+            LOCK(cs_tipDagCache);
+            iter = tipDagCache.find(hash);
+            if (iter != tipDagCache.end())
+            {
+                subblock = iter->second.subblock;
+                found = true;
+            }
+        }
+
+        if (!found)  // Look for a committed subblock
+        {
+            found = FindCommittedSubblock(chainActive, hash, subblock);
+        }
+    }
+    else
+    {
+        // TODO find the height and index
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "unimplemented");
+    }
+
+    int nVerbose = 1;
+    bool fListTxns = true;
+    if (params.size() > 1)
+    {
+        if (params[1].isNum())
+            nVerbose = params[1].get_int();
+        else
+            nVerbose = IsStringTrue(params[1].get_str());
+    }
+    if (params.size() == 3)
+    {
+        fListTxns = !(IsStringTrue(params[2].get_str()));
+    }
+
+    bool fVerbose = false;
+    if (nVerbose == 1)
+        fVerbose = false;
+    else if (nVerbose == 2)
+        fVerbose = true;
+
+    if (nVerbose == 0 && fListTxns == true)
+    {
+        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+        ssBlock << subblock;
+        std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+        return strHex;
+    }
+
+    return SubblockToJSON(subblock, fVerbose, fListTxns);
+}
+
+
+UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns)
+{
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("hash", block.GetHash().GetHex());
+    result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
+    result.pushKV("version", block.nVersion);
+    result.pushKV("versionHex", strprintf("%08x", block.nVersion));
+    result.pushKV("time", block.GetBlockTime());
+    result.pushKV("bits", strprintf("%08x", block.nBits));
+    result.pushKV("difficulty", GetDifficulty(block.nBits));
+    result.pushKV("previousblockhash", block.hashPrevBlock.GetHex());
+    result.pushKV("merkleroothash", block.hashMerkleRoot.GetHex());
+
+    UniValue txs(UniValue::VARR);
+    if (listTxns)
+    {
+        int64_t txTime = -1; // Don't display the time in the tx because its in the block data.
+        for (const auto &tx : block.vtx)
+        {
+            if (txDetails)
+            {
+                UniValue objTx(UniValue::VOBJ);
+                TxToJSON(*tx, txTime, uint256(), objTx);
+                txs.push_back(objTx);
+            }
+            else
+            {
+                txs.push_back(tx->GetHash().GetHex());
+            }
+        }
+        result.pushKV("tx", txs);
+    }
+    else
+    {
+        result.pushKV("txcount", (uint64_t)block.vtx.size());
+    }
+    
+    return result;
+}
+
+
+
+UniValue TailstormBlockToJSON(CTailstormBlockRef block, const CBlockIndex *blockindex, bool txDetails, bool listTxns)
+{
+    DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
+    DbgAssert(blockindex->isTailstorm, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with normal block"));
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("hash", blockindex->GetBlockHash().GetHex());
+    int confirmations = -1;
+    // Only report confirmations if the block is on the main chain
+    if (chainActive.Contains(blockindex))
+        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+    result.pushKV("confirmations", confirmations);
+    result.pushKV("size", (int)::GetSerializeSize(*block, SER_NETWORK, PROTOCOL_VERSION));
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", block->nVersion);
+    result.pushKV("versionHex", strprintf("%08x", block->nVersion));
+    result.pushKV("time", block->GetBlockTime());
+    result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
+    result.pushKV("bits", strprintf("%08x", block->nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    if (blockindex->pprev)
+        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
+    CBlockIndex *pnext = chainActive.Next(blockindex);
+    if (pnext)
+        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+
+    std::set<uint256> subblockHashes;
+    block->GetSubblockHashes(subblockHashes);
+
+    UniValue sbhashes(UniValue::VARR);
+    for (const auto& b : subblockHashes)
+    {
+        sbhashes.push_back(b.GetHex());
+    }
+    result.pushKV("subblockHashes", sbhashes);
+
+    UniValue txs(UniValue::VARR);
+    if (listTxns)
+    {
+        int64_t txTime = -1; // Don't display the time in the tx because its in the block data.
+        for (const auto &tx : block->vtx)
+        {
+            if (txDetails)
+            {
+                UniValue objTx(UniValue::VOBJ);
+                TxToJSON(*tx, txTime, uint256(), objTx);
+                txs.push_back(objTx);
+            }
+            else
+            {
+                txs.push_back(tx->GetHash().GetHex());
+            }
+        }
+        result.pushKV("tx", txs);
+    }
+    else
+    {
+        result.pushKV("txcount", (uint64_t)block->vtx.size());
+    }
+    return result;
+}
+
+UniValue TailstormBlockToJSON(const CBlockIndex *blockindex, bool txDetails, bool listTxns)
+{
+    DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
+    DbgAssert(blockindex->isTailstorm, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with normal block"));
+
+    CTailstormBlockRef block(new CTailstormBlock);
+    if (!ReadBlockFromDisk(block, blockindex, Params().GetConsensus()))
+    {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot access tailstorm block");
+    }
+
+    return TailstormBlockToJSON(block, blockindex, txDetails, listTxns);
+}
+
 
 UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     int nSubGenerate=0,
@@ -43,7 +317,6 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
 {
     static const int nInnerLoopCount = 0x10000;
 
-    unsigned int nExtraNonce = 0;
     UniValue blockHashes(UniValue::VARR);
 
     int numSubBlocks = 0;
@@ -70,10 +343,8 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
 
         LOG(WB, "Using delta block for RPC generate.\n");
         CSubBlock *pblock = pblocktemplate->subblock.get();
-        {
-            // LOCK(cs_main);
-            IncrementExtraNonce(pblock, nExtraNonce);
-        }
+        // GAS TODO: Bigger nonce to obsolete the extra nonce
+        //IncrementExtraNonce(pblock, nExtraNonce);
 
         // Generally look for weak PoW
         while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount &&
@@ -373,14 +644,20 @@ UniValue gettailstorminfo(const UniValue &params, bool fHelp)
     return obj;
 }
 
-
+/* clang-format off */
 static const CRPCCommand commands[] = {
     //  category              name                      actor (function)         okSafeMode
     //  --------------------- ------------------------  -----------------------  ----------
-    {"generating", "generatesubblocks", &generatesubblocks, true}, {"generating", "generatetailstormblocks", &generatetailstormblocks, true},
-    {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true}, {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
-    {"tailstorm", "getdaginfo", &getdaginfo, true}, {"tailstorm", "getdagtips", &getdagtips, true}, {"tailstorm", "gettailstorminfo", &gettailstorminfo, true}
+    {"generating", "generatesubblocks", &generatesubblocks, true},
+    {"generating", "generatetailstormblocks", &generatetailstormblocks, true},
+    {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
+    {"generating", "generatesubblockstoaddress", &generatesubblockstoaddress, true},
+    {"tailstorm", "getdaginfo", &getdaginfo, true},
+    {"tailstorm", "getdagtips", &getdagtips, true},
+    {"tailstorm", "gettailstorminfo", &gettailstorminfo, true},
+    {"tailstorm", "getsubblock", &getsubblock, true}
 };
+/* clang-format on */
 
 void RegisterTailstormRPCCommands(CRPCTable &table)
 {
