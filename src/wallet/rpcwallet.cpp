@@ -360,6 +360,46 @@ UniValue getaddressesbyaccount(const UniValue &params, bool fHelp)
     return ret;
 }
 
+UniValue getaddresses(const UniValue &params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 0)
+        throw runtime_error("getaddresses \"account\"\n"
+                            "\nReturn all addresses in this wallet.\n"
+                            "\nArguments:\n"
+                            "none\n"
+                            "\nResult:\n"
+                            "[                     (json array of string)\n"
+                            "  \"address\"  (string) an address associated with the given account\n"
+                            "  ,...\n"
+                            "]\n"
+                            "\nExamples:\n" +
+                            HelpExampleCli("getaddresses", "\"tabby\"") + HelpExampleRpc("getaddresses", "\"tabby\""));
+
+    LOCK(pwalletMain->cs_wallet);
+
+    /*
+    // Find all addresses that have the given account
+    UniValue ret(UniValue::VARR);
+    for (const std::pair<CTxDestination, CAddressBookData> &item : pwalletMain->mapAddressBook)
+    {
+        const CTxDestination &dest = item.first;
+        const std::string &strName = item.second.name;
+        ret.push_back(EncodeDestination(dest));
+    }
+    */
+    std::map<CKeyID, int64_t> mapKeyBirth;
+    pwalletMain->GetKeyBirthTimes(mapKeyBirth);
+    UniValue ret(UniValue::VARR);
+    for (std::map<CKeyID, int64_t>::const_iterator it = mapKeyBirth.begin(); it != mapKeyBirth.end(); it++)
+    {
+        ret.push_back(EncodeDestination(it->first));
+    }
+    return ret;
+}
+
 static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, CWalletTx &wtxNew)
 {
     // Check amount
@@ -510,6 +550,35 @@ UniValue listaddressgroupings(const UniValue &params, bool fHelp)
     }
     return jsonGroupings;
 }
+
+UniValue listbalancesbyaddress(const UniValue &params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp)
+        throw runtime_error("listbalancesbyaddress\n"
+                            "\nLists every wallet address and the current balance in it in satoshis\n"
+                            "\nResult:\n"
+                            "{\n"
+                            "      \"address\":,     (string) The bitcoin address\n"
+                            "      amount                (numeric) The amount\n"
+                            "}\n"
+                            "\nExamples:\n" +
+                            HelpExampleCli("listbalancesbyaddress", "") + HelpExampleRpc("listbalancesbyaddress", ""));
+
+    LOCK(pwalletMain->cs_wallet);
+
+    UniValue jsonBals(UniValue::VOBJ);
+    std::map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
+    for (auto const &bal : balances)
+    {
+        UniValue addressInfo(UniValue::VARR);
+        jsonBals.pushKV(EncodeDestination(bal.first), UniValue(bal.second));
+    }
+    return jsonBals;
+}
+
 
 UniValue signmessage(const UniValue &params, bool fHelp)
 {
@@ -2946,6 +3015,7 @@ static const CRPCCommand commands[] = {
     {"wallet",                "getaccountaddress",        &getaccountaddress,        true},
     {"wallet",                "getaccount",               &getaccount,               true},
     {"wallet",                "getaddressesbyaccount",    &getaddressesbyaccount,    true},
+    {"wallet",                "getaddresses",             &getaddresses,             true},
     {"wallet",                "getbalance",               &getbalance,               false},
     {"wallet",                "getnewaddress",            &getnewaddress,            true},
     {"wallet",                "getrawchangeaddress",      &getrawchangeaddress,      true},
@@ -2964,6 +3034,7 @@ static const CRPCCommand commands[] = {
     {"wallet",                "keypoolrefill",            &keypoolrefill,            true},
     {"wallet",                "listaccounts",             &listaccounts,             false},
     {"wallet",                "listaddressgroupings",     &listaddressgroupings,     false},
+    {"wallet",                "listbalancesbyaddress",    &listbalancesbyaddress,    false},
     {"wallet",                "listlockunspent",          &listlockunspent,          false},
     {"wallet",                "listreceivedbyaccount",    &listreceivedbyaccount,    false},
     {"wallet",                "listreceivedbyaddress",    &listreceivedbyaddress,    false},

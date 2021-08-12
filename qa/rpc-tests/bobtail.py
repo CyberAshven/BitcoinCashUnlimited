@@ -73,7 +73,7 @@ def Test():
     logging.getLogger().setLevel(logging.INFO)
     t.drop_to_pdb = True
     bitcoinConf = {
-        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "debug": ["all", "-event"],
     }
 
     flags = standardFlags()
