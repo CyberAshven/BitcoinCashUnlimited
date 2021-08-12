@@ -19,6 +19,8 @@ class TailstormBlocksTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         node_opts = [
+            "-regtest=0",
+            "-tailreg=1",
             "-rpcservertimeout=0",
             "-debug=all",
             "-use-grapheneblocks=0",
@@ -37,7 +39,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
 
     def run_test(self):
         # Generate some blocks
-        self.nodes[0].generate(105)
+        self.nodes[0].generatetailstormblocks(105)
         self.sync_blocks()
 
         logging.info("Send 5 transactions from node0 (to its own address)")
