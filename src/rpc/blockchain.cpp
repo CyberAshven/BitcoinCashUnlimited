@@ -52,21 +52,12 @@ using namespace std;
 
 void ScriptPubKeyToJSON(const CScript &scriptPubKey, UniValue &out, bool fIncludeHex);
 
-double GetDifficulty(const CBlockIndex *blockindex)
+
+double GetDifficulty(uint32_t nBits)
 {
-    // Floating point number that is a multiple of the minimum difficulty,
-    // minimum difficulty = 1.0.
-    if (blockindex == nullptr)
-    {
-        if (chainActive.Tip() == nullptr)
-            return 1.0;
-        else
-            blockindex = chainActive.Tip();
-    }
+    int nShift = (nBits >> 24) & 0xff;
 
-    int nShift = (blockindex->nBits >> 24) & 0xff;
-
-    double dDiff = (double)0x0000ffff / (double)(blockindex->nBits & 0x00ffffff);
+    double dDiff = (double)0x0000ffff / (double)(nBits & 0x00ffffff);
 
     while (nShift < 29)
     {
@@ -80,6 +71,20 @@ double GetDifficulty(const CBlockIndex *blockindex)
     }
 
     return dDiff;
+}
+
+double GetDifficulty(const CBlockIndex *blockindex)
+{
+    // Floating point number that is a multiple of the minimum difficulty,
+    // minimum difficulty = 1.0.
+    if (blockindex == nullptr)
+    {
+        if (chainActive.Tip() == nullptr)
+            return 1.0;
+        else
+            blockindex = chainActive.Tip();
+    }
+    return GetDifficulty(blockindex->nBits);
 }
 
 UniValue blockheaderToJSON(const CBlockIndex *blockindex)

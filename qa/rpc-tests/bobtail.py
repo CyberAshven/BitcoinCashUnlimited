@@ -7,6 +7,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
+NUM_TAILSTORM_SUBBLOCKS = 3
 
 class TailstormBlocksTest(BitcoinTestFramework):
     def __init__(self):
@@ -37,10 +38,37 @@ class TailstormBlocksTest(BitcoinTestFramework):
         interconnect_nodes(self.nodes)
         self.sync_all()
 
+    def testGetBlock(self):
+        n = self.nodes[0]
+        b1a = n.getblock(1)
+        b1b = n.getblock(b1a["hash"])
+        assert b1a == b1b
+        assert b1a["confirmations"] == n.getblockcount()
+        assert b1a["height"] == 1
+        assert b1a["size"] < 3000
+        assert b1a["version"] == int(b1a["versionHex"],16)
+        assert b1a["version"] == 0x20000000
+        now = int(time.time())
+        assert b1a["time"] <= now
+        assert b1a["time"] >= now - 60
+        assert b1a["bits"] == '207fffff'
+        assert b1a["chainwork"] == '0000000000000000000000000000000000000000000000000000000000000004'
+        assert b1a["previousblockhash"] == 'b280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01' # Genesis block
+        assert len(b1a["subblockHashes"]) == NUM_TAILSTORM_SUBBLOCKS
+        b1full = n.getblock(1, 2, False)  # get all the tx as hex
+        b1tx0 = b1full["tx"][0]
+        assert len(b1tx0["vout"]) == NUM_TAILSTORM_SUBBLOCKS
+
+        sb0 = n.getsubblock(b1a["subblockHashes"][0])
+        assert sb0["time"] <= now
+        assert sb0["time"] >= now - 60
+
     def run_test(self):
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
         self.sync_blocks()
+
+        self.testGetBlock()
 
         logging.info("Send 5 transactions from node0 (to its own address)")
         addr = self.nodes[0].getnewaddress()
