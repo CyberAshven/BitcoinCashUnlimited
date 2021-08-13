@@ -438,9 +438,17 @@ bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
         // should never happen
         return false;
     }
+
+    size_t nodeCt = 0;
     for (auto& node :vdags[best_dag]._dag)
     {
         dag.emplace(*node);
+        nodeCt++;
+
+        //TODO: Do something more sophisticated to handle cases where there are more
+        // nodes than are necessary to assemble a block
+        if (nodeCt == TAILSTORM_K)
+            break;
     }
     return true;
 }

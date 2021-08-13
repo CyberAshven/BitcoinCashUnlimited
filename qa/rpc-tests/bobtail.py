@@ -64,6 +64,11 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert sb0["time"] >= now - 60
 
     def run_test(self):
+        # First test corner case where there are more subblocks than necessary
+        # to assemble a block. This should succeed silently.
+        self.nodes[0].generatesubblocks(103)
+        self.nodes[0].generatetailstormblocks(1)
+
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
         self.sync_blocks()

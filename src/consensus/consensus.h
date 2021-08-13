@@ -10,8 +10,8 @@
 #include "uint256.h"
 
 /** Tailstorm k parameter: the average of k proof values must fall below the target
- *  *  in order to meet Tailstorm PoW.
- *   */
+ *  in order to meet Tailstorm PoW.
+ */
 static const unsigned int TAILSTORM_K = 3;
 
 /** The maximum allowed size for a serialized block, in bytes (network rule) */
