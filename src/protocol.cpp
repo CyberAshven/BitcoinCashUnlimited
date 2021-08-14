@@ -91,6 +91,7 @@ const char *RESTXVAL = "res-txval";
 }; // namespace NetMsgType
 
 static const char *ppszTypeName[] = {
+    "NOT USED",
     NetMsgType::TX,
     NetMsgType::BLOCK,
     "filtered block", // Should never occur
