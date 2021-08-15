@@ -132,10 +132,14 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (iter != tipDagCache.end())
                 {
                     subblock = iter->second.subblock;
+                    pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
                 }
                 else
                 {
-                    vNotFound.push_back(inv);
+                    if (FindCommittedSubblock(chainActive, inv.hash, subblock))
+                        pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
+                    else
+                        vNotFound.push_back(inv);
                 }
             }
         }

@@ -36,37 +36,6 @@ extern std::set<CTailstormBlock> tailstormBlocks;
 UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns);
 
 
-bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
-{
-    // This would be a lot faster if a map of subblocks to heights was maintained.  But it may not be worth doing
-    // this for this API which will be called rarely outside of test
-
-    // go backwards because likely most interested in recent subblocks
-    if (chain.Tip() == nullptr) return false;
-
-    int height = chain.Tip()->nHeight;
-    for (int h = height; h>0; h--)
-    {
-        CBlockIndex* blkidx = chain[h];
-        DbgAssert(blkidx, return false);  // Should never be null because we are starting from tip height to 1
-        if (!blkidx->isTailstorm) continue;
-        if (blkidx->subblockNTxMap.count(hash) == 0) continue;
-
-        CTailstormBlockRef block(new CTailstormBlock);
-        if (!ReadBlockFromDisk(block, blkidx, Params().GetConsensus()))
-        {
-            // TODO dont assert if pruned
-            DbgAssert(false, return false);  // We should be able to read every block we have data on
-        }
-        if (!block->GetSubBlock(hash, out))
-        {
-            DbgAssert(false, return false);  // Hash must be here because we found it in the NtxMap
-        }
-        return true;
-    }
-    return false;
-}
-
 static UniValue getsubblock(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 3)
