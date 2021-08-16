@@ -271,5 +271,5 @@ const char *CInv::GetCommand() const
     return ppszTypeName[type];
 }
 
-std::string CInv::ToString() const { return strprintf("%s %s", GetCommand(), hash.ToString()); }
+std::string CInv::ToString() const { return strprintf("%s(%d) %s", GetCommand(), type, hash.ToString()); }
 const std::vector<std::string> &getAllNetMessageTypes() { return allNetMessageTypesVec; }

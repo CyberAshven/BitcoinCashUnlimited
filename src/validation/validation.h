@@ -141,6 +141,11 @@ void CheckForkWarningConditions();
 
 void InvalidChainFound(CBlockIndex *pindexNew);
 
+/** Clear the mempool, then submit the prior mempool contents and the transactions in this list (which typically
+    come from an unwound block) back into the parallel processing queue.
+*/
+void ResubmitTransactions(const std::vector<CTransactionRef> &vtx);
+
 /** Context-dependent validity block checks */
 bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIndex *pindexPrev);
 

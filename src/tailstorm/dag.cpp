@@ -38,6 +38,7 @@ bool CDagNode::IsValid()
 
 void CTailstormDag::SetId(int16_t new_id)
 {
+    assert(new_id != -1);
     id = new_id;
 }
 
@@ -197,31 +198,14 @@ bool CTailstormDag::Insert(CDagNode* new_node)
 void CTailstormDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
 {
     WRITELOCK(cs_dagset);
-    int16_t last_value;
-    for (auto riter = vdags.rbegin(); riter != vdags.rend(); ++riter)
-    {
-        last_value = removed_ids.top();
-        // TODO : dont use assert here
-        assert(riter->id != last_value);
-        if (riter->id > last_value)
-        {
-            riter->id = riter->id - removed_ids.size();
-        }
-        else // <
-        {
-            removed_ids.pop();
-            riter->id = riter->id - removed_ids.size();
-        }
-        if (removed_ids.empty())
-        {
-            break;
-        }
-    }
-    // do a check to ensure everything lines up
+    _SetNewIds(removed_ids);
+}
+
+void CTailstormDagSet::_SetNewIds(std::priority_queue<int16_t> &removed_ids)
+{
     for (size_t i = 0; i < vdags.size(); ++i)
     {
-        // TODO : dont use assert here
-        assert(i == vdags[i].id);
+        vdags[i].id = i;
         for (auto &node : vdags[i]._dag)
         {
             node->dag_id = i;
@@ -280,7 +264,7 @@ bool CTailstormDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
         removed_ids.push(*riter);
         vdags.erase(vdags.begin() + (*riter));
     }
-    SetNewIds(removed_ids);
+    _SetNewIds(removed_ids);
     new_id = base_dag_id;
 
     // update the txs in this dag
@@ -383,6 +367,7 @@ bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
         _CreateNewDag(newNode);
         return true;
     }
+    assert(new_id != -1);
     newNode->dag_id = new_id;
     if (vdags[new_id].CheckForCompatibility(newNode) == false)
     {

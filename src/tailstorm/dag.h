@@ -61,7 +61,7 @@ class CTailstormDag
 friend class CTailstormDagSet;
 
 protected:
-    uint16_t id; // should match the index of the vector in which this dag is in the dag set
+    int16_t id; // should match the index of the vector in which this dag is in the dag set
     std::deque<CDagNode*> _dag;
 
 public:
@@ -83,6 +83,7 @@ public:
     CTailstormDag(uint16_t _id, CDagNode* first_node)
     {
         id = _id;
+        assert(id != -1);
         Insert(first_node);
     }
     bool Insert(CDagNode* new_node);
@@ -100,6 +101,7 @@ protected:
 
 private:
     void SetNewIds(std::priority_queue<int16_t> &removed_ids);
+    void _SetNewIds(std::priority_queue<int16_t> &removed_ids);
 
 protected:
     void _CreateNewDag(CDagNode *newNode);

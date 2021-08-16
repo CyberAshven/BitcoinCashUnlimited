@@ -17,7 +17,7 @@ BOOST_AUTO_TEST_CASE(test_dag_score)
      *      n2: 1
      *      n1: 1 + 3*(3+1) = 13
      */
-    int anticipatedTotalScore = 18;
+    unsigned int anticipatedTotalScore = 18;
     // root node
     CSubBlock subblock1;
     CDagNode *node1 = new CDagNode(subblock1);
@@ -88,6 +88,8 @@ BOOST_AUTO_TEST_CASE(test_scaling_gamma, *boost::unit_test::tolerance(0.000001))
     double mean1 = mean(tailstorm_gamma);
     double mean2 = scaler.getdouble()*mean(tailstorm_gamma_scaled);
     double relative_error = std::abs(mean1 - mean2) / mean1;
+
+    // TODO check something
 }
 
 BOOST_AUTO_TEST_CASE(test_update_tx_lists)

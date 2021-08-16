@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "prevector.h"
+#include "tinyformat.h"
 
 // BU Allow a maximum message size of 256MB
 // BU does not use this value for json encoding size calculations
@@ -429,7 +430,7 @@ uint64_t ReadCompactSizeWithLimit(Stream &is, const uint64_t limit)
     }
     if (nSizeRet > limit)
     {
-        throw std::ios_base::failure("ReadCompactSize(): size too large");
+        throw std::ios_base::failure(strprintf("ReadCompactSize(): size too large (%llu > %llu)", nSizeRet, limit));
     }
     return nSizeRet;
 }

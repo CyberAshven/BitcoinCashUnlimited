@@ -122,6 +122,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             CSubBlock subblock;
             if (tailstormDagSet.Find(inv.hash, subblock))
             {
+                LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
                 pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
             }
             else
@@ -132,14 +133,21 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (iter != tipDagCache.end())
                 {
                     subblock = iter->second.subblock;
+                    LOG(REQ, "Found subblock %s in tipDagCache\n", inv.hash.GetHex());
                     pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
                 }
                 else
                 {
                     if (FindCommittedSubblock(chainActive, inv.hash, subblock))
+                    {
+                        LOG(REQ, "Found subblock %s in active chain\n", inv.hash.GetHex());
                         pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
+                    }
                     else
+                    {
+                        LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
                         vNotFound.push_back(inv);
+                    }
                 }
             }
         }
@@ -200,9 +208,17 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK)
         {
-            auto *mi = LookupBlockIndex(inv.hash);
+            CBlockIndex *mi = LookupBlockIndex(inv.hash);
             if (mi)
             {
+                if (mi->isTailstorm) // Requesting the wrong type of block
+                {
+                    LOG(NET, "%s: ignoring old-style block request from peer=%s for tailstorm block %s\n", __func__,
+                        pfrom->GetLogName(), inv.ToString());
+                    // TODO: reply with some kind of error?
+                    continue;
+                }
+
                 bool fSend = false;
                 {
                     LOCK(cs_main);
@@ -1004,6 +1020,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 return false;
 
             const CInv &inv = vInv[nInv];
+            LOG(NET, "INV %d: %s", nInv, inv.ToString());
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF) ||
                     (inv.type == MSG_TAILSTORMBLOCK) || (inv.type == MSG_SUBBLOCK)))
             {
@@ -1032,18 +1049,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                     }
                 }
             }
-            else if (inv.type == MSG_TAILSTORMBLOCK)
+            else if ((inv.type == MSG_BLOCK) || (inv.type == MSG_TAILSTORMBLOCK))
             {
-                READLOCK(cs_mapBlockIndex);
-                if (mapBlockIndex.count(inv.hash) == 0)
-                {
-                    // we dont have it so request it
-                    requester.AskFor(inv, pfrom);
-                }
-            }
-            else if (inv.type == MSG_BLOCK)
-            {
-                LOCK(cs_main);
                 bool fAlreadyHaveBlock = AlreadyHaveBlock(inv);
                 LOG(NET, "got BLOCK inv: %s  %s peer=%d\n", inv.ToString(), fAlreadyHaveBlock ? "have" : "new",
                     pfrom->id);
@@ -1056,22 +1063,25 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 // throughout older block files.  This will stop those files from being pruned.
                 // !IsInitialBlockDownload() can be removed if
                 // a better block storage system is devised.
-                if ((!fAlreadyHaveBlock && !IsInitialBlockDownload()) ||
-                    (!fAlreadyHaveBlock && Params().NetworkIDString() == "regtest"))
+                bool ibd = IsInitialBlockDownload();
+                if ((!fAlreadyHaveBlock && !ibd) || (!fAlreadyHaveBlock && Params().NetworkIDString() == "regtest"))
                 {
                     // Since we now only rely on headers for block requests, if we get an INV from an older node or
                     // if there was a very large re-org which resulted in a revert to block announcements via INV,
                     // we will instead request the header rather than the block.  This is safer and prevents an
                     // attacker from sending us fake INV's for blocks that do not exist or try to get us to request
                     // and download fake blocks.
+                    LOG(NET, "Requesting GETHEADERS on block %s, with locator at height %d\n", inv.ToString(),
+                        pindexBestHeader.load()->nHeight);
                     pfrom->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexBestHeader), inv.hash);
                 }
                 else
                 {
                     LOG(NET,
-                        "skipping request of block %s.  already have: %d  importing: %d  reindex: %d  "
+                        "skipping request of block %s.  already have: %d  initial download: %d  importing: %d  "
+                        "reindex: %d  "
                         "isChainNearlySyncd: %d\n",
-                        inv.hash.ToString(), fAlreadyHaveBlock, fImporting, fReindex, IsChainNearlySyncd());
+                        inv.ToString(), fAlreadyHaveBlock, ibd, fImporting, fReindex, IsChainNearlySyncd());
                 }
             }
             else if (inv.type == MSG_TX)
@@ -1212,7 +1222,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                     break;
                 }
             }
-            pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash()));
+            CInv inv(MSG_BLOCK, pindex->GetBlockHash());
+            LOG(NET, "Push inventory D %s\n", inv.ToString());
+            pfrom->PushInventory(inv);
             if (--nLimit <= 0)
             {
                 // When this block is requested, we'll send an inv that'll
@@ -1276,7 +1288,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         if (!vHeaders.empty())
             pfrom->PushMessage(NetMsgType::HEADERS, vHeaders);
         if (!vBobHeaders.empty())
-            pfrom->PushMessage(NetMsgType::TAILSTORM_HEADERS, vHeaders);
+            pfrom->PushMessage(NetMsgType::TAILSTORM_HEADERS, vBobHeaders);
     }
 
 
@@ -1674,137 +1686,150 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         for (unsigned int n = 0; n < nCount; n++)
         {
             vRecv >> headers[n];
-            // ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
         }
-
-        LOCK(cs_main);
 
         // Nothing interesting. Stop asking this peers for more headers.
         if (nCount == 0)
-            return true;
-
-        // Check all headers to make sure they are continuous before attempting to accept them.
-        // This prevents and attacker from keeping us from doing direct fetch by giving us out
-        // of order headers.
-        bool fNewUnconnectedHeaders = false;
-        uint256 hashLastBlock;
-        hashLastBlock.SetNull();
-        for (const CTailstormBlockHeader &header : headers)
         {
-            // check that the first header has a previous block in the blockindex.
-            if (hashLastBlock.IsNull())
-            {
-                if (LookupBlockIndex(header.hashPrevBlock))
-                    hashLastBlock = header.hashPrevBlock;
-            }
-
-            // Add this header to the map if it doesn't connect to a previous header
-            if (header.hashPrevBlock != hashLastBlock)
-            {
-                // If we still haven't finished downloading the initial headers during node sync and we get
-                // an out of order header then we must disconnect the node so that we can finish downloading
-                // initial headers from a diffeent peer. An out of order header at this point is likely an attack
-                // to prevent the node from syncing.
-                if (header.GetBlockTime() < GetAdjustedTime() - 24 * 60 * 60)
-                {
-                    pfrom->fDisconnect = true;
-                    return error("non-continuous-headers sequence during node sync - disconnecting peer=%s",
-                        pfrom->GetLogName());
-                }
-                fNewUnconnectedHeaders = true;
-            }
-
-            // if we have an unconnected header then add every following header to the unconnected headers cache.
-            if (fNewUnconnectedHeaders)
-            {
-                uint256 hash = header.GetHash();
-                if (mapBobUnConnectedHeaders.size() < MAX_UNCONNECTED_HEADERS)
-                    mapBobUnConnectedHeaders[hash] = std::make_pair(header, GetTime());
-
-                // update hashLastUnknownBlock so that we'll be able to download the block from this peer even
-                // if we receive the headers, which will connect this one, from a different peer.
-                requester.UpdateBlockAvailability(pfrom->GetId(), hash);
-            }
-
-            hashLastBlock = header.GetHash();
-        }
-        // return without error if we have an unconnected header.  This way we can try to connect it when the next
-        // header arrives.
-        if (fNewUnconnectedHeaders)
+            LOG(NET, "No more tailstorm headers from peer %s\n", pfrom->GetLogName());
             return true;
-
-        // If possible add any previously unconnected headers to the headers vector and remove any expired entries.
-        std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> >::iterator mi = mapBobUnConnectedHeaders.begin();
-        while (mi != mapBobUnConnectedHeaders.end())
-        {
-            std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> >::iterator toErase = mi;
-
-            // Add the header if it connects to the previous header
-            if (headers.back().GetHash() == (*mi).second.first.hashPrevBlock)
-            {
-                headers.push_back((*mi).second.first);
-                mapBobUnConnectedHeaders.erase(toErase);
-
-                // if you found one to connect then search from the beginning again in case there is another
-                // that will connect to this new header that was added.
-                mi = mapBobUnConnectedHeaders.begin();
-                continue;
-            }
-
-            // Remove any entries that have been in the cache too long.  Unconnected headers should only exist
-            // for a very short while, typically just a second or two.
-            int64_t nTimeHeaderArrived = (*mi).second.second;
-            uint256 headerHash = (*mi).first;
-            mi++;
-            if (GetTime() - nTimeHeaderArrived >= UNCONNECTED_HEADERS_TIMEOUT)
-            {
-                mapBobUnConnectedHeaders.erase(toErase);
-            }
-            // At this point we know the headers in the list received are known to be in order, therefore,
-            // check if the header is equal to some other header in the list. If so then remove it from the cache.
-            else
-            {
-                for (const CTailstormBlockHeader &header : headers)
-                {
-                    if (header.GetHash() == headerHash)
-                    {
-                        mapBobUnConnectedHeaders.erase(toErase);
-                        break;
-                    }
-                }
-            }
         }
 
-        // Check and accept each header in dependency order (oldest block to most recent)
         CBlockIndex *pindexLast = nullptr;
-        int i = 0;
-        for (const CTailstormBlockHeader &header : headers)
         {
-            CValidationState state;
-            if (!AcceptTailstormBlockHeader(header, state, chainparams, &pindexLast))
+            // We need to handle appending the header and analyzing the unconnected ones sequentially, or
+            // 2 simultaneously processed header messages may cause an out of order header to not be reconnected
+            // when its parent arrives.
+
+            // We are reusing csUnConnected headers to both force this code to be sequential and to protect
+            // the unconnected headers data structure.
+            LOCK(csUnconnectedHeaders);
+
+            // Check all headers to make sure they are continuous before attempting to accept them.
+            // This prevents and attacker from keeping us from doing direct fetch by giving us out
+            // of order headers.
+            bool fNewUnconnectedHeaders = false;
+            uint256 hashLastBlock;
+            hashLastBlock.SetNull();
+
+            for (const CTailstormBlockHeader &header : headers)
             {
-                int nDos;
-                if (state.IsInvalid(nDos))
+                LOG(NET, "Received tailstorm header %s\n", header.GetHash().GetHex());
+                // check that the first header has a previous block in the blockindex.
+                if (hashLastBlock.IsNull())
                 {
-                    if (nDos > 0)
+                    if (LookupBlockIndex(header.hashPrevBlock))
+                        hashLastBlock = header.hashPrevBlock;
+                }
+
+                // Add this header to the map if it doesn't connect to a previous header
+                if (header.hashPrevBlock != hashLastBlock)
+                {
+                    // If we still haven't finished downloading the initial headers during node sync and we get
+                    // an out of order header then we must disconnect the node so that we can finish downloading
+                    // initial headers from a diffeent peer. An out of order header at this point is likely an attack
+                    // to prevent the node from syncing.
+                    if (header.GetBlockTime() < GetAdjustedTime() - 24 * 60 * 60)
                     {
-                        dosMan.Misbehaving(pfrom, nDos);
+                        pfrom->fDisconnect = true;
+                        return error("non-continuous-headers sequence during node sync - disconnecting peer=%s",
+                            pfrom->GetLogName());
+                    }
+                    fNewUnconnectedHeaders = true;
+                }
+
+                // if we have an unconnected header then add every following header to the unconnected headers cache.
+                if (fNewUnconnectedHeaders)
+                {
+                    uint256 hash = header.GetHash();
+                    if (mapBobUnConnectedHeaders.size() < MAX_UNCONNECTED_HEADERS)
+                        mapBobUnConnectedHeaders[hash] = std::make_pair(header, GetTime());
+
+                    // update hashLastUnknownBlock so that we'll be able to download the block from this peer even
+                    // if we receive the headers, which will connect this one, from a different peer.
+                    requester.UpdateBlockAvailability(pfrom->GetId(), hash);
+                }
+
+                hashLastBlock = header.GetHash();
+            }
+            // return without error if we have an unconnected header.  This way we can try to connect it when the next
+            // header arrives.
+            if (fNewUnconnectedHeaders)
+                return true;
+
+            // If possible add any previously unconnected headers to the headers vector and remove any expired entries.
+            std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> >::iterator mi =
+                mapBobUnConnectedHeaders.begin();
+            while (mi != mapBobUnConnectedHeaders.end())
+            {
+                std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> >::iterator toErase = mi;
+
+                // Add the header if it connects to the previous header
+                if (headers.back().GetHash() == (*mi).second.first.hashPrevBlock)
+                {
+                    headers.push_back((*mi).second.first);
+                    mapBobUnConnectedHeaders.erase(toErase);
+
+                    // if you found one to connect then search from the beginning again in case there is another
+                    // that will connect to this new header that was added.
+                    mi = mapBobUnConnectedHeaders.begin();
+                    continue;
+                }
+
+                // Remove any entries that have been in the cache too long.  Unconnected headers should only exist
+                // for a very short while, typically just a second or two.
+                int64_t nTimeHeaderArrived = (*mi).second.second;
+                uint256 headerHash = (*mi).first;
+                mi++;
+                if (GetTime() - nTimeHeaderArrived >= UNCONNECTED_HEADERS_TIMEOUT)
+                {
+                    mapBobUnConnectedHeaders.erase(toErase);
+                }
+                // At this point we know the headers in the list received are known to be in order, therefore,
+                // check if the header is equal to some other header in the list. If so then remove it from the cache.
+                else
+                {
+                    for (const CTailstormBlockHeader &header : headers)
+                    {
+                        if (header.GetHash() == headerHash)
+                        {
+                            mapBobUnConnectedHeaders.erase(toErase);
+                            break;
+                        }
                     }
                 }
-                // all headers from this one forward reference a fork that we don't follow, so erase them
-                headers.erase(headers.begin() + i, headers.end());
-                nCount = headers.size();
-                break;
             }
-            else
+
+            // Check and accept each header in dependency order (oldest block to most recent)
+            int i = 0;
+            for (const CTailstormBlockHeader &header : headers)
             {
-                PV->UpdateBobMostWorkOurFork(header);
+                CValidationState state;
+                if (!AcceptTailstormBlockHeader(header, state, chainparams, &pindexLast))
+                {
+                    int nDos;
+                    if (state.IsInvalid(nDos))
+                    {
+                        if (nDos > 0)
+                        {
+                            dosMan.Misbehaving(pfrom, nDos);
+                        }
+                    }
+                    // all headers from this one forward reference a fork that we don't follow, so erase them
+                    headers.erase(headers.begin() + i, headers.end());
+                    nCount = headers.size();
+                    break;
+                }
+                else
+                {
+                    PV->UpdateBobMostWorkOurFork(header);
+                }
+                i++;
             }
-            i++;
         }
 
-        // if (pindexLast)
-        //    requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
+        if (pindexLast)
+            requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
 
         if (nCount == MAX_HEADERS_RESULTS && pindexLast)
         {
@@ -2264,14 +2289,29 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     {
         CSubBlock subblock;
         vRecv >> subblock;
-        tailstormDagSet.Insert(subblock);
-    }
+        uint256 hash = subblock.GetHash();
+        LOG(BLK | REQ, "received subblock %s peer=%s\n", hash.GetHex(), pfrom->GetLogName());
+        // Since the hash would change if we are given a garbage block, this call will not accidentally mark a block
+        // as received if we are given garbage.
+        // TODO figure out exactly when to transition these states
+        requester.MarkBlockAsReceived(hash, pfrom);
+        requester.ProcessingBlock(hash, pfrom);
+        requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
 
+        if (!ProcessNewSubBlock(subblock))
+        {
+            LOG(BLK, "Received invalid subblock %s from peer=%s", subblock.GetHash().GetHex(), pfrom->GetLogName());
+        }
+        else
+        {
+            LOG(BLK, "Received valid subblock %s from peer=%s", subblock.GetHash().GetHex(), pfrom->GetLogName());
+        }
+    }
     else if (strCommand == NetMsgType::TAILSTORMBLOCK && !fImporting && !fReindex)
     {
         CTailstormBlock tailstormblock;
         vRecv >> tailstormblock;
-
+        LOG(BLK | REQ, "received tailstormblock %s peer=%s\n", tailstormblock.GetHash().GetHex(), pfrom->GetLogName());
         CValidationState state;
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
         ProcessNewTailstormBlock(state, chainparams, pfrom, &tailstormblock, forceProcessing, nullptr);
@@ -2291,7 +2331,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
 
         CInv inv(MSG_BLOCK, pblock->GetHash());
-        LOG(BLK, "received block %s peer=%d\n", inv.hash.ToString(), pfrom->id);
+        LOG(BLK | REQ, "received block %s peer=%s\n", inv.hash.ToString(), pfrom->GetLogName());
         UnlimitedLogBlock(*pblock, inv.hash.ToString(), receiptTime);
 
         if (IsChainNearlySyncd()) // BU send the received block out expedited channels quickly
@@ -3281,7 +3321,9 @@ bool SendMessages(CNode *pto)
                         // setInventoryKnown to track this.)
                         if (!PeerHasHeader(state, pindex))
                         {
-                            pto->PushInventory(CInv(MSG_BLOCK, hashToAnnounce));
+                            CInv inv((pindex->isTailstorm) ? MSG_TAILSTORMBLOCK : MSG_BLOCK, hashToAnnounce);
+                            LOG(NET, "Push inventory C %s\n", inv.ToString());
+                            pto->PushInventory(inv);
                             LOG(NET, "%s: sending inv peer=%d hash=%s\n", __func__, pto->id, hashToAnnounce.ToString());
                         }
                     }
@@ -3400,6 +3442,10 @@ bool SendMessages(CNode *pto)
                     LOCK(pto->cs_vSend);
                     if (!vInvSend.empty())
                     {
+                        for (const auto &inv : vInvSend)
+                        {
+                            LOG(NET, "Issue INV with: %s\n", inv.ToString());
+                        }
                         pto->PushMessage(NetMsgType::INV, vInvSend);
                         vInvSend.clear();
                     }

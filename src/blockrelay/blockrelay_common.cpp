@@ -329,16 +329,17 @@ void ThinTypeRelay::CheckForDownloadTimeout(CNode *pfrom)
     {
         for (auto &entry : (*key).second)
         {
-            // Use a timeout of 6 times the retry inverval before disconnecting.  This way only a max of 6
+            // Use a timeout of 6 times the retry interval before disconnecting.  This way only a max of 6
             // re-requested thinblocks or graphene blocks could be in memory at any one time.
             if (!entry.fReceived &&
                 (GetTime() - entry.nRequestTime) > (int)MAX_THINTYPE_BLOCKS_IN_FLIGHT * blkReqRetryInterval / 1000000)
             {
-                if (!pfrom->fWhitelisted && Params().NetworkIDString() != "regtest")
+                if (!pfrom->fWhitelisted && Params().NetworkIDString() != "regtest" &&
+                    Params().NetworkIDString() != "tailreg")
                 {
                     LOG(THIN | GRAPHENE | CMPCT,
-                        "ERROR: Disconnecting peer %s due to thinblock download timeout exceeded (%d secs)\n",
-                        pfrom->GetLogName(), (GetTime() - entry.nRequestTime));
+                        "ERROR: Disconnect peer %s due to thinblock %s (type %s) download timeout exceeded (%d secs)\n",
+                        pfrom->GetLogName(), entry.hash.GetHex(), entry.thinType, (GetTime() - entry.nRequestTime));
                     pfrom->fDisconnect = true;
                     return;
                 }

@@ -405,7 +405,7 @@ void AlertNotify(const std::string &strMessage)
 bool AbortNode(const std::string &strMessage, const std::string &userMessage = "")
 {
     strMiscWarning = strMessage;
-    LOGA("*** %s\n", strMessage);
+    LOGA("*** ABORT NODE: %s (userMessage: %s)\n", strMessage, userMessage);
     uiInterface.ThreadSafeMessageBox(
         userMessage.empty() ? _("Error: A fatal internal error occurred, see debug.log for details") : userMessage, "",
         CClientUIInterface::MSG_ERROR);
@@ -415,6 +415,8 @@ bool AbortNode(const std::string &strMessage, const std::string &userMessage = "
 
 bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "")
 {
+    LOGA("*** ABORT NODE: validation state: code=%d, reason=%s, message=%s", state.GetRejectCode(),
+        state.GetRejectReason(), state.GetDebugMessage());
     AbortNode(strMessage, userMessage);
     return state.Error(strMessage);
 }
@@ -775,7 +777,7 @@ void MainCleanup()
     }
 }
 
-bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
+bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out)
 {
     // This would be a lot faster if a map of subblocks to heights was maintained.  But it may not be worth doing
     // this for this API which will be called rarely outside of test
@@ -787,7 +789,7 @@ bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
     }
 
     int height = chain.Tip()->nHeight;
-    for (int h = height; h>0; h--)
+    for (int h = height; h > 0; h--)
     {
         CBlockIndex *blkidx = chain[h];
         DbgAssert(blkidx, return false); // Should never be null because we are starting from tip height to 1
@@ -805,12 +807,10 @@ bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
         {
             // TODO dont assert if pruned
             DbgAssert(false, return false); // We should be able to read every block we have data on
-            return false;
         }
         if (!block->GetSubBlock(hash, out))
         {
             DbgAssert(false, return false); // Hash must be here because we found it in the NtxMap
-            return false;
         }
         return true;
     }
