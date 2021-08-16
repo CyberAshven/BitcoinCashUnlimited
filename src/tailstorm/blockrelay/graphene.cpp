@@ -1704,7 +1704,7 @@ void SBRequestFailoverBlock(CNode *pfrom, CSBGrapheneBlock* subblock)
     uint256 blockhash = subblock->GetHash();
     thinrelay.ClearAllBlockData(pfrom, blockhash);
 
-    LOG(GRAPHENE, "Requesting full sub block %s as failover from peer %s\n", blockhash.ToString(), pfrom->GetLogName());
+    LOG(GRAPHENE, "Requesting full subblock %s as failover from peer %s\n", blockhash.ToString(), pfrom->GetLogName());
     CInv inv(MSG_SUBBLOCK, blockhash);
     std::vector<CInv> vGetData;
     vGetData.push_back(inv);

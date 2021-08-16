@@ -122,6 +122,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             CSubBlock subblock;
             if (tailstormDagSet.Find(inv.hash, subblock))
             {
+                LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
                 pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
             }
             else
@@ -132,14 +133,21 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (iter != tipDagCache.end())
                 {
                     subblock = iter->second.subblock;
+                    LOG(REQ, "Found subblock %s in tipDagCache\n", inv.hash.GetHex());
                     pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
                 }
                 else
                 {
                     if (FindCommittedSubblock(chainActive, inv.hash, subblock))
+                    {
+                        LOG(REQ, "Found subblock %s in active chain\n", inv.hash.GetHex());
                         pfrom->PushMessage(NetMsgType::SUBBLOCK, subblock);
+                    }
                     else
+                    {
+                        LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
                         vNotFound.push_back(inv);
+                    }
                 }
             }
         }
@@ -1004,6 +1012,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 return false;
 
             const CInv &inv = vInv[nInv];
+            LOG(NET, "INV %d: %s", nInv, inv.ToString());
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF) ||
                     (inv.type == MSG_TAILSTORMBLOCK) || (inv.type == MSG_SUBBLOCK)))
             {
@@ -1212,7 +1221,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                     break;
                 }
             }
-            pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash()));
+            CInv inv(MSG_BLOCK, pindex->GetBlockHash());
+            LOG(NET, "Push inventory D %s\n", inv.ToString());
+            pfrom->PushInventory(inv);
             if (--nLimit <= 0)
             {
                 // When this block is requested, we'll send an inv that'll
@@ -2264,14 +2275,26 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     {
         CSubBlock subblock;
         vRecv >> subblock;
+        uint256 hash = subblock.GetHash();
+        LOG(BLK | REQ, "received subblock %s peer=%s\n", hash.GetHex(), pfrom->GetLogName());
+        // Since the hash would change if we are given a garbage block, this call will not accidentally mark a block
+        // as received if we are given garbage.
+        requester.MarkBlockAsReceived(hash, pfrom);
         tailstormDagSet.Insert(subblock);
+        /*  TODO: We should do this instead of Insert because an insert does not check the subblock for validity
+            however, executing this code is causing an assertion in the dag MergeDags function
+        if (ProcessNewSubBlock(subblock))
+        {
+            requester.ProcessingBlock(hash, pfrom);
+        }
+        */
     }
 
     else if (strCommand == NetMsgType::TAILSTORMBLOCK && !fImporting && !fReindex)
     {
         CTailstormBlock tailstormblock;
         vRecv >> tailstormblock;
-
+        LOG(BLK | REQ, "received tailstormblock %s peer=%s\n", tailstormblock.GetHash().GetHex(), pfrom->GetLogName());
         CValidationState state;
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
         ProcessNewTailstormBlock(state, chainparams, pfrom, &tailstormblock, forceProcessing, nullptr);
@@ -2291,7 +2314,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
 
         CInv inv(MSG_BLOCK, pblock->GetHash());
-        LOG(BLK, "received block %s peer=%d\n", inv.hash.ToString(), pfrom->id);
+        LOG(BLK | REQ, "received block %s peer=%s\n", inv.hash.ToString(), pfrom->GetLogName());
         UnlimitedLogBlock(*pblock, inv.hash.ToString(), receiptTime);
 
         if (IsChainNearlySyncd()) // BU send the received block out expedited channels quickly
@@ -3281,7 +3304,9 @@ bool SendMessages(CNode *pto)
                         // setInventoryKnown to track this.)
                         if (!PeerHasHeader(state, pindex))
                         {
-                            pto->PushInventory(CInv(MSG_BLOCK, hashToAnnounce));
+                            CInv inv(MSG_BLOCK, hashToAnnounce);
+                            LOG(NET, "Push inventory C %s\n", inv.ToString());
+                            pto->PushInventory(inv);
                             LOG(NET, "%s: sending inv peer=%d hash=%s\n", __func__, pto->id, hashToAnnounce.ToString());
                         }
                     }
@@ -3400,6 +3425,10 @@ bool SendMessages(CNode *pto)
                     LOCK(pto->cs_vSend);
                     if (!vInvSend.empty())
                     {
+                        for (const auto &inv : vInvSend)
+                        {
+                            LOG(NET, "Issue INV with: %s\n", inv.ToString());
+                        }
                         pto->PushMessage(NetMsgType::INV, vInvSend);
                         vInvSend.clear();
                     }

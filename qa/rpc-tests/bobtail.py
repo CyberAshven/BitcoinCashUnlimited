@@ -23,7 +23,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
             "-regtest=0",
             "-tailreg=1",
             "-rpcservertimeout=0",
-            "-debug=all",
+            "-debug=all,-libevent",
             "-use-grapheneblocks=0",
             "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
@@ -80,10 +80,12 @@ class TailstormBlocksTest(BitcoinTestFramework):
         for i in range(5):
             self.nodes[0].sendtoaddress(addr, Decimal("10"))
 
+        logging.info("Generate 30 tailstorm blocks with sync")
         miner_node = 0
         other_node = 1
         for i in range(30):
             new_block = self.nodes[miner_node].generatetailstormblocks(1)
+            logging.info("Sync %d: block %s" % (i, new_block))
             self.sync_blocks()
             assert_equal(new_block[miner_node], self.nodes[miner_node].gettailstorminfo()['chaintip'])
 
@@ -95,6 +97,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert_equal(new_block[-1], self.nodes[miner_node].gettailstorminfo()['chaintip'])
         # compare miner node and another node to check for proper relay
         assert_equal(self.nodes[miner_node].gettailstorminfo()['chaintip'], self.nodes[other_node].gettailstorminfo()['chaintip'])
+        pdb.set_trace()
 
 if __name__ == '__main__':
     TailstormBlocksTest().main()
@@ -107,6 +110,7 @@ def Test():
     t.drop_to_pdb = True
     bitcoinConf = {
         "debug": ["all", "-event"],
+        "logtimemicros": 1
     }
 
     flags = standardFlags()

@@ -1535,6 +1535,7 @@ bool ProcessNewTailstormBlock(CValidationState &state,
         CheckBlockIndex(chainparams.GetConsensus());
 
         CInv inv(MSG_TAILSTORMBLOCK, hash);
+        LOG(NET, "Push inventory B %s\n", inv.ToString());
         if (!ret)
         {
             // BU TODO: if block comes out of order (before its parent) this will happen.  We should cache the block
@@ -1544,15 +1545,15 @@ bool ProcessNewTailstormBlock(CValidationState &state,
             requester.BlockRejected(inv, pfrom);
 
             return error("%s: AcceptBlock FAILED", __func__);
-		}
-		else
-		{
-			LOCK(cs_vNodes);
-			for (CNode *pnode : vNodes)
-			{
-				pnode->PushInventory(CInv(MSG_TAILSTORMBLOCK, pblock->GetHash()));
-			}
-		}
+        }
+        else
+        {
+            LOCK(cs_vNodes);
+            for (CNode *pnode : vNodes)
+            {
+                pnode->PushInventory(inv);
+            }
+        }
     }
 
     if (!ActivateBestChainTailstorm(state, chainparams, pblock, pfrom))

@@ -586,7 +586,6 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 
         // If we get here, then it was not possible to request a compact tailstorm block for some reason
         std::vector<CInv> vGetData;
-        inv2.type = MSG_TAILSTORMBLOCK;
         vGetData.push_back(inv2);
         pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
         LOG(GRAPHENE, "Requesting Regular Tailstorm Block %s from peer %s\n", inv2.hash.ToString(),
@@ -626,10 +625,9 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 
         // If we get here, then graphene failed for some reason, request a full subblock
         std::vector<CInv> vGetData;
-        inv2.type = MSG_SUBBLOCK;
         vGetData.push_back(inv2);
         pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
-        LOG(GRAPHENE, "Requesting Regular SubBlock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
+        LOG(GRAPHENE, "Requesting regular subblock %s from peer %s\n", inv2.ToString(), pfrom->GetLogName());
         return true;
     }
 
@@ -850,6 +848,7 @@ void CRequestManager::SendRequests()
 
                     if (fBatchBlockRequests)
                     {
+                        LOG(REQ, "Batching block request %s to %s\n", item.obj.ToString(), next.noderef->GetLogName());
                         mapBatchBlockRequests[next.noderef].emplace(item.nEntryTime, obj);
                     }
                     else
@@ -884,7 +883,14 @@ void CRequestManager::SendRequests()
                 {
                     // We requested from all available sources so remove the source. This should not
                     // happen and would indicate some other problem.
-                    LOG(REQ, "Block %s has no sources. Removing\n", item.obj.ToString());
+                    if (item.fProcessing)
+                    {
+                        LOG(REQ, "Block %s is being processed and has no sources. Removing\n", item.obj.ToString());
+                    }
+                    else
+                    {
+                        LOG(REQ, "Block %s has no sources. Removing\n", item.obj.ToString());
+                    }
                     cleanup(itemIter);
                 }
             }
@@ -910,6 +916,7 @@ void CRequestManager::SendRequests()
                 {
                     const uint256 &hash = mi.second.hash;
                     MarkBlockAsInFlight(iter.first.get()->GetId(), hash);
+                    LOG(REQ, "Sent batched request with %s\n", mi.second.ToString());
                     vInv.push_back(mi.second);
                 }
                 iter.first.get()->PushMessage(NetMsgType::GETDATA, vInv);
@@ -991,6 +998,7 @@ void CRequestManager::SendRequests()
                             item.outstandingReqs++;
                             item.lastRequestTime = now;
 
+                            LOG(REQ, "Sent batched request B with %s\n", item.obj.ToString());
                             mapBatchTxnRequests[next.noderef].emplace_back(item.obj);
 
                             // If we have 1000 requests for this peer then send them right away.

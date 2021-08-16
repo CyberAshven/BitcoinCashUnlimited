@@ -31,6 +31,13 @@ bool CheckSubBlockHeader(const CSubBlockHeader &block, CValidationState &state, 
     }
 
     // Check timestamp against prev
+    // TODO: this is a contextual check so should not be here.
+    // If the subblock is valid, just arriving too late, this can trigger making it seem like a bogus subblock was
+    // deliberately sent (which might trigger misbehaving punishment)
+    // Even ContextualCheckSubBlock does not make sense for this test because the subblock could be valid
+    // *within its context*.
+    // The code just doesn't care anymore about this subblock because its too old.  This "do I care" check should be
+    // done in higher level code where the context of what too old means is clear.
     if (block.GetBlockTime() <= chainActive.Tip()->GetMedianTimePast())
     {
         return state.Invalid(error("%s: block's timestamp is too early", __func__), REJECT_INVALID, "time-too-old");
@@ -181,10 +188,12 @@ bool ProcessNewSubBlock(const CSubBlock &subblock)
     {
         if (tailstormDagSet.Insert(subblock))
         {
+            auto inv = CInv(MSG_SUBBLOCK, subblock.GetHash());
+            LOG(NET, "Push inventory A %s\n", inv.ToString());
             LOCK(cs_vNodes);
             for (CNode *pnode : vNodes)
             {
-                pnode->PushInventory(CInv(MSG_SUBBLOCK, subblock.GetHash()));
+                pnode->PushInventory(inv);
             }
             return true;
         }

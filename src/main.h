@@ -313,8 +313,8 @@ static const unsigned int REJECT_WRONG_FORK = 0x103;
 /** Block conflicts with a transaction already known */
 static const unsigned int REJECT_AGAINST_FINALIZED = 0x104;
 
-//TODO: Find a better a place for this method
-bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out);
+// TODO: Find a better a place for this method
+bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out);
 
 // BU cleaning up at destuction time creates many global variable dependencies.  Instead clean up in a function called
 // in main()
