@@ -1386,11 +1386,19 @@ bool CRequestManager::MarkBlockAsReceived(const uint256 &hash, CNode *pnode)
     std::map<uint256, std::map<NodeId, std::list<QueuedBlock>::iterator> >::iterator itHash =
         mapBlocksInFlight.find(hash);
     if (itHash == mapBlocksInFlight.end())
+    {
+        LOG(REQ, "Block %s not in inflight list\n", hash.GetHex());
         return false;
+    }
 
     // Lookup this block for this nodeid and if we have one in flight then mark it as received.
     std::map<NodeId, std::list<QueuedBlock>::iterator>::iterator itInFlight = itHash->second.find(nodeid);
-    if (itInFlight != itHash->second.end())
+    if (itInFlight == itHash->second.end())
+    {
+        LOG(REQ, "Block %s not in node inflight list\n", hash.GetHex());
+        return false;
+    }
+    else
     {
         // Get a request manager nodestate pointer.
         std::map<NodeId, CRequestManagerNodeState>::iterator it = mapRequestManagerNodeState.find(nodeid);

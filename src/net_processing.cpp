@@ -2287,6 +2287,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             requester.ProcessingBlock(hash, pfrom);
         }
         */
+        requester.Received(CInv(MSG_SUBBLOCK,hash), pfrom);
     }
 
     else if (strCommand == NetMsgType::TAILSTORMBLOCK && !fImporting && !fReindex)
