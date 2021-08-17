@@ -717,6 +717,8 @@ UniValue clearblockstats(const UniValue &params, bool fHelp)
     }
     if (IsCompactBlocksEnabled())
         compactdata.ClearCompactBlockStats();
+    if (IsBobCompactBlocksEnabled())
+        bobcompactdata.ClearCompactBlockStats();
 
     return NullUniValue;
 }

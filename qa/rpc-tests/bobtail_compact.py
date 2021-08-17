@@ -42,6 +42,7 @@ class TailstormCompactTest(BitcoinTestFramework):
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
         self.sync_blocks()
+        summary = self.nodes[1].clearblockstats()
 
         logging.info("Send 5 transactions from node0 (to its own address)")
         addr = self.nodes[0].getnewaddress()
