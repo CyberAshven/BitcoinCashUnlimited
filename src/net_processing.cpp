@@ -1838,8 +1838,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             }
         }
 
-        // if (pindexLast)
-        //    requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
+        if (pindexLast)
+            requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
 
         if (nCount == MAX_HEADERS_RESULTS && pindexLast)
         {

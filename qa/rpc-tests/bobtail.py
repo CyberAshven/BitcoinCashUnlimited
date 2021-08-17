@@ -16,10 +16,10 @@ class TailstormBlocksTest(BitcoinTestFramework):
 
     def setup_chain(self):
         print ("Initializing test directory " + self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 2)
+        initialize_chain_clean(self.options.tmpdir, 4)
 
     def setup_network(self, split=False):
-        node_opts = [
+        self.node_opts = [
             "-regtest=0",
             "-tailreg=1",
             "-rpcservertimeout=0",
@@ -30,8 +30,8 @@ class TailstormBlocksTest(BitcoinTestFramework):
             "-blockmaxsize=6000000"]
 
         self.nodes = [
-            start_node(0, self.options.tmpdir, node_opts),
-            start_node(1, self.options.tmpdir, node_opts)
+            start_node(0, self.options.tmpdir, self.node_opts),
+            start_node(1, self.options.tmpdir, self.node_opts)
         ]
 
         self.is_network_split = False
@@ -64,10 +64,16 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert sb0["time"] >= now - 60
 
     def run_test(self):
+        LONGER = 10
         # First test corner case where there are more subblocks than necessary
         # to assemble a block. This should succeed silently.
         self.nodes[0].generatesubblocks(103)
+        self.nodes[0].generatesubblocks(103)
         self.nodes[0].generatetailstormblocks(1)
+
+        # self.nodes[0].generatesubblocks(2)
+        # self.nodes[1].generatesubblocks(2)
+        # self.nodes[0].generatetailstormblocks(1)
 
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
@@ -83,7 +89,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         logging.info("Generate 30 tailstorm blocks with sync")
         miner_node = 0
         other_node = 1
-        for i in range(30):
+        for i in range(3*LONGER):
             new_block = self.nodes[miner_node].generatetailstormblocks(1)
             logging.info("Sync %d: block %s" % (i, new_block))
             self.sync_blocks()
@@ -97,6 +103,16 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert_equal(new_block[-1], self.nodes[miner_node].gettailstorminfo()['chaintip'])
         # compare miner node and another node to check for proper relay
         assert_equal(self.nodes[miner_node].gettailstorminfo()['chaintip'], self.nodes[other_node].gettailstorminfo()['chaintip'])
+
+        # IBD test:  make a longer chain and then sync
+        logging.info("generating %d blocks" % (10*LONGER))
+        self.nodes[1].generatetailstormblocks(10*LONGER)
+        nblocks = self.nodes[1].getblockcount()
+        node2 = start_node(2, self.options.tmpdir, self.node_opts)
+        connect_nodes(node2, 0)
+        logging.info("syncing 2 nodes")
+        waitFor(100, lambda: node2.getblockcount() == nblocks, 2.0)
+        waitFor(100, lambda: self.nodes[0].getblockcount() == nblocks, 2.0)
         pdb.set_trace()
 
 if __name__ == '__main__':
