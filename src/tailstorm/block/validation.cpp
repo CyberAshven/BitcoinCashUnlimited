@@ -1627,11 +1627,9 @@ bool ProcessNewTailstormBlock(CValidationState &state,
         }
         else
         {
-            LOCK(cs_vNodes);
-            for (CNode *pnode : vNodes)
-            {
-                pnode->PushInventory(inv);
-            }
+            // Must tell request manager we have the block on disk otherwise we may re-request it
+            // before processing is complete
+            requester.Received(inv, pfrom);
         }
     }
 

@@ -705,10 +705,13 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     // Request a full block if the BlockRelayTimer has expired.
     if (!IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled())
     {
-        std::vector<CInv> vToFetch;
-        inv2.type = MSG_BLOCK;
-        vToFetch.push_back(inv2);
+        if (pfrom->nServices & NODE_DELTABLOCKS)
+            inv2.type = MSG_TAILSTORMBLOCK;
+        else
+            inv2.type = MSG_BLOCK;
 
+        std::vector<CInv> vToFetch;
+        vToFetch.push_back(inv2);
         MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
         pfrom->PushMessage(NetMsgType::GETDATA, vToFetch);
         LOG(REQ | THIN | GRAPHENE | CMPCT, "Requesting nonspecific inv %s from peer %s\n", inv2.ToString(),
@@ -1156,6 +1159,8 @@ void CRequestManager::RequestNextBlocksToDownload(CNode *pto)
         for (CBlockIndex *pindex : vToDownload)
         {
             CInv inv(MSG_BLOCK, pindex->GetBlockHash());
+            if (pindex->isTailstorm)
+                inv.type = MSG_TAILSTORMBLOCK;
             if (!AlreadyHaveBlock(inv))
             {
                 vGetBlocks.emplace_back(inv);
