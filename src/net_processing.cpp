@@ -3317,6 +3317,8 @@ bool SendMessages(CNode *pto)
                         if (!PeerHasHeader(state, pindex))
                         {
                             CInv inv(MSG_BLOCK, hashToAnnounce);
+                            if (pindex->isTailstorm)
+                                inv.type = MSG_TAILSTORMBLOCK;
                             LOG(NET, "Push inventory C %s\n", inv.ToString());
                             pto->PushInventory(inv);
                             LOG(NET, "%s: sending inv peer=%d hash=%s\n", __func__, pto->id, hashToAnnounce.ToString());
