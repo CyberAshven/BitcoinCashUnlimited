@@ -203,33 +203,9 @@ void CTailstormDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
 
 void CTailstormDagSet::_SetNewIds(std::priority_queue<int16_t> &removed_ids)
 {
-    int16_t last_value;
-    for (auto riter = vdags.rbegin(); riter != vdags.rend(); ++riter)
-    {
-        last_value = removed_ids.top();
-        // TODO : dont use assert here
-        assert(riter->id != last_value);
-        if (riter->id > last_value)
-        {
-            riter->id = riter->id - removed_ids.size();
-            assert(riter->id >= 0);
-        }
-        else // <
-        {
-            removed_ids.pop();
-            riter->id = riter->id - removed_ids.size();
-            assert(riter->id >= 0);
-        }
-        if (removed_ids.empty())
-        {
-            break;
-        }
-    }
-    // do a check to ensure everything lines up
     for (size_t i = 0; i < vdags.size(); ++i)
     {
-        // TODO : dont use assert here
-        assert(i == vdags[i].id);
+        vdags[i].id = i;
         for (auto &node : vdags[i]._dag)
         {
             node->dag_id = i;

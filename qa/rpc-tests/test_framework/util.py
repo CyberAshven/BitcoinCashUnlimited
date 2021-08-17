@@ -126,6 +126,12 @@ BITCOIND_PROC_WAIT_TIMEOUT = 60
 MOCKTIME = 0
 
 
+def returnException(lamb):
+    """ Wrap a lambda in a try except block, returning either the result of the lambda or the exception"""
+    try:
+        return lamb()
+    except Exception as e:
+        return e
 
 class NoConfigValue:
     """ Use to remove the specific configure parameter and value when writing to bitcoin.conf"""

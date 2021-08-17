@@ -68,12 +68,29 @@ class TailstormBlocksTest(BitcoinTestFramework):
         # First test corner case where there are more subblocks than necessary
         # to assemble a block. This should succeed silently.
         self.nodes[0].generatesubblocks(103)
-        self.nodes[0].generatesubblocks(103)
         self.nodes[0].generatetailstormblocks(1)
 
-        # self.nodes[0].generatesubblocks(2)
-        # self.nodes[1].generatesubblocks(2)
-        # self.nodes[0].generatetailstormblocks(1)
+        s2h = self.nodes[1].generatesubblocks(2)
+        # Are they available locally?
+        waitFor(10, lambda: type(returnException(lambda: self.nodes[1].getsubblock(s2h[0]))) is type({}))
+        waitFor(10, lambda: type(returnException(lambda: self.nodes[1].getsubblock(s2h[1]))) is type({}))
+        # Are they available remote?
+        waitFor(10, lambda: type(returnException(lambda: self.nodes[0].getsubblock(s2h[0]))) is type({}))
+        waitFor(10, lambda: type(returnException(lambda: self.nodes[0].getsubblock(s2h[1]))) is type({}))
+        s1h = self.nodes[0].generatesubblocks(2)
+        ts1h = self.nodes[0].generatetailstormblocks(1)
+        ts1 = self.nodes[0].getblock(ts1h[0])
+        usedSubblocks = ts1["subblockHashes"]
+        genSbs = s1h + s2h
+        # Make sure we didn't create new subblocks but used what we had
+        for sb in usedSubblocks:
+            assert(sb in genSbs)
+
+        # TODO: not implemented
+        # Make sure we preferred our own subblocks (maximize our money)
+        # for sb in s1h:
+        #    assert(sb in usedSubblocks)
+
 
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
@@ -109,6 +126,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         self.nodes[1].generatetailstormblocks(10*LONGER)
         nblocks = self.nodes[1].getblockcount()
         node2 = start_node(2, self.options.tmpdir, self.node_opts)
+        self.nodes.append(node2)
         connect_nodes(node2, 0)
         logging.info("syncing 2 nodes")
         waitFor(100, lambda: node2.getblockcount() == nblocks, 2.0)

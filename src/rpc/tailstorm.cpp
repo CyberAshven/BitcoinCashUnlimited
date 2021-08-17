@@ -98,8 +98,7 @@ static UniValue getsubblock(const UniValue &params, bool fHelp)
         // Look to see if its an active subblock
         {
             LOCK(cs_tipDagCache);
-            CSubBlock sb;
-            found = tailstormDagSet.Find(hash, sb);
+            found = tailstormDagSet.Find(hash, subblock);
         }
 
         if (!found)  // Look for a dag subblock
@@ -124,6 +123,8 @@ static UniValue getsubblock(const UniValue &params, bool fHelp)
         // TODO find the height and index
         throw JSONRPCError(RPC_INVALID_PARAMETER, "unimplemented");
     }
+
+    if (!found) throw JSONRPCError(RPC_INVALID_PARAMETER, "unknown subblock");
 
     int nVerbose = 1;
     bool fListTxns = true;

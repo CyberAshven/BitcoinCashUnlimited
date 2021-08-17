@@ -1049,16 +1049,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                     }
                 }
             }
-            /*
-                        else if (inv.type == MSG_TAILSTORMBLOCK) // TODO depreciate in favor of headers style below
-                        {
-                            READLOCK(cs_mapBlockIndex);
-                            if (mapBlockIndex.count(inv.hash) == 0)
-                            {
-                                // we dont have it so request it
-                                requester.AskFor(inv, pfrom);
-                            }
-                            } */
             else if ((inv.type == MSG_BLOCK) || (inv.type == MSG_TAILSTORMBLOCK))
             {
                 bool fAlreadyHaveBlock = AlreadyHaveBlock(inv);
@@ -2304,15 +2294,16 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         // Since the hash would change if we are given a garbage block, this call will not accidentally mark a block
         // as received if we are given garbage.
         requester.MarkBlockAsReceived(hash, pfrom);
+        requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
         tailstormDagSet.Insert(subblock);
         /*  TODO: We should do this instead of Insert because an insert does not check the subblock for validity
             however, executing this code is causing an assertion in the dag MergeDags function
+
         if (ProcessNewSubBlock(subblock))
         {
             requester.ProcessingBlock(hash, pfrom);
         }
         */
-        requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
     }
 
     else if (strCommand == NetMsgType::TAILSTORMBLOCK && !fImporting && !fReindex)
