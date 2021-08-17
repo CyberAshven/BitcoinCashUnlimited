@@ -1287,7 +1287,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         if (!vHeaders.empty())
             pfrom->PushMessage(NetMsgType::HEADERS, vHeaders);
         if (!vBobHeaders.empty())
-            pfrom->PushMessage(NetMsgType::TAILSTORM_HEADERS, vHeaders);
+            pfrom->PushMessage(NetMsgType::TAILSTORM_HEADERS, vBobHeaders);
     }
 
 
@@ -1685,7 +1685,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         for (unsigned int n = 0; n < nCount; n++)
         {
             vRecv >> headers[n];
-            // ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
         }
 
         LOCK(cs_main);
