@@ -334,7 +334,8 @@ void ThinTypeRelay::CheckForDownloadTimeout(CNode *pfrom)
             if (!entry.fReceived &&
                 (GetTime() - entry.nRequestTime) > (int)MAX_THINTYPE_BLOCKS_IN_FLIGHT * blkReqRetryInterval / 1000000)
             {
-                if (!pfrom->fWhitelisted && Params().NetworkIDString() != "regtest"  && Params().NetworkIDString() != "tailreg" )
+                if (!pfrom->fWhitelisted && Params().NetworkIDString() != "regtest" &&
+                    Params().NetworkIDString() != "tailreg")
                 {
                     LOG(THIN | GRAPHENE | CMPCT,
                         "ERROR: Disconnect peer %s due to thinblock %s (type %s) download timeout exceeded (%d secs)\n",

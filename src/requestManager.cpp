@@ -805,6 +805,7 @@ void CRequestManager::SendRequests()
                         // Do not request from this node if it was disconnected
                         if (next.noderef.get()->fDisconnect || next.noderef.get()->fDisconnectRequest)
                         {
+                            next.noderef = nullptr;
                             continue;
                         }
                         // Do not request or re-request another block from a peer for which we are currently downloading
@@ -812,6 +813,7 @@ void CRequestManager::SendRequests()
                         else if (next.noderef.get()->fDownloading && item.nDownloadingSince != 0 &&
                                  now - item.nDownloadingSince > blockLookAheadInterval.Value())
                         {
+                            next.noderef = nullptr;
                             continue;
                         }
                     }
@@ -819,6 +821,8 @@ void CRequestManager::SendRequests()
 
                 if (next.noderef.get() != nullptr)
                 {
+                    item.availableFrom.push_back(next); // Put this source back on the end of the list
+
                     // If item.lastRequestTime is true then we've requested at least once and we'll try a re-request
                     if (item.lastRequestTime)
                     {
@@ -827,7 +831,6 @@ void CRequestManager::SendRequests()
                     }
                     CInv obj = item.obj;
 
-                    item.outstandingReqs++;
                     int64_t then = item.lastRequestTime;
                     int64_t nDownloadingSincePrev = item.nDownloadingSince;
                     {
@@ -845,6 +848,9 @@ void CRequestManager::SendRequests()
                     }
                     item.nDownloadingSince = 0;
                     bool fReqBlkResult = false;
+
+                    next.requestCount++; // Track # times requested from this source
+                    item.outstandingReqs++; // Track # total requests of this object
 
                     if (fBatchBlockRequests)
                     {
