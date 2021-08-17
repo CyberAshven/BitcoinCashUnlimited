@@ -2293,19 +2293,20 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         LOG(BLK | REQ, "received subblock %s peer=%s\n", hash.GetHex(), pfrom->GetLogName());
         // Since the hash would change if we are given a garbage block, this call will not accidentally mark a block
         // as received if we are given garbage.
+        // TODO figure out exactly when to transition these states
         requester.MarkBlockAsReceived(hash, pfrom);
+        requester.ProcessingBlock(hash, pfrom);
         requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
-        tailstormDagSet.Insert(subblock);
-        /*  TODO: We should do this instead of Insert because an insert does not check the subblock for validity
-            however, executing this code is causing an assertion in the dag MergeDags function
 
-        if (ProcessNewSubBlock(subblock))
+        if (!ProcessNewSubBlock(subblock))
         {
-            requester.ProcessingBlock(hash, pfrom);
+            LOG(BLK, "Received invalid subblock %s from peer=%s", subblock.GetHash().GetHex(), pfrom->GetLogName());
         }
-        */
+        else
+        {
+            LOG(BLK, "Received valid subblock %s from peer=%s", subblock.GetHash().GetHex(), pfrom->GetLogName());
+        }
     }
-
     else if (strCommand == NetMsgType::TAILSTORMBLOCK && !fImporting && !fReindex)
     {
         CTailstormBlock tailstormblock;
