@@ -705,16 +705,11 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     // Request a full block if the BlockRelayTimer has expired.
     if (!IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled())
     {
-        if (pfrom->nServices & NODE_DELTABLOCKS)
-            inv2.type = MSG_TAILSTORMBLOCK;
-        else
-            inv2.type = MSG_BLOCK;
-
         std::vector<CInv> vToFetch;
         vToFetch.push_back(inv2);
         MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
         pfrom->PushMessage(NetMsgType::GETDATA, vToFetch);
-        LOG(THIN | GRAPHENE | CMPCT, "Requesting Regular Block %s from peer %s\n", inv2.hash.ToString(),
+        LOG(REQ | THIN | GRAPHENE | CMPCT, "Requesting nonspecific inv %s from peer %s\n", inv2.ToString(),
             pfrom->GetLogName());
         return true;
     }
@@ -824,32 +819,37 @@ void CRequestManager::SendRequests()
 
                 if (next.noderef.get() != nullptr)
                 {
-                    item.availableFrom.push_back(next); // Put this source back on the end of the list
-
                     // If item.lastRequestTime is true then we've requested at least once and we'll try a re-request
                     if (item.lastRequestTime)
                     {
-                        LOG(REQ, "Block took longer than %6.2f secs. Request timeout for %s.  Retrying\n",
+                        LOG(REQ,
+                            "Block took longer than %6.2f secs over nodes average. Request timeout for %s.  Retrying\n",
                             ((double)(now - item.lastRequestTime) / 1000000), item.obj.ToString());
                     }
                     CInv obj = item.obj;
 
                     int64_t then = item.lastRequestTime;
                     int64_t nDownloadingSincePrev = item.nDownloadingSince;
+                    int64_t nodeRespTime = 0;
                     {
                         LOCK(next.noderef.get()->cs_nAvgBlkResponseTime);
+                        nodeRespTime = max(0.0, next.noderef.get()->nAvgBlkResponseTime);
                         std::map<NodeId, CRequestManagerNodeState>::iterator it =
                             mapRequestManagerNodeState.find(next.noderef.get()->GetId());
+
+                        // Node must be gone if the state is gone so give up sending to it
                         if (it == mapRequestManagerNodeState.end())
                         {
                             mapBatchBlockRequests.erase(next.noderef);
                             continue;
                         }
                         CRequestManagerNodeState *state = &it->second;
-                        item.lastRequestTime =
-                            now + (next.noderef.get()->nAvgBlkResponseTime * 1000000 * 5 * state->nBlocksInFlight);
+
+                        item.lastRequestTime = now + max(0UL, (nodeRespTime * 1000000 * 5 * state->nBlocksInFlight));
                     }
-                    item.nDownloadingSince = 0;
+
+                    item.availableFrom.push_back(next); // Put this source back on the end of the list
+                    item.nDownloadingSince = item.lastRequestTime;
                     bool fReqBlkResult = false;
 
                     next.requestCount++; // Track # times requested from this source

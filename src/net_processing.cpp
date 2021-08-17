@@ -208,9 +208,17 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK)
         {
-            auto *mi = LookupBlockIndex(inv.hash);
+            CBlockIndex *mi = LookupBlockIndex(inv.hash);
             if (mi)
             {
+                if (mi->isTailstorm) // Requesting the wrong type of block
+                {
+                    LOG(NET, "%s: ignoring old-style block request from peer=%s for tailstorm block %s\n", __func__,
+                        pfrom->GetLogName(), inv.ToString());
+                    // TODO: reply with some kind of error?
+                    continue;
+                }
+
                 bool fSend = false;
                 {
                     LOCK(cs_main);
@@ -1041,7 +1049,17 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                     }
                 }
             }
-            else if (inv.type == MSG_BLOCK || inv.type == MSG_TAILSTORMBLOCK)
+            /*
+                        else if (inv.type == MSG_TAILSTORMBLOCK) // TODO depreciate in favor of headers style below
+                        {
+                            READLOCK(cs_mapBlockIndex);
+                            if (mapBlockIndex.count(inv.hash) == 0)
+                            {
+                                // we dont have it so request it
+                                requester.AskFor(inv, pfrom);
+                            }
+                            } */
+            else if ((inv.type == MSG_BLOCK) || (inv.type == MSG_TAILSTORMBLOCK))
             {
                 bool fAlreadyHaveBlock = AlreadyHaveBlock(inv);
                 LOG(NET, "got BLOCK inv: %s  %s peer=%d\n", inv.ToString(), fAlreadyHaveBlock ? "have" : "new",
@@ -1055,22 +1073,25 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 // throughout older block files.  This will stop those files from being pruned.
                 // !IsInitialBlockDownload() can be removed if
                 // a better block storage system is devised.
-                if ((!fAlreadyHaveBlock && !IsInitialBlockDownload()) ||
-                    (!fAlreadyHaveBlock && Params().NetworkIDString() == "regtest"))
+                bool ibd = IsInitialBlockDownload();
+                if ((!fAlreadyHaveBlock && !ibd) || (!fAlreadyHaveBlock && Params().NetworkIDString() == "regtest"))
                 {
                     // Since we now only rely on headers for block requests, if we get an INV from an older node or
                     // if there was a very large re-org which resulted in a revert to block announcements via INV,
                     // we will instead request the header rather than the block.  This is safer and prevents an
                     // attacker from sending us fake INV's for blocks that do not exist or try to get us to request
                     // and download fake blocks.
+                    LOG(NET, "Requesting GETHEADERS on block %s, with locator at height %d\n", inv.ToString(),
+                        pindexBestHeader.load()->nHeight);
                     pfrom->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexBestHeader), inv.hash);
                 }
                 else
                 {
                     LOG(NET,
-                        "skipping request of block %s.  already have: %d  importing: %d  reindex: %d  "
+                        "skipping request of block %s.  already have: %d  initial download: %d  importing: %d  "
+                        "reindex: %d  "
                         "isChainNearlySyncd: %d\n",
-                        inv.hash.ToString(), fAlreadyHaveBlock, fImporting, fReindex, IsChainNearlySyncd());
+                        inv.ToString(), fAlreadyHaveBlock, ibd, fImporting, fReindex, IsChainNearlySyncd());
                 }
             }
             else if (inv.type == MSG_TX)
@@ -1703,6 +1724,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             for (const CTailstormBlockHeader &header : headers)
             {
+                LOG(NET, "Received tailstorm header %s\n", header.GetHash().GetHex());
                 // check that the first header has a previous block in the blockindex.
                 if (hashLastBlock.IsNull())
                 {
@@ -3307,9 +3329,7 @@ bool SendMessages(CNode *pto)
                         // setInventoryKnown to track this.)
                         if (!PeerHasHeader(state, pindex))
                         {
-                            CInv inv(MSG_BLOCK, hashToAnnounce);
-                            if (pindex->isTailstorm)
-                                inv.type = MSG_TAILSTORMBLOCK;
+                            CInv inv((pindex->isTailstorm) ? MSG_TAILSTORMBLOCK : MSG_BLOCK, hashToAnnounce);
                             LOG(NET, "Push inventory C %s\n", inv.ToString());
                             pto->PushInventory(inv);
                             LOG(NET, "%s: sending inv peer=%d hash=%s\n", __func__, pto->id, hashToAnnounce.ToString());

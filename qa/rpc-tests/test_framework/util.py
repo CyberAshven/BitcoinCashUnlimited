@@ -281,7 +281,7 @@ def is_connected(gdict, vertices_encountered = None, start_vertex=None):
             return True
         return False
 
-def sync_blocks(rpc_connections, *, wait=1, verbose=1, timeout=60):
+def sync_blocks(rpc_connections, *, wait=1, verbose=1, timeout=20):
     """
     Wait until everybody has the same block count
     """
