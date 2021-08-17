@@ -1041,16 +1041,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                     }
                 }
             }
-            else if (inv.type == MSG_TAILSTORMBLOCK) // TODO depreciate in favor of headers style below
-            {
-                READLOCK(cs_mapBlockIndex);
-                if (mapBlockIndex.count(inv.hash) == 0)
-                {
-                    // we dont have it so request it
-                    requester.AskFor(inv, pfrom);
-                }
-            }
-            else if (inv.type == MSG_BLOCK) // || (inv.type == MSG_TAILSTORMBLOCK))
+            else if (inv.type == MSG_BLOCK || inv.type == MSG_TAILSTORMBLOCK)
             {
                 bool fAlreadyHaveBlock = AlreadyHaveBlock(inv);
                 LOG(NET, "got BLOCK inv: %s  %s peer=%d\n", inv.ToString(), fAlreadyHaveBlock ? "have" : "new",
