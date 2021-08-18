@@ -935,14 +935,6 @@ bool AppInit2(Config &config)
         }
 #endif
     }
-    else
-    {
-        // raise preallocation size of block and undo files
-        blockfile_chunk_size = max_blockfile_size;
-        // multiply by 8 as this is the same difference between default and max blockfile size
-        // we do not have a define max undofile size
-        undofile_chunk_size = undofile_chunk_size * 8;
-    }
 
     // Make sure enough file descriptors are available
     int nBind = std::max((int)mapArgs.count("-bind") + (int)mapArgs.count("-whitebind"), 1);
