@@ -1203,17 +1203,22 @@ bool ActivateBestChainStepTailstorm(CValidationState &state,
 
     bool fBlocksDisconnected = false;
 
-    while (chainActive.Tip() && chainActive.Tip() != pindexFork)
     {
-        // Disconnect active blocks which are no longer in the best chain. We do not need to concern ourselves with any
-        // block validation threads that may be running for the chain we are rolling back. They will automatically fail
-        // validation during ConnectBlock() once the chaintip has changed..
-        if (!DisconnectTip(state, chainparams.GetConsensus()))
-        {
-            return false;
-        }
+        // Required by Disconnect tip; we can't be extending the tip as we disconnect it!
+        LOCK(PV->cs_blockvalidationthread);
 
-        fBlocksDisconnected = true;
+        while (chainActive.Tip() && chainActive.Tip() != pindexFork)
+        {
+            // Disconnect active blocks which are no longer in the best chain. We do not need to concern ourselves with any
+            // block validation threads that may be running for the chain we are rolling back. They will automatically fail
+            // validation during ConnectBlock() once the chaintip has changed..
+            if (!DisconnectTip(state, chainparams.GetConsensus()))
+            {
+                return false;
+            }
+
+            fBlocksDisconnected = true;
+        }
     }
 
     // Build list of new blocks to connect.

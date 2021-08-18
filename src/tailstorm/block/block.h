@@ -79,7 +79,7 @@ class CTailstormBlock : public CTailstormBlockHeader
 {
 private:
     // memory only
-    mutable uint64_t nBlockSize; // Serialized block size in bytes
+    mutable uint64_t nBlockSize=0; // Serialized block size in bytes
 
 public:
     // no network
@@ -116,6 +116,7 @@ public:
         READWRITE(*(CTailstormBlockHeader *)this);
         READWRITE(dagEncodingMap);
         READWRITE(vtx);
+        if (!ser_action.ForRead()) nBlockSize=0;  // Force block size recalculation since block is being overwritten
     }
 
     void SetNull()
@@ -124,6 +125,7 @@ public:
         vdag.clear();
         dagEncodingMap.clear();
         CTailstormBlockHeader::SetNull();
+        nBlockSize=0;  // Force block size recalculation
     }
     void UpdateTxLists();
     std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists();

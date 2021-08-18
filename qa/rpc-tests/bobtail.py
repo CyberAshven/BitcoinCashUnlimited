@@ -131,13 +131,27 @@ class TailstormBlocksTest(BitcoinTestFramework):
         logging.info("syncing 2 nodes")
         waitFor(100, lambda: node2.getblockcount() == nblocks, 2.0)
         waitFor(100, lambda: self.nodes[0].getblockcount() == nblocks, 2.0)
-        pdb.set_trace()
+
+        # sort of simultaneously create blocks (we'd need to create threads to actually do so)
+        for i in range(0,10):
+            for n in self.nodes:
+                n.generatesubblocks(1)
+            for n in self.nodes:
+                n.generatetailstormblocks(1)
+        # now force convergence
+        self.nodes[1].generatetailstormblocks(2)
+        count = self.nodes[1].getblockcount()
+        bestblockhash = self.nodes[1].getbestblockhash()
+        waitFor(30, lambda: self.nodes[0].getblockcount() == count)
+        waitFor(30, lambda: self.nodes[2].getblockcount() == count)
+        waitFor(30, lambda: self.nodes[0].getbestblockhash() == bestblockhash)
+        waitFor(30, lambda: self.nodes[2].getbestblockhash() == bestblockhash)
 
 if __name__ == '__main__':
     TailstormBlocksTest().main()
 
 # Create a convenient function for an interactive python debugging session
-def Test():
+def Test1():
     t = TailstormBlocksTest()
     # logging.getLogger().setLevel(logging.DEBUG)
     logging.getLogger().setLevel(logging.INFO)
@@ -149,3 +163,7 @@ def Test():
 
     flags = standardFlags()
     t.main(flags, bitcoinConf, None)
+
+def Test():
+    for i in range(0,10):
+        Test1()
