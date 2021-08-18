@@ -54,6 +54,10 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
     const CChainParams &chainparams,
     bool fJustCheck = false);
 
+/** disconnects pIndexDelete, WHICH MUST BE THE CHAIN TIP from the blockchain, unwinding and resubmitting txs to 
+the blockchain */
+bool DisconnectTailstormTip(CValidationState &state, const CBlockIndex *pindexDelete, const Consensus::Params &consensusParams, const bool fRollBack);
+
 DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CBlockIndex *pindex, CCoinsViewCache &view);
 
 /**

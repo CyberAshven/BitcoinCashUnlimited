@@ -41,6 +41,9 @@ extern std::set<CBlockIndex *, CBlockIndexWorkComparator> setBlockIndexCandidate
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
 extern int ApplyTxInUndo(Coin &&undo, CCoinsViewCache &view, const COutPoint &out);
 
+extern CBlockIndex const *pindexFinalized GUARDED_BY(cs_main);
+
+
 bool InitTailstormBlockIndex(const CChainParams &chainparams)
 {
     LOCK(cs_main);
@@ -996,6 +999,77 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
 
     return true;
 }
+
+
+
+bool DisconnectTailstormTip(CValidationState &state, const CBlockIndex *pindexDelete, const Consensus::Params &consensusParams, const bool fRollBack)
+{
+    // you cannot be extending the chain whiles simultaneously disconnecting a tip
+    AssertLockHeld(cs_main);
+    AssertLockHeld(PV->cs_blockvalidationthread);
+
+    LOG(BLK, "Disconnect block %s, tip is now %s\n", pindexDelete->ToString(), (pindexDelete->pprev) ? pindexDelete->pprev->ToString() : "pre-genesis");
+    // Read block from disk.
+    CTailstormBlockRef pblock(new CTailstormBlock());
+    if (!ReadBlockFromDisk(pblock, pindexDelete, consensusParams))
+    {
+        return AbortNode(state, "DisconnectTailstormTip(): Failed to read block");
+    }
+    // Apply the block atomically to the chain state.
+    int64_t nStart = GetStopwatchMicros();
+    {
+        CCoinsViewCache view(pcoinsTip);
+        if (DisconnectTailstormBlock(*pblock, pindexDelete, view) != DISCONNECT_OK)
+            return error("DisconnectTailstormTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
+        bool result = view.Flush();
+        assert(result);
+    }
+    LOG(BENCH, "- Disconnect block: %.2fms\n", (GetStopwatchMicros() - nStart) * 0.001);
+    // Write the chain state to disk, if necessary.
+    if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
+        return false;
+
+    // these bloom filters stop us from doing duplicate work on tx we already know about.
+    // but since we rewound, we need to do this duplicate work -- clear them so tx we have already processed
+    // can be processed again.
+    txRecentlyInBlock.reset();
+    recentRejects.reset();
+
+    // If the tip is finalized, then undo it.
+    if (pindexFinalized == pindexDelete)
+    {
+        pindexFinalized = pindexDelete->pprev;
+    }
+
+    // Update chainActive and related variables.
+    UpdateTip(pindexDelete->pprev);
+    // Let wallets know transactions went from 1-confirmed to
+    // 0-confirmed or conflicted:
+    for (const auto &ptx : pblock->vtx)
+    {
+        SyncWithWallets(ptx, nullptr, -1);
+    }
+
+    // Clear mempool if rolling back the chain using the "rollbackchain" rpc command, otherwise clear and
+    // place all tx back into the admission queue. "Rollbackchain" is used for significant manually triggered
+    // reorganizations, such as switching between forks, so it makes no sense to keep the transactions because
+    // they will likely be invalid or already confirmed on the other fork.
+    if (fRollBack)
+    {
+        WRITELOCK(mempool.cs_txmempool);
+        mempool._clear();
+        boost::unique_lock<boost::mutex> lock(csCommitQ);
+        txCommitQ->clear();
+    }
+    else
+    {
+        ResubmitTransactions(pblock->vtx);
+    }
+
+    return true;
+}
+
+
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When UNCLEAN or FAILED is returned, view is left in an indeterminate state. */

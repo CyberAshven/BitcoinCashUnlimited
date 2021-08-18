@@ -3103,7 +3103,8 @@ void UpdateTip(CBlockIndex *pindexNew)
     }
 }
 
-static void ResubmitTransactions(CBlockRef pblock = nullptr)
+
+void ResubmitTransactions(const std::vector<CTransactionRef> &vtx)
 {
     // To be very safe let's force everything in the mempool to be re-admitted.  This reduces this rare case
     // quickly to a very common operation mode.  If we do not do this, we must guarantee that all tx coming from
@@ -3120,18 +3121,15 @@ static void ResubmitTransactions(CBlockRef pblock = nullptr)
     DbgAssert(txProcessingCorral.region() != CORRAL_TX_COMMITMENT, LOGA("Resubmit transactions during tx commitment"));
     LOG(MEMPOOL, "Clearing mempool and resubmitting transactions");
     {
-        if (pblock)
+        // Resubmit the block first
+        for (const auto &ptx : vtx)
         {
-            // Resubmit the block first
-            for (const auto &ptx : pblock->vtx)
+            if (!ptx->IsCoinBase())
             {
-                if (!ptx->IsCoinBase())
-                {
-                    CTxInputData txd;
-                    txd.tx = ptx;
-                    txd.nodeName = "rollback";
-                    EnqueueTxForAdmission(txd);
-                }
+                CTxInputData txd;
+                txd.tx = ptx;
+                txd.nodeName = "rollback";
+                EnqueueTxForAdmission(txd);
             }
         }
 
@@ -3149,14 +3147,12 @@ static void ResubmitTransactions(CBlockRef pblock = nullptr)
         mempool.ResubmitCommitQ();
     }
 }
-/** Disconnect chainActive's tip. */
-bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack)
-{
-    AssertLockHeld(cs_main);
-    AssertLockHeld(PV->cs_blockvalidationthread);
 
-    CBlockIndex *pindexDelete = chainActive.Tip();
-    assert(pindexDelete);
+bool DisconnectBchBlockTip(CValidationState &state,
+    const CBlockIndex *pindexDelete,
+    const Consensus::Params &consensusParams,
+    const bool fRollBack)
+{
     // Read block from disk.
     CBlockRef pblock(new CBlock());
     if (!ReadBlockFromDisk(pblock, pindexDelete, consensusParams, false))
@@ -3211,10 +3207,25 @@ bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusPa
     }
     else
     {
-        ResubmitTransactions(pblock);
+        ResubmitTransactions(pblock->vtx);
     }
 
     return true;
+}
+
+/** Disconnect chainActive's tip. */
+bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack)
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(PV->cs_blockvalidationthread);
+
+    CBlockIndex *pindexDelete = chainActive.Tip();
+    assert(pindexDelete);
+
+    if (pindexDelete->isTailstorm)
+        return DisconnectTailstormTip(state, pindexDelete, consensusParams, fRollBack);
+    else
+        return DisconnectBchBlockTip(state, pindexDelete, consensusParams, fRollBack);
 }
 
 

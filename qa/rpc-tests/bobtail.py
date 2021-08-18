@@ -64,7 +64,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert sb0["time"] >= now - 60
 
     def run_test(self):
-        LONGER = 1
+        LONGER = 10
         # First test corner case where there are more subblocks than necessary
         # to assemble a block. This should succeed silently.
         self.nodes[0].generatesubblocks(103)
@@ -122,22 +122,23 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert_equal(self.nodes[miner_node].gettailstorminfo()['chaintip'], self.nodes[other_node].gettailstorminfo()['chaintip'])
 
         # IBD test:  make a longer chain and then sync
-        logging.info("generating %d blocks" % (10*LONGER))
-        self.nodes[1].generatetailstormblocks(10*LONGER)
-        nblocks = self.nodes[1].getblockcount()
-        node2 = start_node(2, self.options.tmpdir, self.node_opts)
-        self.nodes.append(node2)
-        connect_nodes(node2, 0)
-        node3 = start_node(3, self.options.tmpdir, self.node_opts)
-        self.nodes.append(node3)
-        connect_nodes(node3, 2)  # Connect node 3 only to the new node
-        logging.info("syncing 3 nodes")
-        waitFor(100, lambda: node2.getblockcount() == nblocks, 2.0)
-        waitFor(100, lambda: node3.getblockcount() == nblocks, 2.0)
-        waitFor(100, lambda: self.nodes[0].getblockcount() == nblocks, 2.0)
+        if True:
+            logging.info("generating %d blocks" % (10*LONGER))
+            self.nodes[1].generatetailstormblocks(10*LONGER)
+            nblocks = self.nodes[1].getblockcount()
+            node2 = start_node(2, self.options.tmpdir, self.node_opts)
+            self.nodes.append(node2)
+            connect_nodes(node2, 0)
+            node3 = start_node(3, self.options.tmpdir, self.node_opts)
+            self.nodes.append(node3)
+            connect_nodes(node3, 2)  # Connect node 3 only to the new node
+            logging.info("syncing nodes 0, 2 and 3 to node 1")
+            waitFor(100, lambda: node2.getblockcount() == nblocks, 2.0)
+            waitFor(100, lambda: node3.getblockcount() == nblocks, 2.0)
+            waitFor(100, lambda: self.nodes[0].getblockcount() == nblocks, 2.0)
 
         # sort of simultaneously create blocks (we'd need to create threads to actually do so)
-        for i in range(0,10):
+        for i in range(0,5):
             for n in self.nodes:
                 n.generatesubblocks(1)
             for n in self.nodes:
@@ -151,7 +152,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
                         pass
                     else: raise
         # now force convergence
-        self.nodes[1].generatetailstormblocks(2)
+        self.nodes[1].generatetailstormblocks(4)
         count = self.nodes[1].getblockcount()
         bestblockhash = self.nodes[1].getbestblockhash()
         waitFor(30, lambda: self.nodes[0].getblockcount() == count)
@@ -160,6 +161,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[0].getbestblockhash() == bestblockhash)
         waitFor(30, lambda: self.nodes[2].getbestblockhash() == bestblockhash)
 
+        logging.info("Forced fork")
         # create a fork by partitioning the network
         # node2 and 3 are only connected to 0 and 1 via a bidirectional connection to 0
         disconnect_nodes(node2, 0)
@@ -167,13 +169,17 @@ class TailstormBlocksTest(BitcoinTestFramework):
         winningHashes = self.nodes[0].generatetailstormblocks(5)
         losingHashes = self.nodes[3].generatetailstormblocks(4)
 
+        assert self.nodes[0].getbestblockhash() != self.nodes[3].getbestblockhash()
+        assert self.nodes[0].getblockcount() == 1 + self.nodes[3].getblockcount()
+
         # reconnect
         connect_nodes(node2, 0)
 
         # now nodes 2 and 3 should reorganize to the longer (more work) side
         waitFor(30, lambda: self.nodes[2].getbestblockhash() == winningHashes[-1])
         waitFor(30, lambda: self.nodes[3].getbestblockhash() == winningHashes[-1])
-        pdb.set_trace()
+        
+        logging.info("Test finished")
 
 
 if __name__ == '__main__':
@@ -194,5 +200,5 @@ def Test1():
     t.main(flags, bitcoinConf, None)
 
 def Test():
-    for i in range(0,10):
+    for i in range(0,100):
         Test1()

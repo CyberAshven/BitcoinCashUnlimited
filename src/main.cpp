@@ -415,7 +415,8 @@ bool AbortNode(const std::string &strMessage, const std::string &userMessage = "
 
 bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "")
 {
-    LOGA("*** ABORT NODE: validation state: code=%d, reason=%s, message=%s", state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
+    LOGA("*** ABORT NODE: validation state: code=%d, reason=%s, message=%s", state.GetRejectCode(),
+        state.GetRejectReason(), state.GetDebugMessage());
     AbortNode(strMessage, userMessage);
     return state.Error(strMessage);
 }

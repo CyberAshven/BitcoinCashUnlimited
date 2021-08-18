@@ -143,10 +143,7 @@ static const char *FEE_ESTIMATES_FILENAME = "fee_estimates.dat";
 std::atomic<bool> fRequestShutdown{false};
 std::atomic<bool> fDumpMempoolLater{false};
 
-void StartShutdown()
-{
-    fRequestShutdown = true;
-}
+void StartShutdown() { fRequestShutdown = true; }
 bool ShutdownRequested() { return fRequestShutdown; }
 class CCoinsViewErrorCatcher : public CCoinsViewBacked
 {
