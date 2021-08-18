@@ -283,6 +283,9 @@ bool BobCompactBlock::process(CNode *pfrom)
     CValidationState state;
     const CChainParams &chainparams = Params();
     bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
+
+    thinrelay.ClearBlockInFlight(pfrom->id, GetHash());
+
     ProcessNewTailstormBlock(state, chainparams, pfrom, this, forceProcessing, nullptr);
     return true;
 }
@@ -445,6 +448,9 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         CValidationState state;
         const CChainParams &chainparams = Params();
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
+
+        thinrelay.ClearBlockInFlight(pfrom->id, bobcmpctblock->GetHash());
+
         ProcessNewTailstormBlock(state, chainparams, pfrom, bobcmpctblock.get(), forceProcessing, nullptr);
     }
 
