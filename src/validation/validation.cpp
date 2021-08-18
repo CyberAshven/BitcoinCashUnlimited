@@ -3160,7 +3160,9 @@ bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusPa
     // Read block from disk.
     CBlockRef pblock(new CBlock());
     if (!ReadBlockFromDisk(pblock, pindexDelete, consensusParams, false))
+    {
         return AbortNode(state, "DisconnectTip(): Failed to read block");
+    }
     // Apply the block atomically to the chain state.
     int64_t nStart = GetStopwatchMicros();
     {

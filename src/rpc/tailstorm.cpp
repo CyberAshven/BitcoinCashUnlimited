@@ -381,7 +381,9 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
                         CValidationState state;
                         if (!ProcessNewTailstormBlock(state, Params(), nullptr, pTailstormBlock, true, nullptr))
                         {
-                            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewTailstormBlock, tailstorm block not accepted");
+                            std::string msg = strprintf("ProcessNewTailstormBlock tailstorm block not accepted with code=%d, reason=%s, message=%s", state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
+                            LOG(WB, msg);
+                            throw JSONRPCError(RPC_INTERNAL_ERROR, msg);
                         }
 
                         // mark script as important because it was used at least for one coinbase output if the script came from the

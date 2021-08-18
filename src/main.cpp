@@ -405,7 +405,7 @@ void AlertNotify(const std::string &strMessage)
 bool AbortNode(const std::string &strMessage, const std::string &userMessage = "")
 {
     strMiscWarning = strMessage;
-    LOGA("*** %s\n", strMessage);
+    LOGA("*** ABORT NODE: %s (userMessage: %s)\n", strMessage, userMessage);
     uiInterface.ThreadSafeMessageBox(
         userMessage.empty() ? _("Error: A fatal internal error occurred, see debug.log for details") : userMessage, "",
         CClientUIInterface::MSG_ERROR);
@@ -415,6 +415,7 @@ bool AbortNode(const std::string &strMessage, const std::string &userMessage = "
 
 bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "")
 {
+    LOGA("*** ABORT NODE: validation state: code=%d, reason=%s, message=%s", state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
     AbortNode(strMessage, userMessage);
     return state.Error(strMessage);
 }
