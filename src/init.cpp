@@ -145,7 +145,6 @@ std::atomic<bool> fDumpMempoolLater{false};
 
 void StartShutdown()
 {
-    DbgPause();
     fRequestShutdown = true;
 }
 bool ShutdownRequested() { return fRequestShutdown; }
