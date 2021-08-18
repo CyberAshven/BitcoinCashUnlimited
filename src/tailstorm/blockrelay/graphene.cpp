@@ -1484,9 +1484,11 @@ bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChain
             iter = tipDagCache.find(inv.hash);
             if (iter == tipDagCache.end())
             {
-                return error("Peer %s requested tailstorm subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
+                if (!FindCommittedSubblock(chainActive, inv.hash, subblock))
+                    return error("Peer %s requested tailstorm subblock %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
             }
-            subblock = iter->second.subblock;
+            else
+                subblock = iter->second.subblock;
         }
         SBSendGrapheneBlock(subblock, pfrom, inv, mempoolinfo);
 	}
