@@ -153,13 +153,12 @@ public:
         vdag.clear();
         vdag.resize(subblockHashes.size());
         int i = 0;
-        for (auto &hash : subblockHashes)
+        for (i = 0; i < subblockHashes.size(); ++i)
         {
             CSubBlockRef subblock = std::make_shared<CSubBlock>();
             success &= GetSubBlock(hash, *subblock);
-            vdag[i++] = subblock;
+            vdag[i] = subblock;
         }
-
         return success;
     }
 

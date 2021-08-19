@@ -449,6 +449,47 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
         return state.DoS(100, error("%s(): first tx is not coinbase", __func__), REJECT_INVALID, "bad-cb-missing");
     }
 
+    // check coinbase for proper payouts
+    if (block.PopulateVdag() == false)
+    {
+        return state.DoS(100, error("%s(): could not populate vdag", __func__), REJECT_INVALID, "bad-vdag");
+    }
+    size_t index;
+    CAmount valueOut = block.vtx[0].GetValueOut();
+    CAmount payoutPer = valueOut / TAILSTORM_K;
+    CAmount extraAtZero = valueOut % TAILSTORM_K;
+    CAmount totalPaid = 0;
+    for (index = (block.vdag.size() - 1); index >= 0; --index)
+    {
+        // check proper destination
+        if (block.vtx[0]->vout[index].scriptPubKey != block.vdag[index]->vtx[0]->vin[0].scriptSig)
+        {
+            return state.DoS(100, error("%s(): invalid coinbase payout recipient", __func__), REJECT_INVALID, "bad-cb-payout-dest");
+        }
+        if (index != 0)
+        {
+            // check proper amount
+            if (block.vtx[0]->vout[index].nValue != payoutPer)
+            {
+                return state.DoS(100, error("%s(): imporper coinbase payout amount", __func__), REJECT_INVALID, "bad-cb-payout-amnt");
+            }
+            totalPaid = totalPaid + payoutPer;
+        }
+        else
+        {
+            if (totalPaid + extraAtZero != valueOut)
+            {
+                return state.DoS(100, error("%s(): imporper coinbase payout amount", __func__), REJECT_INVALID, "bad-cb-payout-amnt");
+            }
+            // first index which recieves a payout share and any remainder
+            if (block.vtx[0]->vout[index].nValue != payoutPer + extraAtZero)
+            {
+                return state.DoS(100, error("%s(): imporper coinbase payout amount", __func__), REJECT_INVALID, "bad-cb-payout-amnt");
+            }
+        }
+    }
+
+
     for (unsigned int i = 1; i < block.vtx.size(); i++)
     {
         if (block.vtx[i]->IsCoinBase())

@@ -103,9 +103,9 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(const CScript &scriptPubKeyI
     // set the vout to be tailstorm K at least
     tx.vout.resize(TAILSTORM_K);
     CAmount valuePer = nValue / TAILSTORM_K;  // TODO HANDLE rounding
-    unsigned int i = 0;
     std::set<CDagNode>::iterator iter = dag.begin();
     CAmount total_paid = 0;
+    unsigned int i = 0;
     while (i < TAILSTORM_K && iter != dag.end())
     {
         tx.vout[i].scriptPubKey = (*iter).subblock.vtx[0]->vin[0].scriptSig;
@@ -113,12 +113,13 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(const CScript &scriptPubKeyI
         total_paid = total_paid + valuePer;
         ++i;
     }
-    unsigned int k = 0;
-    unsigned int zero_indexed_K = TAILSTORM_K - 1;
-    while (total_paid < nValue)
+    // any remainder gets added to the first index
+    CAmount remainder = nValue - total_paid;
+    if (remainder > 0)
     {
-        tx.vout[k % zero_indexed_K].nValue = tx.vout[k % zero_indexed_K].nValue + 1;
-        total_paid++;
+        tx.vout[0].nValue = tx.vout[0].nValue + remainder;
+        // for the following assert
+        total_paid = total_paid + remainder;
     }
     // sanity check, this should never fail
     assert(total_paid == nValue);
