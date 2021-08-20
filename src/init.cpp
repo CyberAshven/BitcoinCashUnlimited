@@ -1519,21 +1519,10 @@ bool AppInit2(Config &config)
     fFeeEstimatesInitialized = true;
 
     // Set fCanonicalTxsOrder for the BCH early in the bootstrap phase
-    if (IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
+    if (chainparams.NetworkIDString() != "regtest" && chainparams.NetworkIDString() != "tailreg")
     {
-        if (chainparams.NetworkIDString() != "regtest" && chainparams.NetworkIDString() != "tailreg")
-        {
-            fCanonicalTxsOrder = true;
-        }
+        fCanonicalTxsOrder = true;
     }
-    else
-    {
-        if (chainparams.NetworkIDString() != "regtest" && chainparams.NetworkIDString() != "tailreg")
-        {
-            fCanonicalTxsOrder = false;
-        }
-    }
-
 
     // ********************************************************* Step 7: load wallet
 
