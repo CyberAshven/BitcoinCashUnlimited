@@ -777,27 +777,27 @@ void MainCleanup()
     }
 }
 
-bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
+bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out)
 {
     // This would be a lot faster if a map of subblocks to heights was maintained.  But it may not be worth doing
     // this for this API which will be called rarely outside of test
 
     // go backwards because likely most interested in recent subblocks
-    if (chain.Tip() == nullptr) 
+    if (chain.Tip() == nullptr)
     {
         return false;
     }
 
     int height = chain.Tip()->nHeight;
-    for (int h = height; h>0; h--)
+    for (int h = height; h > 0; h--)
     {
-        CBlockIndex* blkidx = chain[h];
-        DbgAssert(blkidx, return false);  // Should never be null because we are starting from tip height to 1
-        if (!blkidx->isTailstorm) 
+        CBlockIndex *blkidx = chain[h];
+        DbgAssert(blkidx, return false); // Should never be null because we are starting from tip height to 1
+        if (!blkidx->isTailstorm)
         {
             continue;
         }
-        if (blkidx->subblockNTxMap.count(hash) == 0) 
+        if (blkidx->subblockNTxMap.count(hash) == 0)
         {
             continue;
         }
@@ -806,12 +806,12 @@ bool FindCommittedSubblock(CChain& chain, const uint256& hash, CSubBlock& out)
         if (!ReadBlockFromDisk(block, blkidx, Params().GetConsensus()))
         {
             // TODO dont assert if pruned
-            DbgAssert(false, return false);  // We should be able to read every block we have data on
+            DbgAssert(false, return false); // We should be able to read every block we have data on
             return false;
         }
         if (!block->GetSubBlock(hash, out))
         {
-            DbgAssert(false, return false);  // Hash must be here because we found it in the NtxMap
+            DbgAssert(false, return false); // Hash must be here because we found it in the NtxMap
             return false;
         }
         return true;
