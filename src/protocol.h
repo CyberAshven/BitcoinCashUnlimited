@@ -489,28 +489,21 @@ public:
 enum
 {
     MSG_TX = 1,
-    MSG_BLOCK,
+    MSG_BLOCK = 2,
     // Nodes may always request a MSG_FILTERED_BLOCK/MSG_CMPCT_BLOCK in a getdata, however,
     // MSG_FILTERED_BLOCK/MSG_CMPCT_BLOCK should not appear in any invs except as a part of getdata.
-    MSG_FILTERED_BLOCK,
-    // BitcoinCore had chosen the same enum for compact blocks as thinblocks. As a result we had to
-    // bump MSG_THINBLOCK to a higher value (see below).
-    MSG_CMPCT_BLOCK,
-    // BUIP010 Xtreme Thinblocks: an Xtreme thin block contains the first 8 bytes of all the tx hashes
-    // and also provides the missing transactions that are needed at the other end to reconstruct the block
-    MSG_XTHINBLOCK,
-    // BUIPXXX Graphene blocks: similar to xtreme thin blocks, a graphene block contains all the transactions
-    // hashes in a block and also provides the missing transaction ids that are needed at the other end to
-    // reconstruct the block
-    MSG_GRAPHENEBLOCK,
-    // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
-    // and also provides the missing transactions that are needed at the other end to reconstruct the block.
-    //
-    // With the introduction of compact block, this is being deprecated in favor of using the get_thin p2p
+    MSG_FILTERED_BLOCK = 3,
+    MSG_CMPCT_BLOCK = 4,
+
+    // MSG_XTHINBLOCK, MSG_GRAPHENEBLOCK and MSG_THINBLOCK are not strictly necessary but they do make
+    // creating and validating the requestManager tests much easier.
+    MSG_XTHINBLOCK = 5,
+    MSG_GRAPHENEBLOCK = 6,
+    // With the introduction of compact blocks, this is being deprecated in favor of using the get_thin p2p
     // message, which solves the conflict with MSG_THINBLOCK and MSG_CMPCT_BLOCK.
     MSG_THINBLOCK = MSG_CMPCT_BLOCK,
 
-    MSG_DOUBLESPENDPROOF = 0x94a0
+    MSG_DOUBLESPENDPROOF = 7
 };
 
 #endif // BITCOIN_PROTOCOL_H

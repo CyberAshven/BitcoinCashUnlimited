@@ -222,7 +222,7 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
         // Check that a dsproof was created and then inventory message was sent.
         LOCK(node.cs_inventory);
         BOOST_CHECK(pool.doubleSpendProofStorage()->exists(node.vInventoryToSend.at(0).hash) == true);
-        BOOST_CHECK(0x94a0 == node.vInventoryToSend.at(0).type);
+        BOOST_CHECK(7 == node.vInventoryToSend.at(0).type);
     }
 
     // Create another dsproof for against the same original first tx...it should not be possible
