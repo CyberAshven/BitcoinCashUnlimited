@@ -204,7 +204,7 @@ testScripts = [ RpcTest(t) for t in [
     Disabled('schnorr-activation', 'Need to be updated to work with BU'),
     'schnorrsig',
     'segwit_recovery',
-    Disabled('bip135basic', "having trouble on gitlab"),
+    'bip135basic',
     Disabled('ctor', "ctor always on in regtest"),
     'mining_ctor',
     Disabled('nov152018_forkactivation','Nov 2018 already activated'),
