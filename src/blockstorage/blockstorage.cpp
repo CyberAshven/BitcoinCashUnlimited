@@ -507,6 +507,8 @@ bool ReadBlockFromDisk(CBlockRef &pblock,
         }
         if (bblock.GetHash() != pindex->GetBlockHash())
         {
+            LOG(WB, "!!!read from disk (this is correct): %s  read from block index (this is incorrect): %s",
+                bblock.GetHash().ToString(), pindex->GetBlockHash().ToString());
             return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
                 __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
         }

@@ -705,11 +705,6 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     // Request a full block if the BlockRelayTimer has expired.
     if (!IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled())
     {
-        if (pfrom->nServices & NODE_DELTABLOCKS)
-            inv2.type = MSG_TAILSTORMBLOCK;
-        else
-            inv2.type = MSG_BLOCK;
-
         std::vector<CInv> vToFetch;
         vToFetch.push_back(inv2);
         MarkBlockAsInFlight(pfrom->GetId(), obj.hash);

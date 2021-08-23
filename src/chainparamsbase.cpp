@@ -18,7 +18,7 @@ const std::string CBaseChainParams::TESTNET4 = "test4";
 const std::string CBaseChainParams::SCALENET = "scale";
 const std::string CBaseChainParams::REGTEST = "regtest";
 const std::string CBaseChainParams::TAILREG = "tailreg";
-const std::string CBaseChainParams::NEXTCHAIN = NEXTCHAIN_TICKER;
+const std::string CBaseChainParams::NEXTCHAIN = "nex";
 
 /**
  * Main network
@@ -123,8 +123,6 @@ public:
     }
 };
 static CBaseTailRegParams tailRegParams;
-
-static CBaseChainParams nextChainParams(CBaseChainParams::NEXTCHAIN, 7227);
 
 static CBaseChainParams *pCurrentBaseParams = 0;
 

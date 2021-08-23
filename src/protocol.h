@@ -555,7 +555,7 @@ enum
     // reconstruct the block
     MSG_GRAPHENEBLOCK = 6,
     // With the introduction of compact blocks, this is being deprecated in favor of using the get_thin p2p
-    MSG_DOUBLESPENDPROOF = 7
+    MSG_DOUBLESPENDPROOF = 7,
     // With the introduction of compact block, this is being deprecated in favor of using the get_thin p2p
     // message, which solves the conflict with MSG_THINBLOCK and MSG_CMPCT_BLOCK.
     MSG_THINBLOCK = MSG_CMPCT_BLOCK,

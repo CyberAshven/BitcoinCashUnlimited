@@ -124,9 +124,10 @@ public:
             throw std::invalid_argument("request more transactions than are in a block");
         for (uint32_t i : indexes)
         {
-            if (i >= block.vtx.size() || block.vtx[i] == nullptr)
+            CTransactionRef txref = block.vtx[i];
+            if (txref == nullptr)
                 throw std::invalid_argument("out of bound tx in rerequest");
-            txn.push_back(*block.vtx[i]);
+            txn.push_back(*txref);
         }
     }
 

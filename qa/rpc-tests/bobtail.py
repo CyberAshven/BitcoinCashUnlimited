@@ -103,7 +103,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         for i in range(5):
             self.nodes[0].sendtoaddress(addr, Decimal("10"))
 
-        logging.info("Generate %d tailstorm blocks with sync" % 3*LONGER)
+        logging.info("Generate %d tailstorm blocks with sync" % (3*LONGER))
         miner_node = 0
         other_node = 1
         for i in range(3*LONGER):
