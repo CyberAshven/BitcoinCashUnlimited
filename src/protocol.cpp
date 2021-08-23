@@ -70,7 +70,7 @@ const char *CMPCTBLOCK = "cmpctblock";
 const char *GETBLOCKTXN = "getblocktxn";
 const char *BLOCKTXN = "blocktxn";
 
-const char *DSPROOF = "dsproof-beta";
+const char *DSPROOF = "dsproof";
 
 const char *REQTXVAL = "req-txval";
 const char *RESTXVAL = "res-txval";
@@ -84,6 +84,7 @@ static const char *ppszTypeName[] = {
     NetMsgType::THINBLOCK, // thinblock or compact block
     NetMsgType::XTHINBLOCK,
     NetMsgType::GRAPHENEBLOCK,
+    NetMsgType::DSPROOF,
 };
 
 /** All known message types. Keep this in the same order as the list of
@@ -241,13 +242,11 @@ CInv::CInv(const std::string &strType, const uint256 &hashIn)
 }
 
 bool operator<(const CInv &a, const CInv &b) { return (a.type < b.type || (a.type == b.type && a.hash < b.hash)); }
-bool CInv::IsKnownType() const { return (type >= 1 && type <= 6) || type == MSG_DOUBLESPENDPROOF; }
+bool CInv::IsKnownType() const { return (type >= 1 && type <= 7); }
 const char *CInv::GetCommand() const
 {
     if (!IsKnownType())
         throw std::out_of_range(strprintf("CInv::GetCommand(): type=%d unknown type", type));
-    if (type == MSG_DOUBLESPENDPROOF)
-        return NetMsgType::DSPROOF;
     return ppszTypeName[type];
 }
 

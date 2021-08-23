@@ -70,8 +70,7 @@ customer.
 
 A node that finds itself in possession of a correct double-spend-proof
 shall notify its peers using the INV message, using a 'type' field with
-number **0x94a0**. This will be changed to another number as this spec
-is finalized.
+number 7.
 
 The hash-ID for the double-spend-proof is a double sha256 over the entire
 serialized content of the proof, as defined next.
