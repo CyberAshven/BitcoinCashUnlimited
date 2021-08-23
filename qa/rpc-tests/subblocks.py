@@ -40,6 +40,7 @@ class DeltaBlocksTest(BitcoinTestFramework):
     def run_test(self):
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
+        self.nodes[0].clearblockstats()
         self.sync_blocks()
 
         logging.info("Send 5 transactions from node0 (to its own address)")
