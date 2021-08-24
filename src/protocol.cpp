@@ -95,16 +95,16 @@ static const char *ppszTypeName[] = {
     NetMsgType::TX,
     NetMsgType::BLOCK,
     "filtered block", // Should never occur
-    NetMsgType::THINBLOCK, // thinblock or compact block
+    NetMsgType::CMPCTBLOCK,
     NetMsgType::XTHINBLOCK,
     NetMsgType::GRAPHENEBLOCK,
-    NetMsgType::SUBBLOCK,
-    NetMsgType::TAILSTORMBLOCK,
+    NetMsgType::DSPROOF,
+    //THINBLOCK gets same index as CMPCTBLOCK
     NetMsgType::SB_GRAPHENEBLOCK,
     NetMsgType::BOBCMPCTBLOCK,
-    NetMsgType::CMPCTBLOCK,
     NetMsgType::MEMPOOLSYNC,
-    NetMsgType::DSPROOF,
+    NetMsgType::SUBBLOCK,
+    NetMsgType::TAILSTORMBLOCK,
 };
 
 /** All known message types. Keep this in the same order as the list of
