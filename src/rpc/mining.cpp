@@ -36,6 +36,13 @@
 
 using namespace std;
 
+extern UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
+    int nSubGenerate,
+    int nBobGenerate,
+    uint64_t nMaxTries,
+    bool keepScript,
+    bool fSubBlocksOnly);
+
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or from the last difficulty change if 'lookup' is nonpositive.
@@ -204,7 +211,10 @@ UniValue generate(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateBlocks(coinbaseScript, nGenerate, nMaxTries, true);
+    if (Params().NetworkIDString() == CBaseChainParams::TAILREG)
+        return generateTailstormBlocks(coinbaseScript, 0, nGenerate, nMaxTries, true, false);
+    else
+        return generateBlocks(coinbaseScript, nGenerate, nMaxTries, true);
 }
 
 UniValue generatetoaddress(const UniValue &params, bool fHelp)
