@@ -27,7 +27,7 @@ public:
     uint32_t nBits;
     // GAS TODO: redundant with subblockNTxMap, remove
     std::set<uint256> subblockHashes;
-    std::map<uint256, uint32_t> subblockNTxMap;
+    mutable std::map<uint256, uint32_t> subblockNTxMap;
 
     CTailstormBlockHeader() { SetNull(); }
     ADD_SERIALIZE_METHODS;
@@ -86,8 +86,8 @@ public:
     std::vector<CTransactionRef> vtx;
 
     // memory only
-    std::vector<std::shared_ptr<CSubBlock>> vdag;
-    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > decodedMap;
+    mutable std::vector<std::shared_ptr<CSubBlock>> vdag;
+    mutable std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > decodedMap;
 
     // no network
     std::map<uint256, std::pair<CSubBlockHeader, std::set<uint8_t> > > dagEncodingMap;
@@ -128,7 +128,7 @@ public:
         nBlockSize=0;  // Force block size recalculation
     }
     void UpdateTxLists();
-    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists();
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists() const;
     // Return the serialized block size in bytes. This is only done once and then the result stored
     // in nBlockSize for future reference, saving unncessary and expensive serializations.
     uint64_t GetBlockSize() const;
@@ -147,7 +147,7 @@ public:
         return coinbaseHeight.getint();
     }
 
-    bool PopulateVdag()
+    bool PopulateVdag() const
     {
         bool success = true;
         vdag.clear();
@@ -163,7 +163,7 @@ public:
         return success;
     }
 
-    bool GetSubBlock(const uint256 &hash, CSubBlock &subblock)
+    bool GetSubBlock(const uint256 &hash, CSubBlock &subblock) const
     {
         subblock.SetNull();
         if (decodedMap.empty())

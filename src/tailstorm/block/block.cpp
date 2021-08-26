@@ -71,7 +71,7 @@ void CTailstormBlock::UpdateTxLists()
     }
 }
 
-std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CTailstormBlock::DecodeTxLists()
+std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CTailstormBlock::DecodeTxLists() const
 {
     uint8_t nBitsPerItem = ceil(log2(vtx.size()));
 

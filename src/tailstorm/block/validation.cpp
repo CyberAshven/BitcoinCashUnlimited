@@ -450,13 +450,10 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
     }
 
     // check coinbase for proper payouts
-    // TODO: add this call back
-    /*
     if (block.PopulateVdag() == false)
     {
         return state.DoS(100, error("%s(): could not populate vdag", __func__), REJECT_INVALID, "bad-vdag");
     }
-    */
 
     int index;
     CAmount valueOut = block.vtx[0]->GetValueOut();
