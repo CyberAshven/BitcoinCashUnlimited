@@ -457,7 +457,8 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
         return state.DoS(100, error("%s(): could not populate vdag", __func__), REJECT_INVALID, "bad-vdag");
     }
     */
-    size_t index;
+
+    int index;
     CAmount valueOut = block.vtx[0]->GetValueOut();
     CAmount payoutPer = valueOut / TAILSTORM_K;
     CAmount extraAtZero = valueOut % TAILSTORM_K;
