@@ -36,6 +36,8 @@ class GrapheneBlockTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         node_opts = [
+            "-regtest=0",
+            "-tailreg=1",
             "-rpcservertimeout=0",
             "-debug=graphene",
             "-use-grapheneblocks=1",
