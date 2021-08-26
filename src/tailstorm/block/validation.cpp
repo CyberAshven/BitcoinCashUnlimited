@@ -478,12 +478,13 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
         }
         else
         {
-            if (totalPaid + extraAtZero != valueOut)
+            // coinbase vout[0] recieves a payout share and any remainder
+            CAmount vout0_amnt = payoutPer + extraAtZero;
+            if (totalPaid + vout0_amnt != valueOut)
             {
                 return state.DoS(100, error("%s(): improper coinbase payout amount2", __func__), REJECT_INVALID, "bad-cb-payout-amnt2");
             }
-            // first index which recieves a payout share and any remainder
-            if (block.vtx[0]->vout[index].nValue != payoutPer + extraAtZero)
+            if (block.vtx[0]->vout[index].nValue != vout0_amnt)
             {
                 return state.DoS(100, error("%s(): improper coinbase payout amount3", __func__), REJECT_INVALID, "bad-cb-payout-amnt3");
             }
