@@ -472,7 +472,7 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
             // check proper amount
             if (block.vtx[0]->vout[index].nValue != payoutPer)
             {
-                return state.DoS(100, error("%s(): imporper coinbase payout amount", __func__), REJECT_INVALID, "bad-cb-payout-amnt");
+                return state.DoS(100, error("%s(): improper coinbase payout amount1", __func__), REJECT_INVALID, "bad-cb-payout-amnt1");
             }
             totalPaid = totalPaid + payoutPer;
         }
@@ -480,12 +480,12 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
         {
             if (totalPaid + extraAtZero != valueOut)
             {
-                return state.DoS(100, error("%s(): imporper coinbase payout amount", __func__), REJECT_INVALID, "bad-cb-payout-amnt");
+                return state.DoS(100, error("%s(): improper coinbase payout amount2", __func__), REJECT_INVALID, "bad-cb-payout-amnt2");
             }
             // first index which recieves a payout share and any remainder
             if (block.vtx[0]->vout[index].nValue != payoutPer + extraAtZero)
             {
-                return state.DoS(100, error("%s(): imporper coinbase payout amount", __func__), REJECT_INVALID, "bad-cb-payout-amnt");
+                return state.DoS(100, error("%s(): improper coinbase payout amount3", __func__), REJECT_INVALID, "bad-cb-payout-amnt3");
             }
         }
     }
