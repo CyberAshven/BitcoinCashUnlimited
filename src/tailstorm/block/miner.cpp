@@ -267,7 +267,7 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
     if (!TestTailstormBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
     {
         throw std::runtime_error(
-            strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
+            strprintf("%s: TestTailstormBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
 
     return pblocktemplate;
