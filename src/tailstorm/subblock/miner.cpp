@@ -153,6 +153,7 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
         {
             COutPoint outpoint;
             outpoint.hash = ancestor;
+            outpoint.n = rand() % std::numeric_limits<uint32_t>::max();
             tx.vin.emplace_back(CTxIn(outpoint));
         }
     }
