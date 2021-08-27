@@ -112,6 +112,7 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(const CScript &scriptPubKeyI
         tx.vout[i].nValue = valuePer;
         total_paid = total_paid + valuePer;
         ++i;
+        ++iter;
     }
     // any remainder gets added to the first index
     CAmount remainder = nValue - total_paid;
