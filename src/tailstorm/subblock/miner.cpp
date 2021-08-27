@@ -38,6 +38,7 @@
 #include <boost/thread.hpp>
 #include <boost/tuple/tuple.hpp>
 //#include <coz.h>
+#include <limits>
 #include <queue>
 #include <thread>
 
@@ -143,7 +144,7 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
         outpoint.SetNull();
         // this n value is arbitrary, we do this so the COutPoints arent
         // identical which would cause a proofbase tx to fail CheckTransaction
-        outpoint.n = 0;
+        outpoint.n = rand() % std::numeric_limits<uint32_t>::max();
         tx.vin.emplace_back(CTxIn(outpoint));
     }
     else
