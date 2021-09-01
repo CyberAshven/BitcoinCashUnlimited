@@ -75,12 +75,12 @@ public:
     TailstormBlockAssembler(const CChainParams &chainparams);
 
     /** Internal method to construct a new block template */
-    std::unique_ptr<CTailstormBlockTemplate> CreateNewTailstormBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
+    std::unique_ptr<CTailstormBlockTemplate> CreateNewTailstormBlock(int64_t coinbaseSize = -1);
 
 private:
     // utility functions
     /** Clear the block's state and prepare for assembling a new block */
-    void resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
+    void resetBlock(int64_t coinbaseSize = -1);
     /** Add a tx to the block */
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter);
 
@@ -88,9 +88,9 @@ private:
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry);
 
     /** Bytes to reserve for coinbase and block header */
-    uint64_t reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
+    uint64_t reserveBlockSize(int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */
-    CTransactionRef coinbaseTx(const CScript &scriptPubKeyIn, int nHeight, CAmount nValue, const std::set<CDagNode> &dag);
+    CTransactionRef coinbaseTx(int nHeight, CAmount nValue, const std::set<CDagNode> &dag);
 };
 
 #endif

@@ -194,7 +194,7 @@ UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns)
     {
         result.pushKV("txcount", (uint64_t)block.vtx.size());
     }
-    
+
     return result;
 }
 
@@ -368,7 +368,7 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
                 std::unique_ptr<CTailstormBlockTemplate> pTailstormBlockTemplate;
 
                 TxAdmissionPause lock; // flush any tx waiting to enter the mempool
-                pTailstormBlockTemplate = TailstormBlockAssembler(Params()).CreateNewTailstormBlock(coinbaseScript->reserveScript);
+                pTailstormBlockTemplate = TailstormBlockAssembler(Params()).CreateNewTailstormBlock();
                 if (pTailstormBlockTemplate.get())
                 {
                     CTailstormBlock *pTailstormBlock = pTailstormBlockTemplate->tailstormblock.get();

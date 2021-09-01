@@ -65,11 +65,11 @@ TailstormBlockAssembler::TailstormBlockAssembler(const CChainParams &_chainparam
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 }
 
-void TailstormBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
+void TailstormBlockAssembler::resetBlock(int64_t coinbaseSize)
 {
     inBlock.clear();
 
-    nBlockSize = reserveBlockSize(scriptPubKeyIn, coinbaseSize); // Core: 1000
+    nBlockSize = reserveBlockSize(coinbaseSize); // Core: 1000
     nBlockSigOps = 100; // Reserve 100 sigops for miners to use in their coinbase transaction
 
     // These counters do not include coinbase tx
@@ -80,7 +80,7 @@ void TailstormBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t 
     blockFinished = false;
 }
 
-uint64_t TailstormBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
+uint64_t TailstormBlockAssembler::reserveBlockSize(int64_t coinbaseSize)
 {
     CBlockHeader h;
     uint64_t nHeaderSize;
@@ -93,7 +93,7 @@ uint64_t TailstormBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn
     return nHeaderSize;
 }
 
-CTransactionRef TailstormBlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _nHeight, CAmount nValue, const std::set<CDagNode> &dag)
+CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue, const std::set<CDagNode> &dag)
 {
     CMutableTransaction tx;
 
@@ -152,10 +152,9 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(const CScript &scriptPubKeyI
     return MakeTransactionRef(std::move(tx));
 }
 
-std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTailstormBlock(const CScript &scriptPubKeyIn,
-    int64_t coinbaseSize)
+std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTailstormBlock(int64_t coinbaseSize)
 {
-    resetBlock(scriptPubKeyIn, coinbaseSize);
+    resetBlock(coinbaseSize);
 
     // The constructed block template
     std::unique_ptr<CTailstormBlockTemplate> pblocktemplate(new CTailstormBlockTemplate());
@@ -205,8 +204,7 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
             pblock->subblockHashes.emplace(dagnode.subblock.GetHash());
             pblock->subblockNTxMap[dagnode.subblock.GetHash()] = dagnode.subblock.vtx.size();
         }
-        pblock->vtx[0] =
-            coinbaseTx(scriptPubKeyIn, nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
+        pblock->vtx[0] = coinbaseTx(nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
         pblock->UpdateTxLists();
 
         std::set<uint256> blockTxHashes;
