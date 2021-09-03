@@ -494,6 +494,8 @@ static bool BobReconstructBlock(CNode *pfrom,
         bobcmpctblock->vdag.push_back(std::make_shared<CSubBlock>(subblock));
     }
 
+    bobcmpctblock->vtx.resize(1);
+    bobcmpctblock->vtx[0] = bobcmpctblock->coinbase;
     bobcmpctblock->UpdateTxLists();
 
     // TODO: evaluate if tailstorm needs fXVal

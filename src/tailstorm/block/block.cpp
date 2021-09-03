@@ -48,20 +48,19 @@ void CTailstormBlock::UpdateTxLists()
     std::iota (std::begin(idxs), std::end(idxs), 0);
 
     // populate index map
-    std::unordered_map<CTransactionRef, uint64_t> txRefToIndex;
+    std::map<uint256, uint64_t> txHashToIndex;
     for (uint64_t i=0; i < vtx.size(); i++)
     {
-        txRefToIndex[vtx[i]] = i;
+        txHashToIndex[vtx[i]->GetHash()] = i;
     }
 
-    // encode each subblock tx list
     uint8_t nBitsPerItem = ceil(log2(vtx.size()));
     for (auto sbref : vdag)
     {
         std::vector<uint64_t> subIdxList;
         for (auto txRef : sbref->vtx)
         {
-            subIdxList.push_back(txRefToIndex[txRef]);
+            subIdxList.push_back(txHashToIndex[txRef->GetHash()]);
         }
         std::vector<uint8_t> encoded = EncodeRank(subIdxList, nBitsPerItem);
         std::set<uint8_t> encoded_set(encoded.begin(), encoded.end());
