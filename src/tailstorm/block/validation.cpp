@@ -490,7 +490,23 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
             }
         }
     }
-
+    // throw all of the blocks transactions hashes into a set for quick searching
+    std::set<uint256> setBlockTxHashes;
+    for (auto &tx : block.vtx)
+    {
+        setBlockTxHashes.emplace(tx->GetHash());
+    }
+    // ensure that every tx in each subblock is in the block
+    for (const auto &subblock : block.vdag)
+    {
+        for (const auto &ptx : subblock->vtx)
+        {
+            if (setBlockTxHashes.count(ptx->GetHash()) == 0)
+            {
+                return state.DoS(100, error("%s(): transaction from subblock missing in block", __func__), REJECT_INVALID, "bad-sub-txn-missing");
+            }
+        }
+    }
 
     for (unsigned int i = 1; i < block.vtx.size(); i++)
     {
