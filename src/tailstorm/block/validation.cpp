@@ -496,6 +496,7 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
     {
         setBlockTxHashes.emplace(tx->GetHash());
     }
+    std::set<uint256> setSubTxHashes;
     // ensure that every tx in each subblock is in the block
     for (const auto &subblock : block.vdag)
     {
@@ -505,8 +506,18 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
             {
                 return state.DoS(100, error("%s(): transaction from subblock missing in block", __func__), REJECT_INVALID, "bad-sub-txn-missing");
             }
+            setSubTxHashes.emplace(ptx->GetHash());
         }
     }
+    // ensure the block vtx does not contain transactions NOT included in the subblocks
+    for (const auto &blockTx : block.vtx)
+    {
+        if (setSubTxHashes.count(blockTx->GetHash()) == 0)
+        {
+            return state.DoS(100, error("%s(): extra transaction in block", __func__), REJECT_INVALID, "bad-extra-txn");
+        }
+    }
+
 
     for (unsigned int i = 1; i < block.vtx.size(); i++)
     {
