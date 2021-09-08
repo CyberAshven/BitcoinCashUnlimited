@@ -512,6 +512,11 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
     // ensure the block vtx does not contain transactions NOT included in the subblocks
     for (const auto &blockTx : block.vtx)
     {
+        // do not check coinbase, it is not in the dag
+        if (blockTx->IsCoinBase())
+        {
+            continue;
+        }
         if (setSubTxHashes.count(blockTx->GetHash()) == 0)
         {
             return state.DoS(100, error("%s(): extra transaction in block", __func__), REJECT_INVALID, "bad-extra-txn");
