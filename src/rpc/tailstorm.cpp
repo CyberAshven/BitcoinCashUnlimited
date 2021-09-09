@@ -596,6 +596,37 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     return obj;
 }
 
+UniValue getbestdag(const UniValue &params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+    {
+        throw std::runtime_error(
+            "getbestdag\n"
+            "Returns the hashes of all subblocks in the best dag.\n"
+            "\nResult:\n"
+            "{\n"
+                "[ blockhashes ]     (array) hashes of the subblocks in the best dag\n"
+            "}\n"
+            "\nExamples:\n" +
+            HelpExampleCli("getbestdag", "") + HelpExampleRpc("getbestdag", ""));
+    }
+
+    UniValue obj(UniValue::VARR);
+    std::set<CDagNode> bestDag;
+    if (!tailstormDagSet.GetBestDag(bestDag))
+    {
+        // there is no dog with at least TAILSTORM_K subblocks in it yet
+        return obj;
+    }
+
+    for (auto &dagNode : bestDag)
+    {
+        obj.push_back(dagNode.hash.GetHex());
+    }
+    return obj;
+}
+
+
 UniValue gettailstorminfo(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -627,7 +658,8 @@ static const CRPCCommand commands[] = {
     {"tailstorm", "getdaginfo", &getdaginfo, true},
     {"tailstorm", "getdagtips", &getdagtips, true},
     {"tailstorm", "gettailstorminfo", &gettailstorminfo, true},
-    {"tailstorm", "getsubblock", &getsubblock, true}
+    {"tailstorm", "getsubblock", &getsubblock, true},
+    {"tailstorm", "getbestdag", &getbestdag, true}
 };
 /* clang-format on */
 

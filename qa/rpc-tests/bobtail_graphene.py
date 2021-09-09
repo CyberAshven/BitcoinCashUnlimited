@@ -6,6 +6,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+import time
 
 
 class TailstormGrapheneTest(BitcoinTestFramework):
@@ -40,7 +41,7 @@ class TailstormGrapheneTest(BitcoinTestFramework):
     def run_test(self):
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
-        self.sync_blocks()
+        time.sleep(1)
 
         logging.info("Send 5 transactions from node0 (to its own address)")
         addr = self.nodes[0].getnewaddress()
@@ -53,10 +54,10 @@ class TailstormGrapheneTest(BitcoinTestFramework):
             new_block = self.nodes[miner_node].generatesubblocks(1)
 
             # TODO: implement sync_blocks for subblocks
-            import time;time.sleep(1)
+            time.sleep(1)
 
             # compare miner node and another node to check for proper relay
-            assert_equal(sorted(self.nodes[miner_node].getdagtips()), sorted(self.nodes[other_node].getdagtips()))
+            assert_equal(sorted(self.nodes[miner_node].getbestdag()), sorted(self.nodes[miner_node].getbestdag()))
 
 if __name__ == '__main__':
     TailstormGrapheneTest().main()

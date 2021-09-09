@@ -420,7 +420,7 @@ bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
     }
     if (best_dag < 0)
     {
-        // should never happen
+        // can happen if not enough subblocks have been generated yet
         return false;
     }
 
