@@ -24,7 +24,6 @@ public:
     static const std::string SCALENET;
     static const std::string REGTEST;
     static const std::string NEXTCHAIN;
-    static const std::string TAILREG;
 
     const std::string &DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }

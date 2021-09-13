@@ -20,8 +20,6 @@ class BlockTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         node_opts = [
-            "-regtest=0",
-            "-tailreg=1",
             "-debug=all",
         ]
 

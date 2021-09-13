@@ -211,10 +211,7 @@ UniValue generate(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    if (Params().NetworkIDString() == CBaseChainParams::TAILREG)
-        return generateTailstormBlocks(coinbaseScript, 0, nGenerate, nMaxTries, true, false);
-    else
-        return generateBlocks(coinbaseScript, nGenerate, nMaxTries, true);
+    return generateTailstormBlocks(coinbaseScript, 0, nGenerate, nMaxTries, true, false);
 }
 
 UniValue generatetoaddress(const UniValue &params, bool fHelp)

@@ -20,8 +20,6 @@ class TailstormBlocksTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.node_opts = [
-            "-regtest=0",
-            "-tailreg=1",
             "-rpcservertimeout=0",
             "-debug=all,-libevent",
             "-use-grapheneblocks=0",
@@ -178,7 +176,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         # now nodes 2 and 3 should reorganize to the longer (more work) side
         waitFor(30, lambda: self.nodes[2].getbestblockhash() == winningHashes[-1])
         waitFor(30, lambda: self.nodes[3].getbestblockhash() == winningHashes[-1])
-        
+
         logging.info("Test finished")
 
 

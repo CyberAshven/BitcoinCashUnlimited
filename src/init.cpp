@@ -830,8 +830,7 @@ void InitLogging()
     // Some QA tests depend on debug.log being written to, so default
     // to always print to log file on regtest.
     const bool regtest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
-    const bool tailreg = Params().NetworkIDString() == CBaseChainParams::TAILREG;
-    fPrintToDebugLog = GetBoolArg("-printtologfile", !fPrintToConsole || regtest || tailreg);
+    fPrintToDebugLog = GetBoolArg("-printtologfile", !fPrintToConsole || regtest);
 
     fLogTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     fLogTimeMicros = GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
@@ -925,7 +924,7 @@ bool AppInit2(Config &config)
 
     // also see: InitParameterInteraction()
 
-    if (chainparams.NetworkIDString() == CBaseChainParams::REGTEST || chainparams.NetworkIDString() == "tailreg")
+    if (chainparams.NetworkIDString() == CBaseChainParams::REGTEST)
     {
         max_blockfile_size = MAX_BLOCKFILE_SIZE_REGTEST;
     }
@@ -1520,7 +1519,7 @@ bool AppInit2(Config &config)
     fFeeEstimatesInitialized = true;
 
     // Set fCanonicalTxsOrder for the BCH early in the bootstrap phase
-    if (chainparams.NetworkIDString() != "regtest" && chainparams.NetworkIDString() != "tailreg")
+    if (chainparams.NetworkIDString() != "regtest")
     {
         fCanonicalTxsOrder = true;
     }

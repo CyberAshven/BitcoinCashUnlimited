@@ -19,8 +19,6 @@ class DeltaBlocksTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         node_opts = [
-            "-regtest=0",
-            "-tailreg=1",
             "-rpcservertimeout=0",
             "-debug=weakblocks",
             "-use-grapheneblocks=0",
