@@ -40,7 +40,7 @@ class DeltaBlocksTest(BitcoinTestFramework):
     def run_test(self):
         # Generate some blocks
         self.nodes[0].generatetailstormblocks(105)
-        self.sync_blocks()
+        time.sleep(1)
 
         logging.info("Send 5 transactions from node0 (to its own address)")
         addr = self.nodes[0].getnewaddress()
@@ -54,18 +54,13 @@ class DeltaBlocksTest(BitcoinTestFramework):
             # TODO : fix this wait,
             # sync_blocks does not handle subblocks yet, so manually wait here for now
             time.sleep(1)
-            assert_equal(new_block, self.nodes[miner_node].getdagtips())
             node_count = node_count + 1
-            assert_equal(self.nodes[miner_node].getdaginfo()["size"], node_count)
             # compare node 0 and node 1 to check for proper relay
-            assert_equal(self.nodes[0].getdaginfo()["size"], self.nodes[1].getdaginfo()["size"])
-            assert_equal(self.nodes[0].getdagtips(), self.nodes[1].getdagtips())
+            assert_equal(sorted(self.nodes[miner_node].getbestdag()), sorted(self.nodes[miner_node].getbestdag()))
             if miner_node == 0:
                 miner_node = 1
             elif miner_node == 1:
                 miner_node = 0
-
-        self.sync_blocks()
 
 if __name__ == '__main__':
     DeltaBlocksTest().main()
