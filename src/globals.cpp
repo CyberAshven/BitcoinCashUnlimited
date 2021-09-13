@@ -108,7 +108,7 @@ CFeeRate minRelayTxFee GUARDED_BY(cs_main) = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 /** A cache to store headers that have arrived but can not yet be connected **/
 CCriticalSection csUnconnectedHeaders;
 std::map<uint256, std::pair<CBlockHeader, int64_t> > mapUnConnectedHeaders GUARDED_BY(csUnconnectedHeaders);
-std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> > mapBobUnConnectedHeaders GUARDED_BY(cs_main);
+std::map<uint256, std::pair<CTailstormBlockHeader, int64_t> > mapBobUnConnectedHeaders GUARDED_BY(csUnconnectedHeaders);
 /**
  * Every received block is assigned a unique and increasing identifier, so we
  * know which one to give priority in case of a fork.
