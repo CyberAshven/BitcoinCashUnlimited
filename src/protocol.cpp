@@ -99,7 +99,7 @@ static const char *ppszTypeName[] = {
     NetMsgType::XTHINBLOCK,
     NetMsgType::GRAPHENEBLOCK,
     NetMsgType::DSPROOF,
-    //THINBLOCK gets same index as CMPCTBLOCK
+    // THINBLOCK gets same index as CMPCTBLOCK
     NetMsgType::SB_GRAPHENEBLOCK,
     NetMsgType::BOBCMPCTBLOCK,
     NetMsgType::MEMPOOLSYNC,
