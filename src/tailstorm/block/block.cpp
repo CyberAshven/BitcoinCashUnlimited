@@ -63,10 +63,10 @@ void CTailstormBlock::UpdateTxLists()
             subIdxList.push_back(txHashToIndex[txRef->GetHash()]);
         }
         std::vector<uint8_t> encoded = EncodeRank(subIdxList, nBitsPerItem);
-        std::set<uint8_t> encoded_set(encoded.begin(), encoded.end());
+        std::vector<uint8_t> encoded_vector(encoded.begin(), encoded.end());
         CSubBlockHeader sbheader = sbref->GetBlockHeader();
         uint256 sbhash = sbref->GetHash();
-        dagEncodingMap.emplace(sbhash, std::make_pair(sbheader, std::move(encoded_set)));
+        dagEncodingMap.emplace(sbhash, std::make_pair(sbheader, std::move(encoded_vector)));
     }
 }
 

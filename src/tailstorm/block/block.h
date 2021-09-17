@@ -90,7 +90,7 @@ public:
     mutable std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > decodedMap;
 
     // no network
-    std::map<uint256, std::pair<CSubBlockHeader, std::set<uint8_t> > > dagEncodingMap;
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<uint8_t> > > dagEncodingMap;
 
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
     std::set<uint256> setUnVerifiedTxns;
