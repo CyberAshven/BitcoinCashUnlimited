@@ -21,11 +21,9 @@ const char *VERACK = "verack";
 const char *ADDR = "addr";
 const char *INV = "inv";
 const char *GETDATA = "getdata";
-const char *MERKLEBLOCK = "merkleblock";
 const char *GETBLOCKS = "getblocks";
 const char *GETHEADERS = "getheaders";
 const char *TX = "tx";
-const char *HEADERS = "headers";
 const char *TAILSTORM_HEADERS = "bobheaders";
 const char *BLOCK = "block";
 const char *GETADDR = "getaddr";
@@ -36,25 +34,8 @@ const char *NOTFOUND = "notfound";
 const char *FILTERLOAD = "filterload";
 const char *FILTERADD = "filteradd";
 const char *FILTERCLEAR = "filterclear";
-const char *FILTERSIZEXTHIN = "filtersizext";
 const char *REJECT = "reject";
 const char *SENDHEADERS = "sendheaders";
-// BUIP010 Xtreme Thinblocks - begin section
-const char *THINBLOCK = "thinblock";
-const char *XTHINBLOCK = "xthinblock";
-const char *XBLOCKTX = "xblocktx";
-const char *GET_XBLOCKTX = "get_xblocktx";
-const char *GET_XTHIN = "get_xthin";
-const char *GET_THIN = "get_thin";
-// BUIP010 Xtreme Thinblocks - end section
-// BUIPXXX Graphene - begin section
-const char *GRAPHENEBLOCK = "grblk";
-const char *GRAPHENETX = "grblktx";
-const char *GET_GRAPHENETX = "get_grblktx";
-const char *GET_GRAPHENE = "get_grblk";
-const char *GET_GRAPHENE_RECOVERY = "get_grrec";
-const char *GRAPHENE_RECOVERY = "grrec";
-// BUIPXXX Graphene - end section
 // Graphene subblock - begin section
 const char *SB_GRAPHENEBLOCK = "sbgrblk";
 const char *SB_GRAPHENETX = "sbgrblktx";
@@ -75,9 +56,6 @@ const char *XPEDITEDTXN = "Xt";
 const char *EXTVERSION = "extversion";
 const char *XUPDATE = "xupdate";
 const char *SENDCMPCT = "sendcmpct";
-const char *CMPCTBLOCK = "cmpctblock";
-const char *GETBLOCKTXN = "getblocktxn";
-const char *BLOCKTXN = "blocktxn";
 const char *BOBCMPCTBLOCK = "bobcmpblock";
 const char *GETBOBSUB = "getbobsub";
 const char *BOBSUB = "bobsub";
@@ -95,11 +73,7 @@ static const char *ppszTypeName[] = {
     NetMsgType::TX,
     NetMsgType::BLOCK,
     "filtered block", // Should never occur
-    NetMsgType::CMPCTBLOCK,
-    NetMsgType::XTHINBLOCK,
-    NetMsgType::GRAPHENEBLOCK,
     NetMsgType::DSPROOF,
-    // THINBLOCK gets same index as CMPCTBLOCK
     NetMsgType::SB_GRAPHENEBLOCK,
     NetMsgType::BOBCMPCTBLOCK,
     NetMsgType::MEMPOOLSYNC,
@@ -120,7 +94,6 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::GETBLOCKS,
     NetMsgType::GETHEADERS,
     NetMsgType::TX,
-    NetMsgType::HEADERS,
     NetMsgType::BLOCK,
     NetMsgType::GETADDR,
     NetMsgType::MEMPOOL,
@@ -130,21 +103,8 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::FILTERLOAD,
     NetMsgType::FILTERADD,
     NetMsgType::FILTERCLEAR,
-    NetMsgType::FILTERSIZEXTHIN,
     NetMsgType::REJECT,
     NetMsgType::SENDHEADERS,
-    NetMsgType::THINBLOCK,
-    NetMsgType::XTHINBLOCK,
-    NetMsgType::XBLOCKTX,
-    NetMsgType::GET_XBLOCKTX,
-    NetMsgType::GET_XTHIN,
-    NetMsgType::GET_THIN,
-    NetMsgType::GRAPHENEBLOCK,
-    NetMsgType::GRAPHENETX,
-    NetMsgType::GET_GRAPHENETX,
-    NetMsgType::GET_GRAPHENE,
-    NetMsgType::GET_GRAPHENE_RECOVERY,
-    NetMsgType::GRAPHENE_RECOVERY,
     NetMsgType::MEMPOOLSYNC,
     NetMsgType::MEMPOOLSYNCTX,
     NetMsgType::GET_MEMPOOLSYNC,
@@ -155,9 +115,6 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::EXTVERSION,
     NetMsgType::XUPDATE,
     NetMsgType::SENDCMPCT,
-    NetMsgType::CMPCTBLOCK,
-    NetMsgType::GETBLOCKTXN,
-    NetMsgType::BLOCKTXN,
     NetMsgType::DSPROOF,
     NetMsgType::REQTXVAL,
     NetMsgType::RESTXVAL,

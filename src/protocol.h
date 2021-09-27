@@ -104,13 +104,6 @@ extern const char *INV;
  */
 extern const char *GETDATA;
 /**
- * The merkleblock message is a reply to a getdata message which requested a
- * block using the inventory type MSG_MERKLEBLOCK.
- * @since protocol version 70001 as described by BIP37.
- * @see https://bitcoin.org/en/developer-reference#merkleblock
- */
-extern const char *MERKLEBLOCK;
-/**
  * The getblocks message requests an inv message that provides block header
  * hashes starting from a particular point in the block chain.
  * @see https://bitcoin.org/en/developer-reference#getblocks
@@ -134,63 +127,12 @@ extern const char *TX;
  * @since protocol version 31800.
  * @see https://bitcoin.org/en/developer-reference#headers
  */
-extern const char *HEADERS;
 extern const char *TAILSTORM_HEADERS;
 /**
  * The block message transmits a single serialized block.
  * @see https://bitcoin.org/en/developer-reference#block
  */
 extern const char *BLOCK;
-/**
- * BUIP010 Xtreme Thinblocks: The thinblock message transmits a single serialized thinblock.
- */
-extern const char *THINBLOCK;
-/**
- * BUIP010 Xtreme Thinblocks: The xthinblock message transmits a single serializexd xthinblock.
- */
-extern const char *XTHINBLOCK;
-/**
- * BUIP010 Xtreme Thinblocks: The xblocktx message transmits a single serialized xblocktx.
- */
-extern const char *XBLOCKTX;
-/**
- * BUIP010 Xtreme Thinblocks: The get_xblocktx message transmits a single serialized get_xblocktx.
- */
-extern const char *GET_XBLOCKTX;
-/**
- * BUIP010 Xtreme Thinblocks: The get_xthin message transmits a single serialized get_xthin.
- */
-extern const char *GET_XTHIN;
-/**
- * The get_thin message is a request for a thinblock with the full 256 bit tx hashes.
- */
-extern const char *GET_THIN;
-/**
- * The grapheneblock message transmits a single serialized graphene block.
- */
-extern const char *GRAPHENEBLOCK;
-/**
- * The graphenetx message transmits a single serialized grblktx.
- */
-extern const char *GRAPHENETX;
-/**
- * The get_graphenetx message transmits a single serialized get_grblktx.
- */
-extern const char *GET_GRAPHENETX;
-/**
- * The get_graphene message transmits a single serialized get_grblk.
- */
-extern const char *GET_GRAPHENE;
-/**
- * The get_graphene_recovery message transmits a single serialized
- * RequestGrapheneReceiverRecover object.
- */
-extern const char *GET_GRAPHENE_RECOVERY;
-/**
- * The graphene_recovery message transmits a single serialized
- * CGrapheneReceiverRecover object.
- */
-extern const char *GRAPHENE_RECOVERY;
 /**
  * The sb_grapheneblock message transmits a single serialized graphene subblock.
  */
@@ -233,7 +175,6 @@ extern const char *GET_MEMPOOLSYNC;
  * The get_mempoolsynctx message transmits a single serialized get_memsynctx.
  */
 extern const char *GET_MEMPOOLSYNCTX;
-
 /**
  * The getaddr message requests an addr message from the receiving node,
  * preferably one with lots of IP addresses of other receiving nodes.
@@ -295,11 +236,6 @@ extern const char *FILTERADD;
  */
 extern const char *FILTERCLEAR;
 /**
- * The filtersizexthin message tells the receiving peer the maximum xthin bloom
- * filter size that it will accept.
- */
-extern const char *FILTERSIZEXTHIN;
-/**
  * The reject message informs the receiving node that one of its previous
  * messages has been rejected.
  * @since protocol version 70002 as described by BIP61.
@@ -313,14 +249,12 @@ extern const char *REJECT;
  * @see https://bitcoin.org/en/developer-reference#sendheaders
  */
 extern const char *SENDHEADERS;
-
 /**
  * Indicates that a node prefers to receive new block announcements
  * and transactions directly without INVs
  * @since protocol version 80000.
  */
 extern const char *XPEDITEDREQUEST;
-
 /**
  * Block or transactions sent without explicit solicitation
  * @since protocol version 80000.
@@ -350,25 +284,6 @@ extern const char *SENDCMPCT;
 extern const char *EXTVERSION;
 
 extern const char *XUPDATE;
-
-/**
- * Contains a CBlockHeaderAndShortTxIDs object - providing a header and
- * list of "short txids".
- * @since protocol version 70014 as described by BIP 152
- */
-extern const char *CMPCTBLOCK;
-/**
- * Contains a BlockTransactionsRequest
- * Peer should respond with "blocktxn" message.
- * @since protocol version 70014 as described by BIP 152
- */
-extern const char *GETBLOCKTXN;
-/**
- * Contains a BlockTransactions.
- * Sent in response to a "getblocktxn" message.
- * @since protocol version 70014 as described by BIP 152
- */
-extern const char *BLOCKTXN;
 /**
  * Contains a Tailstorm compact block.
  */
@@ -542,37 +457,21 @@ enum
     // Nodes may always request a MSG_FILTERED_BLOCK/MSG_CMPCT_BLOCK in a getdata, however,
     // MSG_FILTERED_BLOCK/MSG_CMPCT_BLOCK should not appear in any invs except as a part of getdata.
     MSG_FILTERED_BLOCK = 3,
-    MSG_CMPCT_BLOCK = 4,
-
-    // MSG_XTHINBLOCK, MSG_GRAPHENEBLOCK and MSG_THINBLOCK are not strictly necessary but they do make
-    // creating and validating the requestManager tests much easier.
-
-    // BUIP010 Xtreme Thinblocks: an Xtreme thin block contains the first 8 bytes of all the tx hashes
-    // and also provides the missing transactions that are needed at the other end to reconstruct the block
-    MSG_XTHINBLOCK = 5,
-    // BUIPXXX Graphene blocks: similar to xtreme thin blocks, a graphene block contains all the transactions
-    // hashes in a block and also provides the missing transaction ids that are needed at the other end to
-    // reconstruct the block
-    MSG_GRAPHENEBLOCK = 6,
     // With the introduction of compact blocks, this is being deprecated in favor of using the get_thin p2p
-    MSG_DOUBLESPENDPROOF = 7,
-    // With the introduction of compact block, this is being deprecated in favor of using the get_thin p2p
-    // message, which solves the conflict with MSG_THINBLOCK and MSG_CMPCT_BLOCK.
-    MSG_THINBLOCK = MSG_CMPCT_BLOCK,
-
+    MSG_DOUBLESPENDPROOF = 4,
     // Graphene for subblocks
-    MSG_SB_GRAPHENEBLOCK = 8,
+    MSG_SB_GRAPHENEBLOCK = 5,
     // Compact bobtail blocks
-    MSG_BOB_CMPCT_BLOCK = 9,
+    MSG_BOB_CMPCT_BLOCK = 6,
     // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
     // and also provides the missing transactions that are needed at the other end to reconstruct the block.
     //
     // Uses Graphene set reconciliation to syncronize mempools between two peers.
-    MSG_MEMPOOLSYNC = 10,
+    MSG_MEMPOOLSYNC = 7,
     //
-    MSG_SUBBLOCK = 11,
-
-    MSG_TAILSTORMBLOCK = 12
+    MSG_SUBBLOCK = 8,
+    //
+    MSG_TAILSTORMBLOCK = 9
 
 };
 
