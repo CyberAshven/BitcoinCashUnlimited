@@ -196,7 +196,7 @@ public:
 
     CInv GetInv()
     {
-        return CInv(MSG_BLOCK, GetHash());
+        return CInv(MSG_SUBBLOCK, GetHash());
     }
     bool process(CNode *pfrom, std::string strCommand);
     void FillTxMapFromPools(std::map<uint64_t, CTransactionRef> &mapTxFromPools);

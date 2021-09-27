@@ -126,7 +126,7 @@ public:
     bool process(CNode *pfrom);
     CInv GetInv()
     {
-        return CInv(MSG_BLOCK, GetHash());
+        return CInv(MSG_TAILSTORMBLOCK, GetHash());
     }
     uint64_t BobGetShortID(const uint256 &txhash) const;
 
