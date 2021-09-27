@@ -23,20 +23,6 @@
 #include <atomic>
 #include <vector>
 
-enum FastFilterSupport
-{
-    EITHER,
-    FAST,
-    REGULAR
-};
-
-const uint8_t GRAPHENE_FAST_FILTER_SUPPORT = EITHER;
-const uint64_t GRAPHENE_MIN_VERSION_SUPPORTED = 0;
-const uint64_t GRAPHENE_MAX_VERSION_SUPPORTED = 6;
-const unsigned char MIN_MEMPOOL_INFO_BYTES = 8;
-const uint8_t SHORTTXIDS_LENGTH = 8;
-const double FAILURE_RECOVERY_SUCCESS_RATE = 0.999;
-
 class CDataStream;
 class CNode;
 

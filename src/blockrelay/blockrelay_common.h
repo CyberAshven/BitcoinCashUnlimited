@@ -20,6 +20,24 @@ class CTailstormBlock;
 
 typedef int NodeId;
 
+static const uint64_t DEFAULT_PREFERENTIAL_TIMER = 1000;
+static const bool DEFAULT_USE_GRAPHENE_BLOCKS = true;
+static const bool DEFAULT_USE_COMPACT_BLOCKS = true;
+
+enum FastFilterSupport
+{
+    EITHER,
+    FAST,
+    REGULAR
+};
+
+const uint8_t GRAPHENE_FAST_FILTER_SUPPORT = EITHER;
+const uint64_t GRAPHENE_MIN_VERSION_SUPPORTED = 0;
+const uint64_t GRAPHENE_MAX_VERSION_SUPPORTED = 6;
+const unsigned char MIN_MEMPOOL_INFO_BYTES = 8;
+const uint8_t SHORTTXIDS_LENGTH = 8;
+const double FAILURE_RECOVERY_SUCCESS_RATE = 0.999;
+
 /**
  * Used for thin type blocks that we want to reconstruct into a full block. All the data
  * necessary to recreate the block are held within the thinrelay objects which are subsequently
