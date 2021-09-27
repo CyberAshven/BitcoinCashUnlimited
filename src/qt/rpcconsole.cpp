@@ -414,6 +414,8 @@ void RPCConsole::setClientModel(ClientModel *model)
             SLOT(setCompactBlockPropagationStats(const CompactBlockQuickStats &)));
         connect(model, SIGNAL(grapheneBlockPropagationStatsChanged(const GrapheneQuickStats &)), this,
             SLOT(setGrapheneBlockPropagationStats(const GrapheneQuickStats &)));
+        connect(model, SIGNAL(sbGrapheneBlockPropagationStatsChanged(const SBGrapheneQuickStats &)), this,
+            SLOT(setSBGrapheneBlockPropagationStats(const SBGrapheneQuickStats &)));
 
         // set up peer table
         ui->peerWidget->setModel(model->getPeerTableModel());
@@ -773,6 +775,36 @@ void RPCConsole::setCompactBlockPropagationStats(const CompactBlockQuickStats &c
 }
 
 void RPCConsole::setGrapheneBlockPropagationStats(const GrapheneQuickStats &graphene)
+{
+    if (!IsGrapheneBlockEnabled())
+    {
+        ui->blocksGrapheneTotals->setText(tr("Disabled"));
+        ui->blocksGraphene24hAverages->setText(tr("Disabled"));
+        return;
+    }
+
+    // Total: n (Sent: i / Received: r) saved bw, Decode failures d
+    QString text = QString::number(graphene.nTotalOutbound + graphene.nTotalInbound) + " (Sent: ";
+    text += QString::number(graphene.nTotalOutbound) + " / Received: ";
+    text += QString::number(graphene.nTotalInbound) + ") saved ";
+    text += QString::fromStdString(formatInfoUnit(graphene.nTotalBandwidthSavings)) + ", Decode failures ";
+    text += QString::number(graphene.nTotalDecodeFailures);
+
+    ui->blocksGrapheneTotals->setText(text);
+
+    // 24-hour Average: n (Sent: i / Received: r), Compression (i% / r%), ReRequests f (f%)
+    text = QString::number(graphene.nLast24hOutbound + graphene.nLast24hInbound) + " (Sent: ";
+    text += QString::number(graphene.nLast24hOutbound) + " / Received: ";
+    text += QString::number(graphene.nLast24hInbound) + "), Compression (";
+    text += QString::number(graphene.fLast24hOutboundCompression, 'f', 1) + "% / ";
+    text += QString::number(graphene.fLast24hInboundCompression, 'f', 1) + "%), ReRequests ";
+    text += QString::number(graphene.nLast24hRerequestTx) + " (";
+    text += QString::number(graphene.fLast24hRerequestTxPercent, 'f', 1) + "%)";
+
+    ui->blocksGraphene24hAverages->setText(text);
+}
+
+void RPCConsole::setSBGrapheneBlockPropagationStats(const SBGrapheneQuickStats &graphene)
 {
     if (!IsGrapheneBlockEnabled())
     {

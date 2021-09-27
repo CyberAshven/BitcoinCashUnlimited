@@ -127,6 +127,12 @@ BITCOIND_PROC_WAIT_TIMEOUT = 60
 MOCKTIME = 0
 
 
+def returnException(lamb):
+    """ Wrap a lambda in a try except block, returning either the result of the lambda or the exception"""
+    try:
+        return lamb()
+    except Exception as e:
+        return e
 
 class NoConfigValue:
     """ Use to remove the specific configure parameter and value when writing to bitcoin.conf"""
@@ -282,7 +288,7 @@ def is_connected(gdict, vertices_encountered = None, start_vertex=None):
             return True
         return False
 
-def sync_blocks(rpc_connections, *, wait=1, verbose=1, timeout=60):
+def sync_blocks(rpc_connections, *, wait=1, verbose=1, timeout=20):
     """
     Wait until everybody has the same block count
     """

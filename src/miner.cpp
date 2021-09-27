@@ -49,6 +49,42 @@ using namespace std;
 // BitcoinMiner
 //
 
+void IncrementExtraNonce(CBlock *pblock, unsigned int &nExtraNonce)
+{
+    // Update nExtraNonce
+    static uint256 hashPrevBlock;
+    if (hashPrevBlock != pblock->hashPrevBlock)
+    {
+        nExtraNonce = 0;
+        hashPrevBlock = pblock->hashPrevBlock;
+    }
+    ++nExtraNonce;
+    unsigned int nHeight = pblock->GetHeight(); // Height first in coinbase required for block.version=2
+    CMutableTransaction txCoinbase(*pblock->vtx[0]);
+
+    CScript script = (CScript() << nHeight << CScriptNum(nExtraNonce));
+    CScript cbFlags;
+    {
+        LOCK(cs_coinbaseFlags);
+        cbFlags = COINBASE_FLAGS;
+    }
+    if (script.size() + cbFlags.size() > MAX_COINBASE_SCRIPTSIG_SIZE)
+    {
+        cbFlags.resize(MAX_COINBASE_SCRIPTSIG_SIZE - script.size());
+    }
+    txCoinbase.vin[0].scriptSig = script + cbFlags;
+    assert(txCoinbase.vin[0].scriptSig.size() <= MAX_COINBASE_SCRIPTSIG_SIZE);
+
+    // On BCH if Nov15th 2018 has been activated make sure the coinbase is big enough
+    uint64_t nCoinbaseSize = ::GetSerializeSize(txCoinbase, SER_NETWORK, PROTOCOL_VERSION);
+    if (nCoinbaseSize < MIN_TX_SIZE && IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
+    {
+        txCoinbase.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
+    }
+    pblock->vtx[0] = (MakeTransactionRef(std::move(txCoinbase)));
+    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+}
+
 //
 // Unconfirmed transactions in the memory pool often depend on other
 // transactions in the memory pool. When we select transactions from the
@@ -57,22 +93,6 @@ using namespace std;
 
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockSize = 0;
-
-
-int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev)
-{
-    int64_t nOldTime = pblock->nTime;
-    int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast() + 1, GetAdjustedTime());
-
-    if (nOldTime < nNewTime)
-        pblock->nTime = nNewTime;
-
-    // Updating time can change work required on testnet:
-    if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
-
-    return nNewTime - nOldTime;
-}
 
 BlockAssembler::BlockAssembler(const CChainParams &_chainparams)
     : chainparams(_chainparams), nBlockSize(0), nBlockTx(0), nBlockSigOps(0), nFees(0), nHeight(0), nLockTimeCutoff(0),
@@ -175,15 +195,6 @@ CTransactionRef BlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _n
     return MakeTransactionRef(std::move(tx));
 }
 
-struct NumericallyLessTxHashComparator
-{
-public:
-    bool operator()(const CTxMemPoolEntry *a, const CTxMemPoolEntry *b) const
-    {
-        return a->GetTx().GetHash() < b->GetTx().GetHash();
-    }
-};
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
 {
     resetBlock(scriptPubKeyIn, coinbaseSize);
@@ -283,7 +294,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), chainparams.GetConsensus());
         pblock->nNonce = 0;
         if (!may2020Enabled)
             pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0], STANDARD_SCRIPT_VERIFY_FLAGS);
@@ -680,41 +691,4 @@ void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
             }
         }
     }
-}
-
-void IncrementExtraNonce(CBlock *pblock, unsigned int &nExtraNonce)
-{
-    // Update nExtraNonce
-    static uint256 hashPrevBlock;
-    if (hashPrevBlock != pblock->hashPrevBlock)
-    {
-        nExtraNonce = 0;
-        hashPrevBlock = pblock->hashPrevBlock;
-    }
-    ++nExtraNonce;
-    unsigned int nHeight = pblock->GetHeight(); // Height first in coinbase required for block.version=2
-    CMutableTransaction txCoinbase(*pblock->vtx[0]);
-
-    CScript script = (CScript() << nHeight << CScriptNum(nExtraNonce));
-    CScript cbFlags;
-    {
-        LOCK(cs_coinbaseFlags);
-        cbFlags = COINBASE_FLAGS;
-    }
-    if (script.size() + cbFlags.size() > MAX_COINBASE_SCRIPTSIG_SIZE)
-    {
-        cbFlags.resize(MAX_COINBASE_SCRIPTSIG_SIZE - script.size());
-    }
-    txCoinbase.vin[0].scriptSig = script + cbFlags;
-    assert(txCoinbase.vin[0].scriptSig.size() <= MAX_COINBASE_SCRIPTSIG_SIZE);
-
-    // On BCH if Nov15th 2018 has been activated make sure the coinbase is big enough
-    uint64_t nCoinbaseSize = ::GetSerializeSize(txCoinbase, SER_NETWORK, PROTOCOL_VERSION);
-    if (nCoinbaseSize < MIN_TX_SIZE && IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
-    {
-        txCoinbase.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
-    }
-
-    pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
-    pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 }

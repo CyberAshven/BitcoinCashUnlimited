@@ -52,21 +52,12 @@ using namespace std;
 
 void ScriptPubKeyToJSON(const CScript &scriptPubKey, UniValue &out, bool fIncludeHex);
 
-double GetDifficulty(const CBlockIndex *blockindex)
+
+double GetDifficulty(uint32_t nBits)
 {
-    // Floating point number that is a multiple of the minimum difficulty,
-    // minimum difficulty = 1.0.
-    if (blockindex == nullptr)
-    {
-        if (chainActive.Tip() == nullptr)
-            return 1.0;
-        else
-            blockindex = chainActive.Tip();
-    }
+    int nShift = (nBits >> 24) & 0xff;
 
-    int nShift = (blockindex->nBits >> 24) & 0xff;
-
-    double dDiff = (double)0x0000ffff / (double)(blockindex->nBits & 0x00ffffff);
+    double dDiff = (double)0x0000ffff / (double)(nBits & 0x00ffffff);
 
     while (nShift < 29)
     {
@@ -80,6 +71,20 @@ double GetDifficulty(const CBlockIndex *blockindex)
     }
 
     return dDiff;
+}
+
+double GetDifficulty(const CBlockIndex *blockindex)
+{
+    // Floating point number that is a multiple of the minimum difficulty,
+    // minimum difficulty = 1.0.
+    if (blockindex == nullptr)
+    {
+        if (chainActive.Tip() == nullptr)
+            return 1.0;
+        else
+            blockindex = chainActive.Tip();
+    }
+    return GetDifficulty(blockindex->nBits);
 }
 
 UniValue blockheaderToJSON(const CBlockIndex *blockindex)
@@ -706,8 +711,8 @@ static CBlock GetBlockChecked(const CBlockIndex *pblockindex)
     if (IsBlockPruned(pblockindex))
         throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
 
-    CBlockRef pblock = ReadBlockFromDisk(pblockindex, Params().GetConsensus());
-    if (!pblock)
+    CBlockRef pblock(new CBlock());
+    if (!ReadBlockFromDisk(pblock, pblockindex, Params().GetConsensus()))
     {
         // Block not found on disk. This could be because we have the block
         // header in our index but don't have the block (for example if a
@@ -860,6 +865,15 @@ static UniValue getblock(const UniValue &params, bool fHelp)
         fListTxns = !(is_param_trueish(params[2]));
     }
 
+    bool fVerbose = false;
+    if (nVerbose == 1)
+        fVerbose = false;
+    else if (nVerbose == 2)
+        fVerbose = true;
+
+    if (pindex->isTailstorm)
+        return TailstormBlockToJSON(pindex, fVerbose, fListTxns);
+
     const CBlock block = GetBlockChecked(pindex);
 
     if (nVerbose == 0 && fListTxns == true)
@@ -869,12 +883,6 @@ static UniValue getblock(const UniValue &params, bool fHelp)
         std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
         return strHex;
     }
-
-    bool fVerbose = false;
-    if (nVerbose == 1)
-        fVerbose = false;
-    else if (nVerbose == 2)
-        fVerbose = true;
 
     return blockToJSON(block, pindex, fVerbose, fListTxns);
 }
@@ -2102,31 +2110,31 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
 
     for (size_t i = 0; i < block.vtx.size(); ++i)
     {
-        const auto &tx = block.vtx.at(i);
-        outputs += tx->vout.size();
+        CTransactionRef txref = block.vtx[i];
+        outputs += txref->vout.size();
 
         CAmount tx_total_out = 0;
         if (loop_outputs)
         {
-            for (const CTxOut &out : tx->vout)
+            for (const CTxOut &out : txref->vout)
             {
                 tx_total_out += out.nValue;
                 utxo_size_inc += GetSerializeSize(out, SER_NETWORK, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
             }
         }
 
-        if (tx->IsCoinBase())
+        if (txref->IsCoinBase())
         {
             continue;
         }
 
-        inputs += tx->vin.size(); // Don't count coinbase's fake input
+        inputs += txref->vin.size(); // Don't count coinbase's fake input
         total_out += tx_total_out; // Don't count coinbase reward
 
         int64_t tx_size = 0;
         if (do_calculate_size)
         {
-            tx_size = tx->GetTxSize();
+            tx_size = txref->GetTxSize();
             if (do_mediantxsize)
             {
                 txsize_array.push_back(tx_size);

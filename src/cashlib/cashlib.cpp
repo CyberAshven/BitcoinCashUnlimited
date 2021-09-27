@@ -19,6 +19,7 @@
 #include "random.h"
 #include "script/sign.h"
 #include "streams.h"
+#include "tailstorm/tailstorm.h"
 #include "uint256.h"
 #include "util.h"
 #include "utilstrencodings.h"
@@ -48,15 +49,15 @@ uint64_t categoriesEnabled = 0; // 64 bit log id mask.
 // I don't want to pull in the args stuff so always pick the defaults
 bool GetBoolArg(const std::string &strArg, bool fDefault) { return fDefault; }
 // cashlib does not support versionbits right now so just supply this which is used in chainparams
-struct ForkDeploymentInfo
-{
-    /** Deployment name */
-    const char *name;
-    /** Whether GBT clients can safely ignore this rule in simplified usage */
-    bool gbt_force;
-    /** What is this client's vote? */
-    bool myVote;
-};
+// struct ForkDeploymentInfo
+//{
+//    /** Deployment name */
+//    const char *name;
+//    /** Whether GBT clients can safely ignore this rule in simplified usage */
+//    bool gbt_force;
+//    /** What is this client's vote? */
+//    bool myVote;
+//};
 struct ForkDeploymentInfo VersionBitsDeploymentInfo[Consensus::MAX_VERSION_BITS_DEPLOYMENTS];
 
 // Must match the equivalent object in calling language code
@@ -1157,6 +1158,65 @@ public:
 };
 
 extern "C" JNIEXPORT jobjectArray JNICALL Java_bitcoinunlimited_libbitcoincash_MerkleBlock_Extract(JNIEnv *env,
+    jobject ths,
+    jint numTxes,
+    jbyteArray merkleProofPath,
+    jobjectArray hashArray)
+{
+    const unsigned int HASH_LEN = 32;
+    size_t hashArrayLen = env->GetArrayLength(hashArray);
+
+    jbyte *mppData = env->GetByteArrayElements(merkleProofPath, 0);
+    size_t mppLen = env->GetArrayLength(merkleProofPath);
+    CDecodablePartialMerkleTree tree(numTxes, (char *)mppData, mppLen);
+    env->ReleaseByteArrayElements(merkleProofPath, mppData, 0);
+
+    // Copy the hashes out of the java wrapper objects into the PartialMerkleTree
+    auto &hashes = tree.accessHashes();
+    hashes.resize(hashArrayLen);
+    for (size_t i = 0; i < hashArrayLen; i++)
+    {
+        jbyteArray elem = (jbyteArray)env->GetObjectArrayElement(hashArray, i);
+        jbyte *elemData = env->GetByteArrayElements(elem, 0);
+        size_t elemLen = env->GetArrayLength(elem);
+        if (elemLen != HASH_LEN)
+        {
+            triggerJavaIllegalStateException(env, "invalid hash: bad length");
+            return nullptr;
+        }
+        hashes[i] = uint256((unsigned char *)elemData);
+        env->ReleaseByteArrayElements(elem, elemData, 0);
+    }
+
+    std::vector<uint256> matches;
+    std::vector<unsigned int> matchIndexes;
+    uint256 merkleRoot = tree.ExtractMatches(matches, matchIndexes);
+
+    jclass elementClass = env->GetObjectClass(merkleProofPath); // get the class of a jbyteArray
+    jobjectArray ret = env->NewObjectArray(matches.size() + 1, elementClass, nullptr);
+
+    // Put the merkle root in the first slot
+    {
+        jbyteArray bArray = env->NewByteArray(HASH_LEN);
+        jbyte *dest = env->GetByteArrayElements(bArray, 0);
+        memcpy(dest, merkleRoot.begin(), HASH_LEN);
+        env->ReleaseByteArrayElements(bArray, dest, 0);
+        env->SetObjectArrayElement(ret, 0, bArray);
+    }
+
+    // Fill the rest with transactions hashes
+    for (size_t i = 0; i < matches.size(); i++)
+    {
+        jbyteArray bArray = env->NewByteArray(HASH_LEN);
+        jbyte *dest = env->GetByteArrayElements(bArray, 0);
+        memcpy(dest, matches[i].begin(), HASH_LEN);
+        env->ReleaseByteArrayElements(bArray, dest, 0);
+        env->SetObjectArrayElement(ret, i + 1, bArray);
+    }
+    return ret;
+}
+
+extern "C" JNIEXPORT jobjectArray JNICALL Java_bitcoinunlimited_libbitcoincash_MerkleSubBlock_Extract(JNIEnv *env,
     jobject ths,
     jint numTxes,
     jbyteArray merkleProofPath,

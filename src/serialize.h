@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "prevector.h"
+#include "tinyformat.h"
 
 // BU Allow a maximum message size of 256MB
 // BU does not use this value for json encoding size calculations
@@ -429,7 +430,7 @@ uint64_t ReadCompactSizeWithLimit(Stream &is, const uint64_t limit)
     }
     if (nSizeRet > limit)
     {
-        throw std::ios_base::failure("ReadCompactSize(): size too large");
+        throw std::ios_base::failure(strprintf("ReadCompactSize(): size too large (%llu > %llu)", nSizeRet, limit));
     }
     return nSizeRet;
 }
@@ -760,6 +761,10 @@ template <typename Stream, typename T>
 void Serialize(Stream &os, const std::shared_ptr<const T> &p);
 template <typename Stream, typename T>
 void Unserialize(Stream &os, std::shared_ptr<const T> &p);
+template <typename Stream, typename T>
+void Serialize(Stream &os, const std::shared_ptr<T> &p);
+template <typename Stream, typename T>
+void Unserialize(Stream &os, std::shared_ptr<T> &p);
 
 /**
  * unique_ptr
@@ -1040,6 +1045,18 @@ template <typename Stream, typename T>
 void Unserialize(Stream &is, std::shared_ptr<const T> &p)
 {
     p = std::make_shared<const T>(deserialize, is);
+}
+
+template <typename Stream, typename T>
+void Serialize(Stream &os, const std::shared_ptr<T> &p)
+{
+    Serialize(os, *p);
+}
+
+template <typename Stream, typename T>
+void Unserialize(Stream &is, std::shared_ptr<T> &p)
+{
+    p = std::make_shared<T>(deserialize, is);
 }
 
 

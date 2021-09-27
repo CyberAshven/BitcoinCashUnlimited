@@ -9,6 +9,7 @@
 #include "blockrelay/compactblock.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/thinblock.h"
+#include "tailstorm/tailstorm.h"
 
 #include <QDateTime>
 #include <QObject>
@@ -103,6 +104,7 @@ private:
     ThinBlockQuickStats thinStats;
     CompactBlockQuickStats compactStats;
     GrapheneQuickStats grapheneStats;
+    SBGrapheneQuickStats sb_grapheneStats;
 
     QTimer *pollTimer1;
     QTimer *pollTimer2;
@@ -123,6 +125,7 @@ Q_SIGNALS:
     void thinBlockPropagationStatsChanged(const ThinBlockQuickStats &thin);
     void compactBlockPropagationStatsChanged(const CompactBlockQuickStats &compact);
     void grapheneBlockPropagationStatsChanged(const GrapheneQuickStats &graphene);
+    void sbGrapheneBlockPropagationStatsChanged(const SBGrapheneQuickStats &graphene);
 
     //! Fired when a message should be reported to the user
     void message(const QString &title, const QString &message, unsigned int style);

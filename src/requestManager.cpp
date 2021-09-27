@@ -22,6 +22,7 @@
 #include "primitives/block.h"
 #include "rpc/server.h"
 #include "stat.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "txorphanpool.h"
@@ -67,7 +68,8 @@ extern bool CanDirectFetch(const Consensus::Params &consensusParams);
 static bool IsBlockType(const CInv &obj)
 {
     return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
-            (obj.type == MSG_GRAPHENEBLOCK));
+            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_TAILSTORMBLOCK) ||
+            (obj.type == MSG_SB_GRAPHENEBLOCK) || (obj.type == MSG_BOB_CMPCT_BLOCK));
 }
 
 // Constructor for CRequestManagerNodeState struct
@@ -540,10 +542,94 @@ static bool IsGrapheneVersionSupported(CNode *pfrom)
     }
 }
 
+static bool SBIsGrapheneVersionSupported(CNode *pfrom)
+{
+    try
+    {
+        SBNegotiateGrapheneVersion(pfrom);
+        return true;
+    }
+    catch (const std::runtime_error &error)
+    {
+        return false;
+    }
+}
+
 bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 {
     CInv inv2(obj);
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+
+    if (inv2.type == MSG_TAILSTORMBLOCK)
+    {
+        if (IsChainNearlySyncd() &&
+            (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
+        {
+            // Ask for compact Tailstorm block
+            // Must download a compact block from a compact block enabled peer.
+            if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::BOBCMPCTBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    std::vector<CInv> vGetData;
+                    inv2.type = MSG_BOB_CMPCT_BLOCK;
+                    vGetData.push_back(inv2);
+                    pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+                    LOG(CMPCT, "Requesting compact tailstorm block %s from peer %s\n", inv2.hash.ToString(),
+                        pfrom->GetLogName());
+                    return true;
+                }
+            }
+        }
+
+        // If we get here, then it was not possible to request a compact tailstorm block for some reason
+        std::vector<CInv> vGetData;
+        vGetData.push_back(inv2);
+        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        LOG(GRAPHENE, "Requesting Regular Tailstorm Block %s from peer %s\n", inv2.hash.ToString(),
+            pfrom->GetLogName());
+        return true;
+    }
+
+    if (inv2.type == MSG_SUBBLOCK)
+    {
+        if (IsChainNearlySyncd() &&
+            (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
+        {
+            // Ask for Graphene subblock
+            // Must download a graphene block from a graphene enabled peer.
+            if (SBIsGrapheneBlockEnabled() && pfrom->GrapheneCapable() && SBIsGrapheneVersionSupported(pfrom))
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::SB_GRAPHENEBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    // Instead of building a bloom filter here as we would for an xthin, we actually
+                    // just need to fill in CMempoolInfo
+                    inv2.type = MSG_SB_GRAPHENEBLOCK;
+                    CSBMemPoolInfo receiverMemPoolInfo = SBGetGrapheneMempoolInfo();
+                    ss << inv2;
+                    ss << receiverMemPoolInfo;
+                    sb_graphenedata.UpdateOutBoundMemPoolInfo(
+                        ::GetSerializeSize(receiverMemPoolInfo, SER_NETWORK, PROTOCOL_VERSION));
+
+                    pfrom->PushMessage(NetMsgType::GET_SB_GRAPHENE, ss);
+                    LOG(GRAPHENE, "Requesting graphene subblock %s from peer %s\n", inv2.hash.ToString(),
+                        pfrom->GetLogName());
+                    return true;
+                }
+            }
+        }
+
+        // If we get here, then graphene failed for some reason, request a full subblock
+        std::vector<CInv> vGetData;
+        vGetData.push_back(inv2);
+        pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+        LOG(GRAPHENE, "Requesting regular subblock %s from peer %s\n", inv2.ToString(), pfrom->GetLogName());
+        return true;
+    }
 
     if (IsChainNearlySyncd() &&
         (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
@@ -620,12 +706,10 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     if (!IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled())
     {
         std::vector<CInv> vToFetch;
-        inv2.type = MSG_BLOCK;
         vToFetch.push_back(inv2);
-
         MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
         pfrom->PushMessage(NetMsgType::GETDATA, vToFetch);
-        LOG(THIN | GRAPHENE | CMPCT, "Requesting Regular Block %s from peer %s\n", inv2.hash.ToString(),
+        LOG(REQ | THIN | GRAPHENE | CMPCT, "Requesting nonspecific inv %s from peer %s\n", inv2.ToString(),
             pfrom->GetLogName());
         return true;
     }
@@ -719,6 +803,7 @@ void CRequestManager::SendRequests()
                         // Do not request from this node if it was disconnected
                         if (next.noderef.get()->fDisconnect || next.noderef.get()->fDisconnectRequest)
                         {
+                            next.noderef = nullptr;
                             continue;
                         }
                         // Do not request or re-request another block from a peer for which we are currently downloading
@@ -726,6 +811,7 @@ void CRequestManager::SendRequests()
                         else if (next.noderef.get()->fDownloading && item.nDownloadingSince != 0 &&
                                  now - item.nDownloadingSince > blockLookAheadInterval.Value())
                         {
+                            next.noderef = nullptr;
                             continue;
                         }
                     }
@@ -736,32 +822,42 @@ void CRequestManager::SendRequests()
                     // If item.lastRequestTime is true then we've requested at least once and we'll try a re-request
                     if (item.lastRequestTime)
                     {
-                        LOG(REQ, "Block took longer than %6.2f secs. Request timeout for %s.  Retrying\n",
+                        LOG(REQ,
+                            "Block took longer than %6.2f secs over nodes average. Request timeout for %s.  Retrying\n",
                             ((double)(now - item.lastRequestTime) / 1000000), item.obj.ToString());
                     }
-
                     CInv obj = item.obj;
-                    item.outstandingReqs++;
+
                     int64_t then = item.lastRequestTime;
                     int64_t nDownloadingSincePrev = item.nDownloadingSince;
+                    int64_t nodeRespTime = 0;
                     {
                         LOCK(next.noderef.get()->cs_nAvgBlkResponseTime);
+                        nodeRespTime = max(0.0, next.noderef.get()->nAvgBlkResponseTime);
                         std::map<NodeId, CRequestManagerNodeState>::iterator it =
                             mapRequestManagerNodeState.find(next.noderef.get()->GetId());
+
+                        // Node must be gone if the state is gone so give up sending to it
                         if (it == mapRequestManagerNodeState.end())
                         {
                             mapBatchBlockRequests.erase(next.noderef);
                             continue;
                         }
                         CRequestManagerNodeState *state = &it->second;
-                        item.lastRequestTime =
-                            now + (next.noderef.get()->nAvgBlkResponseTime * 1000000 * 5 * state->nBlocksInFlight);
+
+                        item.lastRequestTime = now + max(0UL, (nodeRespTime * 1000000 * 5 * state->nBlocksInFlight));
                     }
-                    item.nDownloadingSince = 0;
+
+                    item.availableFrom.push_back(next); // Put this source back on the end of the list
+                    item.nDownloadingSince = item.lastRequestTime;
                     bool fReqBlkResult = false;
+
+                    next.requestCount++; // Track # times requested from this source
+                    item.outstandingReqs++; // Track # total requests of this object
 
                     if (fBatchBlockRequests)
                     {
+                        LOG(REQ, "Batching block request %s to %s\n", item.obj.ToString(), next.noderef->GetLogName());
                         mapBatchBlockRequests[next.noderef].emplace(item.nEntryTime, obj);
                     }
                     else
@@ -796,7 +892,14 @@ void CRequestManager::SendRequests()
                 {
                     // We requested from all available sources so remove the source. This should not
                     // happen and would indicate some other problem.
-                    LOG(REQ, "Block %s has no sources. Removing\n", item.obj.ToString());
+                    if (item.fProcessing)
+                    {
+                        LOG(REQ, "Block %s is being processed and has no sources. Removing\n", item.obj.ToString());
+                    }
+                    else
+                    {
+                        LOG(REQ, "Block %s has no sources. Removing\n", item.obj.ToString());
+                    }
                     cleanup(itemIter);
                 }
             }
@@ -822,6 +925,7 @@ void CRequestManager::SendRequests()
                 {
                     const uint256 &hash = mi.second.hash;
                     MarkBlockAsInFlight(iter.first.get()->GetId(), hash);
+                    LOG(REQ, "Sent batched request with %s\n", mi.second.ToString());
                     vInv.push_back(mi.second);
                 }
                 iter.first.get()->PushMessage(NetMsgType::GETDATA, vInv);
@@ -903,6 +1007,7 @@ void CRequestManager::SendRequests()
                             item.outstandingReqs++;
                             item.lastRequestTime = now;
 
+                            LOG(REQ, "Sent batched request B with %s\n", item.obj.ToString());
                             mapBatchTxnRequests[next.noderef].emplace_back(item.obj);
 
                             // If we have 1000 requests for this peer then send them right away.
@@ -1049,6 +1154,8 @@ void CRequestManager::RequestNextBlocksToDownload(CNode *pto)
         for (CBlockIndex *pindex : vToDownload)
         {
             CInv inv(MSG_BLOCK, pindex->GetBlockHash());
+            if (pindex->isTailstorm)
+                inv.type = MSG_TAILSTORMBLOCK;
             if (!AlreadyHaveBlock(inv))
             {
                 vGetBlocks.emplace_back(inv);
@@ -1175,7 +1282,13 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
                     mapBlocksInFlight.find(blockHash);
                 if (itInFlight != mapBlocksInFlight.end() && !itInFlight->second.count(nodeid))
                 {
-                    AskFor(CInv(MSG_BLOCK, blockHash), node); // Add another source
+                    // Add another source
+                    if (mapBlkInfo[blockHash].obj.type == MSG_TAILSTORMBLOCK)
+                        AskFor(CInv(MSG_TAILSTORMBLOCK, blockHash), node);
+                    else if (mapBlkInfo[blockHash].obj.type == MSG_SUBBLOCK)
+                        AskFor(CInv(MSG_SUBBLOCK, blockHash), node);
+                    else
+                        AskFor(CInv(MSG_BLOCK, blockHash), node);
                     continue;
                 }
             }
@@ -1284,11 +1397,19 @@ bool CRequestManager::MarkBlockAsReceived(const uint256 &hash, CNode *pnode)
     std::map<uint256, std::map<NodeId, std::list<QueuedBlock>::iterator> >::iterator itHash =
         mapBlocksInFlight.find(hash);
     if (itHash == mapBlocksInFlight.end())
+    {
+        LOG(REQ, "Block %s not in inflight list\n", hash.GetHex());
         return false;
+    }
 
     // Lookup this block for this nodeid and if we have one in flight then mark it as received.
     std::map<NodeId, std::list<QueuedBlock>::iterator>::iterator itInFlight = itHash->second.find(nodeid);
-    if (itInFlight != itHash->second.end())
+    if (itInFlight == itHash->second.end())
+    {
+        LOG(REQ, "Block %s not in node inflight list\n", hash.GetHex());
+        return false;
+    }
+    else
     {
         // Get a request manager nodestate pointer.
         std::map<NodeId, CRequestManagerNodeState>::iterator it = mapRequestManagerNodeState.find(nodeid);
@@ -1450,6 +1571,11 @@ bool CRequestManager::MarkBlockAsReceived(const uint256 &hash, CNode *pnode)
             if (thinrelay.IsBlockInFlight(pnode, NetMsgType::CMPCTBLOCK, hash))
             {
                 compactdata.UpdateResponseTime(nResponseTime);
+            }
+            // Update Compact Tailstorm Block stats
+            if (thinrelay.IsBlockInFlight(pnode, NetMsgType::BOBCMPCTBLOCK, hash))
+            {
+                bobcompactdata.UpdateResponseTime(nResponseTime);
             }
         }
 

@@ -14,6 +14,7 @@
 #include "pow.h"
 #include "requestManager.h"
 #include "script/sigcache.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txorphanpool.h"
 #include "unlimited.h"
@@ -446,6 +447,20 @@ void CParallelValidation::UpdateMostWorkOurFork(const CBlockHeader &header)
     }
 }
 
+void CParallelValidation::UpdateBobMostWorkOurFork(const CTailstormBlockHeader &header)
+{
+    LOCK(cs_blockvalidationthread);
+    map<boost::thread::id, CHandleBlockMsgThreads>::iterator mi = mapBlockValidationThreads.begin();
+    while (mi != mapBlockValidationThreads.end())
+    {
+        // check if this new header connects to this block and if so then update the nMostWorkOurFork
+        if ((*mi).second.hash == header.hashPrevBlock && (*mi).second.nMostWorkOurFork < header.nBits)
+            (*mi).second.nMostWorkOurFork = header.nBits;
+        mi++;
+    }
+}
+
+
 uint32_t CParallelValidation::MaxWorkChainBeingProcessed()
 {
     uint32_t nMaxWork = 0;
@@ -612,8 +627,12 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
 
                 if (strCommand == NetMsgType::GRAPHENEBLOCK || strCommand == NetMsgType::GRAPHENETX)
                     graphenedata.UpdateValidationTime(nValidationTime);
+                else if (strCommand == NetMsgType::SB_GRAPHENEBLOCK || strCommand == NetMsgType::SB_GRAPHENETX)
+                    sb_graphenedata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::BLOCKTXN)
                     compactdata.UpdateValidationTime(nValidationTime);
+                else if (strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::BOBSUB)
+                    bobcompactdata.UpdateValidationTime(nValidationTime);
                 else
                     thindata.UpdateValidationTime(nValidationTime);
             }

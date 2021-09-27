@@ -44,6 +44,7 @@
 #include "script/script.h"
 #include "script/sigcache.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txadmission.h"
 #include "txdb.h"
@@ -76,6 +77,11 @@
 /**
  * Global state
  */
+
+/*! Known, complete delta blocks. */
+CCriticalSection cs_tipDagCache;
+CTailstormDagSet tailstormDagSet;
+std::map<uint256, CDagNode> tipDagCache GUARDED_BY(cs_tipDagCache);
 
 std::atomic<bool> fImporting{false};
 std::atomic<bool> fReindex{false};
@@ -348,8 +354,8 @@ bool GetTransaction(const uint256 &hash,
 
     if (pindexSlow)
     {
-        CBlockRef pblock = ReadBlockFromDisk(pindexSlow, consensusParams);
-        if (pblock)
+        CBlockRef pblock(new CBlock());
+        if (ReadBlockFromDisk(pblock, pindexSlow, consensusParams))
         {
             bool ctor_enabled = pindexSlow->nHeight >= consensusParams.nov2018Height;
             int64_t pos = FindTxPosition(*pblock, hash, ctor_enabled);
@@ -399,7 +405,7 @@ void AlertNotify(const std::string &strMessage)
 bool AbortNode(const std::string &strMessage, const std::string &userMessage = "")
 {
     strMiscWarning = strMessage;
-    LOGA("*** %s\n", strMessage);
+    LOGA("*** ABORT NODE: %s (userMessage: %s)\n", strMessage, userMessage);
     uiInterface.ThreadSafeMessageBox(
         userMessage.empty() ? _("Error: A fatal internal error occurred, see debug.log for details") : userMessage, "",
         CClientUIInterface::MSG_ERROR);
@@ -409,6 +415,8 @@ bool AbortNode(const std::string &strMessage, const std::string &userMessage = "
 
 bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "")
 {
+    LOGA("*** ABORT NODE: validation state: code=%d, reason=%s, message=%s", state.GetRejectCode(),
+        state.GetRejectReason(), state.GetDebugMessage());
     AbortNode(strMessage, userMessage);
     return state.Error(strMessage);
 }
@@ -628,16 +636,33 @@ bool LoadExternalBlockFile(const CChainParams &chainparams, FILE *fileIn, CDiskB
                     while (range.first != range.second)
                     {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
-                        CBlockRef pblock = ReadBlockFromDiskSequential(it->second, chainparams.GetConsensus());
-                        if (pblock)
+                        CBlockRef pblock(new CBlock());
+                        CAutoFile filein(OpenBlockFile(it->second, true), SER_DISK, CLIENT_VERSION);
+                        if (filein.IsNull() == false)
                         {
-                            LOGA("%s: Processing out of order child %s of %s\n", __func__, pblock->GetHash().ToString(),
-                                head.ToString());
-                            CValidationState dummy;
-                            if (ProcessNewBlock(dummy, chainparams, nullptr, pblock.get(), true, &it->second, false))
+                            // Read block
+                            try
                             {
-                                nLoaded++;
-                                queue.push_back(pblock->GetHash());
+                                filein >> *pblock;
+                            }
+                            catch (const std::exception &e)
+                            {
+                                range.first++;
+                                mapBlocksUnknownParent.erase(it);
+                                continue;
+                            }
+                            // Check the header
+                            if (CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
+                            {
+                                LOGA("%s: Processing out of order child %s of %s\n", __func__,
+                                    pblock->GetHash().ToString(), head.ToString());
+                                CValidationState dummy;
+                                if (ProcessNewBlock(
+                                        dummy, chainparams, nullptr, pblock.get(), true, &it->second, false))
+                                {
+                                    nLoaded++;
+                                    queue.push_back(pblock->GetHash());
+                                }
                             }
                         }
                         range.first++;
@@ -750,4 +775,44 @@ void MainCleanup()
         orphanpool.mapOrphanTransactions.clear();
         orphanpool.mapOrphanTransactionsByPrev.clear();
     }
+}
+
+bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out)
+{
+    // This would be a lot faster if a map of subblocks to heights was maintained.  But it may not be worth doing
+    // this for this API which will be called rarely outside of test
+
+    // go backwards because likely most interested in recent subblocks
+    if (chain.Tip() == nullptr)
+    {
+        return false;
+    }
+
+    int height = chain.Tip()->nHeight;
+    for (int h = height; h > 0; h--)
+    {
+        CBlockIndex *blkidx = chain[h];
+        DbgAssert(blkidx, return false); // Should never be null because we are starting from tip height to 1
+        if (!blkidx->isTailstorm)
+        {
+            continue;
+        }
+        if (blkidx->subblockNTxMap.count(hash) == 0)
+        {
+            continue;
+        }
+
+        CTailstormBlockRef block(new CTailstormBlock);
+        if (!ReadBlockFromDisk(block, blkidx, Params().GetConsensus()))
+        {
+            // TODO dont assert if pruned
+            DbgAssert(false, return false); // We should be able to read every block we have data on
+        }
+        if (!block->GetSubBlock(hash, out))
+        {
+            DbgAssert(false, return false); // Hash must be here because we found it in the NtxMap
+        }
+        return true;
+    }
+    return false;
 }

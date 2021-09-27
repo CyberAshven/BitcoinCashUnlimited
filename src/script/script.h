@@ -722,7 +722,8 @@ public:
         shrink_to_fit();
     }
 
-    std::string GetHex() const { return HexStr(begin(), end()); }
+    /** Return this script in hex representation */
+    std::string GetHex() const;
 };
 
 class CReserveScript

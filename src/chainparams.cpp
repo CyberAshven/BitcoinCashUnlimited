@@ -201,6 +201,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = false;
 
         // clang-format off
         // checkpoint related to various network upgrades need to be the first block
@@ -329,11 +330,12 @@ public:
 
         vFixedSeeds = std::vector<SeedSpec6>();
 
-        fMiningRequiresPeers = true;
+        fMiningRequiresPeers = false;
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = false;
 
         checkpointData = (CCheckpointData){
             {{0, uint256S("0000000057e31bd2066c939a63b7b8623bd0f10d8c001304bdfc1a7902ae6d35")}}, 0, 0, 0};
@@ -447,6 +449,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         // checkpoint related to various network upgrades need to be the first block
@@ -484,14 +487,14 @@ public:
 static CTestNetParams testNetParams;
 
 /**
- * Regression test
+ * Tailstorm Regression test
  */
 class CRegTestParams : public CChainParams
 {
 public:
     CRegTestParams()
     {
-        strNetworkID = "regtest"; // Do not use the const string because of ctor execution order issues
+        strNetworkID = "regtest";
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP16Height = 0; // always enforce P2SH BIP16 on regtest
         consensus.BIP34Height = 1000; // BIP34 has activated on regtest (Used in rpc activation tests)
@@ -506,6 +509,7 @@ public:
         consensus.fPowNoRetargeting = true;
         consensus.powAlgorithm = 1;
         consensus.initialSubsidy = 10 * COIN;
+
         // The half life for the ASERT DAA. For every (nASERTHalfLife) seconds behind schedule the blockchain gets,
         // difficulty is cut in half. Doubled if blocks are ahead of schedule.
         // Two days
@@ -553,11 +557,13 @@ public:
         nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE_REGTEST;
         nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
 
-        genesis = CreateGenesisBlock(CScript() << 0 << CScriptNum(7227), "This is regtest", CScript() << OP_1,
-            1626275623, 1, 0x207fffff, 536870912, 0 * COIN);
-        consensus.hashGenesisBlock = genesis.GetHash();
+        genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        CTailstormBlock tailGenesis = GenesisTailstormBlock();
+        consensus.hashGenesisBlock = tailGenesis.GetHash();
         assert(consensus.hashGenesisBlock ==
-               uint256S("0xaa258934f701130c37bba436aa497c2dcd25b884ef1f4f4ee80598fa76e81526"));
+               uint256S("0xb280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01"));
+        assert(tailGenesis.hashMerkleRoot ==
+               uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
         vSeeds.clear(); //! Regtest mode doesn't have any DNS seeds.
@@ -567,15 +573,16 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
 
         checkpointData = (CCheckpointData){
-            {{0, uint256S("0xaa258934f701130c37bba436aa497c2dcd25b884ef1f4f4ee80598fa76e81526")}}, 0, 0, 0};
+            {{0, uint256S("b280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01")}}, 0, 0, 0};
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<uint8_t>(1, 111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<uint8_t>(1, 196);
         base58Prefixes[SECRET_KEY] = std::vector<uint8_t>(1, 239);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
-        cashaddrPrefix = "bchreg";
+        cashaddrPrefix = "nexreg";
     }
 };
 static CRegTestParams regTestParams;
@@ -687,6 +694,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         checkpointData = CCheckpointData();
@@ -824,6 +832,7 @@ public:
         fRequireStandard = false;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
+        fTailstormGenesis = false;
 
         // clang-format off
         checkpointData = CCheckpointData();
@@ -935,6 +944,7 @@ public:
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
+        fTailstormGenesis = true;
 
         checkpointData = CCheckpointData();
     }

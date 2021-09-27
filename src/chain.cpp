@@ -6,6 +6,7 @@
 
 #include "chain.h"
 #include "main.h"
+#include "tailstorm/tailstorm.h"
 
 using namespace std;
 
@@ -90,6 +91,38 @@ int static inline GetSkipHeight(int height)
     // but the following expression seems to perform well in simulations (max 110 steps to go back
     // up to 2**18 blocks).
     return (height & 1) ? InvertLowestOne(InvertLowestOne(height - 1)) + 1 : InvertLowestOne(height);
+}
+
+CBlockIndex::CBlockIndex(const CTailstormBlockHeader &block)
+{
+    SetNull();
+
+    isTailstorm = true;
+    nVersion = block.nVersion;
+    hashMerkleRoot = block.hashMerkleRoot;
+    nTime = block.nTime;
+    nBits = block.nBits;
+    // tailstorm blocks dont have a nonce
+    // nNonce = block.nNonce;
+    subblockHashes = block.subblockHashes;
+    subblockNTxMap = block.subblockNTxMap;
+}
+
+CTailstormBlockHeader CBlockIndex::GetTailstormBlockHeader() const
+{
+    if (!isTailstorm)
+        throw std::invalid_argument("Incorrect tailstorm header type");
+
+    CTailstormBlockHeader block;
+    block.nVersion = nVersion;
+    if (pprev)
+        block.hashPrevBlock = pprev->GetBlockHash();
+    block.hashMerkleRoot = hashMerkleRoot;
+    block.nTime = nTime;
+    block.nBits = nBits;
+    block.subblockHashes = subblockHashes;
+    block.subblockNTxMap = subblockNTxMap;
+    return block;
 }
 
 CBlockIndex *CBlockIndex::GetAncestor(int height)
@@ -233,4 +266,17 @@ bool AreOnTheSameFork(const CBlockIndex *pa, const CBlockIndex *pb)
     // is a child of pb).
     const CBlockIndex *pindexCommon = LastCommonAncestor(pa, pb);
     return pindexCommon == pa || pindexCommon == pb;
+}
+
+uint256 CDiskBlockIndex::GetTailstormBlockHash() const
+{
+    CTailstormBlockHeader block;
+    block.nVersion = nVersion;
+    block.hashPrevBlock = hashPrev;
+    block.hashMerkleRoot = hashMerkleRoot;
+    block.nTime = nTime;
+    block.nBits = nBits;
+    block.subblockHashes = subblockHashes;
+    block.subblockNTxMap = subblockNTxMap;
+    return block.GetHash();
 }

@@ -56,7 +56,7 @@ struct UndoDBValue
     }
 };
 
-/** Access to the block database (blocks/ * /) */
+/** Access to the block database (blockdb/blocks * /) */
 class CBlockLevelDB : public CDatabaseAbstract
 {
 public:
@@ -114,12 +114,16 @@ public:
         return true;
     }
 
-    bool WriteBlock(const CBlock &block);
+    bool WriteBlock(const CBlock &block, CDiskBlockPos &pos);
+    bool WriteBlock(const CTailstormBlock &block, CDiskBlockPos &pos);
     bool ReadBlock(const CBlockIndex *pindex, CBlock &block);
+    bool ReadBlock(const CBlockIndex *pindex, CTailstormBlock &block);
     bool EraseBlock(CBlock &block);
+    bool EraseBlock(CTailstormBlock &block);
     bool EraseBlock(const CBlockIndex *pindex);
-    void Flush()
+    void Flush(bool fFinalize = false)
     {
+        // fFinalize not used in this type of db
         pwrapperblock->Sync();
         pwrapperundo->Sync();
     }
@@ -136,8 +140,8 @@ public:
         pwrapperblock->getpdb()->CompactRange(&slKey1, &slKey2);
     }
 
-    bool WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex);
-    bool ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex);
+    bool WriteUndo(const CBlockUndo &blockundo, const CBlockIndex *pindex, CDiskBlockPos &pos);
+    bool ReadUndo(CBlockUndo &blockundo, const CBlockIndex *pindex, const CDiskBlockPos &pos);
     bool EraseUndo(const CBlockIndex *pindex);
 
     void CondenseUndoData(const std::string &key_begin, const std::string &key_end)
@@ -152,7 +156,7 @@ public:
         pwrapperundo->getpdb()->CompactRange(&slKey1, &slKey2);
     }
 
-    uint64_t PruneDB(uint64_t nLastBlockWeCanPrune);
+    uint64_t PruneDB(std::set<int> &setFilesToPrune, uint64_t nLastBlockWeCanPrune);
 };
 
 #endif // BLOCKDB_H

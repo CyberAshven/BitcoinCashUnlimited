@@ -18,6 +18,8 @@
 #include <atomic>
 #include <vector>
 
+class CTailstormBlockHeader;
+
 extern CSharedCriticalSection cs_mapBlockIndex;
 
 class CBlockFileInfo
@@ -194,12 +196,18 @@ public:
     //! Verification status of this block. See enum BlockStatus
     unsigned int nStatus;
 
+    bool isTailstorm;
+
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    unsigned int nTime;
+    // TODO : changing the time field type here might be a breaking change
+    uint64_t nTime;
     unsigned int nBits;
     unsigned int nNonce;
+    // Needed for tailstorm blocks only
+    std::set<uint256> subblockHashes;
+    std::map<uint256, uint32_t> subblockNTxMap;
 
     //! Sequential id assigned to distinguish order in which blocks are received.
     uint64_t nSequenceId;
@@ -223,6 +231,7 @@ public:
         nSequenceId = 0;
         nTimeReceived = 0;
 
+        isTailstorm = false;
         nVersion = 0;
         hashMerkleRoot = uint256();
         nTime = 0;
@@ -235,12 +244,15 @@ public:
     {
         SetNull();
 
+        isTailstorm = false;
         nVersion = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime = block.nTime;
         nBits = block.nBits;
         nNonce = block.nNonce;
     }
+
+    CBlockIndex(const CTailstormBlockHeader &block);
 
     CDiskBlockPos GetBlockPos() const
     {
@@ -266,6 +278,11 @@ public:
 
     CBlockHeader GetBlockHeader() const
     {
+        if (isTailstorm)
+        {
+            throw std::invalid_argument("Incorrect header type");
+        }
+
         CBlockHeader block;
         block.nVersion = nVersion;
         if (pprev)
@@ -276,6 +293,8 @@ public:
         block.nNonce = nNonce;
         return block;
     }
+
+    CTailstormBlockHeader GetTailstormBlockHeader() const;
 
     /** return true for every block from fork block and forward [x,+inf)
      * state: fork activated */
@@ -426,6 +445,9 @@ public:
         // sequence id and time received
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
+        READWRITE(isTailstorm);
+        READWRITE(subblockHashes);
+        READWRITE(subblockNTxMap);
     }
 
     uint256 GetBlockHash() const
@@ -440,6 +462,7 @@ public:
         return block.GetHash();
     }
 
+    uint256 GetTailstormBlockHash() const;
 
     std::string ToString() const
     {

@@ -420,6 +420,9 @@ bool CScriptNum::MinimallyEncode(std::vector<uint8_t> &data)
     return true;
 }
 
+
+std::string CScript::GetHex() const { return HexStr(begin(), end()); }
+
 unsigned int CScript::GetSigOpCount(const uint32_t flags, bool fAccurate) const
 {
     unsigned int n = 0;

@@ -131,6 +131,9 @@ void ClientModel::updateTimer2()
     graphenedata.FillGrapheneQuickStats(grapheneStats);
     Q_EMIT grapheneBlockPropagationStatsChanged(grapheneStats);
 
+    sb_graphenedata.FillGrapheneQuickStats(sb_grapheneStats);
+    Q_EMIT sbGrapheneBlockPropagationStatsChanged(sb_grapheneStats);
+
     uiInterface.BannedListChanged();
 }
 

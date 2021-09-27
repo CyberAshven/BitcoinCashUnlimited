@@ -15,6 +15,8 @@ void RegisterValidationInterface(CValidationInterface *pwalletIn)
     g_signals.UpdatedBlockTip.connect(boost::bind(&CValidationInterface::UpdatedBlockTip, pwalletIn, boost::arg<1>()));
     g_signals.SyncTransaction.connect(boost::bind(
         &CValidationInterface::SyncTransaction, pwalletIn, boost::arg<1>(), boost::arg<2>(), boost::arg<3>()));
+    g_signals.SyncTransaction_BT.connect(boost::bind(
+        &CValidationInterface::SyncTransaction_BT, pwalletIn, boost::arg<1>(), boost::arg<2>(), boost::arg<3>()));
     g_signals.SyncDoubleSpend.connect(boost::bind(&CValidationInterface::SyncDoubleSpend, pwalletIn, boost::arg<1>()));
     g_signals.UpdatedTransaction.connect(
         boost::bind(&CValidationInterface::UpdatedTransaction, pwalletIn, boost::arg<1>()));
@@ -55,15 +57,22 @@ void UnregisterAllValidationInterfaces()
     g_signals.BlockFound.disconnect_all_slots();
     g_signals.ScriptForMining.disconnect_all_slots();
     g_signals.BlockChecked.disconnect_all_slots();
+    g_signals.TailstormBlockChecked.disconnect_all_slots();
     g_signals.Broadcast.disconnect_all_slots();
     g_signals.Inventory.disconnect_all_slots();
     g_signals.SetBestChain.disconnect_all_slots();
     g_signals.UpdatedTransaction.disconnect_all_slots();
     g_signals.SyncTransaction.disconnect_all_slots();
+    g_signals.SyncTransaction_BT.disconnect_all_slots();
     g_signals.UpdatedBlockTip.disconnect_all_slots();
 }
 
 void SyncWithWallets(const CTransactionRef &ptx, const CBlock *pblock, int txIdx)
 {
     g_signals.SyncTransaction(ptx, pblock, txIdx);
+}
+
+void SyncWithWallets_BT(const CTransactionRef &ptx, const CTailstormBlock *pblock, int txIdx)
+{
+    g_signals.SyncTransaction_BT(ptx, pblock, txIdx);
 }

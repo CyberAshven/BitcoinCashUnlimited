@@ -25,7 +25,6 @@ const uint32_t LARGE_MEM_POOL_SIZE = 10000000;
 const float FILTER_FPR_MAX = 0.999;
 const uint8_t IBLT_CELL_MINIMUM = 2;
 const std::vector<uint8_t> IBLT_NULL_VALUE = {};
-const unsigned char WORD_BITS = 8;
 const uint16_t APPROX_ITEMS_THRESH = 600;
 const uint16_t APPROX_ITEMS_THRESH_REDUCE_CHECK = 500;
 const uint8_t APPROX_EXCESS_RATE = 4;
@@ -52,7 +51,7 @@ private:
     uint64_t version;
     uint32_t ibltSalt;
     bool computeOptimized;
-    std::vector<unsigned char> encodedRank;
+    std::vector<uint8_t> encodedRank;
     std::shared_ptr<CBloomFilter> pSetFilter;
     std::shared_ptr<CVariableFastFilter> pFastFilter;
     std::shared_ptr<CIblt> pSetIblt;
@@ -109,7 +108,7 @@ public:
     bool GetComputeOptimized() const { return computeOptimized; }
     // Return the false positive rate for this set's bloom filter
     double GetBloomFPR() const { return bloomFPR; }
-    std::vector<unsigned char> GetEncodedRank() const { return encodedRank; }
+    std::vector<uint8_t> GetEncodedRank() const { return encodedRank; }
     std::shared_ptr<CIblt> GetIblt() const { return pSetIblt; }
     std::shared_ptr<CBloomFilter> GetRegularFilter() const { return pSetFilter; }
     std::shared_ptr<CVariableFastFilter> GetFastFilter() const { return pFastFilter; }
@@ -164,14 +163,14 @@ public:
         std::shared_ptr<CIblt> _pSetIblt,
         std::shared_ptr<CBloomFilter> _pSetFilter,
         std::shared_ptr<CVariableFastFilter> _pFastFilter,
-        std::vector<unsigned char> _encodedRank,
+        std::vector<uint8_t> _encodedRank,
         bool _computeOptimized,
         bool _ordered);
 
     static std::vector<uint64_t> Reconcile(const std::set<uint64_t> &setSenderFilterPositiveCheapHashes,
         const CIblt &localIblt,
         std::shared_ptr<CIblt> _pSetIblt,
-        std::vector<unsigned char> _encodedRank,
+        std::vector<uint8_t> _encodedRank,
         bool _ordered);
 
     static GrapheneSetOptimizationParams DetermineGrapheneSetOptimizationParams(uint64_t nReceiverUniverseItems,
@@ -185,10 +184,6 @@ public:
         uint32_t ibltSalt,
         uint64_t graphenSetVersion,
         uint64_t nOverrideValue);
-
-    static std::vector<unsigned char> EncodeRank(std::vector<uint64_t> items, uint16_t nBitsPerItem);
-
-    static std::vector<uint64_t> DecodeRank(std::vector<unsigned char> encoded, size_t nItems, uint16_t nBitsPerItem);
 
     static double BloomFalsePositiveRate(double optSymDiff, uint64_t nReceiverExcessItems);
 

@@ -5,25 +5,28 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "primitives/block.h"
+#include <iostream>
 
 #include "arith_uint256.h"
+#include "core_memusage.h"
 #include "crypto/common.h"
 #include "hashwrapper.h"
+#include "memusage.h"
+#include "serialize.h"
+#include "streams.h"
+
 #include "tinyformat.h"
 #include "utilstrencodings.h"
-
 uint256 CBlockHeader::GetHash() const { return SerializeHash(*this); }
 std::string CBlock::ToString() const
 {
     std::stringstream s;
     s << strprintf(
-        "CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
+        "CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, ntx=%u)\n",
         GetHash().ToString(), nVersion, hashPrevBlock.ToString(), hashMerkleRoot.ToString(), nTime, nBits, nNonce,
         vtx.size());
-    for (unsigned int i = 0; i < vtx.size(); i++)
-    {
-        s << "  " << vtx[i]->ToString() << "\n";
-    }
+    for (CTransactionRef txref : this->vtx)
+        s << "  " << txref->ToString() << "\n";
     return s.str();
 }
 
@@ -33,7 +36,6 @@ uint64_t CBlock::GetBlockSize() const
         nBlockSize = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
     return nBlockSize;
 }
-
 
 arith_uint256 GetWorkForDifficultyBits(uint32_t nBits)
 {

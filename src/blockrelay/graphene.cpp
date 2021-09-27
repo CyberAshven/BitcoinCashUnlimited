@@ -48,7 +48,7 @@ CGrapheneBlock::CGrapheneBlock(const CBlockRef pblock,
         FillShortTxIDSelector();
 
     std::vector<uint256> blockHashes;
-    for (auto &tx : pblock->vtx)
+    for (const auto &tx : pblock->vtx)
     {
         blockHashes.push_back(tx->GetHash());
 
@@ -1334,7 +1334,6 @@ void SendGrapheneBlock(CBlockRef pblock, CNode *pfrom, const CInv &inv, const CM
         {
             uint64_t nSenderMempoolPlusBlock =
                 GetGrapheneMempoolInfo().nTx + pblock->vtx.size() - 1; // exclude coinbase
-
             CGrapheneBlock grapheneBlock(pblock, mempoolinfo.nTx, nSenderMempoolPlusBlock,
                 NegotiateGrapheneVersion(pfrom), NegotiateFastFilterSupport(pfrom));
 
@@ -1431,8 +1430,8 @@ bool HandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChainPa
             return error("Peer %s requested nonexistent block %s", pfrom->GetLogName(), inv.hash.ToString());
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock = ReadBlockFromDisk(hdr, consensusParams);
-        if (!pblock)
+        CBlockRef pblock(new CBlock());
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We don't have the block yet, although we know about it.
             return error("Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
@@ -1714,8 +1713,8 @@ std::vector<CTransaction> TransactionsFromBlockByCheapHash(std::set<uint64_t> &v
             throw std::runtime_error("get_grblocktx request too far from the tip");
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock = ReadBlockFromDisk(hdr, consensusParams);
-        if (!pblock)
+        CBlockRef pblock(new CBlock());
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We do not assign misbehavior for not being able to read a block from disk because we already
             // know that the block is in the block index from the step above. Secondly, a failure to read may

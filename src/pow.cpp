@@ -9,7 +9,9 @@
 
 #include "arith_uint256.h"
 #include "chain.h"
+#include "consensus/consensus.h"
 #include "primitives/block.h"
+#include "tailstorm/pow.h"
 #include "uint256.h"
 #include "util.h"
 #include "validation/forks.h"
@@ -110,7 +112,7 @@ static const CBlockIndex *GetASERTAnchorBlock(const CBlockIndex *const pindex, c
  * double or halve the difficulty.
  */
 uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params,
     const CBlockIndex *pindexAnchorBlock) noexcept
 {
@@ -129,8 +131,7 @@ uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }
@@ -261,7 +262,7 @@ arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
  * adjustement + Emergency Difficulty Adjustement (EDA).
  */
 static uint32_t GetNextEDAWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params)
 {
     // Only change once per difficulty adjustment interval
@@ -284,7 +285,7 @@ static uint32_t GetNextEDAWorkRequired(const CBlockIndex *pindexPrev,
         // Special difficulty rule for testnet:
         // If the new block's timestamp is more than 2* 10 minutes then allow
         // mining of a min-difficulty block.
-        if (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing)
+        if (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing)
         {
             return nProofOfWorkLimit;
         }
@@ -332,7 +333,7 @@ static uint32_t GetNextEDAWorkRequired(const CBlockIndex *pindexPrev,
     return nPow.GetCompact();
 }
 
-uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *pblock, const Consensus::Params &params)
+uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const int64_t &blockTime, const Consensus::Params &params)
 {
     // Genesis block
     if (pindexPrev == nullptr)
@@ -349,15 +350,15 @@ uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *
     if (IsNov2020Activated(params, pindexPrev))
     {
         const CBlockIndex *panchorBlock = GetASERTAnchorBlock(pindexPrev, params);
-        return GetNextASERTWorkRequired(pindexPrev, pblock, params, panchorBlock);
+        return GetNextASERTWorkRequired(pindexPrev, blockTime, params, panchorBlock);
     }
 
     if (pindexPrev->nHeight >= params.daaHeight)
     {
-        return GetNextCashWorkRequired(pindexPrev, pblock, params);
+        return GetNextCashWorkRequired(pindexPrev, blockTime, params);
     }
 
-    return GetNextEDAWorkRequired(pindexPrev, pblock, params);
+    return GetNextEDAWorkRequired(pindexPrev, blockTime, params);
 }
 
 uint32_t CalculateNextWorkRequired(const CBlockIndex *pindexLast,
@@ -405,7 +406,7 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params 
     bool fNegative;
     bool fOverflow;
     arith_uint256 bnTarget;
-
+    /*
     if (params.powAlgorithm == 1)
     {
         // This algorithm uses the hash as a priv key to sign sha256(hash) using deterministic k.
@@ -426,16 +427,20 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params 
         sha.Write(&vchSig[0], vchSig.size());
         sha.Finalize(hash.begin());
     }
-
+    */
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
 
     // Check range
     if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(params.powLimit))
+    {
         return false;
+    }
 
     // Check proof of work matches claimed amount
     if (UintToArith256(hash) > bnTarget)
+    {
         return false;
+    }
 
     return true;
 }
@@ -553,7 +558,7 @@ static const CBlockIndex *GetSuitableBlock(const CBlockIndex *pindex)
  * input, this ensures the algorithm is more resistant to malicious inputs.
  */
 uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t &blockTime,
     const Consensus::Params &params)
 {
     // This cannot handle the genesis block and early blocks in general.
@@ -562,8 +567,7 @@ uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet:
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (blockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }

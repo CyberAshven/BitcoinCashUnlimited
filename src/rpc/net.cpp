@@ -15,6 +15,7 @@
 #include "netbase.h"
 #include "protocol.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "tweak.h"
 #include "txadmission.h"
@@ -53,8 +54,8 @@ UniValue GetServicesNames(uint64_t services)
         servicesNames.push_back("CASH");
     if (services & NODE_GRAPHENE)
         servicesNames.push_back("GRAPHENE");
-    if (services & NODE_WEAKBLOCKS)
-        servicesNames.push_back("WEAKBLOCKS");
+    if (services & NODE_DELTABLOCKS)
+        servicesNames.push_back("DELTABLOCKS");
     if (services & NODE_CF)
         servicesNames.push_back("CF");
     if (services & NODE_NETWORK_LIMITED)
@@ -540,6 +541,29 @@ static UniValue GetGrapheneStats()
     return obj;
 }
 
+static UniValue GetSBGrapheneStats()
+{
+    UniValue obj(UniValue::VOBJ);
+    bool enabled = SBIsGrapheneBlockEnabled();
+    obj.pushKV("enabled", enabled);
+    if (enabled)
+    {
+        obj.pushKV("summary", sb_graphenedata.ToString());
+        obj.pushKV("inbound_percent", sb_graphenedata.InBoundPercentToString());
+        obj.pushKV("outbound_percent", sb_graphenedata.OutBoundPercentToString());
+        obj.pushKV("response_time", sb_graphenedata.ResponseTimeToString());
+        obj.pushKV("validation_time", sb_graphenedata.ValidationTimeToString());
+        obj.pushKV("filter", sb_graphenedata.FilterToString());
+        obj.pushKV("iblt", sb_graphenedata.IbltToString());
+        obj.pushKV("rank", sb_graphenedata.RankToString());
+        obj.pushKV("graphene_block_size", sb_graphenedata.GrapheneBlockToString());
+        obj.pushKV("graphene_additional_tx_size", sb_graphenedata.AdditionalTxToString());
+        obj.pushKV("rerequested", sb_graphenedata.ReRequestedTxToString());
+    }
+    return obj;
+}
+
+
 static UniValue GetCompactBlockStats()
 {
     UniValue obj(UniValue::VOBJ);
@@ -556,6 +580,26 @@ static UniValue GetCompactBlockStats()
         obj.pushKV("compact_block_size", compactdata.CompactBlockToString());
         obj.pushKV("compact_full_tx", compactdata.FullTxToString());
         obj.pushKV("rerequested", compactdata.ReRequestedTxToString());
+    }
+    return obj;
+}
+
+static UniValue GetBobCompactBlockStats()
+{
+    UniValue obj(UniValue::VOBJ);
+    bool enabled = IsBobCompactBlocksEnabled();
+    obj.pushKV("enabled", enabled);
+    if (enabled)
+    {
+        obj.pushKV("summary", bobcompactdata.ToString());
+        obj.pushKV("mempool_limiter", bobcompactdata.MempoolLimiterBytesSavedToString());
+        obj.pushKV("inbound_percent", bobcompactdata.InBoundPercentToString());
+        obj.pushKV("outbound_percent", bobcompactdata.OutBoundPercentToString());
+        obj.pushKV("response_time", bobcompactdata.ResponseTimeToString());
+        obj.pushKV("validation_time", bobcompactdata.ValidationTimeToString());
+        obj.pushKV("compact_block_size", bobcompactdata.CompactBlockToString());
+        obj.pushKV("compact_full_tx", bobcompactdata.FullTxToString());
+        obj.pushKV("rerequested", bobcompactdata.ReRequestedTxToString());
     }
     return obj;
 }
@@ -610,6 +654,7 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
             "  \"thinblockstats\": \"...\"              (string) thin block related statistics \n"
             "  \"compactblockstats\": \"...\"           (string) compact block related statistics \n"
             "  \"grapheneblockstats\": \"...\"          (string) graphene block related statistics \n"
+            "  \"sb_grapheneblockstats\": \"...\"       (string) graphene subblock related statistics \n"
             "  \"warnings\": \"...\"                    (string) any network warnings (such as alert messages) \n"
             "}\n"
             "\nExamples:\n" +
@@ -646,7 +691,9 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
     obj.pushKV("localaddresses", localAddresses);
     obj.pushKV("thinblockstats", GetThinBlockStats());
     obj.pushKV("compactblockstats", GetCompactBlockStats());
+    obj.pushKV("bobcompactblockstats", GetBobCompactBlockStats());
     obj.pushKV("grapheneblockstats", GetGrapheneStats());
+    obj.pushKV("sb_grapheneblockstats", GetSBGrapheneStats());
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
 }
@@ -664,9 +711,14 @@ UniValue clearblockstats(const UniValue &params, bool fHelp)
     if (IsThinBlocksEnabled())
         thindata.ClearThinBlockStats();
     if (IsGrapheneBlockEnabled())
+    {
         graphenedata.ClearGrapheneBlockStats();
+        sb_graphenedata.ClearGrapheneBlockStats();
+    }
     if (IsCompactBlocksEnabled())
         compactdata.ClearCompactBlockStats();
+    if (IsBobCompactBlocksEnabled())
+        bobcompactdata.ClearCompactBlockStats();
 
     return NullUniValue;
 }

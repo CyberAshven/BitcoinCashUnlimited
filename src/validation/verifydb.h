@@ -14,6 +14,10 @@
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB
 {
+private:
+    bool _VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
+    bool _VerifyDB_TS(const CChainParams &chainparams, CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
+
 public:
     CVerifyDB();
     ~CVerifyDB();

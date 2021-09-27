@@ -9,6 +9,31 @@
 
 void CBlockCache::AddBlock(CBlockRef pblock, uint64_t nHeight)
 {
+    _AddBlock(pblock->GetHash(), BlockType::CBLOCK, pblock->GetBlockSize(), pblock, nHeight);
+}
+
+void CBlockCache::AddBlock(CTailstormBlockRef pblock, uint64_t nHeight)
+{
+    _AddBlock(pblock->GetHash(), BlockType::CTAILSTORMBLOCK, pblock->GetBlockSize(), pblock, nHeight);
+}
+
+bool CBlockCache::GetBlock(const uint256 &hash, CBlockRef &pblock) const
+{
+    pblock = std::static_pointer_cast<CBlock>(_GetBlock(hash, BlockType::CBLOCK));
+    return pblock != nullptr;
+}
+bool CBlockCache::GetBlock(const uint256 &hash, CTailstormBlockRef &pblock) const
+{
+    pblock = std::static_pointer_cast<CTailstormBlock>(_GetBlock(hash, BlockType::CTAILSTORMBLOCK));
+    return pblock != nullptr;
+}
+
+void CBlockCache::_AddBlock(const uint256 &hash,
+    const BlockType &blockType,
+    const uint64_t &blockSize,
+    std::shared_ptr<void> pblock,
+    uint64_t nHeight)
+{
     WRITELOCK(cs_blockcache);
 
     // Only add a new cache block if the cache size is large enough. Always limit the newer blocks
@@ -20,41 +45,34 @@ void CBlockCache::AddBlock(CBlockRef pblock, uint64_t nHeight)
     {
         nMaxSizeCache = nMaxMempool;
     }
-    uint64_t blockSize = pblock->GetBlockSize();
-
     // Add the block to the cache if there is room.
     _CalculateDownloadWindow(blockSize);
     if ((nBytesCache + (int64_t)blockSize < nMaxSizeCache) &&
         (cache.size() + 1 < requester.BLOCK_DOWNLOAD_WINDOW.load()))
     {
-        auto ret = cache.insert({pblock->GetHash(), {GetTimeMillis(), nHeight, BlockType::CBLOCK, blockSize, pblock}});
+        auto ret = cache.insert({hash, {GetTimeMillis(), nHeight, blockType, blockSize, pblock}});
         if (ret.second == true)
         {
             nBytesCache += blockSize;
         }
     }
-
     _TrimCache();
     LOG(IBD, "Block Cache bytes: %d,  num blocks: %d, block download window: %d\n", nBytesCache, cache.size(),
         requester.BLOCK_DOWNLOAD_WINDOW.load());
 }
 
-bool CBlockCache::GetBlock(const uint256 &hash, CBlockRef &pblock) const
+std::shared_ptr<void> CBlockCache::_GetBlock(const uint256 &hash, const BlockType &blockType) const
 {
-    pblock = nullptr;
+    READLOCK(cs_blockcache);
+    auto iter = cache.find(hash);
+    if (iter != cache.end())
     {
-        READLOCK(cs_blockcache);
-        auto iter = cache.find(hash);
-        if (iter != cache.end())
+        if (iter->second.blockType == blockType)
         {
-            if (iter->second.blockType == BlockType::CBLOCK)
-            {
-                pblock = std::static_pointer_cast<CBlock>(iter->second.pblock);
-                return true;
-            }
+            return iter->second.pblock;
         }
     }
-    return false;
+    return nullptr;
 }
 
 void CBlockCache::EraseBlock(const uint256 &hash)

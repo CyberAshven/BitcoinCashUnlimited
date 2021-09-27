@@ -276,9 +276,6 @@ bool TestLockPointValidity(const LockPoints *lp);
 // Checks that the provided block is consistent with the chainparam's checkpoints
 bool CheckAgainstCheckpoint(unsigned int height, const uint256 &hash, const CChainParams &chainparams);
 
-/** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
-bool AcceptBlock(CBlock &block, CValidationState &state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos *dbp);
-
 /** Find the last common block between the parameter chain and a locator. */
 CBlockIndex *FindForkInGlobalIndex(const CChain &chain, const CBlockLocator &locator);
 
@@ -315,6 +312,9 @@ static const unsigned int REJECT_CONFLICT = 0x102;
 static const unsigned int REJECT_WRONG_FORK = 0x103;
 /** Block conflicts with a transaction already known */
 static const unsigned int REJECT_AGAINST_FINALIZED = 0x104;
+
+// TODO: Find a better a place for this method
+bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out);
 
 // BU cleaning up at destuction time creates many global variable dependencies.  Instead clean up in a function called
 // in main()

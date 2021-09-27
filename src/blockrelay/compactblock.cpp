@@ -62,9 +62,13 @@ CompactBlock::CompactBlock(const CBlock &block, const CRollingFastFilter<4 * 102
     //< Index of a prefilled tx is its diff from last index.
     size_t prevIndex = 0;
     prefilledtxn.push_back(PrefilledTransaction{0, *block.vtx[0]});
-    for (size_t i = 1; i < block.vtx.size(); i++)
+    std::vector<CTransactionRef>::const_iterator txniter = block.vtx.begin();
+    ++txniter;
+    size_t i = 0;
+    while (txniter != block.vtx.end())
     {
-        const CTransaction &tx = *block.vtx[i];
+        i++;
+        const CTransaction &tx = **(txniter++);
         if (inventoryKnown && !inventoryKnown->contains(tx.GetHash()))
         {
             prefilledtxn.push_back(PrefilledTransaction{static_cast<uint32_t>(i - (prevIndex + 1)), tx});
@@ -421,10 +425,9 @@ bool CompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         if (hdr->nHeight < (chainActive.Tip()->nHeight - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
             return error(CMPCT, "getblocktxn request too far from the tip");
 
-        CBlockRef pblock;
+        CBlockRef pblock(new CBlock());
         const Consensus::Params &consensusParams = Params().GetConsensus();
-        pblock = ReadBlockFromDisk(hdr, consensusParams);
-        if (!pblock)
+        if (!ReadBlockFromDisk(pblock, hdr, consensusParams, false))
         {
             // We do not assign misbehavior for not being able to read a block from disk because we already
             // know that the block is in the block index from the step above. Secondly, a failure to read may
@@ -668,7 +671,7 @@ static bool ReconstructBlock(CNode *pfrom,
 
         // Add this transaction. If the tx is null we still add it as a placeholder to keep the correct
         // ordering.
-        pblock->vtx.emplace_back(ptx);
+        pblock->vtx.push_back(ptx);
     }
     // Now that we've rebuilt the block successfully we can set the XVal flag which is used in
     // ConnectBlock() to determine which if any inputs we can skip the checking of inputs.

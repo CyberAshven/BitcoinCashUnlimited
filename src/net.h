@@ -10,6 +10,7 @@
 #include "banentry.h"
 #include "blockrelay/compactblock.h"
 #include "bloom.h"
+#include "chain.h"
 #include "chainparams.h"
 #include "compat.h"
 #include "extversionmessage.h"

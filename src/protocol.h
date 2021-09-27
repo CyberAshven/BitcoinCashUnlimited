@@ -135,6 +135,7 @@ extern const char *TX;
  * @see https://bitcoin.org/en/developer-reference#headers
  */
 extern const char *HEADERS;
+extern const char *TAILSTORM_HEADERS;
 /**
  * The block message transmits a single serialized block.
  * @see https://bitcoin.org/en/developer-reference#block
@@ -190,6 +191,32 @@ extern const char *GET_GRAPHENE_RECOVERY;
  * CGrapheneReceiverRecover object.
  */
 extern const char *GRAPHENE_RECOVERY;
+/**
+ * The sb_grapheneblock message transmits a single serialized graphene subblock.
+ */
+extern const char *SB_GRAPHENEBLOCK;
+/**
+ * The sb_graphenetx message transmits a single serialized sb_grblktx.
+ */
+extern const char *SB_GRAPHENETX;
+/**
+ * The get_sb_graphenetx message transmits a single serialized get_sbgrblktx.
+ */
+extern const char *GET_SB_GRAPHENETX;
+/**
+ * The get_sb_graphene message transmits a single serialized get_sbgrblk.
+ */
+extern const char *GET_SB_GRAPHENE;
+/**
+ * The get_sb_graphene_recovery message transmits a single serialized
+ * RequestSBGrapheneReceiverRecover object.
+ */
+extern const char *GET_SB_GRAPHENE_RECOVERY;
+/**
+ * The sb_graphene_recovery message transmits a single serialized
+ * CSBGrapheneReceiverRecover object.
+ */
+extern const char *SB_GRAPHENE_RECOVERY;
 /**
  * The mempoolsync message transmits a single serialized get_memsync.
  */
@@ -342,11 +369,33 @@ extern const char *GETBLOCKTXN;
  * @since protocol version 70014 as described by BIP 152
  */
 extern const char *BLOCKTXN;
-
+/**
+ * Contains a Tailstorm compact block.
+ */
+extern const char *BOBCMPCTBLOCK;
+/**
+ * A request for missing subblocks for a Tailstorm block.
+ */
+extern const char *GETBOBSUB;
+/**
+ * A missing subblock for a Tailstorm block
+ */
+extern const char *BOBSUB;
 /**
  * Double spend proof
  */
 extern const char *DSPROOF;
+
+/**
+ *  * Contains a CSubBlock
+ *   * Sent to peers to inform them about new sub blocks
+ *    */
+extern const char *SUBBLOCK;
+/**
+ *  * Contains a CTailstormBlock
+ *   * Sent to peers to inform them about new tailstorm blocks
+ *    */
+extern const char *TAILSTORMBLOCK;
 
 /**
  * Contains a request to get validation information about a tx
@@ -409,7 +458,7 @@ enum
     // do not actually support. Other service bits should be allocated via the
     // BUIP process.
 
-    NODE_WEAKBLOCKS = (1 << 7),
+    NODE_DELTABLOCKS = (1 << 7),
 
     // NODE_CF indicates the node is capable of serving compact block filters to SPV clients.
     NODE_CF = (1 << 8),
@@ -497,13 +546,34 @@ enum
 
     // MSG_XTHINBLOCK, MSG_GRAPHENEBLOCK and MSG_THINBLOCK are not strictly necessary but they do make
     // creating and validating the requestManager tests much easier.
+
+    // BUIP010 Xtreme Thinblocks: an Xtreme thin block contains the first 8 bytes of all the tx hashes
+    // and also provides the missing transactions that are needed at the other end to reconstruct the block
     MSG_XTHINBLOCK = 5,
+    // BUIPXXX Graphene blocks: similar to xtreme thin blocks, a graphene block contains all the transactions
+    // hashes in a block and also provides the missing transaction ids that are needed at the other end to
+    // reconstruct the block
     MSG_GRAPHENEBLOCK = 6,
     // With the introduction of compact blocks, this is being deprecated in favor of using the get_thin p2p
+    MSG_DOUBLESPENDPROOF = 7,
+    // With the introduction of compact block, this is being deprecated in favor of using the get_thin p2p
     // message, which solves the conflict with MSG_THINBLOCK and MSG_CMPCT_BLOCK.
     MSG_THINBLOCK = MSG_CMPCT_BLOCK,
 
-    MSG_DOUBLESPENDPROOF = 7
+    // Graphene for subblocks
+    MSG_SB_GRAPHENEBLOCK = 8,
+    // Compact bobtail blocks
+    MSG_BOB_CMPCT_BLOCK = 9,
+    // BUIP010 Xtreme Thinblocks: a thin block contains all the transactions hashes in a block
+    // and also provides the missing transactions that are needed at the other end to reconstruct the block.
+    //
+    // Uses Graphene set reconciliation to syncronize mempools between two peers.
+    MSG_MEMPOOLSYNC = 10,
+    //
+    MSG_SUBBLOCK = 11,
+
+    MSG_TAILSTORMBLOCK = 12
+
 };
 
 #endif // BITCOIN_PROTOCOL_H

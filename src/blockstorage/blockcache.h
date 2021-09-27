@@ -48,15 +48,24 @@ public:
 
     /** Add a block to the block cache */
     void AddBlock(CBlockRef pblock, uint64_t nHeight);
+    void AddBlock(CTailstormBlockRef pblock, uint64_t nHeight);
 
     /** Find and return a block from the block cache */
     bool GetBlock(const uint256 &hash, CBlockRef &pblock) const;
+    bool GetBlock(const uint256 &hash, CTailstormBlockRef &pblock) const;
 
     /** Remove a block from the block cache */
     void EraseBlock(const uint256 &hash);
 
-
 private:
+    void _AddBlock(const uint256 &hash,
+        const BlockType &blockType,
+        const uint64_t &blockSize,
+        std::shared_ptr<void> pblock,
+        uint64_t nHeight);
+
+    std::shared_ptr<void> _GetBlock(const uint256 &hash, const BlockType &blockType) const;
+
     /** Adjust the block download window */
     void _CalculateDownloadWindow(const int64_t &blockSize);
 

@@ -12,6 +12,7 @@
 #include "protocol.h"
 #include "serialize.h"
 #include "stat.h"
+#include "tailstorm/tailstorm.h"
 #include "uint256.h"
 #include "util.h"
 #include <vector>
@@ -235,6 +236,7 @@ public:
 
     /** Update the nMostWorkOurFork when a new header arrives */
     void UpdateMostWorkOurFork(const CBlockHeader &header);
+    void UpdateBobMostWorkOurFork(const CTailstormBlockHeader &header);
 
     /** Update the nMostWorkOurFork when a new header arrives */
     uint32_t MaxWorkChainBeingProcessed();

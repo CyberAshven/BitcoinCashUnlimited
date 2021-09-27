@@ -1,4 +1,3 @@
-
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
 // Copyright (c) 2015-2020 The Bitcoin Unlimited developers
@@ -31,11 +30,32 @@ static const int64_t DEFAULT_MIN_FINALIZATION_DELAY = 2 * 60 * 60;
 /** Is express validation turned on/off */
 static const bool DEFAULT_XVAL_ENABLED = true;
 
-enum DisconnectResult
+struct CBlockIndexWorkComparator
 {
-    DISCONNECT_OK, // All good.
-    DISCONNECT_UNCLEAN, // Rolled back, but UTXO set was inconsistent with block.
-    DISCONNECT_FAILED // Something else went wrong.
+    bool operator()(CBlockIndex *pa, CBlockIndex *pb) const
+    {
+        // First sort by most total work, ...
+        if (pa->nChainWork > pb->nChainWork)
+            return false;
+        if (pa->nChainWork < pb->nChainWork)
+            return true;
+
+        // ... then by earliest time received, ...
+        if (pa->nSequenceId < pb->nSequenceId)
+            return false;
+        if (pa->nSequenceId > pb->nSequenceId)
+            return true;
+
+        // Use pointer address as tie breaker (should only happen with blocks
+        // loaded from disk, as those all have id 0).
+        if (pa < pb)
+            return false;
+        if (pa > pb)
+            return true;
+
+        // Identical blocks.
+        return false;
+    }
 };
 
 /** Context-independent validity checks */
@@ -48,6 +68,8 @@ bool AcceptBlockHeader(const CBlockHeader &block,
     CValidationState &state,
     const CChainParams &chainparams,
     CBlockIndex **ppindex = nullptr);
+
+void PruneBlockIndexCandidates();
 
 /** Create a new block index entry for a new block or header that has arrived.
  *  This updates setDirtyBlockIndex only.
@@ -115,7 +137,14 @@ CBlockIndex *FindMostWorkChain();
 /** Mark a block as invalid. */
 bool InvalidateBlock(CValidationState &state, const Consensus::Params &consensusParams, CBlockIndex *pindex);
 
+void CheckForkWarningConditions();
+
 void InvalidChainFound(CBlockIndex *pindexNew);
+
+/** Clear the mempool, then submit the prior mempool contents and the transactions in this list (which typically
+    come from an unwound block) back into the parallel processing queue.
+*/
+void ResubmitTransactions(const std::vector<CTransactionRef> &vtx);
 
 /** Context-dependent validity block checks */
 bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIndex *pindexPrev);
@@ -129,6 +158,14 @@ bool ReceivedBlockTransactions(const CBlock &block,
     CBlockIndex *pindexNew,
     const CDiskBlockPos &pos);
 
+/** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
+bool AcceptBlock(const CBlock &block,
+    CValidationState &state,
+    const CChainParams &chainparams,
+    CBlockIndex **ppindex,
+    bool fRequested,
+    CDiskBlockPos *dbp);
+
 uint32_t GetBlockScriptFlags(const CBlockIndex *pindex, const Consensus::Params &consensusparams);
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
@@ -136,6 +173,30 @@ uint32_t GetBlockScriptFlags(const CBlockIndex *pindex, const Consensus::Params 
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
 DisconnectResult DisconnectBlock(const CBlock &block, const CBlockIndex *pindex, CCoinsViewCache &view);
+
+bool ConnectBlockDependencyOrdering(const CBlock &block,
+    CValidationState &state,
+    CBlockIndex *pindex,
+    CCoinsViewCache &view,
+    const CChainParams &chainparams,
+    bool fJustCheck,
+    bool fParallel,
+    bool fScriptChecks,
+    CAmount &nFees,
+    CBlockUndo &blockundo,
+    std::vector<std::pair<uint256, CDiskTxPos> > &vPos);
+
+bool ConnectBlockCanonicalOrdering(const CBlock &block,
+    CValidationState &state,
+    CBlockIndex *pindex,
+    CCoinsViewCache &view,
+    const CChainParams &chainparams,
+    bool fJustCheck,
+    bool fParallel,
+    bool fScriptChecks,
+    CAmount &nFees,
+    CBlockUndo &blockundo,
+    std::vector<std::pair<uint256, CDiskTxPos> > &vPos);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBlock(const CBlock &block,
@@ -146,8 +207,14 @@ bool ConnectBlock(const CBlock &block,
     bool fJustCheck = false,
     bool fParallel = false);
 
+void InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state);
+
+void UpdateTip(CBlockIndex *pindexNew);
+
 /** Disconnect the current chainActive.Tip() */
 bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack = false);
+
+void CheckForkWarningConditionsOnNewFork(CBlockIndex *pindexNewForkTip);
 
 /** Find the best known block, and make it the tip of the block chain */
 bool ActivateBestChain(CValidationState &state,

@@ -143,6 +143,16 @@ void CTxMemPool::UpdateTransactionsFromBlock(const std::vector<uint256> &vHashes
     }
 }
 
+void CTxMemPool::UpdateTransactionDagInfo(const uint256 &hash, const uint16_t &dag_id, const bool &add)
+{
+    WRITELOCK(cs_txmempool);
+    txiter it = mapTx.find(hash);
+    if (it != mapTx.end())
+    {
+        mapTx.modify(it, update_included_dags(dag_id, add));
+    }
+}
+
 bool CTxMemPool::CalculateMemPoolAncestors(const CTxMemPoolEntry &entry,
     uint64_t limitAncestorCount,
     uint64_t limitAncestorSize,
@@ -408,21 +418,16 @@ void CTxMemPool::UpdateTxnChainState(mapEntryHistory &mapTxnChainTips)
     // And mark the ancestor state as not "dirty".
     /*
        Chain prior to being mined:
-
        tx1        tx2      tx3
          \        |       /
           \______ tx4____/
-
-
        Chain after being mined:
        Only tx1 and tx2 are mined leaving tx4 as the chaintip, and tx3 becomes an unmined
        chaintip parent and is not considered a chaintip in the program logic even though clearly
        it is in fact the new chaintip.
-
                          tx3 (unmined chain so it has no entry in mapTxnChainTips)
                           /
                   tx4____/   (tx4 becomes the chaintip in mapTxnChainTips)
-
     */
 
     for (auto iter_tip : mapTxnChainTips)
@@ -551,6 +556,19 @@ void CTxMemPoolEntry::ReplaceAncestorState(int64_t modifySize,
     fDirty = dirty;
 }
 
+void CTxMemPoolEntry::UpdateIncludedDags(const uint16_t &dag_id, const bool &add)
+{
+    if (add)
+    {
+        includedDags.emplace(dag_id);
+    }
+    else // remove, needed for dag merges
+    {
+        includedDags.erase(dag_id);
+    }
+}
+
+bool CTxMemPoolEntry::IsInDag(const uint16_t &dag_id) const { return includedDags.count(dag_id); }
 CTxMemPool::CTxMemPool() : nTransactionsUpdated(0), m_dspStorage(new DoubleSpendProofStorage())
 {
     _clear(); // lock free clear
@@ -1674,10 +1692,10 @@ bool LoadMempool(void)
         while (num--)
         {
             CTransaction tx;
-            int64_t nTime;
+            int64_t nTimeMicros;
             int64_t nFeeDelta;
             file >> tx;
-            file >> nTime;
+            file >> nTimeMicros;
             file >> nFeeDelta;
 
             CAmount amountdelta = nFeeDelta;
@@ -1685,7 +1703,7 @@ bool LoadMempool(void)
             {
                 mempool.PrioritiseTransaction(tx.GetHash(), tx.GetHash().ToString(), prioritydummy, amountdelta);
             }
-            if (nTime + nExpiryTimeout > nNow)
+            if (nTimeMicros + nExpiryTimeout > nNow)
             {
                 CTxInputData txd;
                 txd.tx = MakeTransactionRef(tx);
@@ -1754,7 +1772,7 @@ bool DumpMempool(void)
         for (const auto &i : vInfo)
         {
             file << *(i.tx);
-            file << (int64_t)i.nTime;
+            file << (int64_t)i.nTimeMicros;
             file << (int64_t)i.feeDelta;
             mapDeltas.erase(i.tx->GetHash());
         }

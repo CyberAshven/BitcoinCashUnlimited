@@ -26,6 +26,7 @@ static const bool DEFAULT_USE_COMPACT_BLOCKS = true;
 class CTxMemPool;
 class CDataStream;
 class CNode;
+class CBlockThinRelay;
 
 
 uint64_t GetShortID(const uint64_t &shorttxidk0, const uint64_t &shorttxidk1, const uint256 &txhash);
@@ -123,9 +124,10 @@ public:
             throw std::invalid_argument("request more transactions than are in a block");
         for (uint32_t i : indexes)
         {
-            if (i >= block.vtx.size())
+            CTransactionRef txref = block.vtx[i];
+            if (txref == nullptr)
                 throw std::invalid_argument("out of bound tx in rerequest");
-            txn.push_back(*block.vtx.at(i));
+            txn.push_back(*txref);
         }
     }
 
