@@ -619,7 +619,7 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
 
             double nValidationTime = (double)(GetStopwatchMicros() - startTime) / 1000000.0;
             if ((strCommand != NetMsgType::BLOCK) &&
-                (IsThinBlocksEnabled() || IsGrapheneBlockEnabled() || IsCompactBlocksEnabled()))
+                (IsGrapheneBlockEnabled() || IsCompactBlocksEnabled()))
             {
                 LOG(THIN | GRAPHENE | CMPCT, "Processed Block %s reconstructed from (%s) in %.2f seconds, peer=%s\n",
                     inv.hash.ToString(), strCommand, (double)(GetStopwatchMicros() - startTime) / 1000000.0,
@@ -633,8 +633,6 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
                     compactdata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::BOBSUB)
                     bobcompactdata.UpdateValidationTime(nValidationTime);
-                else
-                    thindata.UpdateValidationTime(nValidationTime);
             }
             else
             {

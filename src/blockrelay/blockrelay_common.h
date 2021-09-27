@@ -29,8 +29,6 @@ class CBlockThinRelay : public CBlock
 {
 public:
     //! thinrelay block types: (memory only)
-    std::shared_ptr<CThinBlock> thinblock;
-    std::shared_ptr<CXThinBlock> xthinblock;
     std::shared_ptr<CompactBlock> cmpctblock;
     std::shared_ptr<CGrapheneBlock> grapheneblock;
     std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
@@ -45,8 +43,6 @@ public:
     {
         CBlock::SetNull();
         nCurrentBlockSize = 0;
-        thinblock.reset();
-        xthinblock.reset();
         cmpctblock.reset();
         grapheneblock.reset();
         sb_grapheneblock.reset();
@@ -96,10 +92,8 @@ private:
     // Counters for how many of each peer are currently connected.  We use the set to store the
     // nodeid so that we can then get a unique count of peers with with to update the atomic counters.
     CCriticalSection cs_addpeers;
-    std::set<NodeId> setThinBlockPeers;
     std::set<NodeId> setGraphenePeers;
     std::set<NodeId> setCompactBlockPeers;
-    std::atomic<int32_t> nThinBlockPeers{0};
     std::atomic<int32_t> nGraphenePeers{0};
     std::atomic<int32_t> nCompactBlockPeers{0};
 
@@ -109,7 +103,6 @@ private:
 public:
     void AddPeers(CNode *pfrom);
     uint32_t GetGraphenePeers() { return nGraphenePeers.load(); }
-    uint32_t GetThinBlockPeers() { return nThinBlockPeers.load(); }
     uint32_t GetCompactBlockPeers() { return nCompactBlockPeers.load(); }
     void AddCompactBlockPeer(CNode *pfrom);
     void RemovePeers(CNode *pfrom);

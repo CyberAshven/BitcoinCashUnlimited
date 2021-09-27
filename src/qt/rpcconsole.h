@@ -10,7 +10,7 @@
 #include "peertablemodel.h"
 
 #include "blockrelay/graphene.h"
-#include "blockrelay/thinblock.h"
+
 #include "net.h"
 #include "tailstorm/tailstorm.h"
 

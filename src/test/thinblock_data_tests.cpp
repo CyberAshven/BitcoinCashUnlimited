@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/thinblock.h"
+
 #include "net.h"
 #include "test/test_bitcoin.h"
 #include <assert.h>

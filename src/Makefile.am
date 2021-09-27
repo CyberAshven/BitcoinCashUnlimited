@@ -122,7 +122,6 @@ BITCOIN_CORE_H = \
   blockrelay/graphene.h \
   blockrelay/graphene_set.h \
   blockrelay/mempool_sync.h \
-  blockrelay/thinblock.h \
   blockstorage/blockleveldb.h \
   blockstorage/blockstorage.h \
   blockstorage/dbabstract.h \
@@ -301,7 +300,6 @@ libbitcoin_server_a_SOURCES = \
   blockrelay/graphene.cpp \
   blockrelay/graphene_set.cpp \
   blockrelay/mempool_sync.cpp \
-  blockrelay/thinblock.cpp \
   blockstorage/blockleveldb.cpp \
   blockstorage/sequential_files.cpp \
   blockstorage/blockstorage.cpp \

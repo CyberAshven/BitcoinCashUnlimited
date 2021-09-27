@@ -353,7 +353,9 @@ enum
     // NODE_XTHIN means the node supports Xtreme Thinblocks
     // If this is turned off then the node will not service xthin requests nor
     // make xthin requests
-    NODE_XTHIN = (1 << 4),
+
+    // XThin is not used in tailstorm
+    // NODE_XTHIN = (1 << 4),
 
     // NODE_BITCOIN_CASH means the node supports the BCH chain.  This is intended to be just
     // a temporary service bit until the fork actually happens.  Once the split between BTC

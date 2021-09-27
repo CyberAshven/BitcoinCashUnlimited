@@ -8,7 +8,7 @@
 
 #include "blockrelay/compactblock.h"
 #include "blockrelay/graphene.h"
-#include "blockrelay/thinblock.h"
+
 #include "tailstorm/tailstorm.h"
 
 #include <QDateTime>

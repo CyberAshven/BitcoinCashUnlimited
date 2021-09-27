@@ -14,7 +14,7 @@
 #include "blockrelay/compactblock.h"
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
-#include "blockrelay/thinblock.h"
+
 #include "blockstorage/blockstorage.h"
 #include "chain.h"
 #include "dosman.h"
@@ -777,13 +777,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         handleAddressAfterInit(pfrom);
         enableSendHeaders(pfrom);
         enableCompactBlocks(pfrom);
-
-        // Tell the peer what maximum xthin bloom filter size we will consider acceptable.
-        // FIXME: integrate into extversion as well
-        if (pfrom->ThinBlockCapable() && IsThinBlocksEnabled())
-        {
-            pfrom->PushMessage(NetMsgType::FILTERSIZEXTHIN, nXthinBloomFilterSize);
-        }
 
         // This step done after final handshake
         CheckAndRequestExpeditedBlocks(pfrom);
@@ -1980,87 +1973,11 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         CheckBlockIndex(chainparams.GetConsensus());
     }
 
-
-    // Handle Xthinblocks and Thinblocks
-    else if (strCommand == NetMsgType::GET_XTHIN && !fImporting && !fReindex && IsThinBlocksEnabled())
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        CBloomFilter filterMemPool;
-        CInv inv;
-        vRecv >> inv >> filterMemPool;
-
-        // Message consistency checking
-        if (inv.hash.IsNull())
-        {
-            dosMan.Misbehaving(pfrom, 100);
-            return error("invalid get_xthin type=%u hash=%s", inv.type, inv.hash.ToString());
-        }
-
-
-        // Validates that the filter is reasonably sized.
-        LoadFilter(pfrom, &filterMemPool);
-        {
-            auto *invIndex = LookupBlockIndex(inv.hash);
-            if (!invIndex)
-            {
-                dosMan.Misbehaving(pfrom, 100);
-                return error("Peer %srequested nonexistent block %s", pfrom->GetLogName(), inv.hash.ToString());
-            }
-
-            const Consensus::Params &consensusParams = Params().GetConsensus();
-            CBlockRef pblock(new CBlock());
-            if (!ReadBlockFromDisk(pblock, invIndex, consensusParams, false))
-            {
-                // We don't have the block yet, although we know about it.
-                return error(
-                    "Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
-            }
-            else
-            {
-                SendXThinBlock(pblock, pfrom, inv);
-            }
-        }
-    }
-    else if (strCommand == NetMsgType::GET_THIN && !fImporting && !fReindex && IsThinBlocksEnabled())
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        CInv inv;
-        vRecv >> inv;
-
-        // Message consistency checking
-        if (inv.hash.IsNull())
-        {
-            dosMan.Misbehaving(pfrom, 100);
-            return error("invalid get_thin type=%u hash=%s", inv.type, inv.hash.ToString());
-        }
-
-        auto *invIndex = LookupBlockIndex(inv.hash);
-        if (!invIndex)
-        {
-            dosMan.Misbehaving(pfrom, 100);
-            return error("Peer %srequested nonexistent block %s", pfrom->GetLogName(), inv.hash.ToString());
-        }
-
-        const Consensus::Params &consensusParams = Params().GetConsensus();
-        CBlockRef pblock(new CBlock());
-        if (!ReadBlockFromDisk(pblock, invIndex, consensusParams, false))
-        {
-            // We don't have the block yet, although we know about it.
-            return error("Peer %s requested block %s that cannot be read", pfrom->GetLogName(), inv.hash.ToString());
-        }
-        else
-        {
-            SendXThinBlock(pblock, pfrom, inv);
-        }
-    }
     else if (strCommand == NetMsgType::XPEDITEDREQUEST)
     {
         return HandleExpeditedRequest(vRecv, pfrom);
     }
+
     else if (strCommand == NetMsgType::XPEDITEDBLK)
     {
         // ignore the expedited message unless we are at the chain tip...
@@ -2070,40 +1987,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             if (!HandleExpeditedBlock(vRecv, pfrom))
                 return false;
         }
-    }
-
-    else if (strCommand == NetMsgType::XTHINBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsThinBlocksEnabled())
-    {
-        LOCK(pfrom->cs_thintype);
-        return CXThinBlock::HandleMessage(vRecv, pfrom, strCommand, 0);
-    }
-
-
-    else if (strCommand == NetMsgType::THINBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsThinBlocksEnabled())
-    {
-        LOCK(pfrom->cs_thintype);
-        return CThinBlock::HandleMessage(vRecv, pfrom);
-    }
-
-
-    else if (strCommand == NetMsgType::GET_XBLOCKTX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsThinBlocksEnabled())
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        LOCK(pfrom->cs_thintype);
-        return CXRequestThinBlockTx::HandleMessage(vRecv, pfrom);
-    }
-
-
-    else if (strCommand == NetMsgType::XBLOCKTX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsThinBlocksEnabled())
-    {
-        LOCK(pfrom->cs_thintype);
-        return CXThinBlockTx::HandleMessage(vRecv, pfrom);
     }
 
     // Handle Graphene blocks

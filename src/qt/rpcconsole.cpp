@@ -716,35 +716,6 @@ void RPCConsole::setTransactionsPerSecond(double smoothedTps, double instantaneo
     ui->smoothedAvgDisplayed->setText(FormatTps(ui->transactionGraph->getSmoothedTpsAverage_Displayed()));
 }
 
-void RPCConsole::setThinBlockPropagationStats(const ThinBlockQuickStats &thin)
-{
-    if (!IsThinBlocksEnabled())
-    {
-        ui->blocksXThinTotals->setText(tr("Disabled"));
-        ui->blocksXThin24hAverages->setText(tr("Disabled"));
-        return;
-    }
-
-    // Total: n (Sent: i / Received: r) saved bw
-    QString text = QString::number(thin.nTotalOutbound + thin.nTotalInbound) + " (Sent: ";
-    text += QString::number(thin.nTotalOutbound) + " / Received: ";
-    text += QString::number(thin.nTotalInbound) + ") saved ";
-    text += QString::fromStdString(formatInfoUnit(thin.nTotalBandwidthSavings));
-
-    ui->blocksXThinTotals->setText(text);
-
-    // 24-hour Average: n (Sent: i / Received: r), Compression (i% / r%), ReRequests f (f%)
-    text = QString::number(thin.nLast24hOutbound + thin.nLast24hInbound) + " (Sent: ";
-    text += QString::number(thin.nLast24hOutbound) + " / Received: ";
-    text += QString::number(thin.nLast24hInbound) + "), Compression (";
-    text += QString::number(thin.fLast24hOutboundCompression, 'f', 1) + "% / ";
-    text += QString::number(thin.fLast24hInboundCompression, 'f', 1) + "%), ReRequests ";
-    text += QString::number(thin.nLast24hRerequestTx) + " (";
-    text += QString::number(thin.fLast24hRerequestTxPercent, 'f', 1) + "%)";
-
-    ui->blocksXThin24hAverages->setText(text);
-}
-
 void RPCConsole::setCompactBlockPropagationStats(const CompactBlockQuickStats &compact)
 {
     if (!IsCompactBlocksEnabled())

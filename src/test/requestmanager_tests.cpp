@@ -4,7 +4,7 @@
 
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
-#include "blockrelay/thinblock.h"
+
 #include "bloom.h"
 #include "chainparams.h"
 #include "dosman.h"

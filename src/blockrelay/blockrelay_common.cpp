@@ -17,7 +17,6 @@
 // of nodes is connecting.
 static unsigned int NODE_PADDING = 5;
 
-bool IsThinBlockEnabled();
 bool IsGrapheneBlockEnabled();
 bool IsCompactBlocksEnabled();
 
@@ -30,20 +29,20 @@ void ThinTypeRelay::AddPeers(CNode *pfrom)
     // than the number of peers connected.  If this should happen we'll just stop
     // adding them and return, but if running a debug build we'll assert.
     uint32_t nNodes = nMaxConnections + NODE_PADDING;
-    DbgAssert(setThinBlockPeers.size() <= nNodes, return );
     DbgAssert(setGraphenePeers.size() <= nNodes, return );
-    if (setThinBlockPeers.size() > nNodes || setGraphenePeers.size() > nNodes)
+    if (setGraphenePeers.size() > nNodes)
+    {
         return;
+    }
 
     // Update the counters
     if (pfrom)
     {
-        if (pfrom->nServices & NODE_XTHIN)
-            setThinBlockPeers.insert(pfrom->GetId());
         if (pfrom->nServices & NODE_GRAPHENE)
+        {
             setGraphenePeers.insert(pfrom->GetId());
+        }
     }
-    nThinBlockPeers = setThinBlockPeers.size();
     nGraphenePeers = setGraphenePeers.size();
 }
 void ThinTypeRelay::AddCompactBlockPeer(CNode *pfrom)
@@ -69,14 +68,11 @@ void ThinTypeRelay::RemovePeers(CNode *pfrom)
     LOCK(cs_addpeers);
     if (pfrom)
     {
-        if (pfrom->nServices & NODE_XTHIN)
-            setThinBlockPeers.erase(pfrom->GetId());
         if (pfrom->nServices & NODE_GRAPHENE)
             setGraphenePeers.erase(pfrom->GetId());
         if (pfrom->fSupportsCompactBlocks)
             setCompactBlockPeers.erase(pfrom->GetId());
     }
-    nThinBlockPeers = setThinBlockPeers.size();
     nGraphenePeers = setGraphenePeers.size();
     nCompactBlockPeers = setCompactBlockPeers.size();
 }
@@ -150,18 +146,17 @@ bool ThinTypeRelay::IsBlockRelayTimerEnabled()
     // Only engage the timer if one or more, but not all, thin type relays are active.
     // If all types are active, or all inactive, then we do not need the timer.
     // Generally speaking all types will be active and we can return early.
-    if (IsThinBlocksEnabled() && IsGrapheneBlockEnabled() && IsCompactBlocksEnabled())
+    if (IsGrapheneBlockEnabled() && IsCompactBlocksEnabled())
         return false;
-    if (!IsThinBlocksEnabled() && !IsGrapheneBlockEnabled() && !IsCompactBlocksEnabled())
+    if (!IsGrapheneBlockEnabled() && !IsCompactBlocksEnabled())
         return false;
 
     // The thin relay timer is only relevant if we have a specific thin relay type active
     // AND we have peers connected which also support that thin relay type
-    bool fThinBlockPossible = IsThinBlocksEnabled() && nThinBlockPeers > 0;
     bool fGraphenePossible = IsGrapheneBlockEnabled() && nGraphenePeers > 0;
     bool fCompactBlockPossible = IsCompactBlocksEnabled() && nCompactBlockPeers > 0;
 
-    return fThinBlockPossible || fGraphenePossible || fCompactBlockPossible;
+    return fGraphenePossible || fCompactBlockPossible;
 }
 // The timer is cleared as soon as we request a block or thinblock.
 void ThinTypeRelay::ClearBlockRelayTimer(const uint256 &hash)
@@ -370,8 +365,6 @@ std::shared_ptr<CBlockThinRelay> ThinTypeRelay::SetBlockToReconstruct(CNode *pfr
     pblock = std::make_shared<CBlockThinRelay>(CBlockThinRelay());
 
     // Initialize the thintype pointers
-    pblock->thinblock = std::make_shared<CThinBlock>(CThinBlock());
-    pblock->xthinblock = std::make_shared<CXThinBlock>(CXThinBlock());
     pblock->cmpctblock = std::make_shared<CompactBlock>(CompactBlock());
     pblock->grapheneblock = std::make_shared<CGrapheneBlock>(CGrapheneBlock());
     // unless we run out of memory, emplace should never fail

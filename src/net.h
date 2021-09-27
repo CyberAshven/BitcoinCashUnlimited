@@ -660,14 +660,6 @@ public:
         nRefCount--;
     }
 
-    // BUIP010:
-    bool ThinBlockCapable()
-    {
-        if (nServices & NODE_XTHIN)
-            return true;
-        return false;
-    }
-
     // BUIPXXX:
     bool GrapheneCapable()
     {

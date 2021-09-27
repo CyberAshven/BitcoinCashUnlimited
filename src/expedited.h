@@ -5,7 +5,7 @@
 #ifndef BITCOIN_EXPEDITED_H
 #define BITCOIN_EXPEDITED_H
 
-#include "blockrelay/thinblock.h"
+
 
 enum
 {
