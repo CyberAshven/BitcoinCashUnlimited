@@ -659,6 +659,10 @@ static bool IsPriorityMsg(std::string strCommand)
 
 void CNode::LookAhead()
 {
+
+    // TODO - rework this for tailstorm
+
+    /*
     AssertLockHeld(cs_vRecvMsg);
     if (fDownloading.load())
         return;
@@ -682,6 +686,7 @@ void CNode::LookAhead()
             fDownloading.store(true);
         }
     }
+    */
 }
 
 bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
