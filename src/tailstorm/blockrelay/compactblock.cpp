@@ -198,7 +198,7 @@ bool BobCompactBlock::process(CNode *pfrom)
                     // Since we can't process this BobCompactBlock then clear out the data from memory
                     thinrelay.ClearAllBlockData(pfrom, GetHash());
 
-                    thinrelay.RequestBlock(pfrom, GetHash());
+                    thinrelay.RequestBlock(pfrom, CInv(MSG_BOB_CMPCT_BLOCK, GetHash()));
                     return error("Too many re-requested hashes for BobCompactBlock: requesting a full block");
                 }
             }
@@ -234,7 +234,7 @@ bool BobCompactBlock::process(CNode *pfrom)
                 hashMerkleRoot.ToString(), merkleroot.ToString(), pfrom->GetLogName());
 
         thinrelay.ClearAllBlockData(pfrom, GetHash());
-        thinrelay.RequestBlock(pfrom, GetHash());
+        thinrelay.RequestBlock(pfrom, CInv(MSG_BOB_CMPCT_BLOCK, GetHash()));
         return true;
     }
 
@@ -266,7 +266,7 @@ bool BobCompactBlock::process(CNode *pfrom)
         // Since we can't process this compactblock then clear out the data from memory
         thinrelay.ClearAllBlockData(pfrom, GetHash());
 
-        thinrelay.RequestBlock(pfrom, GetHash());
+        thinrelay.RequestBlock(pfrom, CInv(MSG_BOB_CMPCT_BLOCK, GetHash()));
         return error("Still missing transactions for BobCompactBlock: re-requesting a full block");
     }
 
@@ -420,7 +420,7 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         // Since we can't process this compactblock then clear out the data from memory
         thinrelay.ClearAllBlockData(pfrom, inv.hash);
 
-        thinrelay.RequestBlock(pfrom, inv.hash);
+        thinrelay.RequestBlock(pfrom, CInv(MSG_BOB_CMPCT_BLOCK, inv.hash));
         return error("Still missing transactions after reconstructing block, peer=%s: re-requesting a full block",
             pfrom->GetLogName());
     }
