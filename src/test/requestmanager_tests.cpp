@@ -89,8 +89,6 @@ static std::string NetMessage(std::deque<CSerializeData> &_vSendMsg)
 
         if (inv.type == MSG_BLOCK)
             return "getdata";
-        else if (inv.type == MSG_CMPCT_BLOCK)
-            return "cmpctblock";
         else
             return "nothing";
     }
@@ -102,26 +100,19 @@ BOOST_FIXTURE_TEST_SUITE(requestmanager_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(blockrequest_tests)
 {
+    /*
     // Test the requesting of blocks/graphenblocks/thinblocks with varying node configurations.
     // This tests all the code paths within RequestBlock() in the request manager.
 
     // create dummy test addrs
-    CAddress addr_xthin(ipaddress(0xa0b0c001, 10000));
     CAddress addr_graphene(ipaddress(0xa0b0c002, 10001));
     CAddress addr_cmpct(ipaddress(0xa0b0c003, 10002));
     CAddress addr_none(ipaddress(0xa0b0c004, 10003));
 
     // create nodes
-    CNode dummyNodeXthin(INVALID_SOCKET, addr_xthin, "", true);
     CNode dummyNodeGraphene(INVALID_SOCKET, addr_graphene, "", true);
     CNode dummyNodeCmpct(INVALID_SOCKET, addr_cmpct, "", true);
     CNode dummyNodeNone(INVALID_SOCKET, addr_none, "", true);
-    dummyNodeXthin.nVersion = MIN_PEER_PROTO_VERSION;
-    SetConnected(dummyNodeXthin);
-    dummyNodeXthin.nServices |= NODE_XTHIN;
-    dummyNodeXthin.nServices &= ~NODE_GRAPHENE;
-    dummyNodeXthin.fSupportsCompactBlocks = false;
-    dummyNodeXthin.id = 1;
     dummyNodeGraphene.nVersion = MIN_PEER_PROTO_VERSION;
     SetConnected(dummyNodeGraphene);
     dummyNodeGraphene.nServices |= NODE_GRAPHENE;
@@ -139,18 +130,15 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     dummyNodeNone.nVersion = MIN_PEER_PROTO_VERSION;
     SetConnected(dummyNodeNone);
     dummyNodeNone.nServices &= ~NODE_GRAPHENE;
-    dummyNodeNone.nServices &= ~NODE_XTHIN;
     dummyNodeNone.fSupportsCompactBlocks = false;
     dummyNodeNone.id = 4;
 
     // Add to vNodes
-    vNodes.push_back(&dummyNodeXthin);
     vNodes.push_back(&dummyNodeGraphene);
     vNodes.push_back(&dummyNodeCmpct);
     vNodes.push_back(&dummyNodeNone);
 
     // Initialize Nodes
-    GetNodeSignals().InitializeNode(&dummyNodeXthin);
     GetNodeSignals().InitializeNode(&dummyNodeGraphene);
     GetNodeSignals().InitializeNode(&dummyNodeCmpct);
     GetNodeSignals().InitializeNode(&dummyNodeNone);
@@ -165,7 +153,7 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     uint64_t nTime = GetTime();
     dosMan.ClearBanned();
 
-    /** Block in flight tests */
+    // Block in flight tests
     // Try to add the same block twice which will fail the second attempt.
     // We should only be allowed one unique thintype block in flight
     thinrelay.AddBlockInFlight(&dummyNodeGraphene, hash, NetMsgType::GRAPHENEBLOCK);
@@ -193,7 +181,6 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     // This should return a Graphene block.
     IsChainNearlySyncdSet(true);
     SetBoolArg("-use-grapheneblocks", true);
-    SetBoolArg("-use-thinblocks", true);
     SetBoolArg("-use-compactblocks", true);
     thinrelay.AddPeers(&dummyNodeGraphene);
     thinrelay.AddPeers(&dummyNodeXthin);
@@ -648,10 +635,9 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     CleanupAll(vNodes);
 
 
-    /******************************
-     * Check full blocks are downloaded when no block announcements come from a graphene, thinblock or cmpct peer.
-     * The timers in this case will be disabled so we will immediately download a full block.
-     */
+    // Check full blocks are downloaded when no block announcements come from a graphene, thinblock or cmpct peer.
+    // The timers in this case will be disabled so we will immediately download a full block.
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Have Cmpct node, Thinblocks ON, Graphene ON, Cmpct
     // ON
@@ -671,9 +657,9 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     CleanupAll(vNodes);
 
 
-    /******************************
-     * Check full blocks are downloaded when graphene is off but thin type timer is exceeded
-     */
+
+    // Check full blocks are downloaded when graphene is off but thin type timer is exceeded
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Have Cmpct nodes, Graphene OFF, Thinblocks ON,
     // Cmpct ON
@@ -703,11 +689,11 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     CleanupAll(vNodes);
 
 
-    /******************************
-     * Check a full block is downloaded when Graphene timer is exceeded but then we get an announcement
-     * from a graphene peer (thinblocks is OFF), and then request from that graphene peer before we
-     * request from any others.
-     */
+
+    // Check a full block is downloaded when Graphene timer is exceeded but then we get an announcement
+    // from a graphene peer (thinblocks is OFF), and then request from that graphene peer before we
+    // request from any others.
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Thinblocks OFF, Graphene ON
     IsChainNearlySyncdSet(true);
@@ -734,14 +720,14 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
 
     CleanupAll(vNodes);
 
-    /******************************
-     * Check another graphene block is downloaded when Graphene timer is exceeded and then we get an announcement
-     * from a graphene peer (thinblocks is ON), and then request from that graphene peer before we
-     * request from any others.
-     * However this time we already have a grapheneblock in flight but we end up downloading another graphene block
-     * because we haven't exceeded the limit on number of thintype blocks in flight.
-     * Then proceed to request more thintype blocks until the limit is exceeded.
-     */
+
+    // Check another graphene block is downloaded when Graphene timer is exceeded and then we get an announcement
+    // from a graphene peer (thinblocks is ON), and then request from that graphene peer before we
+    // request from any others.
+    // However this time we already have a grapheneblock in flight but we end up downloading another graphene block
+    // because we haven't exceeded the limit on number of thintype blocks in flight.
+    // Then proceed to request more thintype blocks until the limit is exceeded.
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Thinblocks ON, Graphene ON, Cmpct OFF
     IsChainNearlySyncdSet(true);
@@ -796,10 +782,10 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     thinrelay.ClearBlockRelayTimer(inv.hash);
     CleanupAll(vNodes);
 
-    /******************************
-     * Check a Xthin is is downloaded when thinblock timer is exceeded but then we get an announcement
-     * from a thinblock peer, and then request from that thinblock peer before we request from any others.
-     */
+
+    // Check a Xthin is is downloaded when thinblock timer is exceeded but then we get an announcement
+    // from a thinblock peer, and then request from that thinblock peer before we request from any others.
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Thinblocks ON, Graphene OFF
     IsChainNearlySyncdSet(true);
@@ -825,11 +811,11 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     thinrelay.ClearBlockRelayTimer(inv.hash);
     CleanupAll(vNodes);
 
-    /******************************
-     * Check a Xthin is is downloaded when thinblock timer is exceeded but then we get an announcement
-     * from a thinblock peer, and then request from that thinblock peer before we request from any others.
-     * However this time we already have an xthin in flight for this peer so we end up downloading a full block.
-     */
+
+    // Check a Xthin is is downloaded when thinblock timer is exceeded but then we get an announcement
+    // from a thinblock peer, and then request from that thinblock peer before we request from any others.
+    // However this time we already have an xthin in flight for this peer so we end up downloading a full block.
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Thinblocks ON, Graphene OFF
     IsChainNearlySyncdSet(true);
@@ -858,11 +844,11 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     thinrelay.ClearBlockRelayTimer(inv.hash);
     CleanupAll(vNodes);
 
-    /******************************
-     * Check a full block is is downloaded when thinblock timer is exceeded but then we get an announcement
-     * from a cmpctblock peer, and then request from that cmpctnblock peer before we request from any others.
-     * However this time we already have an cmpctblk in flight for this peer so we end up downloading a full block.
-     */
+
+    //  Check a full block is is downloaded when thinblock timer is exceeded but then we get an announcement
+    //  from a cmpctblock peer, and then request from that cmpctnblock peer before we request from any others.
+    //  However this time we already have an cmpctblk in flight for this peer so we end up downloading a full block.
+
 
     // Chains IS sync'd,  HAVE graphene nodes, HAVE Thinblock nodes, Have Cmpct nodes, Thinblocks OFF, Graphene OFF,
     // Cmpct ON
@@ -904,6 +890,7 @@ BOOST_AUTO_TEST_CASE(blockrequest_tests)
     vNodes.erase(remove(vNodes.begin(), vNodes.end(), &dummyNodeNone), vNodes.end());
     vNodes.erase(remove(vNodes.begin(), vNodes.end(), &dummyNodeCmpct), vNodes.end());
     vNodes.erase(remove(vNodes.begin(), vNodes.end(), &dummyNodeXthin), vNodes.end());
+    */
 }
 
 BOOST_AUTO_TEST_CASE(askfor_tests)
