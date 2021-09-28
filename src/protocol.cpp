@@ -90,7 +90,6 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::ADDR,
     NetMsgType::INV,
     NetMsgType::GETDATA,
-    NetMsgType::MERKLEBLOCK,
     NetMsgType::GETBLOCKS,
     NetMsgType::GETHEADERS,
     NetMsgType::TX,
