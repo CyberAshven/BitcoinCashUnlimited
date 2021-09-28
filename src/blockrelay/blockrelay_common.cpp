@@ -143,15 +143,15 @@ bool ThinTypeRelay::IsBlockRelayTimerEnabled()
     // Only engage the timer if one or more, but not all, thin type relays are active.
     // If all types are active, or all inactive, then we do not need the timer.
     // Generally speaking all types will be active and we can return early.
-    if (IsGrapheneBlockEnabled() && IsCompactBlocksEnabled())
+    if (IsGrapheneBlockEnabled() && IsBobCompactBlocksEnabled())
         return false;
-    if (!IsGrapheneBlockEnabled() && !IsCompactBlocksEnabled())
+    if (!IsGrapheneBlockEnabled() && !IsBobCompactBlocksEnabled())
         return false;
 
     // The thin relay timer is only relevant if we have a specific thin relay type active
     // AND we have peers connected which also support that thin relay type
     bool fGraphenePossible = IsGrapheneBlockEnabled() && nGraphenePeers > 0;
-    bool fCompactBlockPossible = IsCompactBlocksEnabled() && nCompactBlockPeers > 0;
+    bool fCompactBlockPossible = IsBobCompactBlocksEnabled() && nCompactBlockPeers > 0;
 
     return fGraphenePossible || fCompactBlockPossible;
 }

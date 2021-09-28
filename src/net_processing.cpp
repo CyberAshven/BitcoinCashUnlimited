@@ -505,7 +505,7 @@ static void enableSendHeaders(CNode *pfrom)
 static void enableCompactBlocks(CNode *pfrom)
 {
     // Tell our peer that we support compact blocks
-    if (IsCompactBlocksEnabled() && (pfrom->nVersion >= COMPACTBLOCKS_VERSION))
+    if (IsBobCompactBlocksEnabled() && (pfrom->nVersion >= COMPACTBLOCKS_VERSION))
     {
         bool fHighBandwidth = false;
         uint64_t nVersion = 1;
@@ -1675,13 +1675,13 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
     // Handle Compact Tailstorm Blocks
     else if (strCommand == NetMsgType::BOBCMPCTBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsCompactBlocksEnabled())
+             IsBobCompactBlocksEnabled())
     {
         LOCK(pfrom->cs_thintype);
         return HandleBobCompactMessage(vRecv, pfrom);
     }
     else if (strCommand == NetMsgType::GETBOBSUB && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsCompactBlocksEnabled())
+             IsBobCompactBlocksEnabled())
     {
         if (!requester.CheckForRequestDOS(pfrom, chainparams))
             return false;
@@ -1690,7 +1690,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         return BobCompactReRequest::HandleMessage(vRecv, pfrom);
     }
     else if (strCommand == NetMsgType::BOBSUB && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsCompactBlocksEnabled())
+             IsBobCompactBlocksEnabled())
     {
         LOCK(pfrom->cs_thintype);
         return BobCompactReReqResponse::HandleMessage(vRecv, pfrom);

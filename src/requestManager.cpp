@@ -560,7 +560,7 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
         {
             // Ask for compact Tailstorm block
             // Must download a compact block from a compact block enabled peer.
-            if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
+            if (IsBobCompactBlocksEnabled() && pfrom->CompactBlockCapable())
             {
                 if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::BOBCMPCTBLOCK))
                 {
