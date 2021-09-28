@@ -315,7 +315,9 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                             if (pfrom->pfilter)
                             {
                                 CMerkleBlock merkleBlock(*pblock, *pfrom->pfilter);
-                                pfrom->PushMessage(NetMsgType::MERKLEBLOCK, merkleBlock);
+
+                                // TODO - rework this to send the correct type of merkle block
+                                // pfrom->PushMessage(NetMsgType::MERKLEBLOCK, merkleBlock);
                                 pfrom->blocksSent += 1;
                                 // CMerkleBlock just contains hashes, so also push any transactions in the block the
                                 // client did not see. This avoids hurting performance by pointlessly requiring a
