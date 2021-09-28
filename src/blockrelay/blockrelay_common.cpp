@@ -293,7 +293,7 @@ void ThinTypeRelay::ClearAllBlocksInFlight(NodeId id)
 void ThinTypeRelay::SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock)
 {
     LOCK(cs_graphene_sender);
-    
+
 }
 
 std::shared_ptr<CGrapheneBlock> ThinTypeRelay::GetSentGrapheneBlocks(NodeId id)
@@ -362,7 +362,9 @@ std::shared_ptr<CBlockThinRelay> ThinTypeRelay::SetBlockToReconstruct(CNode *pfr
     pblock = std::make_shared<CBlockThinRelay>(CBlockThinRelay());
 
     // Initialize the thintype pointers
-    
+
+    // TODO : missing reconstruct pointer resets maybe?
+
     // unless we run out of memory, emplace should never fail
     auto newKey = mapBlocksReconstruct.emplace(pfrom->GetId(), std::map<uint256, std::shared_ptr<CBlockThinRelay> >());
     newKey.first->second.emplace(hash, pblock);
