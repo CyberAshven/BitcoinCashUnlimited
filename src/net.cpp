@@ -2082,9 +2082,7 @@ void ThreadOpenConnections()
         // if the grants are all taken and we want to disconnect a node in the event that
         // we don't have enough connections to XTHIN capable nodes yet.
         int nOutbound = 0;
-        int nThinBlockCapable = 0;
         set<vector<unsigned char> > setConnected;
-        CNode *pNonXthinNode = nullptr;
         CNode *pNonNodeNetwork = nullptr;
         bool fDisconnected = false;
         {
@@ -2096,31 +2094,18 @@ void ThreadOpenConnections()
                     setConnected.insert(pnode->addr.GetGroup());
                     nOutbound++;
 
-                    if (pnode->ThinBlockCapable())
-                        nThinBlockCapable++;
-                    else
-                        pNonXthinNode = pnode;
-
                     // If sync is not yet complete then disconnect any pruned outbound connections
                     if (IsInitialBlockDownload() && !(pnode->nServices & NODE_NETWORK))
+                    {
                         pNonNodeNetwork = pnode;
+                    }
                 }
             }
             // Disconnect a node that is not XTHIN capable if all outbound slots are full and we
             // have not yet connected to enough XTHIN nodes.
             if (!fReindex)
             {
-                if (nOutbound >= nMaxOutConnections && nThinBlockCapable <= min(nMinXthinNodes, nMaxOutConnections) &&
-                    nDisconnects < MAX_DISCONNECTS && IsThinBlocksEnabled() && IsChainNearlySyncd())
-                {
-                    if (pNonXthinNode != nullptr)
-                    {
-                        pNonXthinNode->fDisconnect = true;
-                        fDisconnected = true;
-                        nDisconnects++;
-                    }
-                }
-                else if (IsInitialBlockDownload())
+                if (IsInitialBlockDownload())
                 {
                     if (pNonNodeNetwork != nullptr)
                     {
@@ -2147,8 +2132,7 @@ void ThreadOpenConnections()
                 MilliSleep(500);
                 {
                     LOCK(cs_vNodes);
-                    if (find(vNodes.begin(), vNodes.end(), pNonXthinNode) == vNodes.end() ||
-                        find(vNodes.begin(), vNodes.end(), pNonNodeNetwork) == vNodes.end())
+                    if (find(vNodes.begin(), vNodes.end(), pNonNodeNetwork) == vNodes.end())
                     {
                         nOutbound--;
                         break;
