@@ -293,7 +293,7 @@ void ThinTypeRelay::ClearAllBlocksInFlight(NodeId id)
 void ThinTypeRelay::SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock)
 {
     LOCK(cs_graphene_sender);
-
+    // TODO - missing graphene block assignment?
 }
 
 std::shared_ptr<CGrapheneBlock> ThinTypeRelay::GetSentGrapheneBlocks(NodeId id)
