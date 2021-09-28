@@ -137,7 +137,7 @@ public:
     std::shared_ptr<CGrapheneBlock> GetSentGrapheneBlocks(NodeId id);
     void ClearSentGrapheneBlocks(NodeId id);
     void CheckForDownloadTimeout(CNode *pfrom);
-    void RequestBlock(CNode *pfrom, const uint256 &hash);
+    void RequestBlock(CNode *pfrom, const CInv &inv);
 
     // Accessor methods to the blocks that we're reconstructing from thintype blocks such as
     // xthins or graphene.
