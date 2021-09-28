@@ -68,7 +68,9 @@ bool HandleExpeditedRequest(CDataStream &vRecv, CNode *pfrom)
     uint64_t options;
     vRecv >> options;
 
-    if (!pfrom->ThinBlockCapable() || !IsThinBlocksEnabled())
+    // TODO - need to reconfigure expedited blocks
+
+    // if (!pfrom->ThinBlockCapable() || !IsThinBlocksEnabled())
     {
         dosMan.Misbehaving(pfrom, 5);
         return false;
@@ -109,7 +111,7 @@ bool HandleExpeditedBlock(CDataStream &vRecv, CNode *pfrom)
     vRecv >> msgType >> hops;
     if (msgType == EXPEDITED_MSG_XTHIN)
     {
-        return CXThinBlock::HandleMessage(vRecv, pfrom, NetMsgType::XPEDITEDBLK, hops + 1);
+        // return CXThinBlock::HandleMessage(vRecv, pfrom, NetMsgType::XPEDITEDBLK, hops + 1);
     }
     else
     {
@@ -118,6 +120,7 @@ bool HandleExpeditedBlock(CDataStream &vRecv, CNode *pfrom)
     }
 }
 
+/*
 static void ActuallySendExpeditedBlock(CXThinBlock &thinBlock, unsigned char hops, const CNode *pskip)
 {
     VNodeRefs vNodeRefs(connmgr->ExpeditedBlockNodes());
@@ -131,14 +134,15 @@ static void ActuallySendExpeditedBlock(CXThinBlock &thinBlock, unsigned char hop
         }
         else if (pnode != pskip) // Don't send back to the sending node to avoid looping
         {
-            LOG(THIN, "Sending expedited block %s to %s\n", thinBlock.header.GetHash().ToString(), pnode->GetLogName());
+            // LOG(THIN, "Sending expedited block %s to %s\n", thinBlock.header.GetHash().ToString(), pnode->GetLogName());
 
-            pnode->PushMessage(NetMsgType::XPEDITEDBLK, (unsigned char)EXPEDITED_MSG_XTHIN, hops, thinBlock);
-            pnode->blocksSent += 1;
+            // pnode->PushMessage(NetMsgType::XPEDITEDBLK, (unsigned char)EXPEDITED_MSG_XTHIN, hops, thinBlock);
+            // pnode->blocksSent += 1;
         }
     }
 }
-
+*/
+/*
 void SendExpeditedBlock(CXThinBlock &thinBlock, unsigned char hops, CNode *pskip)
 {
     {
@@ -180,3 +184,4 @@ void SendExpeditedBlock(const CBlock &block, CNode *pskip)
     CXThinBlock thinBlock(block);
     SendExpeditedBlock(thinBlock, 0, pskip);
 }
+*/

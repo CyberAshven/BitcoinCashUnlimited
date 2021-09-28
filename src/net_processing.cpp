@@ -2220,8 +2220,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         if (IsChainNearlySyncd()) // BU send the received block out expedited channels quickly
         {
             CValidationState state;
-            if (CheckBlockHeader(*pblock, state, true)) // block header is fine
-                SendExpeditedBlock(*pblock, pfrom);
+            // if (CheckBlockHeader(*pblock, state, true)) // block header is fine
+                // SendExpeditedBlock(*pblock, pfrom);
         }
 
         { // reset the getheaders time because block can consume all bandwidth
