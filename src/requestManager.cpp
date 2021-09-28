@@ -526,7 +526,7 @@ static bool IsGrapheneVersionSupported(CNode *pfrom)
 {
     try
     {
-        NegotiateGrapheneVersion(pfrom);
+        SBNegotiateGrapheneVersion(pfrom);
         return true;
     }
     catch (const std::runtime_error &error)

@@ -623,7 +623,6 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
     }
     obj.pushKV("localaddresses", localAddresses);
     obj.pushKV("bobcompactblockstats", GetBobCompactBlockStats());
-    obj.pushKV("grapheneblockstats", GetGrapheneStats());
     obj.pushKV("sb_grapheneblockstats", GetSBGrapheneStats());
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;

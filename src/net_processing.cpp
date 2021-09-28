@@ -546,8 +546,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     bool grapheneVersionCompatible = true;
     try
     {
-        NegotiateGrapheneVersion(pfrom);
-        NegotiateFastFilterSupport(pfrom);
+        SBNegotiateGrapheneVersion(pfrom);
+        SBNegotiateFastFilterSupport(pfrom);
     }
     catch (const std::runtime_error &e)
     {
