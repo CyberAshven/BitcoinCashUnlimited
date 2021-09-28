@@ -101,9 +101,6 @@ private:
     PeerTableModel *peerTableModel;
     BanTableModel *banTableModel;
 
-    ThinBlockQuickStats thinStats;
-    CompactBlockQuickStats compactStats;
-    GrapheneQuickStats grapheneStats;
     SBGrapheneQuickStats sb_grapheneStats;
 
     QTimer *pollTimer1;
@@ -122,9 +119,6 @@ Q_SIGNALS:
     void alertsChanged(const QString &warnings);
     void bytesChanged(quint64 totalBytesIn, quint64 totalBytesOut);
     void transactionsPerSecondChanged(double smoothedTps, double instantaneousTps, double peakTps);
-    void thinBlockPropagationStatsChanged(const ThinBlockQuickStats &thin);
-    void compactBlockPropagationStatsChanged(const CompactBlockQuickStats &compact);
-    void grapheneBlockPropagationStatsChanged(const GrapheneQuickStats &graphene);
     void sbGrapheneBlockPropagationStatsChanged(const SBGrapheneQuickStats &graphene);
 
     //! Fired when a message should be reported to the user

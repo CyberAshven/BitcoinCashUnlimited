@@ -408,12 +408,6 @@ void RPCConsole::setClientModel(ClientModel *model)
         connect(model, SIGNAL(orphanPoolSizeChanged(long)), this, SLOT(setOrphanPoolSize(long)));
         connect(model, SIGNAL(transactionsPerSecondChanged(double, double, double)), this,
             SLOT(setTransactionsPerSecond(double, double, double)));
-        connect(model, SIGNAL(thinBlockPropagationStatsChanged(const ThinBlockQuickStats &)), this,
-            SLOT(setThinBlockPropagationStats(const ThinBlockQuickStats &)));
-        connect(model, SIGNAL(compactBlockPropagationStatsChanged(const CompactBlockQuickStats &)), this,
-            SLOT(setCompactBlockPropagationStats(const CompactBlockQuickStats &)));
-        connect(model, SIGNAL(grapheneBlockPropagationStatsChanged(const GrapheneQuickStats &)), this,
-            SLOT(setGrapheneBlockPropagationStats(const GrapheneQuickStats &)));
         connect(model, SIGNAL(sbGrapheneBlockPropagationStatsChanged(const SBGrapheneQuickStats &)), this,
             SLOT(setSBGrapheneBlockPropagationStats(const SBGrapheneQuickStats &)));
 
