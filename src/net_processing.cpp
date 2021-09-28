@@ -427,6 +427,8 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         // resources to process and send, therefore we don't want some a peer to, intentionlally or
         // unintentionally, dominate our network layer.
 
+        // TODO - add tailstorm block types to break GetDate loop
+
         if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK)
             break;
     }
