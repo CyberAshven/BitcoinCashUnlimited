@@ -1618,7 +1618,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     }
 
     // Handle Graphene subblocks
-    else if (strCommand == NetMsgType::GET_SB_GRAPHENE && !fImporting && !fReindex && IsGrapheneBlockEnabled() &&
+    else if (strCommand == NetMsgType::GET_SB_GRAPHENE && !fImporting && !fReindex && SBIsGrapheneBlockEnabled() &&
              grapheneVersionCompatible)
     {
         if (!requester.CheckForRequestDOS(pfrom, chainparams))
@@ -1629,7 +1629,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
     }
 
     else if (strCommand == NetMsgType::SB_GRAPHENEBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+             SBIsGrapheneBlockEnabled() && grapheneVersionCompatible)
     {
         LOCK(pfrom->cs_thintype);
         return HandleSBGMessage(vRecv, pfrom, strCommand, 0);
@@ -1637,7 +1637,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
 
     else if (strCommand == NetMsgType::GET_SB_GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+             SBIsGrapheneBlockEnabled() && grapheneVersionCompatible)
     {
         if (!requester.CheckForRequestDOS(pfrom, chainparams))
             return false;
@@ -1648,13 +1648,13 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
 
     else if (strCommand == NetMsgType::SB_GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+             SBIsGrapheneBlockEnabled() && grapheneVersionCompatible)
     {
         LOCK(pfrom->cs_thintype);
         return CSBGrapheneBlockTx::HandleMessage(vRecv, pfrom);
     }
 
-    else if (strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() &&
+    else if (strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY && SBIsGrapheneBlockEnabled() &&
              grapheneVersionCompatible)
     {
         if (!requester.CheckForRequestDOS(pfrom, chainparams))
@@ -1664,7 +1664,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         return SBHandleGrapheneBlockRecoveryRequest(vRecv, pfrom, chainparams);
     }
 
-    else if (strCommand == NetMsgType::SB_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() && grapheneVersionCompatible)
+    else if (strCommand == NetMsgType::SB_GRAPHENE_RECOVERY && SBIsGrapheneBlockEnabled() && grapheneVersionCompatible)
     {
         if (!requester.CheckForRequestDOS(pfrom, chainparams))
             return false;

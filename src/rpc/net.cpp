@@ -639,13 +639,14 @@ UniValue clearblockstats(const UniValue &params, bool fHelp)
                             "\nExample:\n" +
                             HelpExampleCli("clearblockstats", ""));
 
-    if (IsGrapheneBlockEnabled())
+    if (SBIsGrapheneBlockEnabled())
     {
-        graphenedata.ClearGrapheneBlockStats();
         sb_graphenedata.ClearGrapheneBlockStats();
     }
     if (IsBobCompactBlocksEnabled())
+    {
         bobcompactdata.ClearCompactBlockStats();
+    }
 
     return NullUniValue;
 }
