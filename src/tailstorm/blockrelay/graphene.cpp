@@ -1497,7 +1497,7 @@ bool SBHandleGrapheneBlockRequest(CDataStream &vRecv, CNode *pfrom, const CChain
 
 bool SBHandleGrapheneBlockRecoveryRequest(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams)
 {
-    CRequestGrapheneReceiverRecover recoveryRequest;
+    CSBRequestGrapheneReceiverRecover recoveryRequest;
     vRecv >> recoveryRequest;
 
     std::shared_ptr<CSBGrapheneBlock> grapheneBlock = GetSentSBGrapheneBlocks(pfrom->GetId());
@@ -1517,7 +1517,7 @@ bool SBHandleGrapheneBlockRecoveryRequest(CDataStream &vRecv, CNode *pfrom, cons
 
 bool SBHandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, const CChainParams &chainparams)
 {
-    CGrapheneReceiverRecover recoveryResponse;
+    CSBGrapheneReceiverRecover recoveryResponse;
     vRecv >> recoveryResponse;
 
     auto pblock = GetSBGBlockToReconstruct(pfrom, recoveryResponse.blockhash);
