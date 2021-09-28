@@ -8,7 +8,7 @@
 #endif
 
 #include "addrman.h"
-#include "blockrelay/graphene.h"
+
 #include "cashaddr.h"
 #include "chain.h"
 #include "coins.h"

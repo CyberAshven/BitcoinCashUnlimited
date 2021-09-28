@@ -118,7 +118,6 @@ BITCOIN_CORE_H = \
   banentry.h \
   bitmanip.h \
   blockrelay/blockrelay_common.h \
-  blockrelay/graphene.h \
   blockrelay/graphene_set.h \
   blockrelay/mempool_sync.h \
   blockstorage/blockleveldb.h \
@@ -295,7 +294,6 @@ libbitcoin_server_a_SOURCES = \
   banentry.cpp \
   bitnodes.cpp \
   blockrelay/blockrelay_common.cpp \
-  blockrelay/graphene.cpp \
   blockrelay/graphene_set.cpp \
   blockrelay/mempool_sync.cpp \
   blockstorage/blockleveldb.cpp \

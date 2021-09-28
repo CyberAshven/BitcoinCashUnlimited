@@ -6,7 +6,7 @@
 #define BITCOIN_MEMPOOL_SYNC_H
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+#include "graphene_set.h"
 #include "consensus/consensus.h"
 #include "net.h"
 #include "utiltime.h"

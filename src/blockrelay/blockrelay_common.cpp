@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+
 #include "net.h"
 #include "random.h"
 #include "requestManager.h"
@@ -16,8 +16,6 @@
 // us from asserting in debug mode when a node or group of nodes drops off suddenly while another set
 // of nodes is connecting.
 static unsigned int NODE_PADDING = 5;
-
-bool IsGrapheneBlockEnabled();
 
 // Update the counters for how many peers we have connected.
 void ThinTypeRelay::AddPeers(CNode *pfrom)
@@ -295,7 +293,7 @@ void ThinTypeRelay::ClearAllBlocksInFlight(NodeId id)
 void ThinTypeRelay::SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock)
 {
     LOCK(cs_graphene_sender);
-    mapGrapheneSentBlocks[id] = std::make_shared<CGrapheneBlock>(grapheneBlock);
+    
 }
 
 std::shared_ptr<CGrapheneBlock> ThinTypeRelay::GetSentGrapheneBlocks(NodeId id)
@@ -364,7 +362,6 @@ std::shared_ptr<CBlockThinRelay> ThinTypeRelay::SetBlockToReconstruct(CNode *pfr
     pblock = std::make_shared<CBlockThinRelay>(CBlockThinRelay());
 
     // Initialize the thintype pointers
-    pblock->grapheneblock = std::make_shared<CGrapheneBlock>(CGrapheneBlock());
     
     // unless we run out of memory, emplace should never fail
     auto newKey = mapBlocksReconstruct.emplace(pfrom->GetId(), std::map<uint256, std::shared_ptr<CBlockThinRelay> >());

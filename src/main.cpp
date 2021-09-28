@@ -9,7 +9,7 @@
 #include "addrman.h"
 #include "arith_uint256.h"
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+
 #include "blockrelay/mempool_sync.h"
 
 #include "blockstorage/blockcache.h"

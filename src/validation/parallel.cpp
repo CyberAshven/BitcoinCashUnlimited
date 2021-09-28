@@ -6,7 +6,7 @@
 
 #include "blockrelay/blockrelay_common.h"
 
-#include "blockrelay/graphene.h"
+
 #include "blockstorage/blockstorage.h"
 #include "chainparams.h"
 #include "dosman.h"
@@ -625,9 +625,7 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
                     inv.hash.ToString(), strCommand, (double)(GetStopwatchMicros() - startTime) / 1000000.0,
                     pfrom->GetLogName());
 
-                if (strCommand == NetMsgType::GRAPHENEBLOCK || strCommand == NetMsgType::GRAPHENETX)
-                    graphenedata.UpdateValidationTime(nValidationTime);
-                else if (strCommand == NetMsgType::SB_GRAPHENEBLOCK || strCommand == NetMsgType::SB_GRAPHENETX)
+                if (strCommand == NetMsgType::SB_GRAPHENEBLOCK || strCommand == NetMsgType::SB_GRAPHENETX)
                     sb_graphenedata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::BOBSUB)
                     bobcompactdata.UpdateValidationTime(nValidationTime);

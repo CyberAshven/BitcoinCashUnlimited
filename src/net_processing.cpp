@@ -12,7 +12,7 @@
 #include "addrman.h"
 #include "blockrelay/blockrelay_common.h"
 
-#include "blockrelay/graphene.h"
+
 #include "blockrelay/mempool_sync.h"
 
 #include "blockstorage/blockstorage.h"

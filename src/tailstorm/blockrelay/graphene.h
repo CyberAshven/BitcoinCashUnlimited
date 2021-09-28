@@ -9,7 +9,7 @@
 #include "tailstorm/subblock/subblock.h"
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+
 #include "blockrelay/graphene_set.h"
 #include "bloom.h"
 #include "config.h"

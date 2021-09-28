@@ -5,7 +5,7 @@
 
 #include "rpc/server.h"
 
-#include "blockrelay/graphene.h"
+
 
 #include "chainparams.h"
 #include "clientversion.h"
@@ -493,28 +493,6 @@ static UniValue GetNetworksInfo()
         networks.push_back(obj);
     }
     return networks;
-}
-
-static UniValue GetGrapheneStats()
-{
-    UniValue obj(UniValue::VOBJ);
-    bool enabled = IsGrapheneBlockEnabled();
-    obj.pushKV("enabled", enabled);
-    if (enabled)
-    {
-        obj.pushKV("summary", graphenedata.ToString());
-        obj.pushKV("inbound_percent", graphenedata.InBoundPercentToString());
-        obj.pushKV("outbound_percent", graphenedata.OutBoundPercentToString());
-        obj.pushKV("response_time", graphenedata.ResponseTimeToString());
-        obj.pushKV("validation_time", graphenedata.ValidationTimeToString());
-        obj.pushKV("filter", graphenedata.FilterToString());
-        obj.pushKV("iblt", graphenedata.IbltToString());
-        obj.pushKV("rank", graphenedata.RankToString());
-        obj.pushKV("graphene_block_size", graphenedata.GrapheneBlockToString());
-        obj.pushKV("graphene_additional_tx_size", graphenedata.AdditionalTxToString());
-        obj.pushKV("rerequested", graphenedata.ReRequestedTxToString());
-    }
-    return obj;
 }
 
 static UniValue GetSBGrapheneStats()
