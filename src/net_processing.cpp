@@ -206,7 +206,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 vNotFound.push_back(inv);
             }
         }
-        else if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK)
+        else if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK)
         {
             CBlockIndex *mi = LookupBlockIndex(inv.hash);
             if (mi)
@@ -308,11 +308,6 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                         {
                             pfrom->blocksSent += 1;
                             pfrom->PushMessage(NetMsgType::BLOCK, *pblock);
-                        }
-                        else if (inv.type == MSG_CMPCT_BLOCK)
-                        {
-                            LOG(CMPCT, "Sending compactblock via getdata message\n");
-                            SendCompactBlock(pblock, pfrom, inv);
                         }
                         else // MSG_FILTERED_BLOCK)
                         {
@@ -431,7 +426,8 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         // Send only one of these message type before breaking. These type of requests use more
         // resources to process and send, therefore we don't want some a peer to, intentionlally or
         // unintentionally, dominate our network layer.
-        if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK || inv.type == MSG_CMPCT_BLOCK)
+
+        if (inv.type == MSG_BLOCK || inv.type == MSG_FILTERED_BLOCK)
             break;
     }
     // Send the batched transactions if any to send.
@@ -804,31 +800,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         CNodeStateAccessor(nodestate, pfrom->GetId())->fPreferHeaders = true;
     }
 
-    else if (strCommand == NetMsgType::FILTERSIZEXTHIN)
-    {
-        if (pfrom->ThinBlockCapable())
-        {
-            uint32_t nSize = 0;
-            vRecv >> nSize;
-            pfrom->nXthinBloomfilterSize.store(nSize);
-
-            // As a safeguard don't allow a smaller max bloom filter size than the default max size.
-            if (!pfrom->nXthinBloomfilterSize || (pfrom->nXthinBloomfilterSize < SMALLEST_MAX_BLOOM_FILTER_SIZE))
-            {
-                pfrom->PushMessage(
-                    NetMsgType::REJECT, strCommand, REJECT_INVALID, std::string("filter size was too small"));
-                LOG(NET, "Disconnecting %s: bloom filter size too small\n", pfrom->GetLogName());
-                pfrom->fDisconnect = true;
-                return false;
-            }
-        }
-        else
-        {
-            pfrom->fDisconnect = true;
-            return false;
-        }
-    }
-
     else if (strCommand == NetMsgType::PING)
     {
         LeaveCritical(&pfrom->csMsgSerializer);
@@ -1140,18 +1111,11 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_FILTERED_BLOCK) ||
-                    (inv.type == MSG_CMPCT_BLOCK) || (inv.type == MSG_SUBBLOCK) || (inv.type == MSG_TAILSTORMBLOCK) ||
+                    (inv.type == MSG_SUBBLOCK) || (inv.type == MSG_TAILSTORMBLOCK) ||
                     (inv.type == MSG_BOB_CMPCT_BLOCK) || (inv.type == MSG_DOUBLESPENDPROOF)))
             {
                 dosMan.Misbehaving(pfrom, 20, BanReasonInvalidInventory);
                 return error("message inv invalid type = %u", inv.type);
-            }
-
-            // Make basic checks
-            if (inv.type == MSG_CMPCT_BLOCK)
-            {
-                if (!requester.CheckForRequestDOS(pfrom, chainparams))
-                    return false;
             }
 
             invDeque.push_back(inv);
@@ -1229,7 +1193,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
     }
 
-
     else if (strCommand == NetMsgType::GETHEADERS)
     {
         CBlockLocator locator;
@@ -1243,8 +1206,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             if (!pindex)
                 return true;
         }
-
-        std::vector<CBlock> vHeaders;
         std::vector<CTailstormBlockHeader> vBobHeaders;
         {
             LOCK(cs_main); // for chainActive
@@ -1263,9 +1224,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             for (; pindex; pindex = chainActive.Next(pindex))
             {
                 if (pindex->isTailstorm)
+                {
                     vBobHeaders.push_back(pindex->GetTailstormBlockHeader());
-                else
-                    vHeaders.push_back(pindex->GetBlockHeader());
+                }
                 if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                     break;
             }
@@ -1278,8 +1239,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             CNodeStateAccessor state(nodestate, pfrom->GetId());
             state->pindexBestHeaderSent = pindex ? pindex : chainActive.Tip();
         }
-        if (!vHeaders.empty())
-            pfrom->PushMessage(NetMsgType::HEADERS, vHeaders);
         if (!vBobHeaders.empty())
             pfrom->PushMessage(NetMsgType::TAILSTORM_HEADERS, vBobHeaders);
     }
@@ -1317,341 +1276,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             pfrom->AddInventoryKnown(inv);
             requester.UpdateTxnResponseTime(inv, pfrom);
         }
-    }
-
-
-    else if (strCommand == NetMsgType::HEADERS) // Ignore headers received while importing
-    {
-        if (fImporting)
-        {
-            LOG(NET, "skipping processing of HEADERS because importing\n");
-            return true;
-        }
-        if (fReindex)
-        {
-            LOG(NET, "skipping processing of HEADERS because reindexing\n");
-            return true;
-        }
-        std::vector<CBlockHeader> headers;
-
-        // Bypass the normal CBlock deserialization, as we don't want to risk deserializing 2000 full blocks.
-        unsigned int nCount = ReadCompactSize(vRecv);
-        if (nCount > MAX_HEADERS_RESULTS)
-        {
-            dosMan.Misbehaving(pfrom, 20);
-            return error("headers message size = %u", nCount);
-        }
-        headers.resize(nCount);
-        for (unsigned int n = 0; n < nCount; n++)
-        {
-            vRecv >> headers[n];
-            ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
-        }
-
-        // Nothing interesting. Stop asking this peers for more headers.
-        if (nCount == 0)
-        {
-            LOG(NET, "No more headers from peer %s\n", pfrom->GetLogName());
-            return true;
-        }
-
-        CBlockIndex *pindexLast = nullptr;
-        {
-            // We need to handle appending the header and analyzing the unconnected ones sequentially, or
-            // 2 simultaneously processed header messages may cause an out of order header to not be reconnected
-            // when its parent arrives.
-
-            // We are reusing csUnConnected headers to both force this code to be sequential and to protect
-            // the unconnected headers data structure.
-            LOCK(csUnconnectedHeaders);
-
-            // Check all headers to make sure they are continuous before attempting to accept them.
-            // This prevents and attacker from keeping us from doing direct fetch by giving us out
-            // of order headers.
-            bool fNewUnconnectedHeaders = false;
-            uint256 hashLastBlock;
-            hashLastBlock.SetNull();
-            for (const CBlockHeader &header : headers)
-            {
-                // LOG(NET, "Received header %s from %s\n", header.GetHash().ToString(), pfrom->GetLogName());
-                // check that the first header has a previous block in the blockindex.
-                if (hashLastBlock.IsNull())
-                {
-                    if (LookupBlockIndex(header.hashPrevBlock))
-                        hashLastBlock = header.hashPrevBlock;
-                }
-
-                // Add this header to the map if it doesn't connect to a previous header
-                if (header.hashPrevBlock != hashLastBlock)
-                {
-                    // If we still haven't finished downloading the initial headers during node sync and we get
-                    // an out of order header then we must disconnect the node so that we can finish downloading
-                    // initial headers from a diffeent peer. An out of order header at this point is likely an attack
-                    // to prevent the node from syncing.
-                    if (header.GetBlockTime() < GetAdjustedTime() - 24 * 60 * 60)
-                    {
-                        pfrom->fDisconnect = true;
-                        return error("non-continuous-headers sequence during node sync - disconnecting peer=%s",
-                            pfrom->GetLogName());
-                    }
-                    fNewUnconnectedHeaders = true;
-                }
-
-                // if we have an unconnected header then add every following header to the unconnected headers cache.
-                if (fNewUnconnectedHeaders)
-                {
-                    uint256 hash = header.GetHash();
-                    // LOG(NET, "Header %s from %s is unconnected\n", hash.ToString(), pfrom->GetLogName());
-                    if (mapUnConnectedHeaders.size() < MAX_UNCONNECTED_HEADERS)
-                        mapUnConnectedHeaders[hash] = std::make_pair(header, GetTime());
-                    else
-                        LOG(NET, "Ignoring header %s -- too many unconnected headers.\n", hash.ToString());
-
-                    // update hashLastUnknownBlock so that we'll be able to download the block from this peer even
-                    // if we receive the headers, which will connect this one, from a different peer.
-                    requester.UpdateBlockAvailability(pfrom->GetId(), hash);
-                }
-
-                hashLastBlock = header.GetHash();
-            }
-            // return without error if we have an unconnected header.  This way we can try to connect it when the next
-            // header arrives.
-            if (fNewUnconnectedHeaders)
-                return true;
-
-            {
-                // If possible add any previously unconnected headers to the headers vector and remove any expired
-                // entries.
-                std::map<uint256, std::pair<CBlockHeader, int64_t> >::iterator mi = mapUnConnectedHeaders.begin();
-                while (mi != mapUnConnectedHeaders.end())
-                {
-                    std::map<uint256, std::pair<CBlockHeader, int64_t> >::iterator toErase = mi;
-
-                    // Add the header if it connects to the previous header
-                    if (headers.back().GetHash() == (*mi).second.first.hashPrevBlock)
-                    {
-                        headers.push_back((*mi).second.first);
-                        mapUnConnectedHeaders.erase(toErase);
-
-                        // if you found one to connect then search from the beginning again in case there is another
-                        // that will connect to this new header that was added.
-                        mi = mapUnConnectedHeaders.begin();
-                        continue;
-                    }
-
-                    // Remove any entries that have been in the cache too long.  Unconnected headers should only exist
-                    // for a very short while, typically just a second or two.
-                    int64_t nTimeHeaderArrived = (*mi).second.second;
-                    uint256 headerHash = (*mi).first;
-                    mi++;
-                    if (GetTime() - nTimeHeaderArrived >= UNCONNECTED_HEADERS_TIMEOUT)
-                    {
-                        mapUnConnectedHeaders.erase(toErase);
-                    }
-                    // At this point we know the headers in the list received are known to be in order, therefore,
-                    // check if the header is equal to some other header in the list. If so then remove it from the
-                    // cache.
-                    else
-                    {
-                        for (const CBlockHeader &header : headers)
-                        {
-                            if (header.GetHash() == headerHash)
-                            {
-                                mapUnConnectedHeaders.erase(toErase);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Check and accept each header in dependency order (oldest block to most recent)
-            int i = 0;
-            for (const CBlockHeader &header : headers)
-            {
-                CValidationState state;
-                if (!AcceptBlockHeader(header, state, chainparams, &pindexLast))
-                {
-                    // Disconnect any peers that give us a bad checkpointed header.
-                    // This prevents us from getting stuck in IBD where we download the intial headers.
-                    // If we don't disconnect then we could end up attempting to download headers
-                    // only from peers that are not on our own fork.
-                    if (state.GetRejectCode() == REJECT_CHECKPOINT)
-                    {
-                        pfrom->fDisconnect = true;
-                    }
-
-                    int nDos;
-                    if (state.IsInvalid(nDos))
-                    {
-                        if (nDos > 0)
-                        {
-                            dosMan.Misbehaving(pfrom, nDos);
-                        }
-                    }
-
-                    // all headers from this one forward reference a fork that we don't follow, so erase them
-                    headers.erase(headers.begin() + i, headers.end());
-                    nCount = headers.size();
-
-                    break;
-                }
-                else
-                    PV->UpdateMostWorkOurFork(header);
-
-                i++;
-            }
-        }
-        if (pindexLast)
-            requester.UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
-
-        if (nCount == MAX_HEADERS_RESULTS && pindexLast)
-        {
-            // Headers message had its maximum size; the peer may have more headers.
-            // TODO: optimize: if pindexLast is an ancestor of chainActive.Tip or pindexBestHeader, continue
-            // from there instead.
-            LOG(NET, "more getheaders (%d) to end to peer=%s (startheight:%d)\n", pindexLast->nHeight,
-                pfrom->GetLogName(), pfrom->nStartingHeight);
-            pfrom->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexLast), uint256());
-
-            {
-                int64_t now = GetTime();
-                CNodeStateAccessor state(nodestate, pfrom->GetId());
-                DbgAssert(state != nullptr, );
-                if (state != nullptr)
-                    state->nSyncStartTime = now; // reset the time because more headers needed
-            }
-
-            // During the process of IBD we need to update block availability for every connected peer. To do that we
-            // request, from each NODE_NETWORK peer, a header that matches the last blockhash found in this recent set
-            // of headers. Once the requested header is received then the block availability for this peer will get
-            // updated.
-            if (IsInitialBlockDownload())
-            {
-                // To maintain locking order with cs_main we have to addrefs for each node and then release
-                // the lock on cs_vNodes before aquiring cs_main further down.
-                std::vector<CNode *> vNodesCopy;
-                {
-                    LOCK(cs_vNodes);
-                    vNodesCopy = vNodes;
-                    for (CNode *pnode : vNodes)
-                    {
-                        pnode->AddRef();
-                    }
-                }
-
-                for (CNode *pnode : vNodesCopy)
-                {
-                    if (!pnode->fClient && pnode != pfrom)
-                    {
-                        bool ask = false;
-                        {
-                            CNodeStateAccessor state(nodestate, pfrom->GetId());
-                            DbgAssert(state != nullptr, ); // do not return, we need to release refs later.
-                            if (state == nullptr)
-                                continue;
-
-                            ask = (state->pindexBestKnownBlock == nullptr ||
-                                   pindexLast->nChainWork > state->pindexBestKnownBlock->nChainWork);
-                        } // let go of the CNodeState lock before we PushMessage since that is trapping op.
-
-                        if (ask)
-                        {
-                            // We only want one single header so we pass a null for CBlockLocator.
-                            pnode->PushMessage(NetMsgType::GETHEADERS, CBlockLocator(), pindexLast->GetBlockHash());
-                            LOG(NET | BLK, "Requesting header for blockavailability, peer=%s block=%s height=%d\n",
-                                pnode->GetLogName(), pindexLast->GetBlockHash().ToString().c_str(),
-                                pindexBestHeader.load()->nHeight);
-                        }
-                    }
-                }
-
-                // release refs
-                for (CNode *pnode : vNodesCopy)
-                    pnode->Release();
-            }
-        }
-
-        bool fCanDirectFetch = CanDirectFetch(chainparams.GetConsensus());
-
-        {
-            CNodeStateAccessor state(nodestate, pfrom->GetId());
-            DbgAssert(state != nullptr, return false);
-
-            // During the initial peer handshake we must receive the initial headers which should be greater
-            // than or equal to our block height at the time of requesting GETHEADERS. This is because the peer has
-            // advertised a height >= to our own. Furthermore, because the headers max returned is as much as 2000 this
-            // could not be a mainnet re-org.
-            if (!state->fFirstHeadersReceived)
-            {
-                // We want to make sure that the peer doesn't just send us any old valid header. The block height of the
-                // last header they send us should be equal to our block height at the time we made the GETHEADERS
-                // request.
-                if (pindexLast && state->nFirstHeadersExpectedHeight <= pindexLast->nHeight)
-                {
-                    state->fFirstHeadersReceived = true;
-                    LOG(NET, "Initial headers received for peer=%s\n", pfrom->GetLogName());
-                }
-
-                // Allow for very large reorgs (> 2000 blocks) on the nol test chain or other test net.
-                if (Params().NetworkIDString() != "main" && Params().NetworkIDString() != "regtest")
-                    state->fFirstHeadersReceived = true;
-            }
-        }
-
-        // update the syncd status.  This should come before we make calls to requester.AskFor().
-        IsChainNearlySyncdInit();
-        IsInitialBlockDownloadInit();
-
-        // If this set of headers is valid and ends in a block with at least as
-        // much work as our tip, download as much as possible.
-        if (fCanDirectFetch && pindexLast && pindexLast->IsValid(BLOCK_VALID_TREE) &&
-            chainActive.Tip()->nChainWork <= pindexLast->nChainWork)
-        {
-            // Set tweak value.  Mostly used in testing direct fetch.
-            if (maxBlocksInTransitPerPeer.Value() != 0)
-                pfrom->nMaxBlocksInTransit.store(maxBlocksInTransitPerPeer.Value());
-
-            std::vector<CBlockIndex *> vToFetch;
-            CBlockIndex *pindexWalk = pindexLast;
-            // Calculate all the blocks we'd need to switch to pindexLast.
-            while (pindexWalk && !chainActive.Contains(pindexWalk))
-            {
-                vToFetch.push_back(pindexWalk);
-                pindexWalk = pindexWalk->pprev;
-            }
-
-            // Download as much as possible, from earliest to latest.
-            unsigned int nAskFor = 0;
-            for (auto pindex_iter = vToFetch.rbegin(); pindex_iter != vToFetch.rend(); pindex_iter++)
-            {
-                CBlockIndex *pindex = *pindex_iter;
-                // pindex must be nonnull because we populated vToFetch a few lines above
-                CInv inv(MSG_BLOCK, pindex->GetBlockHash());
-                if (!AlreadyHaveBlock(inv))
-                {
-                    requester.AskFor(inv, pfrom);
-                    LOG(REQ, "AskFor block via headers direct fetch %s (%d) peer=%d\n",
-                        pindex->GetBlockHash().ToString(), pindex->nHeight, pfrom->id);
-                    nAskFor++;
-                }
-                // We don't care about how many blocks are in flight.  We just need to make sure we don't
-                // ask for more than the maximum allowed per peer because the request manager will take care
-                // of any duplicate requests.
-                if (nAskFor >= pfrom->nMaxBlocksInTransit.load())
-                {
-                    LOG(NET, "Large reorg, could only direct fetch %d blocks\n", nAskFor);
-                    break;
-                }
-            }
-            if (nAskFor > 1)
-            {
-                LOG(NET, "Downloading blocks toward %s (%d) via headers direct fetch\n",
-                    pindexLast->GetBlockHash().ToString(), pindexLast->nHeight);
-            }
-        }
-
-        CheckBlockIndex(chainparams.GetConsensus());
     }
 
     else if (strCommand == NetMsgType::TAILSTORM_HEADERS) // Ignore headers received while importing
@@ -1989,61 +1613,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         }
     }
 
-    // Handle Graphene blocks
-    else if (strCommand == NetMsgType::GET_GRAPHENE && !fImporting && !fReindex && IsGrapheneBlockEnabled() &&
-             grapheneVersionCompatible)
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        LOCK(pfrom->cs_thintype);
-        return HandleGrapheneBlockRequest(vRecv, pfrom, chainparams);
-    }
-
-    else if (strCommand == NetMsgType::GRAPHENEBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
-    {
-        LOCK(pfrom->cs_thintype);
-        return CGrapheneBlock::HandleMessage(vRecv, pfrom, strCommand, 0);
-    }
-
-
-    else if (strCommand == NetMsgType::GET_GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        LOCK(pfrom->cs_thintype);
-        return CRequestGrapheneBlockTx::HandleMessage(vRecv, pfrom);
-    }
-
-
-    else if (strCommand == NetMsgType::GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsGrapheneBlockEnabled() && grapheneVersionCompatible)
-    {
-        LOCK(pfrom->cs_thintype);
-        return CGrapheneBlockTx::HandleMessage(vRecv, pfrom);
-    }
-
-    else if (strCommand == NetMsgType::GET_GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() && grapheneVersionCompatible)
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        LOCK(pfrom->cs_thintype);
-        return HandleGrapheneBlockRecoveryRequest(vRecv, pfrom, chainparams);
-    }
-
-    else if (strCommand == NetMsgType::GRAPHENE_RECOVERY && IsGrapheneBlockEnabled() && grapheneVersionCompatible)
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        LOCK(pfrom->cs_thintype);
-        return HandleGrapheneBlockRecoveryResponse(vRecv, pfrom, chainparams);
-    }
-
     // Handle Graphene subblocks
     else if (strCommand == NetMsgType::GET_SB_GRAPHENE && !fImporting && !fReindex && IsGrapheneBlockEnabled() &&
              grapheneVersionCompatible)
@@ -2098,29 +1667,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
         LOCK(pfrom->cs_thintype);
         return SBHandleGrapheneBlockRecoveryResponse(vRecv, pfrom, chainparams);
-    }
-
-    // Handle Compact Blocks
-    else if (strCommand == NetMsgType::CMPCTBLOCK && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsCompactBlocksEnabled())
-    {
-        LOCK(pfrom->cs_thintype);
-        return CompactBlock::HandleMessage(vRecv, pfrom);
-    }
-    else if (strCommand == NetMsgType::GETBLOCKTXN && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsCompactBlocksEnabled())
-    {
-        if (!requester.CheckForRequestDOS(pfrom, chainparams))
-            return false;
-
-        LOCK(pfrom->cs_thintype);
-        return CompactReRequest::HandleMessage(vRecv, pfrom);
-    }
-    else if (strCommand == NetMsgType::BLOCKTXN && !fImporting && !fReindex && !IsInitialBlockDownload() &&
-             IsCompactBlocksEnabled())
-    {
-        LOCK(pfrom->cs_thintype);
-        return CompactReReqResponse::HandleMessage(vRecv, pfrom);
     }
 
     // Handle Compact Tailstorm Blocks
@@ -3097,8 +2643,6 @@ bool SendMessages(CNode *pto)
                 LOCK(pto->cs_inventory);
                 vBlocksToAnnounce.swap(pto->vBlockHashesToAnnounce);
             }
-
-            std::vector<CBlock> vHeaders;
             std::vector<CTailstormBlockHeader> vTailstormHeaders;
             bool fRevertToInv = (!state->fPreferHeaders || vBlocksToAnnounce.size() > MAX_BLOCKS_TO_ANNOUNCE);
             CBlockIndex *pBestIndex = nullptr; // last header queued for delivery
@@ -3143,10 +2687,7 @@ bool SendMessages(CNode *pto)
                         // add this to the headers message
                         try
                         {
-                            if (pindex->isTailstorm)
-                                vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
-                            else
-                                vHeaders.push_back(pindex->GetBlockHeader());
+                            vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
                         }
                         catch (const std::invalid_argument &e)
                         {
@@ -3164,10 +2705,7 @@ bool SendMessages(CNode *pto)
                         fFoundStartingHeader = true;
                         try
                         {
-                            if (pindex->isTailstorm)
-                                vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
-                            else
-                                vHeaders.push_back(pindex->GetBlockHeader());
+                            vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
                         }
                         catch (const std::invalid_argument &e)
                         {
@@ -3212,25 +2750,8 @@ bool SendMessages(CNode *pto)
                     }
                 }
             }
-            else if (!vHeaders.empty() || !vTailstormHeaders.empty())
+            else if (!vTailstormHeaders.empty())
             {
-                if (!vHeaders.empty())
-                {
-                    if (vHeaders.size() > 1)
-                    {
-                        LOG(NET, "%s: %u headers, range (%s, %s), to peer=%d\n", __func__, vHeaders.size(),
-                            vHeaders.front().GetHash().ToString(), vHeaders.back().GetHash().ToString(), pto->id);
-                    }
-                    else
-                    {
-                        LOG(NET, "%s: sending header %s to peer=%d\n", __func__, vHeaders.front().GetHash().ToString(),
-                            pto->id);
-                    }
-                    {
-                        LOCK(pto->cs_vSend);
-                        pto->PushMessage(NetMsgType::HEADERS, vHeaders);
-                    }
-                }
                 if (!vTailstormHeaders.empty())
                 {
                     if (vTailstormHeaders.size() > 1)

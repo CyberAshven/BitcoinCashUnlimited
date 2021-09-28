@@ -641,18 +641,11 @@ static bool IsPriorityMsg(std::string strCommand)
     //       We for instance don't want to be sending BLOCK's as priority messages if the peer is only in the process
     //       of initial sync. Also, BLOCK's can be quite large and we don't want them to be dominating our priority
     //       sending process. We prefer small objects that can be forwarded with one SockeSendData() attempt.
-    if (strCommand == NetMsgType::HEADERS || strCommand == NetMsgType::GRAPHENEBLOCK ||
-        strCommand == NetMsgType::GET_GRAPHENE || strCommand == NetMsgType::GRAPHENETX ||
-        strCommand == NetMsgType::GET_GRAPHENE_RECOVERY || strCommand == NetMsgType::GRAPHENE_RECOVERY ||
-        strCommand == NetMsgType::GET_GRAPHENETX || strCommand == NetMsgType::GET_XTHIN ||
-        strCommand == NetMsgType::GET_SB_GRAPHENE || strCommand == NetMsgType::SB_GRAPHENETX ||
+    if (strCommand == NetMsgType::GET_SB_GRAPHENE || strCommand == NetMsgType::SB_GRAPHENETX ||
         strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY || strCommand == NetMsgType::SB_GRAPHENE_RECOVERY ||
-        strCommand == NetMsgType::GET_SB_GRAPHENETX || strCommand == NetMsgType::GET_THIN ||
-        strCommand == NetMsgType::XTHINBLOCK || strCommand == NetMsgType::THINBLOCK ||
-        strCommand == NetMsgType::XBLOCKTX || strCommand == NetMsgType::GET_XBLOCKTX ||
+        strCommand == NetMsgType::GET_SB_GRAPHENETX ||
         strCommand == NetMsgType::XPEDITEDREQUEST || strCommand == NetMsgType::XPEDITEDBLK ||
-        strCommand == NetMsgType::XPEDITEDTXN || strCommand == NetMsgType::CMPCTBLOCK ||
-        strCommand == NetMsgType::GETBLOCKTXN || strCommand == NetMsgType::BLOCKTXN ||
+        strCommand == NetMsgType::XPEDITEDTXN ||
         strCommand == NetMsgType::BLOCK || strCommand == NetMsgType::BOBCMPCTBLOCK ||
         strCommand == NetMsgType::GETBOBSUB || strCommand == NetMsgType::BOBSUB)
     {
