@@ -383,8 +383,6 @@ test/test_bitcoin_fuzzy.cpp
 test/test_bitcoin.h
 test/testutil.cpp
 test/testutil.h
-test/thinblock_data_tests.cpp
-test/thinblock_tests.cpp
 test/thinblock_util_tests.cpp
 test/timedata_tests.cpp
 test/grouptoken_tests.cpp
