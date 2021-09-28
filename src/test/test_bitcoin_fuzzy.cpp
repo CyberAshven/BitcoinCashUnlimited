@@ -8,7 +8,8 @@
 #endif
 
 #include "addrman.h"
-
+#include "blockrelay/blockrelay_common.h"
+#include "blockrelay/graphene_set.h"
 #include "cashaddr.h"
 #include "chain.h"
 #include "coins.h"
@@ -514,7 +515,7 @@ protected:
         }
     }
 };
-
+/*
 class FuzzAPICGrapheneSet : FuzzTestNet
 {
 public:
@@ -583,7 +584,7 @@ protected:
         }
     }
 };
-
+*/
 
 int main(int argc, char **argv)
 {
@@ -616,14 +617,11 @@ int main(int argc, char **argv)
 
     FuzzTester fuzz_tester;
 
-    FuzzDeserNet<CMemPoolInfo> fuzz_cmempoolinfo("cmempoolinfo");
-    FuzzDeserNet<CGrapheneBlock> fuzz_grapheneblock("cgrapheneblock");
-    FuzzDeserNet<CGrapheneBlockTx> fuzz_grapheneblocktx("cgrapheneblocktx");
-    FuzzDeserNet<CRequestGrapheneBlockTx> fuzz_requestgrapheneblocktx("crequestgrapheneblocktx");
+    // FuzzDeserNet<CMemPoolInfo> fuzz_cmempoolinfo("cmempoolinfo");
     FuzzDeserNet<CGrapheneSet> fuzz_grapheneset("cgrapheneset");
 
     FuzzAPICIblt fuzz_api_iblt;
-    FuzzAPICGrapheneSet fuzz_api_graphene_set;
+    // FuzzAPICGrapheneSet fuzz_api_graphene_set;
 
     FuzzDeserNet<CExtversionMessage> fuzz_CExtversionMessage("CExtversionMessage");
 
