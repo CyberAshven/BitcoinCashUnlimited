@@ -4,7 +4,7 @@
 
 #include "requestManager.h"
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/compactblock.h"
+
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
 

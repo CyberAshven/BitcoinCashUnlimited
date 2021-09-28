@@ -5,7 +5,7 @@
 #include "parallel.h"
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/compactblock.h"
+
 #include "blockrelay/graphene.h"
 #include "blockstorage/blockstorage.h"
 #include "chainparams.h"
@@ -629,8 +629,6 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
                     graphenedata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::SB_GRAPHENEBLOCK || strCommand == NetMsgType::SB_GRAPHENETX)
                     sb_graphenedata.UpdateValidationTime(nValidationTime);
-                else if (strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::BLOCKTXN)
-                    compactdata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::BOBSUB)
                     bobcompactdata.UpdateValidationTime(nValidationTime);
             }

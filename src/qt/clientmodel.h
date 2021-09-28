@@ -6,7 +6,7 @@
 #ifndef BITCOIN_QT_CLIENTMODEL_H
 #define BITCOIN_QT_CLIENTMODEL_H
 
-#include "blockrelay/compactblock.h"
+
 #include "blockrelay/graphene.h"
 
 #include "tailstorm/tailstorm.h"

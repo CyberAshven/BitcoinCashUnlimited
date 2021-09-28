@@ -18,7 +18,6 @@
 static unsigned int NODE_PADDING = 5;
 
 bool IsGrapheneBlockEnabled();
-bool IsCompactBlocksEnabled();
 
 // Update the counters for how many peers we have connected.
 void ThinTypeRelay::AddPeers(CNode *pfrom)
@@ -365,8 +364,8 @@ std::shared_ptr<CBlockThinRelay> ThinTypeRelay::SetBlockToReconstruct(CNode *pfr
     pblock = std::make_shared<CBlockThinRelay>(CBlockThinRelay());
 
     // Initialize the thintype pointers
-    pblock->cmpctblock = std::make_shared<CompactBlock>(CompactBlock());
     pblock->grapheneblock = std::make_shared<CGrapheneBlock>(CGrapheneBlock());
+    
     // unless we run out of memory, emplace should never fail
     auto newKey = mapBlocksReconstruct.emplace(pfrom->GetId(), std::map<uint256, std::shared_ptr<CBlockThinRelay> >());
     newKey.first->second.emplace(hash, pblock);
