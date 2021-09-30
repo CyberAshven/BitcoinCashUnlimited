@@ -47,8 +47,6 @@ class CBlockThinRelay : public CBlock
 {
 public:
     //! thinrelay block types: (memory only)
-    std::shared_ptr<CompactBlock> cmpctblock;
-    std::shared_ptr<CGrapheneBlock> grapheneblock;
     std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
     std::shared_ptr<BobCompactBlock> bobcmpctblock;
 
@@ -61,9 +59,8 @@ public:
     {
         CBlock::SetNull();
         nCurrentBlockSize = 0;
-        cmpctblock.reset();
-        grapheneblock.reset();
         sb_grapheneblock.reset();
+        bobcmpctblock.reset();
     }
 };
 
@@ -90,7 +87,6 @@ class ThinTypeRelay
 public:
     CCriticalSection cs_inflight;
     CCriticalSection cs_reconstruct;
-    CCriticalSection cs_graphene_sender;
     // put a cap on the total number of thin type blocks we can have in flight. This lowers any possible
     // attack surface.
     size_t MAX_THINTYPE_BLOCKS_IN_FLIGHT = 6;
@@ -115,9 +111,6 @@ private:
     std::atomic<int32_t> nGraphenePeers{0};
     std::atomic<int32_t> nCompactBlockPeers{0};
 
-    // blocks still in flight sent by the sender.
-    std::map<NodeId, std::shared_ptr<CGrapheneBlock> > mapGrapheneSentBlocks GUARDED_BY(cs_graphene_sender);
-
 public:
     void AddPeers(CNode *pfrom);
     uint32_t GetGraphenePeers() { return nGraphenePeers.load(); }
@@ -133,9 +126,6 @@ public:
     bool AddBlockInFlight(CNode *pfrom, const uint256 &hash, const std::string thinType);
     void ClearBlockInFlight(NodeId id, const uint256 &hash);
     void ClearAllBlocksInFlight(NodeId id);
-    void SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock);
-    std::shared_ptr<CGrapheneBlock> GetSentGrapheneBlocks(NodeId id);
-    void ClearSentGrapheneBlocks(NodeId id);
     void CheckForDownloadTimeout(CNode *pfrom);
     void RequestBlock(CNode *pfrom, const CInv &inv);
 

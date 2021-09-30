@@ -290,29 +290,6 @@ void ThinTypeRelay::ClearAllBlocksInFlight(NodeId id)
     }
 }
 
-void ThinTypeRelay::SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock)
-{
-    LOCK(cs_graphene_sender);
-    // TODO - missing graphene block assignment?
-}
-
-std::shared_ptr<CGrapheneBlock> ThinTypeRelay::GetSentGrapheneBlocks(NodeId id)
-{
-    LOCK(cs_graphene_sender);
-
-    auto it = mapGrapheneSentBlocks.find(id);
-    if (it != mapGrapheneSentBlocks.end())
-        return it->second;
-    else
-        return std::shared_ptr<CGrapheneBlock>();
-}
-
-void ThinTypeRelay::ClearSentGrapheneBlocks(NodeId id)
-{
-    LOCK(cs_graphene_sender);
-    mapGrapheneSentBlocks.erase(id);
-}
-
 void ThinTypeRelay::CheckForDownloadTimeout(CNode *pfrom)
 {
     LOCK(cs_inflight);
