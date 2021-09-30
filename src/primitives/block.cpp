@@ -7,19 +7,77 @@
 #include "primitives/block.h"
 
 #include "arith_uint256.h"
+#include "consensus/merkle.h"
 #include "crypto/common.h"
 #include "hashwrapper.h"
+#include "pow.h"
+#include "streams.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
-uint256 CBlockHeader::GetHash() const { return SerializeHash(*this); }
+uint256 SatoshiBlockHeader::GetHash() const { return SerializeHash(*this); }
+
+uint256 CBlockHeader::GetMiningHeaderCommitment() const
+{
+    CSHA256Writer miniHeader;
+    miniHeader << hashPrevBlock << nBits;
+    uint256 miniHash = miniHeader.GetHash();
+
+    CSHA256Writer extHeader;
+    extHeader << hashAncestor << hashTxFilter << hashMerkleRoot << nTime << ((uint64_t)height) << chainWork << size
+              << txCount << maxSize << feePoolAmt << utxoCommitment << minerData;
+    uint256 extHash = extHeader.GetHash();
+
+    CSHA256Writer commitment;
+    commitment << miniHash << extHash;
+    uint256 ret = commitment.GetHash();
+    return ret;
+}
+
+
+uint256 GetMiningHash(const uint256 &headerCommitment, const std::vector<unsigned char> &nonce)
+{
+    CHashWriter ret(SER_GETHASH, 0);
+    assert(nonce.size() <= CBlockHeader::MAX_NONCE_SIZE);
+    ret << headerCommitment << nonce;
+    uint256 r = ret.GetHash();
+    return r;
+}
+
+
+uint256 CBlockHeader::GetHash() const
+{
+    assert(size != 0); // Size must be properly calculated before we can figure out the hash
+
+    // The hash is calculated similarly to the mining header commitment, except that the nonce is included in the
+    // extended header.  This means that a very-light client can keep a very small header for uninteresting blocks
+    // consisting of the hashPrevBlock, nbits and sha256(extended header).  This data is sufficient to construct
+    // the block's identity hash and therefore to prove the chain of blocks and work.
+    CSHA256Writer miniHeader;
+    miniHeader << hashPrevBlock << nBits;
+    CSHA256Writer extHeader;
+    extHeader << hashAncestor << hashTxFilter << hashMerkleRoot << nTime << ((uint64_t)height) << chainWork << size
+              << txCount << maxSize << feePoolAmt << utxoCommitment << minerData << nonce;
+
+    CSHA256Writer commitment;
+    commitment << miniHeader.GetHash() << extHeader.GetHash();
+    uint256 ret = commitment.GetHash();
+    return ret;
+}
+
+uint256 CBlockHeader::GetMiningHash() const
+{
+    assert(size != 0); // Size must be properly calculated before we can figure out the hash
+    return ::GetMiningHash(GetMiningHeaderCommitment(), nonce);
+}
+
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf(
-        "CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
-        GetHash().ToString(), nVersion, hashPrevBlock.ToString(), hashMerkleRoot.ToString(), nTime, nBits, nNonce,
-        vtx.size());
+    s << strprintf("CBlock(hash=%s, height=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, txCount=%u "
+                   "size=%d(%d), maxSize=%d, feePool=%d, nonce=%s, utxo=%s)\n",
+        GetHash().ToString(), height, hashPrevBlock.ToString(), hashMerkleRoot.ToString(), nTime, nBits, size,
+        vtx.size(), maxSize, feePoolAmt, HexStr(nonce), HexStr(utxoCommitment));
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
         s << "  " << vtx[i]->ToString() << "\n";
@@ -27,11 +85,34 @@ std::string CBlock::ToString() const
     return s.str();
 }
 
+std::string CBlock::GetHex() const
+{
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << *this;
+    std::string strHex = HexStr(stream.begin(), stream.end());
+    return strHex;
+}
+
+void CBlock::UpdateHeader()
+{
+    txCount = vtx.size();
+    hashMerkleRoot = BlockMerkleRoot(*this);
+    size = CalculateBlockSize();
+}
+
+uint64_t CBlock::CalculateBlockSize() const
+{
+    uint64_t nonceSerializedSize = nonce.size() + 1; // short array serialization is 1 byte of length + the array
+    return ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION) - nonceSerializedSize;
+}
+
 uint64_t CBlock::GetBlockSize() const
 {
-    if (nBlockSize == 0)
-        nBlockSize = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-    return nBlockSize;
+    if (size == 0)
+    {
+        size = CalculateBlockSize();
+    }
+    return size;
 }
 
 
@@ -41,7 +122,7 @@ arith_uint256 GetWorkForDifficultyBits(uint32_t nBits)
     bool fNegative;
     bool fOverflow;
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
-    if (fNegative || fOverflow || bnTarget == 0)
+    if (fNegative || fOverflow || bnTarget == arith_uint256(0))
         return 0;
     // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
     // as it's too large for a arith_uint256. However, as 2**256 is at least as large

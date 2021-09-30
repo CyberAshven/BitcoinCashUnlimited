@@ -64,9 +64,9 @@ double GetDifficulty(const CBlockIndex *blockindex)
             blockindex = chainActive.Tip();
     }
 
-    int nShift = (blockindex->nBits >> 24) & 0xff;
+    int nShift = (blockindex->tgtBits() >> 24) & 0xff;
 
-    double dDiff = (double)0x0000ffff / (double)(blockindex->nBits & 0x00ffffff);
+    double dDiff = (double)0x0000ffff / (double)(blockindex->tgtBits() & 0x00ffffff);
 
     while (nShift < 29)
     {
@@ -82,31 +82,43 @@ double GetDifficulty(const CBlockIndex *blockindex)
     return dDiff;
 }
 
-UniValue blockheaderToJSON(const CBlockIndex *blockindex)
+
+UniValue blockheaderToJSON(const CBlockIndex *blockindex, UniValue &result)
 {
-    UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     int confirmations = -1;
     // Only report confirmations if the block is on the main chain
     if (chainActive.Contains(blockindex))
-        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+        confirmations = chainActive.Height() - blockindex->height() + 1;
     result.pushKV("confirmations", confirmations);
-    result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", blockindex->nVersion);
-    result.pushKV("versionHex", strprintf("%08x", blockindex->nVersion));
-    result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
-    result.pushKV("time", (int64_t)blockindex->nTime);
+    result.pushKV("height", (uint64_t)blockindex->height());
+    result.pushKV("size", blockindex->header.size);
+    result.pushKV("maxSize", blockindex->header.maxSize);
+    result.pushKV("feePoolAmt", blockindex->header.feePoolAmt);
+    result.pushKV("merkleroot", blockindex->hashMerkleRoot().GetHex());
+    result.pushKV("time", (int64_t)blockindex->time());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("nonce", (uint64_t)blockindex->nNonce);
-    result.pushKV("bits", strprintf("%08x", blockindex->nBits));
+    result.pushKV("nonce", HexStr(blockindex->nonce()));
+    result.pushKV("bits", strprintf("%08x", blockindex->tgtBits()));
     result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    result.pushKV("chainwork", blockindex->chainWork().GetHex());
+    result.pushKV("utxoCommitment", HexStr(blockindex->header.utxoCommitment));
+    result.pushKV("minerData", HexStr(blockindex->header.minerData));
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
+    result.pushKV("ancestorhash", blockindex->header.hashAncestor.GetHex());
+
     CBlockIndex *pnext = chainActive.Next(blockindex);
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+    return result;
+}
+
+UniValue blockheaderToJSON(const CBlockIndex *blockindex)
+{
+    UniValue result(UniValue::VOBJ);
+    blockheaderToJSON(blockindex, result);
     return result;
 }
 
@@ -116,17 +128,8 @@ UniValue blockToJSON(const CBlock &block,
     bool listTxns /* = true */)
 {
     UniValue result(UniValue::VOBJ);
-    result.pushKV("hash", blockindex->GetBlockHash().GetHex());
-    int confirmations = -1;
-    // Only report confirmations if the block is on the main chain
-    if (chainActive.Contains(blockindex))
-        confirmations = chainActive.Height() - blockindex->nHeight + 1;
-    result.pushKV("confirmations", confirmations);
-    result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
-    result.pushKV("height", blockindex->nHeight);
-    result.pushKV("version", block.nVersion);
-    result.pushKV("versionHex", strprintf("%08x", block.nVersion));
-    result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
+    blockheaderToJSON(blockindex, result);
+
     UniValue txs(UniValue::VARR);
     if (listTxns)
     {
@@ -150,18 +153,6 @@ UniValue blockToJSON(const CBlock &block,
     {
         result.pushKV("txcount", (uint64_t)block.vtx.size());
     }
-    result.pushKV("time", block.GetBlockTime());
-    result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("nonce", (uint64_t)block.nNonce);
-    result.pushKV("bits", strprintf("%08x", block.nBits));
-    result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
-
-    if (blockindex->pprev)
-        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
-    CBlockIndex *pnext = chainActive.Next(blockindex);
-    if (pnext)
-        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
 }
 
@@ -594,8 +585,6 @@ UniValue getblockheader(const UniValue &params, bool fHelp)
             "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main "
             "chain\n"
             "  \"height\" : n,          (numeric) The block height or index\n"
-            "  \"version\" : n,         (numeric) The block version\n"
-            "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
@@ -668,7 +657,7 @@ UniValue getblockheader(const UniValue &params, bool fHelp)
         }
         LOG(RPC, "%s for height %d (tip is at %d)", __func__, height, current_tip);
         pindex = chainActive[height];
-        DbgAssert(pindex && pindex->nHeight == height, throw std::runtime_error(__func__));
+        DbgAssert(pindex && pindex->height() == height, throw std::runtime_error(__func__));
     }
 
     DbgAssert(pindex != nullptr, throw std::runtime_error(__func__));
@@ -841,7 +830,7 @@ static UniValue getblock(const UniValue &params, bool fHelp)
         }
         LOG(RPC, "%s for height %d (tip is at %d)", __func__, height, current_tip);
         pindex = chainActive[height];
-        DbgAssert(pindex && pindex->nHeight == height, throw std::runtime_error(__func__));
+        DbgAssert(pindex && pindex->height() == height, throw std::runtime_error(__func__));
     }
 
     DbgAssert(pindex != nullptr, throw std::runtime_error(__func__));
@@ -864,10 +853,7 @@ static UniValue getblock(const UniValue &params, bool fHelp)
 
     if (nVerbose == 0 && fListTxns == true)
     {
-        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-        ssBlock << block;
-        std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
-        return strHex;
+        return block.GetHex();
     }
 
     bool fVerbose = false;
@@ -910,7 +896,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     stats.hashBlock = pcursor->GetBestBlock();
 
     CBlockIndex *pindex = LookupBlockIndex(stats.hashBlock);
-    stats.nHeight = pindex->nHeight;
+    stats.nHeight = pindex->height();
     ss << stats.hashBlock;
     uint256 prevkey;
     std::map<uint32_t, Coin> outputs;
@@ -1074,7 +1060,7 @@ UniValue gettxout(const UniValue &params, bool fHelp)
     }
     else
     {
-        ret.pushKV("confirmations", (int64_t)(pindex->nHeight - coin.nHeight + 1));
+        ret.pushKV("confirmations", (int64_t)(pindex->height() - coin.nHeight + 1));
     }
     ret.pushKV("value", ValueFromAmount(coin.out.nValue));
     UniValue o(UniValue::VOBJ);
@@ -1122,13 +1108,13 @@ static UniValue SoftForkMajorityDesc(int version, CBlockIndex *pindex, const Con
     switch (version)
     {
     case 2:
-        activated = pindex->nHeight >= consensusParams.BIP34Height;
+        activated = pindex->height() >= consensusParams.BIP34Height;
         break;
     case 3:
-        activated = pindex->nHeight >= consensusParams.BIP66Height;
+        activated = pindex->height() >= consensusParams.BIP66Height;
         break;
     case 4:
-        activated = pindex->nHeight >= consensusParams.BIP65Height;
+        activated = pindex->height() >= consensusParams.BIP65Height;
         break;
     }
     rv.pushKV("status", activated);
@@ -1280,14 +1266,14 @@ UniValue getblockchaininfo(const UniValue &params, bool fHelp)
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain", Params().NetworkIDString());
     obj.pushKV("blocks", (int)chainActive.Height());
-    obj.pushKV("headers", pindexBestHeader ? pindexBestHeader.load()->nHeight : -1);
+    obj.pushKV("headers", pindexBestHeader ? pindexBestHeader.load()->height() : -1);
     obj.pushKV("bestblockhash", chainActive.Tip()->GetBlockHash().GetHex());
     obj.pushKV("difficulty", (double)GetDifficulty());
     obj.pushKV("mediantime", (int64_t)chainActive.Tip()->GetMedianTimePast());
     obj.pushKV("verificationprogress",
         Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip(), !fCheckpointsEnabled));
     obj.pushKV("initialblockdownload", IsInitialBlockDownload());
-    obj.pushKV("chainwork", chainActive.Tip()->nChainWork.GetHex());
+    obj.pushKV("chainwork", chainActive.Tip()->chainWork().GetHex());
     obj.pushKV("size_on_disk", CalculateCurrentUsage());
     obj.pushKV("pruned", fPruneMode);
     if (fPruneMode)
@@ -1304,7 +1290,7 @@ UniValue getblockchaininfo(const UniValue &params, bool fHelp)
 
         if (block != nullptr)
         {
-            obj.pushKV("pruneheight", block->nHeight);
+            obj.pushKV("pruneheight", block->height());
         }
         else
         {
@@ -1425,11 +1411,11 @@ UniValue getchaintips(const UniValue &params, bool fHelp)
     for (const CBlockIndex *block : setTips)
     {
         UniValue obj(UniValue::VOBJ);
-        obj.pushKV("height", block->nHeight);
-        obj.pushKV("chainwork", block->nChainWork.GetHex());
+        obj.pushKV("height", block->height());
+        obj.pushKV("chainwork", block->chainWork().GetHex());
         obj.pushKV("hash", block->phashBlock->GetHex());
 
-        const int branchLen = block->nHeight - chainActive.FindFork(block)->nHeight;
+        const int branchLen = block->height() - chainActive.FindFork(block)->height();
         obj.pushKV("branchlen", branchLen);
 
         string status;
@@ -1776,7 +1762,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
     CBlockIndex *pMostWork = chainActive.Tip();
     for (CBlockIndex *pTip : setTips)
     {
-        if (pMostWork->nChainWork < pTip->nChainWork)
+        if (pMostWork->chainWork() < pTip->chainWork())
             pMostWork = pTip;
     }
     std::set<CBlockIndex *, CompareBlocksByHeight> setTipsToVerify;
@@ -1789,7 +1775,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
         // parse though chaintips again to find if there are duplicates
         for (CBlockIndex *pTip : setTips)
         {
-            if (pMostWork->nChainWork == pTip->nChainWork)
+            if (pMostWork->chainWork() == pTip->chainWork())
                 setTipsToVerify.insert(pTip);
         }
     }
@@ -1797,7 +1783,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
     for (CBlockIndex *pTipToVerify : setTipsToVerify)
     {
         // if no duplicates then return since there is nothing to do. We are already on the correct chain
-        if (pTipToVerify->nChainWork == chainActive.Tip()->nChainWork)
+        if (pTipToVerify->chainWork() == chainActive.Tip()->chainWork())
         {
             LOGA("Nothing to do. Already on the correct chain.");
             return "Nothing to do. Already on the correct chain.";
@@ -1808,7 +1794,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
         pFork = chainActive.FindFork(pTipToVerify);
 
         // Rollback to the common forkheight so that both chains will be invalidated.
-        error = RollBackChain(pFork->nHeight, fOverride);
+        error = RollBackChain(pFork->height(), fOverride);
         if (error.size() > 0)
             return error;
 
@@ -1826,7 +1812,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
             return "RPC_DATABASE_ERROR: " + state.GetRejectReason();
         }
 
-        if (pTipToVerify->nChainWork == chainActive.Tip()->nChainWork)
+        if (pTipToVerify->chainWork() == chainActive.Tip()->chainWork())
         {
             LOGA("Active chain has been successfully moved to a new chaintip.");
         }
@@ -2050,7 +2036,7 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
         }
         LOG(RPC, "%s for height %d (tip is at %d)", __func__, height, current_tip);
         pindex = chainActive[height];
-        DbgAssert(pindex && pindex->nHeight == height, throw std::runtime_error(__func__));
+        DbgAssert(pindex && pindex->height() == height, throw std::runtime_error(__func__));
     }
 
     DbgAssert(pindex != nullptr, throw std::runtime_error(__func__));
@@ -2183,7 +2169,7 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
     ret_all.pushKV("avgtxsize", (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0);
     ret_all.pushKV("blockhash", pindex->GetBlockHash().GetHex());
     ret_all.pushKV("feerate_percentiles", feerates_res);
-    ret_all.pushKV("height", (int64_t)pindex->nHeight);
+    ret_all.pushKV("height", (int64_t)pindex->height());
     ret_all.pushKV("ins", inputs);
     ret_all.pushKV("maxfee", ValueFromAmount(maxfee));
     ret_all.pushKV("maxfeerate", ValueFromAmount(maxfeerate));
@@ -2199,7 +2185,7 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
         READLOCK(cs_mapBlockIndex);
         ret_all.pushKV("sequence_id", pindex->nSequenceId);
     }
-    ret_all.pushKV("subsidy", ValueFromAmount(GetBlockSubsidy(pindex->nHeight, Params().GetConsensus())));
+    ret_all.pushKV("subsidy", ValueFromAmount(GetBlockSubsidy(pindex->height(), Params().GetConsensus())));
     ret_all.pushKV("time", pindex->GetBlockTime());
     {
         READLOCK(cs_mapBlockIndex);
@@ -2330,21 +2316,21 @@ UniValue getchaintxstats(const UniValue &params, bool fHelp)
 
     DbgAssert(pindex != nullptr, throw std::runtime_error(__func__));
 
-    if (blockcount < 1 || blockcount >= pindex->nHeight)
+    if (blockcount < 1 || blockcount >= pindex->height())
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid block count: should be between 1 and the block's height");
     }
 
-    const CBlockIndex *pindexPast = pindex->GetAncestor(pindex->nHeight - blockcount);
+    const CBlockIndex *pindexPast = pindex->GetAncestor(pindex->height() - blockcount);
     int nTimeDiff = pindex->GetMedianTimePast() - pindexPast->GetMedianTimePast();
     int nTxDiff = pindex->nChainTx - pindexPast->nChainTx;
 
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("time", (int64_t)pindex->nTime);
+    ret.pushKV("time", (int64_t)pindex->time());
     ret.pushKV("txcount", (int64_t)pindex->nChainTx);
     ret.pushKV("txrate", ((double)nTxDiff) / nTimeDiff);
     ret.pushKV("window_final_block_hash", pindex->GetBlockHash().GetHex());
-    ret.pushKV("window_final_block_height", pindex->nHeight);
+    ret.pushKV("window_final_block_height", pindex->height());
     ret.pushKV("window_block_count", blockcount);
     if (blockcount > 0)
     {

@@ -112,7 +112,7 @@ bool EvaluateSequenceLocks(const CBlockIndex &block, std::pair<int, int64_t> loc
 {
     assert(block.pprev);
     int64_t nBlockTime = block.pprev->GetMedianTimePast();
-    if (lockPair.first >= block.nHeight || lockPair.second >= nBlockTime)
+    if (lockPair.first >= block.height() || lockPair.second >= nBlockTime)
         return false;
 
     return true;
@@ -164,7 +164,7 @@ bool ContextualCheckTransaction(const CTransactionRef tx,
     CBlockIndex *const pindexPrev,
     const CChainParams &params)
 {
-    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
+    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->height() + 1;
     auto consensusParams = params.GetConsensus();
 
     if (IsMay2020Activated(consensusParams, nHeight) == false)
@@ -292,7 +292,7 @@ static int GetSpendHeight(const CCoinsViewCache &inputs)
     {
         CBlockIndex *pindexPrev = i->second;
         if (pindexPrev)
-            return pindexPrev->nHeight + 1;
+            return pindexPrev->height() + 1;
         else
         {
             throw std::runtime_error("GetSpendHeight(): mapBlockIndex contains null block");

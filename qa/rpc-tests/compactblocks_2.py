@@ -11,6 +11,8 @@ from test_framework.blocktools import create_block, create_coinbase
 from test_framework.siphash import siphash256
 from test_framework.script import CScript, OP_TRUE, OP_RETURN
 
+SYNC_TIMEOUT = 10
+
 '''
 CompactBlocksTest -- test compact blocks (BIP 152)
 '''
@@ -174,16 +176,21 @@ class CompactBlocksTest(BitcoinTestFramework):
     def build_block_on_tip(self):
         height = self.nodes[0].getblockcount()
         tip = self.nodes[0].getbestblockhash()
-        mtp = self.nodes[0].getblockheader(tip)['mediantime']
-        block = create_block(int(tip, 16), create_coinbase(height + 1), mtp + 1)
+        tipHdr = self.nodes[0].getblockheader(tip)
+        mtp = tipHdr['mediantime']
+        chainwork = int(tipHdr["chainwork"], 16)
+        block = create_block(uint256_from_bigendian(tip), height+1, chainwork+2, create_coinbase(height + 1), mtp + 1)
         block.solve()
         return block
 
     # Create 10 more anyone-can-spend utxo's for testing.
     def make_utxos(self):
         block = self.build_block_on_tip()
+        block.update_fields()
+        block.solve()
+        block.calc_hash()
         self.test_node.send_and_ping(msg_block(block))
-        waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
+        waitFor(SYNC_TIMEOUT, lambda: self.nodes[0].getbestblockhash() == block.hash)
         self.nodes[0].generate(100)
 
         total_value = block.vtx[0].vout[0].nValue
@@ -196,11 +203,12 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         block2 = self.build_block_on_tip()
         block2.vtx.append(tx)
-        block2.hashMerkleRoot = block2.calc_merkle_root()
+        block2.update_fields()
         block2.solve()
+        block2.calc_hash()
         self.test_node.send_and_ping(msg_block(block2))
 
-        waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16) == block2.sha256)
+        waitFor(SYNC_TIMEOUT, lambda: self.nodes[0].getbestblockhash() == block2.hash)
         self.utxos.extend([[tx.sha256, i, out_value] for i in range(10)])
         return
 
@@ -327,8 +335,8 @@ class CompactBlocksTest(BitcoinTestFramework):
             header_and_shortids = HeaderAndShortIDs(self.test_node.last_cmpctblock.header_and_shortids)
 
         # Check that we got the right block!
-        header_and_shortids.header.calc_sha256()
-        assert_equal(header_and_shortids.header.sha256, block_hash)
+        header_and_shortids.header.calc_hash()
+        assert_equal(header_and_shortids.header.gethash(), block_hash)
 
         # Make sure the prefilled_txn appears to have included the coinbase
         assert(len(header_and_shortids.prefilled_txn) >= 1)
@@ -378,7 +386,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             waitFor(30, lambda: self.test_node.last_getdata is not None)
             assert_equal(len(self.test_node.last_getdata.inv), 1)
             assert_equal(self.test_node.last_getdata.inv[0].type, 4)
-            assert_equal(self.test_node.last_getdata.inv[0].hash, block.sha256)
+            assert_equal(self.test_node.last_getdata.inv[0].hash, block.gethash())
 
             # Send back a compactblock message that omits the coinbase
             comp_block = HeaderAndShortIDs()
@@ -397,10 +405,10 @@ class CompactBlocksTest(BitcoinTestFramework):
 
             # Send the coinbase, and verify that the tip advances.
             msg = msg_blocktxn()
-            msg.block_transactions.blockhash = block.sha256
+            msg.block_transactions.blockhash = block.gethash()
             msg.block_transactions.transactions = [block.vtx[0]]
             self.test_node.send_and_ping(msg)
-            waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16), block.sha256)
+            waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16), block.gethash())
 
     # Create a chain of transactions from given utxo, and add to a new block.
     def build_block_with_transactions(self, utxo, num_transactions):
@@ -417,10 +425,10 @@ class CompactBlocksTest(BitcoinTestFramework):
             block.vtx.append(tx)
 
         ordered_txs = block.vtx
-        block.vtx = [block.vtx[0]] + \
-            sorted(block.vtx[1:], key=lambda tx: tx.hash)
-        block.hashMerkleRoot = block.calc_merkle_root()
+        block.vtx = [block.vtx[0]] + sorted(block.vtx[1:], key=lambda tx: tx.hash)
+        block.update_fields()
         block.solve()
+        block.rehash()
         return block, ordered_txs
 
     def announce_new_block(self, block):
@@ -457,9 +465,9 @@ class CompactBlocksTest(BitcoinTestFramework):
             expected_indices.append(block.vtx.index(ordered_txs[i]))
         assert_equal(absolute_indices, sorted(expected_indices))
         msg = msg_blocktxn()
-        msg.block_transactions = BlockTransactions(block.sha256, block.vtx[1:])
+        msg.block_transactions = BlockTransactions(block.gethash(), block.vtx[1:])
         self.test_node.send_and_ping(msg)
-        waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
+        waitFor(SYNC_TIMEOUT, lambda: self.nodes[0].getbestblockhash() == block.gethashhex())
 
 
         utxo = self.utxos.pop(0)
@@ -471,12 +479,12 @@ class CompactBlocksTest(BitcoinTestFramework):
         comp_block.initialize_from_block(block, prefill_list=[0, 1, 5])
         self.test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
         with mininode_lock:
-            waitFor(30, lambda: self.test_node.last_getblocktxn is not None)
+            waitFor(SYNC_TIMEOUT, lambda: self.test_node.last_getblocktxn is not None)
             absolute_indices = self.test_node.last_getblocktxn.block_txn_request.to_absolute()
         assert_equal(absolute_indices, [2,3,4])
-        msg.block_transactions = BlockTransactions(block.sha256, block.vtx[2:5])
+        msg.block_transactions = BlockTransactions(block.gethash(), block.vtx[2:5])
         self.test_node.send_and_ping(msg)
-        waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
+        waitFor(SYNC_TIMEOUT, lambda: self.nodes[0].getbestblockhash() == block.gethashhex())
 
 
         # Now try giving two transactions ahead of time.
@@ -486,7 +494,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
         self.test_node.send_and_ping(msg_tx(block.vtx[1]))
         self.test_node.send_and_ping(msg_tx(block.vtx[7]))
-        self.test_node.check_mempools([block.vtx[1], block.vtx[7]], self.nodes[0], timeout=30)
+        self.test_node.check_mempools([block.vtx[1], block.vtx[7]], self.nodes[0], timeout=SYNC_TIMEOUT)
 
         # Prefill 4 out of the 10 transactions, and verify that only the one
         # that was not in the mempool is requested.
@@ -498,9 +506,9 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(absolute_indices, [5, 6, 8, 9, 10])
 
         # send back the re-request but also include one tx "block.vtx[7]" which is in the peer's mempool.
-        msg.block_transactions = BlockTransactions(block.sha256, [block.vtx[5], block.vtx[6], block.vtx[7], block.vtx[8], block.vtx[9], block.vtx[10]])
+        msg.block_transactions = BlockTransactions(block.gethash(), [block.vtx[5], block.vtx[6], block.vtx[7], block.vtx[8], block.vtx[9], block.vtx[10]])
         self.test_node.send_and_ping(msg)
-        waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
+        waitFor(SYNC_TIMEOUT, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.gethash())
 
 
         # Now provide all transactions to the node before the block is
@@ -527,7 +535,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             # Shouldn't have gotten a request for any transaction
             assert(self.test_node.last_getblocktxn is None)
         # Tip should have updated
-        assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.sha256)
+        assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.gethash())
 
         # Now provide all transactions as prefilled and
         # and verify reconstruction happens immediately.
@@ -548,7 +556,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             # Shouldn't have gotten a request for any transaction
             assert(self.test_node.last_getblocktxn is None)
         # Tip should have updated
-        assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.sha256)
+        assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.gethash())
 
         # Now provide none of the transactions as prefilled (not even the coinbase) and
         # and verify a request for transactions.
@@ -571,9 +579,9 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(absolute_indices, [0, 1, 2, 3])
 
         # send back the re-request with all transactions including coinbase.
-        msg.block_transactions = BlockTransactions(block.sha256, [block.vtx[0], block.vtx[1],block.vtx[2],block.vtx[3]])
+        msg.block_transactions = BlockTransactions(block.gethash(), [block.vtx[0], block.vtx[1],block.vtx[2],block.vtx[3]])
         self.test_node.send_and_ping(msg)
-        waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.sha256)
+        waitFor(SYNC_TIMEOUT, lambda: int(self.nodes[0].getbestblockhash(), 16) == block.gethash())
 
 
     # Incorrectly responding to a getblocktxn shouldn't cause the block to be permanently
@@ -592,7 +600,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             self.test_node.send_message(msg_tx(tx))
 
         # Make sure all transactions were accepted in either the tx pool or orphan pool.
-        self.test_node.check_mempools(ordered_txs[1:6], self.nodes[0], timeout=30)
+        self.test_node.check_mempools(ordered_txs[1:6], self.nodes[0], timeout=SYNC_TIMEOUT)
 
         # Send compact block
         comp_block = HeaderAndShortIDs()
@@ -600,7 +608,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
         absolute_indices = []
         with mininode_lock:
-            waitFor(30, lambda: self.test_node.last_getblocktxn is not None)
+            waitFor(SYNC_TIMEOUT, lambda: self.test_node.last_getblocktxn is not None)
             absolute_indices = self.test_node.last_getblocktxn.block_txn_request.to_absolute()
         expected_indices = []
         for i in [6, 7, 8, 9, 10]:
@@ -617,7 +625,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         # enough for now.
 
         msg = msg_blocktxn()
-        msg.block_transactions = BlockTransactions(block.sha256, [ordered_txs[5]] + ordered_txs[7:])
+        msg.block_transactions = BlockTransactions(block.gethash(), [ordered_txs[5]] + ordered_txs[7:])
         self.test_node.send_and_ping(msg)
 
         # Tip should not have updated
@@ -664,7 +672,8 @@ def Test():
     t = CompactBlocksTest()
     t.drop_to_pdb = True
     bitcoinConf = {
-        "debug": ["rpc","net", "blk", "thin", "mempool", "req", "bench", "evict"]
+        "debug": ["all","-libevent"]
     }
+    logging.getLogger().setLevel(logging.INFO)
     flags = standardFlags()
     t.main(flags, bitcoinConf, None)

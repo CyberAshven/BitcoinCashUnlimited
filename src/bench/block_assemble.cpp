@@ -24,7 +24,8 @@ std::shared_ptr<CBlock> PrepareBlock(const CScript &coinbase_scriptPubKey, const
     auto block = std::make_shared<CBlock>(BlockAssembler(chainparams).CreateNewBlock(coinbase_scriptPubKey)->block);
     block->nTime = chainActive.Tip()->GetMedianTimePast() + 1;
     block->hashMerkleRoot = BlockMerkleRoot(*block);
-
+    block->txCount = block->vtx.size();
+    block->UpdateHeader();
     return block;
 }
 
@@ -32,13 +33,9 @@ static CTxIn MineBlock(const CScript &coinbase_scriptPubKey, const CChainParams 
 {
     auto block = PrepareBlock(coinbase_scriptPubKey, chainparams);
 
-    block->nTime = chainActive.Tip()->GetMedianTimePast() + 1;
-    block->hashMerkleRoot = BlockMerkleRoot(*block);
-    while (!CheckProofOfWork(block->GetHash(), block->nBits, chainparams.GetConsensus()))
-    {
-        ++block->nNonce;
-        assert(block->nNonce);
-    }
+    block->nonce.resize(4);
+    bool found = MineBlock(*block, 100000000, chainparams.GetConsensus());
+    assert(found);
 
     CValidationState state;
     // need to copy the object corresponding by the shared_pointer because

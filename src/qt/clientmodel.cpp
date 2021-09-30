@@ -73,7 +73,7 @@ int ClientModel::getHeaderTipHeight() const
 {
     if (!pindexBestHeader)
         return 0;
-    return pindexBestHeader.load()->nHeight;
+    return pindexBestHeader.load()->height();
 }
 int64_t ClientModel::getHeaderTipTime() const
 {
@@ -223,7 +223,7 @@ static void BlockTipChanged(ClientModel *clientmodel, bool initialSync, const CB
     if (!initialSync || now - nLastBlockTipUpdateNotification > MODEL_UPDATE_DELAY1)
     {
         // pass a async signal to the UI thread
-        QMetaObject::invokeMethod(clientmodel, "numBlocksChanged", Qt::QueuedConnection, Q_ARG(int, pIndex->nHeight),
+        QMetaObject::invokeMethod(clientmodel, "numBlocksChanged", Qt::QueuedConnection, Q_ARG(int, pIndex->height()),
             Q_ARG(QDateTime, QDateTime::fromTime_t(clientmodel->lastBlockTime)),
             Q_ARG(double, clientmodel->getVerificationProgress(pIndex)), Q_ARG(bool, fHeader));
         nLastBlockTipUpdateNotification = now;

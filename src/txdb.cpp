@@ -192,7 +192,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     size_t batch_size = nMaxDBBatchSize;
     size_t spent_coins = 0;
 
-    LOG(COINDB, "starting Commiting process\n");
+    LOG(COINDB, "starting committing process\n");
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();)
     {
         if (it->second.flags & CCoinsCacheEntry::DIRTY)
@@ -394,10 +394,12 @@ bool CBlockTreeDB::FindBlockIndex(uint256 blockhash, CDiskBlockIndex *pindex)
             {
                 if (pcursor->GetValue(*pindex))
                 {
-                    if (!CheckProofOfWork(blockhash, pindex->nBits, Params().GetConsensus()))
+                    /* TODO: blockhash is different than mining hash
+                    if (!CheckProofOfWork(blockhash, pindex->tgtBits(), Params().GetConsensus()))
                     {
                         return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindex->ToString());
                     }
+                    */
                     return true;
                 }
                 else
@@ -439,22 +441,17 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
             {
                 // Construct block index object
                 CBlockIndex *pindexNew = InsertBlockIndex(diskindex.GetBlockHash());
-                pindexNew->pprev = InsertBlockIndex(diskindex.hashPrev);
-                pindexNew->nHeight = diskindex.nHeight;
+                pindexNew->pprev = InsertBlockIndex(diskindex.header.hashPrevBlock);
                 pindexNew->nFile = diskindex.nFile;
                 pindexNew->nDataPos = diskindex.nDataPos;
                 pindexNew->nUndoPos = diskindex.nUndoPos;
-                pindexNew->nVersion = diskindex.nVersion;
-                pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
-                pindexNew->nTime = diskindex.nTime;
-                pindexNew->nBits = diskindex.nBits;
-                pindexNew->nNonce = diskindex.nNonce;
+                // TODO add new fields
+                pindexNew->header = diskindex.header;
                 pindexNew->nStatus = diskindex.nStatus;
-                pindexNew->nTx = diskindex.nTx;
                 pindexNew->nSequenceId = diskindex.nSequenceId;
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
 
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
+                if (!CheckProofOfWork(pindexNew->header.GetMiningHash(), pindexNew->tgtBits(), Params().GetConsensus()))
                     return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
                 pcursor->Next();
@@ -490,7 +487,7 @@ bool CBlockTreeDB::GetSortedHashIndex(std::vector<std::pair<int, CDiskBlockIndex
             if (pcursor->GetValue(diskindex))
             {
                 // Construct block index object
-                hashesByHeight.push_back(std::make_pair(diskindex.nHeight, diskindex));
+                hashesByHeight.push_back(std::make_pair(diskindex.height(), diskindex));
                 pcursor->Next();
             }
             else

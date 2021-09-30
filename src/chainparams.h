@@ -168,7 +168,7 @@ CChainParams &Params(const std::string &chain);
  */
 void SelectParams(const std::string &chain);
 
-CBlock CreateGenesisBlock(CScript prefix,
+SatoshiBlock CreateGenesisBlock(CScript prefix,
     const std::string &comment,
     const CScript &genesisOutputScript,
     uint32_t nTime,

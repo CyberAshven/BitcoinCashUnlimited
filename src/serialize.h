@@ -460,8 +460,8 @@ uint64_t ReadCompactSize(Stream &is)
  * 0:         [0x00]  256:        [0x81 0x00]
  * 1:         [0x01]  16383:      [0xFE 0x7F]
  * 127:       [0x7F]  16384:      [0xFF 0x00]
- * 128:  [0x80 0x00]  16511: [0x80 0xFF 0x7F]
- * 255:  [0x80 0x7F]  65535: [0x82 0xFD 0x7F]
+ * 128:  [0x80 0x00]  16511:      [0xFF 0x7F]
+ * 255:  [0x80 0x7F]  65535: [0x82 0xFE 0x7F]
  * 2^32:           [0x8E 0xFE 0xFE 0xFF 0x00]
  */
 
@@ -1148,7 +1148,7 @@ inline void WriteVarInt(CSizeComputer &s, I n)
 
 inline void WriteCompactSize(CSizeComputer &s, uint64_t nSize) { s.seek(GetSizeOfCompactSize(nSize)); }
 template <typename T>
-size_t GetSerializeSize(const T &t, int nType, int nVersion = 0)
+size_t GetSerializeSize(const T &t, int nType, int nVersion)
 {
     return (CSizeComputer(nType, nVersion) << t).size();
 }

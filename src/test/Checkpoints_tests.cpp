@@ -21,6 +21,8 @@ BOOST_FIXTURE_TEST_SUITE(Checkpoints_tests, TestChain100Setup)
 
 BOOST_AUTO_TEST_CASE(sanity)
 {
+#if 0 // TODO: Right now, no checkpoints defined
+
     // Test Get Total Block Estimate
     const CCheckpointData &checkpoints = Params(CBaseChainParams::MAIN).Checkpoints();
     BOOST_CHECK(Checkpoints::GetTotalBlocksEstimate(checkpoints) >= 134444);
@@ -43,6 +45,7 @@ BOOST_AUTO_TEST_CASE(sanity)
     {
         BOOST_CHECK(pindex2->GetBlockHash() == hash_last_checkpoint);
     }
+#endif
 }
 
 BOOST_AUTO_TEST_SUITE_END()

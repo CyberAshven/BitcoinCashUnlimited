@@ -80,25 +80,24 @@ class MinimaldataTest(BitcoinTestFramework):
         block_height = node.getblockcount()
         blockhash = node.getblockhash(block_height)
         block = FromHex(CBlock(), node.getblock(blockhash, 0))
-        block.calc_sha256()
-        self.block_heights[block.sha256] = block_height
+        self.block_heights[block.gethash()] = block_height
         return block
 
     def build_block(self, parent, transactions=(), nTime=None):
         """Make a new block with an OP_1 coinbase output.
 
         Requires parent to have its height registered."""
-        parent.calc_sha256()
-        block_height = self.block_heights[parent.sha256] + 1
+        parent.rehash()
+        block_height = self.block_heights[parent.gethash()] + 1
         block_time = (parent.nTime + 1) if nTime is None else nTime
 
         block = create_block(
-            parent.sha256, create_coinbase(block_height, scriptPubKey = CScript([OP_TRUE])), block_time)
+            parent.gethash(), block_height, parent.chainWork + 2,create_coinbase(block_height, scriptPubKey = CScript([OP_TRUE])), block_time)
         block.vtx.extend(transactions)
         make_conform_to_ctor(block)
-        block.hashMerkleRoot = block.calc_merkle_root()
+        block.update_fields()
         block.solve()
-        self.block_heights[block.sha256] = block_height
+        self.block_heights[block.gethash()] = block_height
         return block
 
     def check_for_ban_on_rejected_tx(self, tx, reject_reason=None):
@@ -110,7 +109,7 @@ class MinimaldataTest(BitcoinTestFramework):
         """Check we trigger a ban when sending a block that the node rejects.
         (Can't actually get banned, since bitcoind won't ban local peers.)"""
         self.p2p.send_blocks_and_test(
-            [block], self.nodes[0], success=False, expect_ban=True, reject_reason=reject_reason)
+            [block], self.nodes[0], success=False, expect_ban=True, reject_reason=reject_reason, timeout=15)
 
     def run_test(self):
         node = self.nodes[0]
@@ -188,6 +187,7 @@ if __name__ == '__main__':
 def Test():
     t = MinimaldataTest()
     t.drop_to_pdb = True
+    logging.getLogger().setLevel(logging.INFO)
     bitcoinConf = {
         "debug": ["blk", "mempool", "net", "req"],
     }

@@ -121,13 +121,11 @@ public:
 };
 
 
+/*
 static CBlockHeader CpuMinerJsonToHeader(const UniValue &params)
 {
     // Does not set hashMerkleRoot (Does not exist in Mining-Candidate params).
     CBlockHeader blockheader;
-
-    // nVersion
-    blockheader.nVersion = params["version"].get_int();
 
     // hashPrevBlock
     string tmpstr = params["prevhash"].get_str();
@@ -146,6 +144,24 @@ static CBlockHeader CpuMinerJsonToHeader(const UniValue &params)
     }
 
     return blockheader;
+}
+*/
+
+static bool CpuMinerJsonToData(const UniValue &params, uint256 &headerCommitment, uint32_t &nBits)
+{
+    string tmpstr = params["headerCommitment"].get_str();
+    std::vector<unsigned char> vec = ParseHex(tmpstr);
+    std::reverse(vec.begin(), vec.end()); // sent reversed
+    headerCommitment = uint256(vec);
+
+    // nBits
+    {
+        std::stringstream ss;
+        ss << std::hex << params["nBits"].get_str();
+        ss >> nBits;
+    }
+
+    return true;
 }
 
 
@@ -170,96 +186,50 @@ static uint256 CalculateMerkleRoot(uint256 &coinbase_hash, const std::vector<uin
     return merkle_root;
 }
 
-static bool CpuMineBlockHasher(CBlockHeader *pblock,
-    vector<unsigned char> &coinbaseBytes,
-    const std::vector<uint256> &merkleproof,
-    const RandFunc &randFunc)
-{
-    uint32_t nExtraNonce = randFunc(); // Grab random 4-bytes from thread-safe generator we were passed
-    uint32_t nNonce = pblock->nNonce;
-    arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
-    bool found = false;
-    int ntries = 10;
-    unsigned char *pbytes = (unsigned char *)&coinbaseBytes[0];
 
-    while (!found)
-    {
-        // hashMerkleRoot:
-        {
-            ++nExtraNonce;
-            // 48 - next in arr after Height. (Height in coinbase required for block.version=2):
-            *(uint32_t *)(pbytes + 48) = nExtraNonce;
-            uint256 hash;
-            CHash256().Write(pbytes, coinbaseBytes.size()).Finalize(hash.begin());
-
-            pblock->hashMerkleRoot = CalculateMerkleRoot(hash, merkleproof);
-        }
-
-        //
-        // Search
-        //
-        uint256 hash;
-        while (!found)
-        {
-            // Check if something found
-            if (ScanHash(pblock, nNonce, &hash))
-            {
-                if (UintToArith256(hash) <= hashTarget)
-                {
-                    // Found a solution
-                    pblock->nNonce = nNonce;
-                    found = true;
-                    printf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex().c_str(),
-                        hashTarget.GetHex().c_str());
-                    break;
-                }
-                else
-                {
-                    if (ntries-- < 1)
-                    {
-                        pblock->nNonce = nNonce; // report the last nonce checked for accounting
-                        return false; // Give up leave
-                    }
-                }
-            }
-        }
-    }
-
-    return found;
-}
-
-static bool CpuMineBlockHasherNextChain(CBlockHeader *pblock,
-    vector<unsigned char> &coinbaseBytes,
-    const std::vector<uint256> &merkleproof,
+static bool CpuMineBlockHasherNextChain(int &ntries,
+    uint256 headerCommitment,
+    uint32_t nBits,
     const RandFunc &randFunc,
-    const Consensus::Params &conp)
+    const Consensus::Params &conp,
+    std::vector<unsigned char> &nonce)
 {
-    uint32_t nExtraNonce = randFunc(); // Grab random 4-bytes from thread-safe generator we were passed
-    arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
+    arith_uint256 hashTarget = arith_uint256().SetCompact(nBits);
     bool found = false;
-    int ntries = 10;
-    unsigned char *pbytes = (unsigned char *)&coinbaseBytes[0];
 
+    // Note that since I have a coinbase that is unique to my hashing effort, my hashing won't duplicate a competitor's
+    // efforts.  So it does not matter that we all start with few nonce bits.
+    nonce.resize(4);
+
+    unsigned int extra = randFunc();
+    uint32_t startCount = randFunc();
+    unsigned int count = startCount;
     while (!found)
     {
-        // hashMerkleRoot:
-        {
-            ++nExtraNonce;
-            // 48 - next in arr after Height. (Height in coinbase required for block.version=2):
-            *(uint32_t *)(pbytes + 48) = nExtraNonce;
-            uint256 hash;
-            CHash256().Write(pbytes, coinbaseBytes.size()).Finalize(hash.begin());
-
-            pblock->hashMerkleRoot = CalculateMerkleRoot(hash, merkleproof);
-        }
-
         //
         // Search
         //
         uint256 hash;
         while (!found)
         {
-            if (CheckProofOfWork(pblock->GetHash(), pblock->nBits, conp))
+            ++count;
+            nonce[0] = count & 255;
+            nonce[1] = (count >> 8) & 255;
+            nonce[2] = (count >> 16) & 255;
+            nonce[3] = (count >> 24) & 255;
+            if (count == startCount) // Looped around, expand search space
+            {
+                ++extra;
+                // TODO what if extra wraps around (go to 8 bytes)
+                if (nonce.size() < 6)
+                {
+                    nonce.resize(6);
+                }
+                nonce[4] = extra & 255;
+                nonce[5] = (extra >> 8) & 255;
+            }
+            uint256 miningHash = GetMiningHash(headerCommitment, nonce);
+            if (CheckProofOfWork(miningHash, nBits, conp))
             {
                 // Found a solution
                 found = true;
@@ -271,7 +241,6 @@ static bool CpuMineBlockHasherNextChain(CBlockHeader *pblock,
             {
                 return false; // Give up leave
             }
-            pblock->nNonce++;
         }
     }
 
@@ -327,22 +296,23 @@ static SharedBlkInfo sharedBlkInfo;
 static UniValue CpuMineBlock(unsigned int searchDuration, const UniValue &params, bool &found, const RandFunc &randFunc)
 {
     UniValue ret(UniValue::VARR);
-    CBlockHeader header;
+    uint256 headerCommitment;
     const double maxdiff = GetDoubleArg("-maxdifficulty", 0.0);
     searchDuration *= 1000; // convert to millis
 
     found = false;
 
-    header = CpuMinerJsonToHeader(params);
+    uint32_t nBits;
+    CpuMinerJsonToData(params, headerCommitment, nBits);
 
     // save the prev block CheapHash & current difficulty to the global shared variable right away: this will
     // potentially signal to other threads to return early if they are still mining on top of an old block (assumption
     // here is that this block is the latest result from the RPC server, which is true 99.99999% of the time.)
-    const BlkInfo blkInfo = {header.hashPrevBlock.GetCheapHash(), header.nBits};
+    const BlkInfo blkInfo = {headerCommitment.GetCheapHash(), nBits};
     sharedBlkInfo.store(blkInfo);
 
     // first check difficulty, and abort if it's lower than maxdifficulty from CLI
-    const double difficulty = GetDifficulty(header.nBits);
+    const double difficulty = GetDifficulty(nBits);
 
     if (maxdiff > 0.0 && difficulty > maxdiff)
     {
@@ -353,6 +323,7 @@ static UniValue CpuMineBlock(unsigned int searchDuration, const UniValue &params
     }
 
     // ok, difficulty check passed or not applicable, proceed
+#if 0
     UniValue tmp(UniValue::VOBJ);
     string tmpstr;
     std::vector<uint256> merkleproof;
@@ -370,24 +341,18 @@ static UniValue CpuMineBlock(unsigned int searchDuration, const UniValue &params
             merkleproof.push_back(uint256(mbr));
         }
     }
-
-    // Set the version (only to test):
-    {
-        int blockversion = GetArg("-blockversion", header.nVersion);
-        if (blockversion != header.nVersion)
-            printf("Force header.nVersion to %d\n", blockversion);
-        header.nVersion = blockversion;
-    }
-
-    uint32_t startNonce = header.nNonce = randFunc();
+#endif
 
     const CChainParams &cparams = Params();
     auto conp = cparams.GetConsensus();
 
-    printf("Mining: id: %x parent: %s bits: %x difficulty: %3.4f time: %d\n", (unsigned int)params["id"].get_int64(),
-        header.hashPrevBlock.ToString().c_str(), header.nBits, difficulty, header.nTime);
+    printf("Mining: id: %x headerCommitment: %s bits: %x difficulty: %3.4f\n", (unsigned int)params["id"].get_int64(),
+        headerCommitment.ToString().c_str(), nBits, difficulty);
 
     int64_t start = GetTimeMillis();
+    std::vector<unsigned char> nonce;
+    int ChunkAmt = 1000;
+    int checked = 0;
     while ((GetTimeMillis() < start + searchDuration) && !found && sharedBlkInfo == blkInfo)
     {
         // When mining mainnet, you would normally want to advance the time to keep the block time as close to the
@@ -396,31 +361,25 @@ static UniValue CpuMineBlock(unsigned int searchDuration, const UniValue &params
         // and the block will be rejected.  So do not advance time (let it be advanced by bitcoind every time we
         // request a new block).
         // header.nTime = (header.nTime < GetTime()) ? GetTime() : header.nTime;
-        if (conp.powAlgorithm == 1)
-            found = CpuMineBlockHasherNextChain(&header, coinbaseBytes, merkleproof, randFunc, conp);
-        else
-            found = CpuMineBlockHasher(&header, coinbaseBytes, merkleproof, randFunc);
+        int tries = ChunkAmt;
+        found = CpuMineBlockHasherNextChain(tries, headerCommitment, nBits, randFunc, conp, nonce);
+        checked += ChunkAmt - tries;
     }
-
-    const uint32_t nChecked = header.nNonce - startNonce;
 
     // Leave if not found:
     if (!found)
     {
         const int64_t elapsed = GetTimeMillis() - start;
-        printf("Checked %d possibilities in %ld secs, %3.3f MH/s\n", nChecked, elapsed / 1000,
-            (nChecked / 1e6) / (elapsed / 1e3));
+        printf("Checked %d possibilities in %ld secs, %3.3f MH/s\n", checked, elapsed / 1000,
+            (checked / 1e6) / (elapsed / 1e3));
         return ret;
     }
 
-    printf("Solution! Checked %d possibilities\n", nChecked);
+    printf("Solution! Checked %d possibilities\n", checked);
 
-    tmpstr = HexStr(coinbaseBytes.begin(), coinbaseBytes.end());
-    tmp.pushKV("coinbase", tmpstr);
+    UniValue tmp(UniValue::VOBJ);
     tmp.pushKV("id", params["id"]);
-    tmp.pushKV("time", UniValue(header.nTime)); // Optional. We have changed so must send.
-    tmp.pushKV("nonce", UniValue(header.nNonce));
-    tmp.pushKV("version", UniValue(header.nVersion)); // Optional. We may have changed so sending.
+    tmp.pushKV("nonce", HexStr(nonce));
     ret.push_back(tmp);
 
     return ret;

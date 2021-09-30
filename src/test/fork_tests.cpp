@@ -20,8 +20,8 @@ BOOST_AUTO_TEST_CASE(fork_trigger)
     {
         if (i)
             bi[i].pprev = &bi[i - 1];
-        bi[i].nHeight = i;
-        bi[i].nTime = i;
+        bi[i].header.height = i;
+        bi[i].header.nTime = i;
     }
 
     for (int i = 0; i < SZ; i++)

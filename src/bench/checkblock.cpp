@@ -8,6 +8,8 @@
 #include "chainparams.h"
 #include "validation/validation.h"
 
+#if 0 //  TODO: acquire a real nextchain block
+
 // These are the two major time-sinks which happen after we have fully received
 // a block off the wire, but before we can relay the block on to peers using
 // compact block relay.
@@ -33,6 +35,7 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
     stream.write(&a, 1); // Prevent compaction
 
     SelectParams(CBaseChainParams::MAIN);
+    const Consensus::Params &consensusParams = Params().GetConsensus();
     while (state.KeepRunning()) {
         CBlock block; // Note that CBlock caches its checked state, so we need to recreate it here
         stream >> block;
@@ -40,9 +43,11 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
         assert(rewound);
 
         CValidationState _state;
-        assert(CheckBlock(block, _state));
+        assert(CheckBlock(consensusParams, block, _state));
     }
 }
 
 BENCHMARK(DeserializeBlockTest, 130);
 BENCHMARK(DeserializeAndCheckBlockTest, 160);
+
+#endif

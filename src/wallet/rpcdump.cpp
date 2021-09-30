@@ -712,7 +712,7 @@ UniValue importwallet(const UniValue &params, bool fHelp)
     if (!pwalletMain->nTimeFirstKey || nTimeBegin < pwalletMain->nTimeFirstKey)
         pwalletMain->nTimeFirstKey = nTimeBegin;
 
-    LOGA("Rescanning last %i blocks\n", chainActive.Height() - pindex->nHeight + 1);
+    LOGA("Rescanning last %i blocks\n", chainActive.Height() - pindex->height() + 1);
     pwalletMain->ScanForWalletTransactions(pindex);
     pwalletMain->MarkDirty();
 

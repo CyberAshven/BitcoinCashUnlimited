@@ -161,6 +161,10 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
             std::string exp_addrType = find_value(metadata, "addrType").get_str();
             // Must be valid public key
             destination = DecodeLegacyAddr(exp_base58string, Params());
+            if (!IsValidDestination(destination))
+            {
+                printf("invalid\n");
+            }
             BOOST_CHECK_MESSAGE(IsValidDestination(destination), "!IsValid:" + strTest);
             BOOST_CHECK_MESSAGE((boost::get<CScriptID>(&destination) != nullptr) == (exp_addrType == "script"),
                 "isScript mismatch" + strTest);

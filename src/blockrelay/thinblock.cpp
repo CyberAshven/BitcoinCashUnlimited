@@ -85,7 +85,7 @@ bool CThinBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             thinBlock->header.hashPrevBlock.ToString());
 
     CValidationState state;
-    if (!ContextualCheckBlockHeader(thinBlock->header, state, pprev))
+    if (!ContextualCheckBlockHeader(Params(), thinBlock->header, state, pprev))
     {
         // Thin block does not fit within our blockchain
         dosMan.Misbehaving(pfrom, 100);
@@ -123,12 +123,7 @@ bool CThinBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
 bool CThinBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock)
 {
-    pblock->nVersion = header.nVersion;
-    pblock->nBits = header.nBits;
-    pblock->nNonce = header.nNonce;
-    pblock->nTime = header.nTime;
-    pblock->hashMerkleRoot = header.hashMerkleRoot;
-    pblock->hashPrevBlock = header.hashPrevBlock;
+    *((CBlockHeader *)(pblock.get())) = header;
 
     DbgAssert(pblock->thinblock != nullptr, return false);
     DbgAssert(pblock->thinblock.get() == this, return false);
@@ -433,7 +428,7 @@ bool CXRequestThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     }
     else
     {
-        if (hdr->nHeight < (chainActive.Tip()->nHeight - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
+        if (hdr->height() < (chainActive.Tip()->height() - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
             return error(THIN, "get_xblocktx request too far from the tip");
 
         const Consensus::Params &consensusParams = Params().GetConsensus();
@@ -465,7 +460,7 @@ bool CXRequestThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CXThinBlock::CheckBlockHeader(const CBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckProofOfWork(header.GetHash(), header.nBits, Params().GetConsensus()))
+    if (!CheckProofOfWork(header.GetMiningHash(), header.nBits, Params().GetConsensus()))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp
@@ -544,7 +539,7 @@ bool CXThinBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom, std::string st
         }
 
         // Request full block if it isn't extending the best chain
-        if (pIndex->nChainWork <= chainActive.Tip()->nChainWork)
+        if (pIndex->chainWork() <= chainActive.Tip()->chainWork())
         {
             thinrelay.RequestBlock(pfrom, thinBlock->header.GetHash());
             thinrelay.ClearAllBlockData(pfrom, inv.hash);
@@ -588,26 +583,21 @@ bool CXThinBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom, std::string st
 bool CXThinBlock::process(CNode *pfrom, std::string strCommand, std::shared_ptr<CBlockThinRelay> pblock)
 // TODO: request from the "best" txn source not necessarily from the block source
 {
-    // In PV we must prevent two thinblocks from simulaneously processing from that were recieved from the
-    // same peer. This would only happen as in the example of an expedited block coming in
-    // after an xthin request, because we would never explicitly request two xthins from the same peer.
-    if (PV->IsAlreadyValidating(pfrom->id, pblock->GetHash()))
-    {
-        LOGA("Not processing this xthin because %s is already validating in another thread\n",
-            pblock->GetHash().ToString().c_str());
-        return false;
-    }
-
-    pblock->nVersion = header.nVersion;
-    pblock->nBits = header.nBits;
-    pblock->nNonce = header.nNonce;
-    pblock->nTime = header.nTime;
-    pblock->hashMerkleRoot = header.hashMerkleRoot;
-    pblock->hashPrevBlock = header.hashPrevBlock;
-
     DbgAssert(pblock->xthinblock != nullptr, return false);
     DbgAssert(pblock->xthinblock.get() == this, return false);
     std::shared_ptr<CXThinBlock> thinBlock = pblock->xthinblock;
+
+    // In PV we must prevent two thinblocks from simulaneously processing from that were recieved from the
+    // same peer. This would only happen as in the example of an expedited block coming in
+    // after an xthin request, because we would never explicitly request two xthins from the same peer.
+    if (PV->IsAlreadyValidating(pfrom->id, thinBlock->header.GetHash()))
+    {
+        LOGA("Not processing this xthin because %s is already validating in another thread\n",
+            thinBlock->header.GetHash().ToString().c_str());
+        return false;
+    }
+
+    *((CBlockHeader *)(pblock.get())) = header;
 
     // Create the mapMissingTx from all the supplied tx's in the xthinblock
     for (const CTransaction &tx : vMissingTx)
@@ -1432,7 +1422,7 @@ bool IsThinBlockValid(CNode *pfrom,
 
     // check block header
     CValidationState state;
-    if (!CheckBlockHeader(header, state, true))
+    if (!CheckBlockHeader(Params().GetConsensus(), header, state, true))
     {
         return error("Received invalid header for thinblock or xthinblock %s from peer %s", header.GetHash().ToString(),
             pfrom->GetLogName());

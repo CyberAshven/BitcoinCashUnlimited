@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(excessiveChecks)
 
     // Check tx size values
     maxTxSize.Set(DEFAULT_LARGEST_TRANSACTION);
-
+    block.UpdateHeader();
     // Within a 1 MB block, a 1MB transaction is not excessive
     BOOST_CHECK_MESSAGE(
         false == CheckExcessive(block, BLOCKSTREAM_CORE_MAX_BLOCK_SIZE, 1, BLOCKSTREAM_CORE_MAX_BLOCK_SIZE),

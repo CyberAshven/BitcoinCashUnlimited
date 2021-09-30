@@ -244,40 +244,6 @@ test-debian-benchmarks:
     dependencies:
         - build-debian-nodeps
 
-test-debian-qa-electrscash:
-    stage: qa_tests
-    extends: .cache-debian
-    needs: ["build-debian", "build-debian-electrscash"]
-    script:
-        - mkdir -p $CI_PROJECT_DIR/cores
-        - mkdir -p $CI_PROJECT_DIR/saved-cores
-        - echo $CI_PROJECT_DIR/cores/core.%e.%p.%h.%t | tee /proc/sys/kernel/core_pattern
-        - (cd build;
-            ./qa/pull-tester/rpc-tests.py --electrum-only --no-ipv6-rpc-listen --gitlab)
-    dependencies:
-        - build-debian-electrscash
-        - build-debian
-    artifacts:
-        when: on_failure
-        paths:
-            - ./qa/qa_tests/
-            - $CI_PROJECT_DIR/saved-cores
-            - ./build/src/bitcoind
-            - ./build/ctorout.txt
-# TODO: Use Junit as a logger
-#test-debian-unittests:
-#    stage: test
-#    cache: {}
-#    needs: ["build-debian-tests"]
-#    script:
-#        - (cd src; ./test/test_bitcoin --logger=HRF:JUNIT,message,junit_unit_tests.xml)
-#    dependencies:
-#        - build-debian-tests
-#    artifacts:
-#        reports:
-#            junit: junit_unit_tests.xml
-
-
 # bitcoind clang (no depend, only system lib installed via apt)
 .cache-debian-clang:
     extends: .ccache_scripts

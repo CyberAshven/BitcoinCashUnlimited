@@ -24,9 +24,9 @@ BOOST_AUTO_TEST_CASE(get_next_work)
 
     int64_t nLastRetargetTime = 1261130161; // Block #30240
     CBlockIndex pindexLast;
-    pindexLast.nHeight = 32255;
-    pindexLast.nTime = 1262152739; // Block #32255
-    pindexLast.nBits = 0x1d00ffff;
+    pindexLast.header.height = 32255;
+    pindexLast.header.nTime = 1262152739; // Block #32255
+    pindexLast.header.nBits = 0x1d00ffff;
     BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, params), 0x1d00d86a);
 }
 
@@ -38,9 +38,11 @@ BOOST_AUTO_TEST_CASE(get_next_work_pow_limit)
 
     int64_t nLastRetargetTime = 1231006505; // Block #0
     CBlockIndex pindexLast;
-    pindexLast.nHeight = 2015;
-    pindexLast.nTime = 1233061996; // Block #2015
-    pindexLast.nBits = 0x1d00ffff;
+    pindexLast.header.height = 2015;
+    pindexLast.header.nTime = 1233061996; // Block #2015
+    pindexLast.header.nBits = 0x1d00ffff;
+    auto v = CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, params);
+    printf("%x\n", v);
     BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, params), 0x1d00ffff);
 }
 
@@ -52,9 +54,9 @@ BOOST_AUTO_TEST_CASE(get_next_work_lower_limit_actual)
 
     int64_t nLastRetargetTime = 1279008237; // Block #66528
     CBlockIndex pindexLast;
-    pindexLast.nHeight = 68543;
-    pindexLast.nTime = 1279297671; // Block #68543
-    pindexLast.nBits = 0x1c05a3f4;
+    pindexLast.header.height = 68543;
+    pindexLast.header.nTime = 1279297671; // Block #68543
+    pindexLast.header.nBits = 0x1c05a3f4;
     BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, params), 0x1c0168fd);
 }
 
@@ -66,9 +68,9 @@ BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
 
     int64_t nLastRetargetTime = 1263163443; // NOTE: Not an actual block time
     CBlockIndex pindexLast;
-    pindexLast.nHeight = 46367;
-    pindexLast.nTime = 1269211443; // Block #46367
-    pindexLast.nBits = 0x1c387f6f;
+    pindexLast.header.height = 46367;
+    pindexLast.header.nTime = 1269211443; // Block #46367
+    pindexLast.header.nBits = 0x1c387f6f;
     BOOST_CHECK_EQUAL(CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, params), 0x1d00e1fd);
 }
 
@@ -81,10 +83,11 @@ BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
     for (int i = 0; i < 10000; i++)
     {
         blocks[i].pprev = i ? &blocks[i - 1] : nullptr;
-        blocks[i].nHeight = i;
-        blocks[i].nTime = 1269211443 + i * params.nPowTargetSpacing;
-        blocks[i].nBits = 0x207fffff; /* target 0x7fffff000... */
-        blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
+        blocks[i].header.height = i;
+        blocks[i].header.nTime = 1269211443 + i * params.nPowTargetSpacing;
+        blocks[i].header.nBits = 0x207fffff; /* target 0x7fffff000... */
+        blocks[i].header.SetChainWork(
+            i ? blocks[i - 1].header.aChainWork() + GetBlockProof(blocks[i - 1]) : arith_uint256(0));
     }
 
     for (int j = 0; j < 1000; j++)
@@ -102,252 +105,17 @@ static CBlockIndex GetBlockIndex(CBlockIndex *pindexPrev, int64_t nTimeInterval,
 {
     CBlockIndex block;
     block.pprev = pindexPrev;
-    block.nHeight = pindexPrev->nHeight + 1;
-    block.nTime = pindexPrev->nTime + nTimeInterval;
-    block.nBits = nBits;
+    block.header.height = pindexPrev->height() + 1;
+    block.header.nTime = pindexPrev->time() + nTimeInterval;
+    block.header.nBits = nBits;
     block.BuildSkip();
-    block.nChainWork = pindexPrev->nChainWork + GetBlockProof(block);
+    block.header.SetChainWork(pindexPrev->chainWork() + GetBlockProof(block));
     return block;
 }
 
-BOOST_AUTO_TEST_CASE(retargeting_test)
-{
-    SelectParams(CBaseChainParams::MAIN);
-    const Consensus::Params &params = Params().GetConsensus();
+// Removed, this was an EDA test
 
-    std::vector<CBlockIndex> blocks(115);
-
-    const arith_uint256 powLimit = UintToArith256(params.powLimit);
-    arith_uint256 currentPow = powLimit >> 1;
-    uint32_t initialBits = currentPow.GetCompact();
-
-    // Genesis block.
-    blocks[0] = CBlockIndex();
-    blocks[0].nHeight = 0;
-    blocks[0].nTime = 1269211443;
-    blocks[0].nBits = initialBits;
-
-    blocks[0].nChainWork = GetBlockProof(blocks[0]);
-    // Pile up some blocks.
-    for (size_t i = 1; i < 100; i++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], params.nPowTargetSpacing, initialBits);
-    }
-
-    CBlockHeader blkHeaderDummy;
-
-    // We start getting 2h blocks time. For the first 5 blocks, it doesn't
-    // matter as the MTP is not affected. For the next 5 block, MTP difference
-    // increases but stays below 12h.
-    for (size_t i = 100; i < 110; i++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 2 * 3600, initialBits);
-        BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[i], &blkHeaderDummy, params), initialBits);
-    }
-
-    // Now we expect the difficulty to decrease.
-    blocks[110] = GetBlockIndex(&blocks[109], 2 * 3600, initialBits);
-    currentPow.SetCompact(currentPow.GetCompact());
-    currentPow += (currentPow >> 2);
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[110], &blkHeaderDummy, params), currentPow.GetCompact());
-
-    // As we continue with 2h blocks, difficulty continue to decrease.
-    blocks[111] = GetBlockIndex(&blocks[110], 2 * 3600, currentPow.GetCompact());
-    currentPow.SetCompact(currentPow.GetCompact());
-    currentPow += (currentPow >> 2);
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[111], &blkHeaderDummy, params), currentPow.GetCompact());
-
-    // We decrease again.
-    blocks[112] = GetBlockIndex(&blocks[111], 2 * 3600, currentPow.GetCompact());
-    currentPow.SetCompact(currentPow.GetCompact());
-    currentPow += (currentPow >> 2);
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[112], &blkHeaderDummy, params), currentPow.GetCompact());
-
-    // We check that we do not go below the minimal difficulty.
-    blocks[113] = GetBlockIndex(&blocks[112], 2 * 3600, currentPow.GetCompact());
-    currentPow.SetCompact(currentPow.GetCompact());
-    currentPow += (currentPow >> 2);
-    BOOST_CHECK(powLimit.GetCompact() != currentPow.GetCompact());
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[113], &blkHeaderDummy, params), powLimit.GetCompact());
-
-    // Once we reached the minimal difficulty, we stick with it.
-    blocks[114] = GetBlockIndex(&blocks[113], 2 * 3600, powLimit.GetCompact());
-    BOOST_CHECK(powLimit.GetCompact() != currentPow.GetCompact());
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&blocks[114], &blkHeaderDummy, params), powLimit.GetCompact());
-}
-
-BOOST_AUTO_TEST_CASE(cash_difficulty_test)
-{
-    SelectParams(CBaseChainParams::MAIN);
-    const Consensus::Params &params = Params().GetConsensus();
-
-    std::vector<CBlockIndex> blocks(3000);
-
-    const arith_uint256 powLimit = UintToArith256(params.powLimit);
-    uint32_t powLimitBits = powLimit.GetCompact();
-    arith_uint256 currentPow = powLimit >> 4;
-    uint32_t initialBits = currentPow.GetCompact();
-
-    // Genesis block.
-    blocks[0] = CBlockIndex();
-    blocks[0].nHeight = 0;
-    blocks[0].nTime = 1269211443;
-    blocks[0].nBits = initialBits;
-
-    blocks[0].nChainWork = GetBlockProof(blocks[0]);
-
-    // Block counter.
-    size_t i;
-
-    // Pile up some blocks every 10 mins to establish some history.
-    for (i = 1; i < 2050; i++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 600, initialBits);
-    }
-
-    CBlockHeader blkHeaderDummy;
-    uint32_t nBits = GetNextCashWorkRequired(&blocks[2049], &blkHeaderDummy, params);
-
-    // Difficulty stays the same as long as we produce a block every 10 mins.
-    for (size_t j = 0; j < 10; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 600, nBits);
-        BOOST_CHECK_EQUAL(GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params), nBits);
-    }
-
-    // Make sure we skip over blocks that are out of wack. To do so, we produce
-    // a block that is far in the future, and then produce a block with the
-    // expected timestamp.
-    blocks[i] = GetBlockIndex(&blocks[i - 1], 6000, nBits);
-    BOOST_CHECK_EQUAL(GetNextCashWorkRequired(&blocks[i++], &blkHeaderDummy, params), nBits);
-    blocks[i] = GetBlockIndex(&blocks[i - 1], 2 * 600 - 6000, nBits);
-    BOOST_CHECK_EQUAL(GetNextCashWorkRequired(&blocks[i++], &blkHeaderDummy, params), nBits);
-
-    // The system should continue unaffected by the block with a bogous
-    // timestamps.
-    for (size_t j = 0; j < 20; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 600, nBits);
-        BOOST_CHECK_EQUAL(GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params), nBits);
-    }
-
-    // We start emitting blocks slightly faster. The first block has no impact.
-    blocks[i] = GetBlockIndex(&blocks[i - 1], 550, nBits);
-    BOOST_CHECK_EQUAL(GetNextCashWorkRequired(&blocks[i++], &blkHeaderDummy, params), nBits);
-
-    // Now we should see difficulty increase slowly.
-    for (size_t j = 0; j < 10; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 550, nBits);
-        const uint32_t nextBits = GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params);
-
-        arith_uint256 currentTarget;
-        currentTarget.SetCompact(nBits);
-        arith_uint256 nextTarget;
-        nextTarget.SetCompact(nextBits);
-
-        // Make sure that difficulty increases very slowly.
-        BOOST_CHECK(nextTarget < currentTarget);
-        BOOST_CHECK((currentTarget - nextTarget) < (currentTarget >> 10));
-
-        nBits = nextBits;
-    }
-
-    // Check the actual value.
-    BOOST_CHECK_EQUAL(nBits, 0x1c0fe7b1);
-
-    // If we dramatically shorten block production, difficulty increases faster.
-    for (size_t j = 0; j < 20; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 10, nBits);
-        const uint32_t nextBits = GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params);
-
-        arith_uint256 currentTarget;
-        currentTarget.SetCompact(nBits);
-        arith_uint256 nextTarget;
-        nextTarget.SetCompact(nextBits);
-
-        // Make sure that difficulty increases faster.
-        BOOST_CHECK(nextTarget < currentTarget);
-        BOOST_CHECK((currentTarget - nextTarget) < (currentTarget >> 4));
-
-        nBits = nextBits;
-    }
-
-    // Check the actual value.
-    BOOST_CHECK_EQUAL(nBits, 0x1c0db19f);
-
-    // We start to emit blocks significantly slower. The first block has no
-    // impact.
-    blocks[i] = GetBlockIndex(&blocks[i - 1], 6000, nBits);
-    nBits = GetNextCashWorkRequired(&blocks[i++], &blkHeaderDummy, params);
-
-    // Check the actual value.
-    BOOST_CHECK_EQUAL(nBits, 0x1c0d9222);
-
-    // If we dramatically slow down block production, difficulty decreases.
-    for (size_t j = 0; j < 93; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 6000, nBits);
-        const uint32_t nextBits = GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params);
-
-        arith_uint256 currentTarget;
-        currentTarget.SetCompact(nBits);
-        arith_uint256 nextTarget;
-        nextTarget.SetCompact(nextBits);
-
-        // Check the difficulty decreases.
-        BOOST_CHECK(nextTarget <= powLimit);
-        BOOST_CHECK(nextTarget > currentTarget);
-        BOOST_CHECK((nextTarget - currentTarget) < (currentTarget >> 3));
-
-        nBits = nextBits;
-    }
-
-    // Check the actual value.
-    BOOST_CHECK_EQUAL(nBits, 0x1c2f13b9);
-
-    // Due to the window of time being bounded, next block's difficulty actually
-    // gets harder.
-    blocks[i] = GetBlockIndex(&blocks[i - 1], 6000, nBits);
-    nBits = GetNextCashWorkRequired(&blocks[i++], &blkHeaderDummy, params);
-    BOOST_CHECK_EQUAL(nBits, 0x1c2ee9bf);
-
-    // And goes down again. It takes a while due to the window being bounded and
-    // the skewed block causes 2 blocks to get out of the window.
-    for (size_t j = 0; j < 192; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 6000, nBits);
-        const uint32_t nextBits = GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params);
-
-        arith_uint256 currentTarget;
-        currentTarget.SetCompact(nBits);
-        arith_uint256 nextTarget;
-        nextTarget.SetCompact(nextBits);
-
-        // Check the difficulty decreases.
-        BOOST_CHECK(nextTarget <= powLimit);
-        BOOST_CHECK(nextTarget > currentTarget);
-        BOOST_CHECK((nextTarget - currentTarget) < (currentTarget >> 3));
-
-        nBits = nextBits;
-    }
-
-    // Check the actual value.
-    BOOST_CHECK_EQUAL(nBits, 0x1d00ffff);
-
-    // Once the difficulty reached the minimum allowed level, it doesn't get any
-    // easier.
-    for (size_t j = 0; j < 5; i++, j++)
-    {
-        blocks[i] = GetBlockIndex(&blocks[i - 1], 6000, nBits);
-        const uint32_t nextBits = GetNextCashWorkRequired(&blocks[i], &blkHeaderDummy, params);
-
-        // Check the difficulty stays constant.
-        BOOST_CHECK_EQUAL(nextBits, powLimitBits);
-        nBits = nextBits;
-    }
-}
+// Removed, this was a DAA test
 
 // clang-format off
 double TargetFromBits(const uint32_t nBits) { return (nBits & 0xff'ff'ff) * pow(256, (nBits >> 24) - 3); }
@@ -356,9 +124,9 @@ double GetASERTApproximationError(const CBlockIndex *pindexPrev,
     const uint32_t finalBits,
     const CBlockIndex *pindexAnchorBlock)
 {
-    const int64_t nHeightDiff = pindexPrev->nHeight - pindexAnchorBlock->nHeight;
+    const int64_t nHeightDiff = pindexPrev->height() - pindexAnchorBlock->height();
     const int64_t nTimeDiff = pindexPrev->GetBlockTime() - pindexAnchorBlock->pprev->GetBlockTime();
-    const uint32_t initialBits = pindexAnchorBlock->nBits;
+    const uint32_t initialBits = pindexAnchorBlock->tgtBits();
 
     BOOST_CHECK(nHeightDiff >= 0);
     double dInitialPow = TargetFromBits(initialBits);
@@ -383,13 +151,13 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
 
     // Genesis block, and parent of ASERT anchor block in this test case.
     blocks[0] = CBlockIndex();
-    blocks[0].nHeight = 0;
-    blocks[0].nTime = 1269211443;
+    blocks[0].header.height = 0;
+    blocks[0].header.nTime = 1269211443;
     // The pre-anchor block's nBits should never be used, so we set it to a nonsense value in order to
     // trigger an error if it is ever accessed
-    blocks[0].nBits = 0x0dedbeef;
+    blocks[0].header.nBits = 0x0dedbeef;
 
-    blocks[0].nChainWork = GetBlockProof(blocks[0]);
+    blocks[0].header.SetChainWork(GetBlockProof(blocks[0]));
 
     // Block counter.
     size_t i = 1;
@@ -431,7 +199,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     for (; i < 150; i++)
     {
         blocks[i] = GetBlockIndex(&blocks[i - 1], 600, nBits);
-        BOOST_CHECK_EQUAL(blocks[i].nBits, nBits);
+        BOOST_CHECK_EQUAL(blocks[i].tgtBits(), nBits);
     }
 
     nBits = GetNextASERTWorkRequired(&blocks[i - 1], &blkHeaderDummy, params, &blocks[1]);
@@ -457,7 +225,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     BOOST_CHECK_EQUAL(nBits, initialBits);
-    BOOST_CHECK(nBits != blocks[i - 1].nBits);
+    BOOST_CHECK(nBits != blocks[i - 1].tgtBits());
 
     // Same in reverse - this time slower block first, followed by faster block.
     blocks[i] = GetBlockIndex(&blocks[i - 1], 900, nBits);
@@ -469,7 +237,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     BOOST_CHECK_EQUAL(nBits, initialBits);
-    BOOST_CHECK(nBits != blocks[i - 1].nBits);
+    BOOST_CHECK(nBits != blocks[i - 1].tgtBits());
 
     // Jumping forward 2 days should double the target (halve the difficulty)
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 + 2 * 24 * 3600, nBits);
@@ -527,7 +295,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     blocks[i] = GetBlockIndex(&blocks[i - 1], -2 * 24 * 3600 - 30, nBits);
     for (size_t j = 0; j < 4 * 24 * 3600 + 660; j++)
     {
-        blocks[i].nTime++;
+        blocks[i].header.nTime++;
         nBits = GetNextASERTWorkRequired(&blocks[i], &blkHeaderDummy, params, &blocks[1]);
 
         if (j > 8)
@@ -557,10 +325,10 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
             dRelMax = dRelErr;
         BOOST_CHECK_MESSAGE(
             fabs(dErr) < dMaxErr, strprintf("solveTime: %d\tStep size: %.8f%%\tdErr: %.8f%%\tnBits: %0x\n",
-                                      int64_t(blocks[i].nTime) - blocks[i - 1].nTime, dStep * 100, dErr * 100, nBits));
+                                      int64_t(blocks[i].time()) - blocks[i - 1].time(), dStep * 100, dErr * 100, nBits));
         BOOST_CHECK_MESSAGE(fabs(dRelErr) < dMaxErr,
             strprintf("solveTime: %d\tStep size: %.8f%%\tdRelErr: %.8f%%\tnBits: %0x\n",
-                                int64_t(blocks[i].nTime) - blocks[i - 1].nTime, dStep * 100, dRelErr * 100, nBits));
+                                int64_t(blocks[i].time()) - blocks[i - 1].time(), dStep * 100, dRelErr * 100, nBits));
     }
     auto failMsg = strprintf(
         "Min error: %16.14f%%\tMax error: %16.14f%%\tMax step: %16.14f%%\n", dMin * 100, dMax * 100, dMaxStep * 100);
@@ -775,10 +543,10 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     int bidx = 1;
 
     // Genesis block.
-    blocks[0].nHeight = 0;
-    blocks[0].nTime = 1269211443;
-    blocks[0].nBits = initialBits;
-    blocks[0].nChainWork = GetBlockProof(blocks[0]);
+    blocks[0].header.height = 0;
+    blocks[0].header.nTime = 1269211443;
+    blocks[0].header.nBits = initialBits;
+    blocks[0].header.SetChainWork(GetBlockProof(blocks[0]));
 
     // Pile up a random number of blocks to establish some history of random height.
     // cw144 DAA requires us to have height at least 2016, dunno why that much.
@@ -794,7 +562,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // the MTP on the final block is 1 second short of activationTime.
     {
         blocks[bidx] = GetBlockIndex(&blocks[bidx - 1], 600, initialBits);
-        blocks[bidx].nTime = activationTime - 140 * 500 - 1;
+        blocks[bidx].header.nTime = activationTime - 140 * 500 - 1;
         bidx++;
     }
     for (int i = 0; i < 145; i++)
@@ -804,7 +572,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
         bidx++;
     }
     CBlockIndex *pindexPreActivation = &blocks[bidx - 1];
-    BOOST_CHECK_EQUAL(pindexPreActivation->nTime, activationTime + 5 * 500 - 1);
+    BOOST_CHECK_EQUAL(pindexPreActivation->time(), activationTime + 5 * 500 - 1);
     BOOST_CHECK_EQUAL(pindexPreActivation->GetMedianTimePast(), activationTime - 1);
     BOOST_CHECK(IsDAAEnabled(params, pindexPreActivation));
 
@@ -868,7 +636,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // Make an activation with MTP == activation exactly. This is a backwards timestamp jump
     // so the resulting target is 1.2% lower.
     CBlockIndex indexActivation4 = GetBlockIndex(pindexPreActivation, 0, 0x18011111);
-    indexActivation4.nTime = activationTime;
+    indexActivation4.header.nTime = activationTime;
     BOOST_CHECK_EQUAL(indexActivation4.GetMedianTimePast(), activationTime);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation4));
     BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation4, &blkHeaderDummy, params), 0x18010db3);
@@ -891,7 +659,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     for (CBlockIndex *pindex = pindexChain2; pindex != &indexActivation2; pindex = pindex->pprev)
     {
         uint32_t nextBits = GetNextWorkRequired(pindex->pprev, &blkHeaderDummy, params);
-        BOOST_CHECK_EQUAL(nextBits, pindex->nBits);
+        BOOST_CHECK_EQUAL(nextBits, pindex->tgtBits());
         BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation2);
     }
 }

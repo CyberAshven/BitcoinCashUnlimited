@@ -14,11 +14,11 @@
 
 namespace utf = boost::unit_test;
 
-
 BOOST_FIXTURE_TEST_SUITE(forkscsv_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(forkscsv_read_and_dumpforks_test)
 {
+#if 0 // Nextchain Version bits removed
     CChainParams& params = ModifiableParams();
 
     // Set up the testdummy bits for this test
@@ -46,9 +46,6 @@ BOOST_AUTO_TEST_CASE(forkscsv_read_and_dumpforks_test)
             "# deployment info for network 'main':\n"
             "main,28,testdummy,1199145601,1230767999,2016,1916,0,0,false\n"));
 
-    BOOST_CHECK(NetworkDeploymentInfoCSV(CBaseChainParams::UNL) == std::string(
-            "# deployment info for network 'nol':\n"));
-
     BOOST_CHECK(NetworkDeploymentInfoCSV(CBaseChainParams::TESTNET) == std::string(
             "# deployment info for network 'test':\n"
             "test,28,testdummy,1199145601,1230767999,2016,1512,0,0,false\n"));
@@ -58,6 +55,7 @@ BOOST_AUTO_TEST_CASE(forkscsv_read_and_dumpforks_test)
             "regtest,28,testdummy,0,999999999999,144,108,0,0,false\n"));
 
     BOOST_CHECK_THROW( NetworkDeploymentInfoCSV("_foo_"), std::runtime_error );
+#endif
 }
 
 /**

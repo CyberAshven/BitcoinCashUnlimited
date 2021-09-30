@@ -149,7 +149,7 @@ bool CompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             compactBlock->header.hashPrevBlock.ToString());
 
     CValidationState state;
-    if (!ContextualCheckBlockHeader(compactBlock->header, state, pprev))
+    if (!ContextualCheckBlockHeader(Params(), compactBlock->header, state, pprev))
     {
         // compact block does not fit within our blockchain
         dosMan.Misbehaving(pfrom, 100);
@@ -186,12 +186,7 @@ bool CompactBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
 bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock)
 {
-    pblock->nVersion = header.nVersion;
-    pblock->nBits = header.nBits;
-    pblock->nNonce = header.nNonce;
-    pblock->nTime = header.nTime;
-    pblock->hashMerkleRoot = header.hashMerkleRoot;
-    pblock->hashPrevBlock = header.hashPrevBlock;
+    *((CBlockHeader *)(pblock.get())) = header;
 
     // Store the salt used by this peer.
     pfrom->shorttxidk0.store(shorttxidk0);
@@ -418,7 +413,7 @@ bool CompactReRequest::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     }
     else
     {
-        if (hdr->nHeight < (chainActive.Tip()->nHeight - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
+        if (hdr->height() < (chainActive.Tip()->height() - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
             return error(CMPCT, "getblocktxn request too far from the tip");
 
         CBlockRef pblock;
@@ -1095,7 +1090,7 @@ bool IsCompactBlockValid(CNode *pfrom, std::shared_ptr<CompactBlock> compactBloc
 
     // check block header
     CValidationState state;
-    if (!CheckBlockHeader(compactBlock->header, state, true))
+    if (!CheckBlockHeader(Params().GetConsensus(), compactBlock->header, state, true))
     {
         return error("Received invalid header for compactblock %s from peer %s",
             compactBlock->header.GetHash().ToString(), pfrom->GetLogName());

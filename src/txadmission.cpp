@@ -1381,7 +1381,7 @@ bool CheckSequenceLocks(const CTransactionRef tx,
     // evaluated is what is used.
     // Thus if we want to know if a transaction can be part of the
     // *next* block, we need to use one more than chainActive.Height()
-    index.nHeight = tip->nHeight + 1;
+    index.header.height = tip->height() + 1;
 
     std::pair<int, int64_t> lockPair;
     if (useExistingLockPoints)
@@ -1408,11 +1408,11 @@ bool CheckSequenceLocks(const CTransactionRef tx,
             if (coin.nHeight == MEMPOOL_HEIGHT)
             {
                 // Assume all mempool transaction confirm in the next block
-                prevheights[txinIndex] = tip->nHeight + 1;
+                prevheights[txinIndex] = tip->height() + 1;
             }
             else
             {
-                prevheights[txinIndex] = coin.nHeight;
+                prevheights[txinIndex] = coin.height();
             }
         }
         lockPair = CalculateSequenceLocks(tx, flags, &prevheights, index);
@@ -1437,7 +1437,7 @@ bool CheckSequenceLocks(const CTransactionRef tx,
             for (int height : prevheights)
             {
                 // Can ignore mempool inputs since we'll fail if they had non-zero locks
-                if (height != tip->nHeight + 1)
+                if (height != tip->height() + 1)
                 {
                     maxInputHeight = std::max(maxInputHeight, height);
                 }
@@ -1464,7 +1464,7 @@ bool CheckFinalTx(const CTransactionRef tx, int flags, const Snapshot *ss)
     // evaluated is what is used. Thus if we want to know if a
     // transaction can be part of the *next* block, we need to call
     // IsFinalTx() with one more than chainActive.Height().
-    const int nBlockHeight = max((int)((ss != nullptr) ? ss->tipHeight + 1 : 0), chainActive.Height() + 1);
+    const int64_t nBlockHeight = max((int64_t)((ss != nullptr) ? ss->tipHeight + 1 : 0), chainActive.Height() + 1);
 
     // BIP113 will require that time-locked transactions have nLockTime set to
     // less than the median time of the previous block they're contained in.

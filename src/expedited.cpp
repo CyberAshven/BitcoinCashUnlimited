@@ -155,7 +155,7 @@ void SendExpeditedBlock(CXThinBlock &thinBlock, unsigned char hops, CNode *pskip
 
         // Validate that the header has enough proof of work to advance the chain or at least be equal
         // to the current chain tip in case of a re-org.
-        if (!pindex || pindex->nChainWork < chainActive.Tip()->nChainWork)
+        if (!pindex || pindex->chainWork() < chainActive.Tip()->chainWork())
         {
             // Don't print out a log message here. We can sometimes get them during IBD which during
             // periods where the chain is almost syncd but really isn't. This typically happens in regtest

@@ -67,8 +67,8 @@ class TestNode(NodeConnCB):
     def on_headers(self, conn, message):
         if len(message.headers) > 0:
             best_header = message.headers[-1]
-            best_header.calc_sha256()
-            self.bestblockhash = best_header.sha256
+            best_header.calc_hash()
+            self.bestblockhash = best_header.gethash()
 
     def on_getheaders(self, conn, message):
         response = self.block_store.headers_for(message.locator, message.hashstop)
@@ -102,7 +102,8 @@ class TestNode(NodeConnCB):
 
     def send_inv(self, obj):
         mtype = 2 if isinstance(obj, CBlock) else 1
-        self.conn.send_message(msg_inv([CInv(mtype, obj.sha256)]))
+        hsh = obj.gethash() if isinstance(obj, CBlock) else obj.sha256
+        self.conn.send_message(msg_inv([CInv(mtype, hsh)]))
 
     def send_getheaders(self):
         # We ask for headers from their last tip.
@@ -206,7 +207,7 @@ class TestManager(object):
                 for node in self.test_nodes
             )
         # --> error if not requested
-        if not wait_until(blocks_requested, attempts=20*num_blocks):
+        if not wait_until(blocks_requested, attempts=10*num_blocks):
             # print [ c.cb.block_request_map for c in self.connections ]
             raise AssertionError("Not all nodes requested block")
 
@@ -362,27 +363,27 @@ class TestManager(object):
                     # node wouldn't send another getdata request while
                     # the earlier one is outstanding.
                     first_block_with_hash = True
-                    if self.block_store.get(block.sha256) is not None:
+                    if self.block_store.get(block.gethash()) is not None:
                         first_block_with_hash = False
                     with mininode_lock:
                         self.block_store.add_block(block)
                         for c in self.connections:
-                            if first_block_with_hash and block.sha256 in c.cb.block_request_map and c.cb.block_request_map[block.sha256] == True:
+                            if first_block_with_hash and block.gethash() in c.cb.block_request_map and c.cb.block_request_map[block.gethash()] == True:
                                 # There was a previous request for this block hash
                                 # Most likely, we delivered a header for this block
                                 # but never had the block to respond to the getdata
                                 c.send_message(msg_block(block))
                             else:
-                                c.cb.block_request_map[block.sha256] = False
+                                c.cb.block_request_map[block.gethash()] = False
                     # Either send inv's to each node and sync, or add
                     # to invqueue for later inv'ing.
                     if (test_instance.sync_every_block):
                         [ c.cb.send_inv(block) for c in self.connections ]
-                        self.sync_blocks(block.sha256, 1)
+                        self.sync_blocks(block.gethash(), 1)
                         if (not self.check_results(tip, outcome)):
                             raise AssertionError("Test failed at test %d" % test_number)
                     else:
-                        invqueue.append(CInv(2, block.sha256))
+                        invqueue.append(CInv(2, block.gethash()))
                 elif isinstance(b_or_t, CBlockHeader):
                     block_header = b_or_t
                     self.block_store.add_header(block_header)
@@ -413,7 +414,7 @@ class TestManager(object):
                 if len(invqueue) > 0:
                     [ c.send_message(msg_inv(invqueue)) for c in self.connections ]
                     invqueue = []
-                self.sync_blocks(block.sha256, len(test_instance.blocks_and_transactions))
+                self.sync_blocks(block.gethash(), len(test_instance.blocks_and_transactions))
                 if (not self.check_results(tip, block_outcome)):
                     raise AssertionError("Block test failed at test %d" % test_number)
             if (not test_instance.sync_every_tx and tx is not None):

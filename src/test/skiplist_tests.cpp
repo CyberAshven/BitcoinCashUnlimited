@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(skiplist_test)
 
     for (int i = 0; i < SKIPLIST_LENGTH; i++)
     {
-        vIndex[i].nHeight = i;
+        vIndex[i].header.height = i;
         vIndex[i].pprev = (i == 0) ? nullptr : &vIndex[i - 1];
         vIndex[i].BuildSkip();
     }
@@ -30,10 +30,10 @@ BOOST_AUTO_TEST_CASE(skiplist_test)
     {
         if (i > 0)
         {
-            if (vIndex[i].pskip != &vIndex[vIndex[i].pskip->nHeight]) // Skips logging if successful
-                BOOST_CHECK(vIndex[i].pskip == &vIndex[vIndex[i].pskip->nHeight]);
-            if (vIndex[i].pskip->nHeight >= i)
-                BOOST_CHECK(vIndex[i].pskip->nHeight < i);
+            if (vIndex[i].pskip != &vIndex[vIndex[i].pskip->height()]) // Skips logging if successful
+                BOOST_CHECK(vIndex[i].pskip == &vIndex[vIndex[i].pskip->height()]);
+            if (vIndex[i].pskip->height() >= i)
+                BOOST_CHECK(vIndex[i].pskip->height() < i);
         }
         else
         {
@@ -60,14 +60,15 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
     for (unsigned int i = 0; i < vBlocksMain.size(); i++)
     {
         vHashMain[i] = ArithToUint256(i); // Set the hash equal to the height, so we can quickly check the distances.
-        vBlocksMain[i].nHeight = i;
+        vBlocksMain[i].header.height = i;
         vBlocksMain[i].pprev = i ? &vBlocksMain[i - 1] : nullptr;
         vBlocksMain[i].phashBlock = &vHashMain[i];
         vBlocksMain[i].BuildSkip();
-        if ((int)UintToArith256(vBlocksMain[i].GetBlockHash()).GetLow64() != vBlocksMain[i].nHeight)
-            BOOST_CHECK_EQUAL((int)UintToArith256(vBlocksMain[i].GetBlockHash()).GetLow64(), vBlocksMain[i].nHeight);
-        if (!(vBlocksMain[i].pprev == nullptr || vBlocksMain[i].nHeight == vBlocksMain[i].pprev->nHeight + 1))
-            BOOST_CHECK(vBlocksMain[i].pprev == nullptr || vBlocksMain[i].nHeight == vBlocksMain[i].pprev->nHeight + 1);
+        if ((int)UintToArith256(vBlocksMain[i].GetBlockHash()).GetLow64() != vBlocksMain[i].height())
+            BOOST_CHECK_EQUAL((int)UintToArith256(vBlocksMain[i].GetBlockHash()).GetLow64(), vBlocksMain[i].height());
+        if (!(vBlocksMain[i].pprev == nullptr || vBlocksMain[i].height() == vBlocksMain[i].pprev->height() + 1))
+            BOOST_CHECK(
+                vBlocksMain[i].pprev == nullptr || vBlocksMain[i].height() == vBlocksMain[i].pprev->height() + 1);
     }
 
     // Build a branch that splits off at block 49999, 50000 blocks long.
@@ -77,14 +78,15 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
     {
         // Add 1<<128 to the hashes, so GetLow64() still returns the height.
         vHashSide[i] = ArithToUint256(i + 50000 + (arith_uint256(1) << 128));
-        vBlocksSide[i].nHeight = i + 50000;
+        vBlocksSide[i].header.height = i + 50000;
         vBlocksSide[i].pprev = i ? &vBlocksSide[i - 1] : &vBlocksMain[49999];
         vBlocksSide[i].phashBlock = &vHashSide[i];
         vBlocksSide[i].BuildSkip();
-        if ((int)UintToArith256(vBlocksSide[i].GetBlockHash()).GetLow64() != vBlocksSide[i].nHeight)
-            BOOST_CHECK_EQUAL((int)UintToArith256(vBlocksSide[i].GetBlockHash()).GetLow64(), vBlocksSide[i].nHeight);
-        if (!(vBlocksSide[i].pprev == nullptr || vBlocksSide[i].nHeight == vBlocksSide[i].pprev->nHeight + 1))
-            BOOST_CHECK(vBlocksSide[i].pprev == nullptr || vBlocksSide[i].nHeight == vBlocksSide[i].pprev->nHeight + 1);
+        if ((int)UintToArith256(vBlocksSide[i].GetBlockHash()).GetLow64() != vBlocksSide[i].height())
+            BOOST_CHECK_EQUAL((int)UintToArith256(vBlocksSide[i].GetBlockHash()).GetLow64(), vBlocksSide[i].height());
+        if (!(vBlocksSide[i].pprev == nullptr || vBlocksSide[i].height() == vBlocksSide[i].pprev->height() + 1))
+            BOOST_CHECK(
+                vBlocksSide[i].pprev == nullptr || vBlocksSide[i].height() == vBlocksSide[i].pprev->height() + 1);
     }
 
     // Build a CChain for the main branch.
@@ -105,7 +107,7 @@ BOOST_AUTO_TEST_CASE(getlocator_test)
         // Entries 1 through 11 (inclusive) go back one step each.
         for (unsigned int i = 1; i < 12 && i < locator.vHave.size() - 1; i++)
         {
-            BOOST_CHECK_EQUAL(UintToArith256(locator.vHave[i]).GetLow64(), tip->nHeight - i);
+            BOOST_CHECK_EQUAL(UintToArith256(locator.vHave[i]).GetLow64(), tip->height() - i);
         }
 
         // The further ones (excluding the last one) go back with exponential steps.

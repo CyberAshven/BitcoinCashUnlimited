@@ -469,11 +469,11 @@ CNode *SelectMempoolSyncPeer(std::vector<CNode *> vNodesCopy)
         }
 
         CNodeStateAccessor state(nodestate, node->GetId());
-        int nCommonHeight = state->pindexLastCommonBlock ? state->pindexLastCommonBlock->nHeight : -1;
-        int nSyncHeight = state->pindexBestKnownBlock ? state->pindexBestKnownBlock->nHeight : -1;
+        int nCommonHeight = state->pindexLastCommonBlock ? state->pindexLastCommonBlock->height() : -1;
+        int nSyncHeight = state->pindexBestKnownBlock ? state->pindexBestKnownBlock->height() : -1;
 
         // Skip if node is in IBD
-        if ((nCommonHeight < chainActive.Tip()->nHeight - 10) && (nSyncHeight < chainActive.Tip()->nHeight - 10))
+        if ((nCommonHeight < ((int)chainActive.Tip()->height()) - 10) && (nSyncHeight < ((int)chainActive.Tip()->height()) - 10))
             continue;
 
         vSyncableNodes.push_back(node);

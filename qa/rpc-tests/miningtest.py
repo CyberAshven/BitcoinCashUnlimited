@@ -53,19 +53,17 @@ class MiningTest (BitcoinTestFramework):
         self.nodes[0].setmocktime(now+interval+1)
         e = node.getminingcandidate()
         assert c["id"] != e["id"]
-        
+
         # test basic failure
-        del c["merkleProof"]
-        del c["prevhash"]
         id = c["id"]
         c["id"] = 100000  # bad ID
+        c["nonce"] = "00"
         ret = node.submitminingsolution(c)
         assert ret == "id not found"
 
         # didn't provide a nonce
         f = node.getminingcandidate()
-        del f["merkleProof"]
-        del f["prevhash"]
+        del f["headerCommitment"]
         expectException(lambda: node.submitminingsolution(f), JSONRPCException)
 
         # ask for a valid coinbase size (should not throw an exception, so no explicit test)
@@ -84,60 +82,13 @@ class MiningTest (BitcoinTestFramework):
         while 1:
             nonce += 1
             c = node.getminingcandidate()
-            del c["merkleProof"]
-            del c["prevhash"]
-            c["nonce"] = nonce
+            del c["headerCommitment"]
+            c["nonce"] = struct.pack("<i", nonce).hex()
             ret = node.submitminingsolution(c)
             if ret is None:
                 break
 
         assert_equal(101, node.getblockcount())
-
-        # change the time and version and ensure that the block contains that result
-        nonce = 0
-        c["id"] = id
-        while 1:
-            nonce += 1
-            c = node.getminingcandidate()
-            del c["merkleProof"]
-            del c["prevhash"]
-            del c["nBits"]
-            chosentime = c["time"] = c["time"] + 1
-            c["nonce"] = nonce
-            c["version"] = 0x123456
-            ret = node.submitminingsolution(c)
-            if ret is None:
-                break
-
-        assert_equal(102, node.getblockcount())
-        block = node.getblock(node.getbestblockhash())
-        assert_equal(chosentime, block["time"])
-        assert_equal(0x123456, block["version"])
-
-        # change the coinbase
-        tx = CTransaction().deserialize(c["coinbase"])
-        tx.vout[0].scriptPubKey = CScript(([OP_NOP] * 50) + [OP_1])  # 50 no-ops because tx must be 100 bytes or more
-        nonce = 0
-        c["id"] = id
-        while 1:
-            nonce += 1
-            if (nonce&127)==0:
-                logging.info("simple mining nonce: " + str(nonce))
-            c = node.getminingcandidate()
-            del c["merkleProof"]
-            del c["prevhash"]
-            del c["nBits"]
-            c["nonce"] = nonce
-            c["coinbase"] = hexlify(tx.serialize()).decode()
-            ret = node.submitminingsolution(c)
-            if ret is None:
-                break
-
-        assert_equal(103, node.getblockcount())
-        blockhex = node.getblock(node.getbestblockhash(), False)
-        block = CBlock()
-        block.deserialize(BytesIO(unhexlify(blockhex)))
-        assert_equal(block.vtx[0].vout[0].scriptPubKey, CScript(([OP_NOP] * 50) + [OP_1]))
 
         #### Test that a dynamic relay policy change does not effect the mining
         #    of txns currently in the mempool.
@@ -204,7 +155,7 @@ class MiningTest (BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    MiningTest().main(None, {  "blockprioritysize": 1315, "blockmaxsize":1600 })
+    MiningTest().main(None, {  "blockprioritysize": 1500, "blockmaxsize":1800 })
 
 # Create a convenient function for an interactive python debugging session
 
@@ -213,8 +164,8 @@ def Test():
     t = MiningTest()
     bitcoinConf = {
         "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
-        "blockprioritysize": 1315,
-        "blockmaxsize":1600
+        "blockprioritysize": 1500,
+        "blockmaxsize":1800
     }
 
     flags = standardFlags()

@@ -11,6 +11,7 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.nodemessages import *
 from struct import *
 from io import BytesIO
 from codecs import encode
@@ -142,7 +143,7 @@ class RESTTest (BitcoinTestFramework):
         output = BytesIO()
         output.write(bin_response)
         output.seek(0)
-        chainHeight = unpack("i", output.read(4))[0]
+        chainHeight = unpack("q", output.read(8))[0]
         hashFromBinResponse = hex(deser_uint256(output))[2:].zfill(64)
 
         assert_equal(bb_hash, hashFromBinResponse) #check if getutxo's chaintip during calculation was fine
@@ -208,6 +209,9 @@ class RESTTest (BitcoinTestFramework):
         # /rest/block/ #
         ################
 
+        MaxHeaderSize = 512  # May need to change as header variable length fields change
+        MinHeaderSize = 180
+
         # check binary format
         response = http_get_call(url.hostname, url.port, '/rest/block/'+bb_hash+self.FORMAT_SEPARATOR+"bin", True)
         assert_equal(response.status, 200)
@@ -217,24 +221,26 @@ class RESTTest (BitcoinTestFramework):
         # compare with block header
         response_header = http_get_call(url.hostname, url.port, '/rest/headers/1/'+bb_hash+self.FORMAT_SEPARATOR+"bin", True)
         assert_equal(response_header.status, 200)
-        assert_equal(int(response_header.getheader('content-length')), 80)
+        assert int(response_header.getheader('content-length')) <= MaxHeaderSize
         response_header_str = response_header.read()
-        assert_equal(response_str[0:80], response_header_str)
+        assert_equal(response_str[0:len(response_header_str)], response_header_str)
 
         # check block hex format
         response_hex = http_get_call(url.hostname, url.port, '/rest/block/'+bb_hash+self.FORMAT_SEPARATOR+"hex", True)
         assert_equal(response_hex.status, 200)
-        assert_greater_than(int(response_hex.getheader('content-length')), 160)
-        response_hex_str = response_hex.read()
-        assert_equal(encode(response_str, "hex_codec")[0:160], response_hex_str[0:160])
+        content_len = int(response_hex.getheader('content-length'))
+        response_hex_str = response_hex.read().decode()
+        response_obj = CBlock(response_hex_str)  # Make sure we can deserialize what we got into a block object
+        assert content_len <= MaxHeaderSize*2
+        assert_equal(encode(response_str, "hex_codec").decode()[0:160], response_hex_str[0:160])
 
-        # compare with hex block header
+        # compare with hex block header (serialization of a block is its header serialization concatenated with tx array)
         response_header_hex = http_get_call(url.hostname, url.port, '/rest/headers/1/'+bb_hash+self.FORMAT_SEPARATOR+"hex", True)
         assert_equal(response_header_hex.status, 200)
-        assert_greater_than(int(response_header_hex.getheader('content-length')), 160)
-        response_header_hex_str = response_header_hex.read()
-        assert_equal(response_hex_str[0:160], response_header_hex_str[0:160])
-        assert_equal(encode(response_header_str, "hex_codec")[0:160], response_header_hex_str[0:160])
+        assert_greater_than(int(response_header_hex.getheader('content-length')), MinHeaderSize*2)
+        response_header_hex_str = response_header_hex.read().decode().strip()
+        assert_equal(response_hex_str[0:len(response_header_hex_str)], response_header_hex_str)
+        assert_equal(encode(response_header_str, "hex_codec").decode()[0:len(response_header_hex_str)], response_header_hex_str)
 
         # check json format
         block_json_string = http_get_call(url.hostname, url.port, '/rest/block/'+bb_hash+self.FORMAT_SEPARATOR+'json')
@@ -254,7 +260,6 @@ class RESTTest (BitcoinTestFramework):
         assert_equal(json_obj[0]['hash'],               rpc_block_json['hash'])
         assert_equal(json_obj[0]['confirmations'],      rpc_block_json['confirmations'])
         assert_equal(json_obj[0]['height'],             rpc_block_json['height'])
-        assert_equal(json_obj[0]['version'],            rpc_block_json['version'])
         assert_equal(json_obj[0]['merkleroot'],         rpc_block_json['merkleroot'])
         assert_equal(json_obj[0]['time'],               rpc_block_json['time'])
         assert_equal(json_obj[0]['nonce'],              rpc_block_json['nonce'])
@@ -262,6 +267,10 @@ class RESTTest (BitcoinTestFramework):
         assert_equal(json_obj[0]['difficulty'],         rpc_block_json['difficulty'])
         assert_equal(json_obj[0]['chainwork'],          rpc_block_json['chainwork'])
         assert_equal(json_obj[0]['previousblockhash'],  rpc_block_json['previousblockhash'])
+        assert_equal(json_obj[0]['size'],               rpc_block_json['size'])
+        assert_equal(json_obj[0]['utxoCommitment'],     rpc_block_json['utxoCommitment'])
+        assert_equal(json_obj[0]['minerData'],          rpc_block_json['minerData'])
+        assert_equal(json_obj[0]['ancestorhash'],       rpc_block_json['ancestorhash'])
 
         #see if we can get 5 headers in one response
         self.nodes[1].generate(5)

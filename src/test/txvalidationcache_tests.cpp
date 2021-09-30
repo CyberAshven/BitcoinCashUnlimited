@@ -49,7 +49,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
 
 
     unsigned int sighashType = SIGHASH_ALL;
-    if (IsUAHFforkActiveOnNextBlock(chainActive.Tip()->nHeight))
+    if (IsUAHFforkActiveOnNextBlock(chainActive.Tip()->height()))
         sighashType |= SIGHASH_FORKID;
 
     // Create a double-spend of mature coinbase txn:
@@ -175,7 +175,7 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
 
     unsigned int sighashType = SIGHASH_ALL;
-    if (IsUAHFforkActiveOnNextBlock(chainActive.Tip()->nHeight))
+    if (IsUAHFforkActiveOnNextBlock(chainActive.Tip()->height()))
         sighashType |= SIGHASH_FORKID;
 
     std::vector<CMutableTransaction> spends;
@@ -418,7 +418,7 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
     coinbaseTxns.push_back(*b.vtx[0]);
 
     unsigned int sighashType = SIGHASH_ALL;
-    if (IsUAHFforkActiveOnNextBlock(chainActive.Tip()->nHeight))
+    if (IsUAHFforkActiveOnNextBlock(chainActive.Tip()->height()))
         sighashType |= SIGHASH_FORKID;
 
     uint256 prevout = coinbaseTxns[0].GetHash();

@@ -13,6 +13,7 @@ from io import BytesIO
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.nodemessages import CTransaction
 from test_framework.util import *
+from test_framework.nodemessages import *
 
 try:
     import zmq
@@ -155,8 +156,10 @@ class ZMQTest (BitcoinTestFramework):
             assert_equal([txid.hex()], self.nodes[1].getblock(hash)["tx"])
 
             # Should receive the generated raw block.
-            block = self.rawblock.receive()
-            assert_equal(genhashes[x], hash256(block[:80])[::-1].hex())
+            blockBin = self.rawblock.receive()
+            block = CBlock()
+            block.deserialize(BytesIO(blockBin))
+            assert_equal(genhashes[x], block.gethashhex())
 
         logging.info("Wait for tx from second node")
         payment_txid = self.nodes[1].sendtoaddress(

@@ -184,8 +184,8 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats)
     DbgAssert(state != nullptr, return false);
 
     stats.nMisbehavior = node->nMisbehavior.load();
-    stats.nSyncHeight = state->pindexBestKnownBlock ? state->pindexBestKnownBlock->nHeight : -1;
-    stats.nCommonHeight = state->pindexLastCommonBlock ? state->pindexLastCommonBlock->nHeight : -1;
+    stats.nSyncHeight = state->pindexBestKnownBlock ? state->pindexBestKnownBlock->height() : -1;
+    stats.nCommonHeight = state->pindexLastCommonBlock ? state->pindexLastCommonBlock->height() : -1;
 
     std::vector<uint256> vBlocksInFlight;
     requester.GetBlocksInFlight(vBlocksInFlight, nodeid);
@@ -199,7 +199,7 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats)
         {
             CBlockIndex *pindex = (*mi).second;
             if (pindex)
-                stats.vHeightInFlight.push_back(pindex->nHeight);
+                stats.vHeightInFlight.push_back(pindex->height());
         }
     }
     return true;
@@ -342,7 +342,7 @@ bool GetTransaction(const uint256 &hash,
         {
             CoinAccessor coin(*pcoinsTip, hash);
             if (!coin->IsSpent())
-                pindexSlow = chainActive[coin->nHeight];
+                pindexSlow = chainActive[coin->height()];
         }
     }
 
@@ -351,7 +351,7 @@ bool GetTransaction(const uint256 &hash,
         CBlockRef pblock = ReadBlockFromDisk(pindexSlow, consensusParams);
         if (pblock)
         {
-            bool ctor_enabled = pindexSlow->nHeight >= consensusParams.nov2018Height;
+            bool ctor_enabled = pindexSlow->height() >= ((int64_t)consensusParams.nov2018Height);
             int64_t pos = FindTxPosition(*pblock, hash, ctor_enabled);
             if (pos == TX_NOT_FOUND)
             {
@@ -610,9 +610,10 @@ bool LoadExternalBlockFile(const CChainParams &chainparams, FILE *fileIn, CDiskB
                     if (state.IsError())
                         break;
                 }
-                else if (hash != chainparams.GetConsensus().hashGenesisBlock && pindex->nHeight % 1000 == 0)
+                else if (hash != chainparams.GetConsensus().hashGenesisBlock && pindex->height() % 1000 == 0)
                 {
-                    LOG(REINDEX, "Block Import: already had block %s at height %d\n", hash.ToString(), pindex->nHeight);
+                    LOG(REINDEX, "Block Import: already had block %s at height %d\n", hash.ToString(),
+                        pindex->height());
                 }
 
                 // Recursively process earlier encountered successors of this block

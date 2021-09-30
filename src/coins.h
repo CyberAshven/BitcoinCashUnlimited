@@ -71,6 +71,8 @@ public:
     {
     }
 
+    int64_t height() const { return nHeight; };
+
     void Clear()
     {
         out.SetNull();

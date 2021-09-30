@@ -45,7 +45,7 @@ from test_framework.script import (
     SignatureHashForkId,
 )
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, p2p_port, waitFor
+from test_framework.util import assert_equal, assert_raises_rpc_error, p2p_port, waitFor, standardFlags
 import logging
 
 # Blocks with invalid scripts give this error:
@@ -83,27 +83,27 @@ class OpReversebytesActivationTest(BitcoinTestFramework):
         block_height = node.getblockcount()
         blockhash = node.getblockhash(block_height)
         block = FromHex(CBlock(), node.getblock(blockhash, 0))
-        block.calc_sha256()
-        self.block_heights[block.sha256] = block_height
+        block.calc_hash()
+        self.block_heights[block.hashNum] = block_height
         return block
 
     def build_block(self, parent, transactions=(), n_time=None):
         """Make a new block with an OP_1 coinbase output.
 
         Requires parent to have its height registered."""
-        parent.calc_sha256()
-        block_height = self.block_heights[parent.sha256] + 1
+        parent.calc_hash()
+        block_height = self.block_heights[parent.hashNum] + 1
         block_time = (parent.nTime + 1) if n_time is None else n_time
 
         # the script in create_coinbase differs for BU and ABC
         # you need to let coinbase script be CScript([OP_TRUE])
         block = create_block(
-            parent.sha256, create_coinbase(block_height, scriptPubKey = CScript([OP_TRUE])), block_time)
+            parent.hashNum, create_coinbase(block_height, scriptPubKey = CScript([OP_TRUE])), block_time)
         block.vtx.extend(transactions)
         make_conform_to_ctor(block)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.solve()
-        self.block_heights[block.sha256] = block_height
+        self.block_heights[block.hashNum] = block_height
         return block
 
     def check_for_no_ban_on_rejected_tx(self, tx, reject_reason):
@@ -198,3 +198,13 @@ class OpReversebytesActivationTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     OpReversebytesActivationTest().main()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = OpReversebytesActivationTest()
+    t.drop_to_pdb = True
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

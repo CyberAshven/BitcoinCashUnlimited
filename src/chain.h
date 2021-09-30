@@ -149,6 +149,7 @@ enum BlockStatus : uint32_t
     BLOCK_FAILED_VALID = 64, //! stage after last reached validness failed
     BLOCK_FAILED_CHILD = 128, //! descends from failed block
     BLOCK_FAILED_MASK = BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
+    BLOCK_PROCESSED = 256, //! block was processed (maybe pruned, maybe good, maybe bad)
 };
 
 /** The block chain is a tree shaped structure starting with the
@@ -169,7 +170,7 @@ public:
     CBlockIndex *pskip;
 
     //! height of the entry in the chain. The genesis block has height 0
-    int nHeight;
+    int64_t height() const { return ((int64_t)header.height); }
 
     //! Which # file this block is stored in (blk?????.dat)
     int nFile;
@@ -180,12 +181,21 @@ public:
     //! Byte offset within rev?????.dat where this block's undo data is stored
     unsigned int nUndoPos;
 
-    //! (memory only) Total amount of work (expected number of hashes) in the chain up to and including this block
-    arith_uint256 nChainWork;
+    //! Access the chain's total work as committed in the block header
+    arith_uint256 chainWork() const { return UintToArith256(header.chainWork); }
+    //! Access the transaction count as committed in the block header
+    unsigned int txCount() const { return header.txCount; }
+    //! Access the block time as committed in the block header
+    unsigned int time() const { return header.nTime; }
+    //! Access the difficulty target in "nBits" format, as committed in the block header
+    uint32_t tgtBits() const { return header.nBits; }
+    //! Access the merkle root as committed in the block header
+    uint256 hashMerkleRoot() const { return header.hashMerkleRoot; }
+    //! Access the nonce as committed in the block header
+    const std::vector<unsigned char> &nonce() const { return header.nonce; }
 
-    //! Number of transactions in this block.
-    //! Note: in a potential headers-first mode, this number cannot be relied upon
-    unsigned int nTx;
+    //! Return true if this block has been processed */
+    bool processed() const { return ((nStatus & BLOCK_PROCESSED) != 0); }
 
     //! (memory only) Number of transactions in the chain up to and including this block.
     //! This value will be non-zero only if and only if transactions for this block and all its parents are available.
@@ -195,11 +205,7 @@ public:
     unsigned int nStatus;
 
     //! block header
-    int nVersion;
-    uint256 hashMerkleRoot;
-    unsigned int nTime;
-    unsigned int nBits;
-    unsigned int nNonce;
+    CBlockHeader header;
 
     //! Sequential id assigned to distinguish order in which blocks are received.
     uint64_t nSequenceId;
@@ -212,34 +218,22 @@ public:
         phashBlock = nullptr;
         pprev = nullptr;
         pskip = nullptr;
-        nHeight = 0;
         nFile = 0;
         nDataPos = 0;
         nUndoPos = 0;
-        nChainWork = arith_uint256();
-        nTx = 0;
         nChainTx = 0;
         nStatus = 0;
         nSequenceId = 0;
         nTimeReceived = 0;
 
-        nVersion = 0;
-        hashMerkleRoot = uint256();
-        nTime = 0;
-        nBits = 0;
-        nNonce = 0;
+        header.SetNull();
     }
 
     CBlockIndex() { SetNull(); }
     CBlockIndex(const CBlockHeader &block)
     {
         SetNull();
-
-        nVersion = block.nVersion;
-        hashMerkleRoot = block.hashMerkleRoot;
-        nTime = block.nTime;
-        nBits = block.nBits;
-        nNonce = block.nNonce;
+        header = block;
     }
 
     CDiskBlockPos GetBlockPos() const
@@ -266,14 +260,12 @@ public:
 
     CBlockHeader GetBlockHeader() const
     {
-        CBlockHeader block;
-        block.nVersion = nVersion;
+        CBlockHeader block = header;
+        // hashPrevBlock not initialized? So in release mode overwrite it
         if (pprev)
-            block.hashPrevBlock = pprev->GetBlockHash();
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime = nTime;
-        block.nBits = nBits;
-        block.nNonce = nNonce;
+        {
+            DbgAssert(header.hashPrevBlock == pprev->GetBlockHash(), block.hashPrevBlock = pprev->GetBlockHash());
+        }
         return block;
     }
 
@@ -296,7 +288,7 @@ public:
     bool forkAtNextBlock(int time) const;
 
     uint256 GetBlockHash() const { return *phashBlock; }
-    int64_t GetBlockTime() const { return (int64_t)nTime; }
+    int64_t GetBlockTime() const { return (int64_t)header.nTime; }
     enum
     {
         nMedianTimeSpan = 11
@@ -325,8 +317,8 @@ public:
     int64_t GetHeaderReceivedTime() const { return nTimeReceived; }
     std::string ToString() const
     {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)", pprev, nHeight,
-            hashMerkleRoot.ToString(), GetBlockHash().ToString());
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)", pprev, header.height,
+            header.hashMerkleRoot.ToString(), GetBlockHash().ToString());
     }
 
     //! Check whether this block index entry is valid up to the passed validity level.
@@ -387,27 +379,21 @@ bool AreOnTheSameFork(const CBlockIndex *pa, const CBlockIndex *pb);
 class CDiskBlockIndex : public CBlockIndex
 {
 public:
-    uint256 hashPrev;
+    CDiskBlockIndex() {}
+    explicit CDiskBlockIndex(const CBlockIndex *pindex) : CBlockIndex(*pindex) {}
 
-    CDiskBlockIndex() { hashPrev = uint256(); }
-    explicit CDiskBlockIndex(const CBlockIndex *pindex) : CBlockIndex(*pindex)
-    {
-        hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
-    }
-
-    friend bool operator<(const CDiskBlockIndex &a, const CDiskBlockIndex &b) { return a.nHeight < b.nHeight; }
+    friend bool operator<(const CDiskBlockIndex &a, const CDiskBlockIndex &b) { return a.height() < b.height(); }
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
+        // This is the serialization version, not the block version
         int _nVersion = s.GetVersion();
         if (!(s.GetType() & SER_GETHASH))
             READWRITE(VARINT(_nVersion, VarIntMode::NONNEGATIVE_SIGNED));
 
-        READWRITE(VARINT(nHeight, VarIntMode::NONNEGATIVE_SIGNED));
         READWRITE(VARINT(nStatus));
-        READWRITE(VARINT(nTx));
         if (nStatus & (BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO))
             READWRITE(VARINT(nFile, VarIntMode::NONNEGATIVE_SIGNED));
         if (nStatus & BLOCK_HAVE_DATA)
@@ -416,37 +402,22 @@ public:
             READWRITE(VARINT(nUndoPos));
 
         // block header
-        READWRITE(this->nVersion);
-        READWRITE(hashPrev);
-        READWRITE(hashMerkleRoot);
-        READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(header);
 
         // sequence id and time received
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
     }
 
-    uint256 GetBlockHash() const
-    {
-        CBlockHeader block;
-        block.nVersion = nVersion;
-        block.hashPrevBlock = hashPrev;
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime = nTime;
-        block.nBits = nBits;
-        block.nNonce = nNonce;
-        return block.GetHash();
-    }
+    uint256 GetBlockHash() const { return header.GetHash(); }
 
 
     std::string ToString() const
     {
         std::string str = "CDiskBlockIndex(";
         str += CBlockIndex::ToString();
-        str +=
-            strprintf("\n                hashBlock=%s, hashPrev=%s)", GetBlockHash().ToString(), hashPrev.ToString());
+        str += strprintf("\n                hashBlock=%s, hashPrevBlock=%s)", GetBlockHash().ToString(),
+            header.hashPrevBlock.ToString());
         return str;
     }
 };
@@ -464,6 +435,12 @@ public:
     mutable CSharedCriticalSection cs_chainLock;
 
     CChain() : tip(nullptr) {}
+    /** Reset this chain to constructed state -- used in unit tests to switch blockchains */
+    void reset()
+    {
+        vChain.resize(0);
+        tip = nullptr;
+    }
     /** Returns the index entry for the genesis block of this chain, or nullptr if none. */
     CBlockIndex *Genesis() const { return vChain.size() > 0 ? vChain[0] : nullptr; }
     /** Returns the index entry for the tip of this chain, or nullptr if none.  Does not require cs_main. */
@@ -501,7 +478,7 @@ public:
         /* null pointer isn't in this chain but caller should not send in the first place */
         DbgAssert(pindex, return false);
         // lock not needed because operator [] locks
-        return (*this)[pindex->nHeight] == pindex;
+        return (*this)[pindex->height()] == pindex;
     }
 
     /** Efficiently check whether a block is present in this chain.  Lock free */
@@ -509,7 +486,7 @@ public:
     {
         /* null pointer isn't in this chain but caller should not send in the first place */
         DbgAssert(pindex, return false);
-        return _idx(pindex->nHeight) == pindex;
+        return _idx(pindex->height()) == pindex;
     }
 
     /** Find the successor of a block in this chain, or nullptr if the given index is not found or is the tip. */
@@ -517,17 +494,17 @@ public:
     {
         READLOCK(cs_chainLock);
         if (_Contains(pindex))
-            return _idx(pindex->nHeight + 1);
+            return _idx(pindex->height() + 1);
         else
             return nullptr;
     }
 
     /** Return the maximal height in the chain.  Does not require cs_main */
-    int Height() const
+    int64_t Height() const
     {
         auto tmp = tip.load();
         if (tmp)
-            return tmp->nHeight;
+            return tmp->height();
         else
             return -1;
     }

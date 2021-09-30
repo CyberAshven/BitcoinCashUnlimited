@@ -48,16 +48,16 @@ UniValue GetNetworkHashPS(int lookup, int height)
     if (height >= 0 && height < chainActive.Height())
         pb = chainActive[height];
 
-    if (pb == nullptr || !pb->nHeight)
+    if (pb == nullptr || !pb->height())
         return 0;
 
     // If lookup is -1, then use blocks since last difficulty change.
     if (lookup <= 0)
-        lookup = pb->nHeight % Params().GetConsensus().DifficultyAdjustmentInterval() + 1;
+        lookup = pb->height() % Params().GetConsensus().DifficultyAdjustmentInterval() + 1;
 
     // If lookup is larger than chain, then set it to chain length.
-    if (lookup > pb->nHeight)
-        lookup = pb->nHeight;
+    if (lookup > pb->height())
+        lookup = pb->height();
 
     CBlockIndex *pb0 = pb;
     int64_t minTime = pb0->GetBlockTime();
@@ -74,7 +74,7 @@ UniValue GetNetworkHashPS(int lookup, int height)
     if (minTime == maxTime)
         return 0;
 
-    arith_uint256 workDiff = pb->nChainWork - pb0->nChainWork;
+    arith_uint256 workDiff = pb->chainWork() - pb0->chainWork();
     int64_t timeDiff = maxTime - minTime;
 
     return workDiff.getdouble() / timeDiff;
@@ -107,7 +107,7 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     uint64_t nMaxTries,
     bool keepScript)
 {
-    static const int nInnerLoopCount = 0x10000;
+    static const uint64_t nInnerLoopCount = 0x10000;
     int nHeightStart = 0;
     int nHeightEnd = 0;
     int nHeight = 0;
@@ -116,8 +116,8 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
     nHeight = nHeightStart;
     nHeightEnd = nHeightStart + nGenerate;
 
-    unsigned int nExtraNonce = 0;
     UniValue blockHashes(UniValue::VARR);
+    auto p = Params().GetConsensus();
     while (nHeight < nHeightEnd)
     {
         std::unique_ptr<CBlockTemplate> pblocktemplate;
@@ -129,21 +129,22 @@ UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
 
         CBlock *pblock = &pblocktemplate->block;
-        IncrementExtraNonce(pblock, nExtraNonce);
-        while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount &&
-               !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()))
-        {
-            ++pblock->nNonce;
-            --nMaxTries;
-        }
+        pblock->nonce.resize(4);
+
+        auto tries = min(nInnerLoopCount, nMaxTries);
+        bool worked = MineBlock(*pblock, tries, p);
+        nMaxTries -= tries;
+
         if (nMaxTries == 0)
         {
             break;
         }
-        if (pblock->nNonce == nInnerLoopCount)
+
+        if (worked == false)
         {
             continue;
         }
+        // Ok we found a block, so process it
 
         // In we are mining our own block or not running in parallel for any reason
         // we must terminate any block validation threads that are currently running,
@@ -187,7 +188,7 @@ UniValue generate(const UniValue &params, bool fHelp)
                             HelpExampleCli("generate", "11"));
 
     int nGenerate = params[0].get_int();
-    uint64_t nMaxTries = 1000000;
+    uint64_t nMaxTries = 100000000;
     if (params.size() > 1)
     {
         nMaxTries = params[1].get_int();
@@ -464,9 +465,6 @@ static UniValue MkFullMiningCandidateJson(const std::set<std::string> &setClient
 
     UniValue aRules(UniValue::VARR);
     UniValue vbavailable(UniValue::VOBJ);
-
-    pblock->nVersion = UtilMkBlockTmplVersionBits(pblock->nVersion, setClientRules, pindexPrev, &aRules, &vbavailable);
-
     UniValue aux(UniValue::VOBJ);
     // COINBASE_FLAGS were assigned in CreateNewBlock() in the steps above.  Now we can use it here.
     {
@@ -483,7 +481,6 @@ static UniValue MkFullMiningCandidateJson(const std::set<std::string> &setClient
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("capabilities", aCaps);
-    result.pushKV("version", pblock->nVersion);
     result.pushKV("rules", aRules);
     result.pushKV("vbavailable", vbavailable);
     result.pushKV("vbrequired", int(0));
@@ -765,12 +762,11 @@ UniValue mkblocktemplate(const UniValue &params,
 
     // Update nTime
     UpdateTime(pblock, consensusParams, pindexPrev);
-    pblock->nNonce = 0;
+    pblock->nonce.clear();
 
     if (pblockOut != nullptr)
     {
         // Make a block.
-        pblock->nVersion = UtilMkBlockTmplVersionBits(pblock->nVersion, setClientRules, pindexPrev, nullptr, nullptr);
         *pblockOut = *pblock;
         return UniValue();
     }

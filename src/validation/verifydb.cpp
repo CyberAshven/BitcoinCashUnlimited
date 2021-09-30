@@ -39,30 +39,30 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
             return false;
         }
         uiInterface.ShowProgress(_("Verifying blocks..."),
-            std::max(1, std::min(99, (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth *
+            std::max(1, std::min(99, (int)(((double)(chainActive.Height() - pindex->height())) / (double)nCheckDepth *
                                            (nCheckLevel >= 4 ? 50 : 100)))));
-        if (pindex->nHeight < chainActive.Height() - nCheckDepth)
+        if (pindex->height() < chainActive.Height() - nCheckDepth)
             break;
         {
             READLOCK(cs_mapBlockIndex); // for nStatus
             if (fPruneMode && !(pindex->nStatus & BLOCK_HAVE_DATA))
             {
                 // If pruning, only go back as far as we have data.
-                LOGA("VerifyDB(): block verification stopping at height %d (pruning, no data)\n", pindex->nHeight);
+                LOGA("VerifyDB(): block verification stopping at height %d (pruning, no data)\n", pindex->height());
                 break;
             }
         }
         // check level 0: read from disk
         CBlockRef pblock = ReadBlockFromDisk(pindex, chainparams.GetConsensus());
         if (!pblock)
-            return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight,
+            return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->height(),
                 pindex->GetBlockHash().ToString());
         nBlockSizeAtChainTip.store(pblock->GetBlockSize());
 
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(*pblock, state))
-            return error(
-                "VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
+        if (nCheckLevel >= 1 && !CheckBlock(chainparams.GetConsensus(), *pblock, state))
+            return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->height(),
+                pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex)
         {
@@ -71,7 +71,7 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
             if (!pos.IsNull())
             {
                 if (!ReadUndoFromDisk(undo, pos, pindex->pprev))
-                    return error("VerifyDB(): *** found bad undo data at %d, hash=%s\n", pindex->nHeight,
+                    return error("VerifyDB(): *** found bad undo data at %d, hash=%s\n", pindex->height(),
                         pindex->GetBlockHash().ToString());
             }
         }
@@ -83,7 +83,7 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
             if (res == DISCONNECT_FAILED)
             {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s",
-                    pindex->nHeight, pindex->GetBlockHash().ToString());
+                    pindex->height(), pindex->GetBlockHash().ToString());
             }
             pindexState = pindex->pprev;
             if (res == DISCONNECT_UNCLEAN)
@@ -100,7 +100,7 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
     if (pindexFailure)
         return error(
             "VerifyDB(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n",
-            chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
+            chainActive.Height() - pindexFailure->height() + 1, nGoodTransactions);
 
     // check level 4: try reconnecting blocks
     if (nCheckLevel >= 4)
@@ -113,21 +113,21 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
                 return false;
             }
             uiInterface.ShowProgress(_("Verifying blocks..."),
-                std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) /
+                std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->height())) /
                                                      (double)nCheckDepth * 50))));
             pindex = chainActive.Next(pindex);
             CBlockRef pblock = ReadBlockFromDisk(pindex, chainparams.GetConsensus());
             if (!pblock)
-                return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight,
+                return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->height(),
                     pindex->GetBlockHash().ToString());
             if (!ConnectBlock(*pblock, state, pindex, coins, chainparams))
-                return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight,
+                return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->height(),
                     pindex->GetBlockHash().ToString());
         }
     }
 
     LOGA("No coin database inconsistencies in last %i blocks (%i transactions)\n",
-        chainActive.Height() - pindexState->nHeight, nGoodTransactions);
+        chainActive.Height() - pindexState->height(), nGoodTransactions);
 
     return true;
 }

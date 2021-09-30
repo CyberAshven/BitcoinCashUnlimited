@@ -39,10 +39,16 @@ enum DisconnectResult
 };
 
 /** Context-independent validity checks */
-bool CheckBlockHeader(const CBlockHeader &block, CValidationState &state, bool fCheckPOW = true);
+bool CheckBlockHeader(const Consensus::Params &consensusParams,
+    const CBlockHeader &block,
+    CValidationState &state,
+    bool fCheckPOW = true);
 
 /** Context-dependent validity header checks */
-bool ContextualCheckBlockHeader(const CBlockHeader &block, CValidationState &state, CBlockIndex *pindexPrev);
+bool ContextualCheckBlockHeader(const CChainParams &chainparams,
+    const CBlockHeader &block,
+    CValidationState &state,
+    CBlockIndex *const pindexPrev);
 
 bool AcceptBlockHeader(const CBlockHeader &block,
     CValidationState &state,
@@ -52,7 +58,7 @@ bool AcceptBlockHeader(const CBlockHeader &block,
 /** Create a new block index entry for a new block or header that has arrived.
  *  This updates setDirtyBlockIndex only.
  */
-CBlockIndex *AddToBlockIndex(const CBlockHeader &block);
+CBlockIndex *AddToBlockIndex(const CChainParams &chainparams, const CBlockHeader &block);
 
 /** Add a block index entry for a given block hash.
  *  This is used when loading the block index at startup or upgrading the database.
@@ -121,7 +127,11 @@ void InvalidChainFound(CBlockIndex *pindexNew);
 bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIndex *pindexPrev);
 
 // BU: returns the blocksize if block is valid.  Otherwise 0
-bool CheckBlock(const CBlock &block, CValidationState &state, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+bool CheckBlock(const Consensus::Params &consensusParams,
+    const CBlock &block,
+    CValidationState &state,
+    bool fCheckPOW = true,
+    bool fCheckMerkleRoot = true);
 
 /** Mark a block as having its data received and checked (up to BLOCK_VALID_TRANSACTIONS). */
 bool ReceivedBlockTransactions(const CBlock &block,

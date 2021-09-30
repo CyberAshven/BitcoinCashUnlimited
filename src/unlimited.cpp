@@ -56,6 +56,8 @@
 #include <queue>
 #include <stack>
 #include <thread>
+// Execute a command, as given by -alertnotify, on certain events such as a long fork being seen
+extern void AlertNotify(const std::string &strMessage);
 
 using namespace std;
 
@@ -74,6 +76,7 @@ int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 bool IsTrafficShapingEnabled();
 UniValue validateblocktemplate(const UniValue &params, bool fHelp);
 UniValue validatechainhistory(const UniValue &params, bool fHelp);
+UniValue issuealert(const UniValue &params, bool fHelp);
 
 bool MiningAndExcessiveBlockValidatorRule(const uint64_t newExcessiveBlockSize, const uint64_t newMiningBlockSize)
 {
@@ -595,8 +598,8 @@ bool CheckExcessive(const CBlock &block, uint64_t blockSize, uint64_t nTx, uint6
 {
     if (blockSize > excessiveBlockSize)
     {
-        LOGA("Excessive block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64 "  :too many bytes\n", block.nVersion,
-            block.nTime, blockSize, nTx);
+        LOGA("Excessive block: time:%d size: %" PRIu64 " Tx:%" PRIu64 "  :too many bytes\n", block.nTime, blockSize,
+            nTx);
         return true;
     }
 
@@ -605,9 +608,9 @@ bool CheckExcessive(const CBlock &block, uint64_t blockSize, uint64_t nTx, uint6
         // Check transaction size to limit sighash
         if (largestTx > maxTxSize.Value())
         {
-            LOGA("Excessive block: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64
+            LOGA("Excessive block: time:%d size: %" PRIu64 " Tx:%" PRIu64
                  " largest TX:%d  :tx too large.  Expected less than: %d\n",
-                block.nVersion, block.nTime, blockSize, nTx, largestTx, maxTxSize.Value());
+                block.nTime, blockSize, nTx, largestTx, maxTxSize.Value());
             return true;
         }
     }
@@ -616,12 +619,8 @@ bool CheckExcessive(const CBlock &block, uint64_t blockSize, uint64_t nTx, uint6
         // Within a 1MB block transactions can be 1MB, so nothing to check WRT transaction size
     }
 
-    if ((block.nVersion >= 2) && (block.nTime >= 1364140153)) // BIP34 time and block version for use of GetHeight
-        LOGA("Acceptable block %s at %d: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64 " \n",
-            block.GetHash().ToString(), block.GetHeight(), block.nVersion, block.nTime, blockSize, nTx);
-    else
-        LOGA("Acceptable block %s: ver:%x time:%d size: %" PRIu64 " Tx:%" PRIu64 " \n", block.GetHash().ToString(),
-            block.nVersion, block.nTime, blockSize, nTx);
+    LOGA("Acceptable block %s at %d: time:%d size: %" PRIu64 " Tx:%" PRIu64 " \n", block.GetHash().ToString(),
+        block.height, block.nTime, blockSize, nTx);
     return false;
 }
 
@@ -782,7 +781,7 @@ UniValue getblockversion(const UniValue &params, bool fHelp)
                             "\nExamples:\n" +
                             HelpExampleCli("getblockversion", "") + HelpExampleRpc("getblockversion", ""));
     const CBlockIndex *pindex = chainActive.Tip();
-    return UnlimitedComputeBlockVersion(pindex, Params().GetConsensus(), pindex->nTime);
+    return UnlimitedComputeBlockVersion(pindex, Params().GetConsensus(), pindex->time());
 }
 
 UniValue setblockversion(const UniValue &params, bool fHelp)
@@ -993,7 +992,7 @@ void IsInitialBlockDownloadInit(bool *fInit)
         return;
     }
 
-    bool state = (chainActive.Height() < pindexBestHeader.load()->nHeight - 24 * 6 ||
+    bool state = (chainActive.Height() < pindexBestHeader.load()->height() - 24 * 6 ||
                   std::max(chainActive.Tip()->GetBlockTime(), pindexBestHeader.load()->GetBlockTime()) <
                       GetTime() - nMaxTipAge);
     if (!state)
@@ -1015,7 +1014,7 @@ void IsChainNearlySyncdInit()
     }
     else
     {
-        if (chainActive.Height() < pindexBestHeader.load()->nHeight - DEFAULT_BLOCKS_FROM_TIP)
+        if (chainActive.Height() < pindexBestHeader.load()->height() - DEFAULT_BLOCKS_FROM_TIP)
             fIsChainNearlySyncd.store(false);
         else
             fIsChainNearlySyncd.store(true);
@@ -1312,7 +1311,7 @@ static void RmOldMiningCandidates()
     LOCK(csMiningCandidates);
     unsigned int height = GetBlockchainHeight();
 
-    int64_t tdiff = GetTime() - (chainActive.Tip()->nTime + minMiningCandidateInterval.Value());
+    int64_t tdiff = GetTime() - (chainActive.Tip()->time() + minMiningCandidateInterval.Value());
     if (tdiff >= 0)
     {
         // Clean out mining candidates that are the same height as a discovered block.
@@ -1366,7 +1365,7 @@ std::vector<uint256> GetMerkleProofBranches(CBlock *pblock)
     return ret;
 }
 
-static CMiningCandidate *FindRecentMiningCandidate(CScript *coinbaseScript, int32_t desiredVersion)
+static CMiningCandidate *FindRecentMiningCandidate(CScript *coinbaseScript)
 {
     LOCK(csMiningCandidates);
     if ((lastMiningCandidateId == 0) || (miningCandidatesMap.size() == 0))
@@ -1377,10 +1376,6 @@ static CMiningCandidate *FindRecentMiningCandidate(CScript *coinbaseScript, int3
     CMiningCandidate &candid = it->second;
     if (candid.creationTime + minMiningCandidateInterval.Value() < (uint64_t)GetTime())
         return nullptr; // Too old
-
-    // desired version bits changed
-    if (candid.block->nVersion != desiredVersion)
-        return nullptr;
 
     // I don't care what the coinbase script is (probably because its anything from this wallet)
     if (coinbaseScript == nullptr)
@@ -1399,15 +1394,18 @@ static UniValue MkMiningCandidateJson(CMiningCandidate &candid)
     UniValue ret(UniValue::VOBJ);
     CBlock &block = *(candid.block);
 
-    ret.pushKV("prevhash", block.hashPrevBlock.GetHex());
     ret.pushKV("id", candid.id);
+    ret.pushKV("headerCommitment", block.GetMiningHeaderCommitment().GetHex());
+
+#if 0 // Merkle path is no longer needed for mining.  Mining pool should provide us with its output script and we'll
+      // make the coinbase tx.  However, leave this code for demonstration purposes.
+    ret.pushKV("prevhash", block.hashPrevBlock.GetHex());
 
     {
         const CTransaction *tran = block.vtx[0].get();
         ret.pushKV("coinbase", EncodeHexTx(*tran));
     }
 
-    ret.pushKV("version", block.nVersion);
     ret.pushKV("nBits", strprintf("%08x", block.nBits));
     ret.pushKV("time", block.GetBlockTime());
 
@@ -1431,6 +1429,7 @@ static UniValue MkMiningCandidateJson(CMiningCandidate &candid)
 
         // ret.pushKV("merklePath", 0);
     }
+#endif
 
     return ret;
 }
@@ -1482,8 +1481,6 @@ UniValue getminingcandidate(const UniValue &params, bool fHelp)
     }
 
     RmOldMiningCandidates();
-    uint32_t blockVer = UtilMkBlockTmplVersionBits(
-        CBlockHeader::CURRENT_VERSION, std::set<std::string>(), chainActive.Tip(), nullptr, nullptr);
 
     {
         // Lock the mining candidates so that another request or a solution does not modify the coinbase while we are
@@ -1502,14 +1499,14 @@ UniValue getminingcandidate(const UniValue &params, bool fHelp)
             candid.localCoinbase = false;
 
             // Look for a recent candidate
-            recentCandidate = FindRecentMiningCandidate(&coinbaseScript, blockVer);
+            recentCandidate = FindRecentMiningCandidate(&coinbaseScript);
         }
         else
         {
             candid.localCoinbase = true;
 
             // Look for a recent candidate
-            recentCandidate = FindRecentMiningCandidate(nullptr, blockVer);
+            recentCandidate = FindRecentMiningCandidate(nullptr);
         }
 
         if (recentCandidate)
@@ -1574,12 +1571,18 @@ UniValue submitminingsolution(const UniValue &params, bool fHelp)
     {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "nonce not found");
     }
-    block->nNonce = (uint32_t)nonce.get_int64(); // 64 bit to deal with sign bit in 32 bit unsigned int
+    block->nonce = ParseHex(nonce.get_str()); // 64 bit to deal with sign bit in 32 bit unsigned int
 
+    if (block->nonce.size() > CBlockHeader::MAX_NONCE_SIZE)
+    {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "nonce too large");
+    }
+
+#if 0 // no longer needed
     UniValue time = rcvd["time"];
     if (!time.isNull())
     {
-        block->nTime = (uint32_t)time.get_int64();
+        block->header.time = (uint32_t)time.get_int64();
     }
 
     UniValue version = rcvd["version"];
@@ -1607,6 +1610,7 @@ UniValue submitminingsolution(const UniValue &params, bool fHelp)
         uint256 t = block->vtx[0]->GetHash();
         block->hashMerkleRoot = CalculateMerkleRoot(t, merkleProof);
     }
+#endif
 
     UniValue uvsub = SubmitBlock(*block); // returns string on failure
     RmOldMiningCandidates();
@@ -1687,6 +1691,7 @@ static const CRPCCommand commands[] =
 #endif
     { "util",               "getaddressforms",        &getaddressforms,        true  },
     { "util",               "log",                    &setlog,                 true  },
+    { "util",               "issuealert",             &issuealert,             true  },
 };
 /* clang-format on */
 
@@ -1717,13 +1722,13 @@ UniValue validatechainhistory(const UniValue &params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
     }
 
-    LOGA("validatechainhistory starting at %d %s\n", pos->nHeight, pos->phashBlock->ToString());
+    LOGA("validatechainhistory starting at %d %s\n", pos->height(), pos->phashBlock->ToString());
 
     LOCK(cs_main); // modifying contents of CBlockIndex and setDirtyBlockIndex
 
     while (pos && !failedChain)
     {
-        // LOGA("validate %d %s\n", pos->nHeight, pos->phashBlock->ToString());
+        // LOGA("validate %d %s\n", pos->height(), pos->phashBlock->ToString());
         READLOCK(cs_mapBlockIndex);
         failedChain = pos->nStatus & BLOCK_FAILED_MASK;
         if (!failedChain)
@@ -1944,8 +1949,8 @@ struct CompareBlocksByHeight
         /* Make sure that unequal blocks with the same height do not compare
            equal. Use the pointers themselves to make a distinction. */
 
-        if (a->nHeight != b->nHeight)
-            return (a->nHeight > b->nHeight);
+        if (a->height() != b->height())
+            return (a->height() > b->height());
 
         return a < b;
     }
@@ -1986,7 +1991,7 @@ void MarkAllContainingChainsInvalid(CBlockIndex *invalidBlock)
 
     for (CBlockIndex *tip : setTips)
     {
-        if (tip->GetAncestor(invalidBlock->nHeight) == invalidBlock)
+        if (tip->GetAncestor(invalidBlock->height()) == invalidBlock)
         {
             for (CBlockIndex *blk = tip; blk != invalidBlock; blk = blk->pprev)
             {
@@ -2042,6 +2047,23 @@ UniValue getaddressforms(const UniValue &params, bool fHelp)
     node.pushKV("bitcoincash", cashAddr);
     node.pushKV("bitpay", bitpayAddr);
     return node;
+}
+
+UniValue issuealert(const UniValue &params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 1)
+        throw runtime_error("issuealert \"alert\"\n"
+                            "\ntrigger an alert (executes configured -alertnotify string).\n"
+                            "\nArguments\n"
+                            "1. \"alert\"    (string, required) the alert text (in quotes if in a shell)\n"
+                            "\nExamples:\n" +
+                            HelpExampleCli("issuealert", "\"this is an alert\"") +
+                            HelpExampleRpc("issuealert", "\"this is an alert\""));
+
+    UniValue ret(UniValue::VARR);
+
+    AlertNotify(params[0].get_str());
+    return UniValue();
 }
 
 

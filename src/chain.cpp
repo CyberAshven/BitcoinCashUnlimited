@@ -21,11 +21,11 @@ void CChain::SetTip(CBlockIndex *pindex)
         tip = nullptr;
         return;
     }
-    vChain.resize(pindex->nHeight + 1);
+    vChain.resize(pindex->height() + 1);
     tip = pindex;
-    while (pindex && vChain[pindex->nHeight] != pindex)
+    while (pindex && vChain[pindex->height()] != pindex)
     {
-        vChain[pindex->nHeight] = pindex;
+        vChain[pindex->height()] = pindex;
         pindex = pindex->pprev;
     }
 }
@@ -43,10 +43,10 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const
     {
         vHave.push_back(pindex->GetBlockHash());
         // Stop when we have added the genesis block.
-        if (pindex->nHeight == 0)
+        if (pindex->height() == 0)
             break;
         // Exponentially larger steps back, plus the genesis block.
-        int nHeight = std::max(pindex->nHeight - nStep, 0);
+        int nHeight = std::max(((int)pindex->height()) - nStep, 0);
         if (_Contains(pindex))
         {
             // Use O(1) CChain index if possible.
@@ -71,7 +71,7 @@ const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const
     {
         return nullptr;
     }
-    if (pindex->nHeight > Height())
+    if (pindex->height() > Height())
         pindex = pindex->GetAncestor(Height());
     while (pindex && !_Contains(pindex))
         pindex = pindex->pprev;
@@ -92,20 +92,20 @@ int static inline GetSkipHeight(int height)
     return (height & 1) ? InvertLowestOne(InvertLowestOne(height - 1)) + 1 : InvertLowestOne(height);
 }
 
-CBlockIndex *CBlockIndex::GetAncestor(int height)
+CBlockIndex *CBlockIndex::GetAncestor(int ansHeight)
 {
-    if (height > nHeight || height < 0)
+    if (ansHeight > height() || ansHeight < 0)
         return nullptr;
 
     CBlockIndex *pindexWalk = this;
-    int heightWalk = nHeight;
-    while (heightWalk > height)
+    int heightWalk = height();
+    while (heightWalk > ansHeight)
     {
         int heightSkip = GetSkipHeight(heightWalk);
         int heightSkipPrev = GetSkipHeight(heightWalk - 1);
         if (pindexWalk->pskip != nullptr &&
-            (heightSkip == height ||
-                (heightSkip > height && !(heightSkipPrev < heightSkip - 2 && heightSkipPrev >= height))))
+            (heightSkip == ansHeight ||
+                (heightSkip > ansHeight && !(heightSkipPrev < heightSkip - 2 && heightSkipPrev >= ansHeight))))
         {
             // Only follow pskip if pprev->pskip isn't better than pskip->pprev.
             pindexWalk = pindexWalk->pskip;
@@ -129,7 +129,7 @@ const CBlockIndex *CBlockIndex::GetAncestor(int height) const
 void CBlockIndex::BuildSkip()
 {
     if (pprev)
-        pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
+        pskip = pprev->GetAncestor(GetSkipHeight(height()));
 }
 
 /** Member helper functions needed to implement time based fork activation
@@ -207,13 +207,13 @@ std::string CBlockFileInfo::ToString() const
 
 const CBlockIndex *LastCommonAncestor(const CBlockIndex *pa, const CBlockIndex *pb)
 {
-    if (pa->nHeight > pb->nHeight)
+    if (pa->height() > pb->height())
     {
-        pa = pa->GetAncestor(pb->nHeight);
+        pa = pa->GetAncestor(pb->height());
     }
-    else if (pb->nHeight > pa->nHeight)
+    else if (pb->height() > pa->height())
     {
-        pb = pb->GetAncestor(pa->nHeight);
+        pb = pb->GetAncestor(pa->height());
     }
 
     while (pa != pb && pa && pb)

@@ -106,12 +106,6 @@ TestingSetup::~TestingSetup()
     fs::remove_all(pathTemp);
 }
 
-struct NumericallyLessTxHashComparator
-{
-public:
-    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetHash() < b->GetHash(); }
-};
-
 TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 {
     // Generate a 100-block chain:
@@ -145,15 +139,14 @@ CBlock TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransa
     // enfore LTOR ordering of transactions
     std::sort(block.vtx.begin() + 1, block.vtx.end(), NumericallyLessTxHashComparator());
 
-    // IncrementExtraNonce creates a valid coinbase and merkleRoot
-    unsigned int extraNonce = 0;
-    IncrementExtraNonce(&block, extraNonce);
-
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus()))
-        ++block.nNonce;
+    block.UpdateHeader(); // make sure the size field is properly calculated
+    block.nonce.resize(3);
+    bool worked = MineBlock(block, 1 << 23, chainparams.GetConsensus());
+    assert(worked);
 
     CValidationState state;
-    ProcessNewBlock(state, chainparams, nullptr, &block, true, nullptr, false);
+    worked = ProcessNewBlock(state, chainparams, nullptr, &block, true, nullptr, false);
+    // ProcessNewBlock will fail here in some negative tests so no: assert(worked);
 
     CBlock result = block;
     return result;
