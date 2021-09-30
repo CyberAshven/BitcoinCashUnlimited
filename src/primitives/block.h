@@ -7,21 +7,21 @@
 #ifndef BITCOIN_PRIMITIVES_BLOCK_H
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
+#include "arith_uint256.h"
 #include "primitives/transaction.h"
 #include "protocol.h"
+#include "satoshiblock.h"
 #include "serialize.h"
 #include "uint256.h"
-class arith_uint256;
-
-const uint32_t BIP_009_MASK = 0x20000000;
-const uint32_t BASE_VERSION = 0x20000000;
-const uint32_t FORK_BIT_2MB = 0x10000000; // Vote for 2MB fork
-const bool DEFAULT_2MB_VOTE = false;
 
 class CXThinBlock;
 class CThinBlock;
 class CompactBlock;
 class CGrapheneBlock;
+namespace Consensus
+{
+class Params;
+}
 
 /** Get the work equivalent for the supplied nBits of difficulty */
 arith_uint256 GetWorkForDifficultyBits(uint32_t nBits);
@@ -33,17 +33,58 @@ arith_uint256 GetWorkForDifficultyBits(uint32_t nBits);
  * in the block is a special one that creates a new coin owned by the creator
  * of the block.
  */
+
 class CBlockHeader
 {
 public:
-    // header
-    static const int32_t CURRENT_VERSION = BASE_VERSION;
-    int32_t nVersion;
+    enum
+    {
+        MAX_NONCE_SIZE = 16
+    };
+
+    /** Hash of the parent block */
     uint256 hashPrevBlock;
-    uint256 hashMerkleRoot;
-    uint32_t nTime;
+    /** difficulty target specified in a compact format (see detailed docs for exact format) */
     uint32_t nBits;
-    uint32_t nNonce;
+    /** Hash of a specific ancestor block (see detailed docs for exact ancestor) */
+    uint256 hashAncestor;
+    /** Root of the merkle tree containing all transactions in this block */
+    uint256 hashMerkleRoot;
+    /** commitment to a probabilistic transaction/address filter that allows light clients to discover if they may
+        need the block. (e.g. neutrino)
+    */
+    uint256 hashTxFilter;
+    /** miner-reported block creation time in seconds since the epoch */
+    uint32_t nTime;
+
+    /** Height of this block */
+    // At 2 minute blocks this overflows in (2**32-1)/(30*24*265) = 16343 years (but its serialized as a varint
+    // and hashed as a uint64_t anyway)
+    uint32_t height;
+    /** Cumulative work in the chain */
+    uint256 chainWork;
+    /** Block size in bytes -- mutable because it is calculated from the other fields */
+    mutable uint64_t size;
+    /** Number of transactions in the block */
+    uint64_t txCount;
+    /** maximum allowed block size in bytes of a block at this height (algorithmically determined, but part of hash
+     commitment) */
+    uint64_t maxSize;
+    /** quantity of satoshis in fee pool AFTER transaction evaluation (algorithmically determined, but part of hash
+        commitment). */
+    uint64_t feePoolAmt;
+    /** commitment to a data structure containing all unspent coins */
+    std::vector<unsigned char> utxoCommitment; // MUST be len 0 for now. MUST be < 128 bytes
+    /** miner-specific data -- this is not a free-for all field.  It must follow documented conventions */
+    std::vector<unsigned char> minerData; // MUST be len 0 for now
+    /** mining nonce */
+    // nonce length must be < 16 bytes.  This means the header hash + nonce fit in 1 sha256 round (with spare room)
+    std::vector<unsigned char> nonce;
+
+    /** Convenience function to get the chain work as an arith_uint256 */
+    arith_uint256 aChainWork() const { return UintToArith256(chainWork); }
+    /** Convenience function to set the chain work from an arith_uint256 */
+    void SetChainWork(const arith_uint256 &v) { chainWork = ArithToUint256(v); }
 
     CBlockHeader() { SetNull(); }
     ADD_SERIALIZE_METHODS;
@@ -51,44 +92,88 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
-        READWRITE(this->nVersion);
         READWRITE(hashPrevBlock);
-        READWRITE(hashMerkleRoot);
-        READWRITE(nTime);
         READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(hashAncestor);
+        READWRITE(hashMerkleRoot);
+        READWRITE(hashTxFilter);
+        READWRITE(nTime);
+        READWRITE(VARINT(height));
+        READWRITE(chainWork);
+        READWRITE(size); // Can't be a varint or it relies on itself.  Does not include the nonce size
+        READWRITE(VARINT(txCount));
+        READWRITE(VARINT(maxSize));
+        READWRITE(VARINT(feePoolAmt));
+        READWRITE(utxoCommitment);
+        READWRITE(minerData);
+        READWRITE(nonce);
     }
 
     bool operator==(const CBlockHeader &b)
     {
-        return (nVersion == b.nVersion && hashPrevBlock == b.hashPrevBlock && hashMerkleRoot == b.hashMerkleRoot &&
-                nTime == b.nTime && nBits == b.nBits && nNonce == b.nNonce);
+        return (hashPrevBlock == b.hashPrevBlock && hashAncestor == b.hashAncestor &&
+                hashMerkleRoot == b.hashMerkleRoot && hashTxFilter == b.hashTxFilter && nTime == b.nTime &&
+                nBits == b.nBits && height == b.height && chainWork == b.chainWork && size == b.size &&
+                txCount == b.txCount && maxSize == b.maxSize && feePoolAmt == b.feePoolAmt && nonce == b.nonce &&
+                utxoCommitment == b.utxoCommitment && minerData == b.minerData);
     }
 
     void SetNull()
     {
-        nVersion = 0;
         hashPrevBlock.SetNull();
+        hashAncestor.SetNull();
         hashMerkleRoot.SetNull();
+        hashTxFilter.SetNull();
         nTime = 0;
         nBits = 0;
-        nNonce = 0;
+        height = 0;
+        chainWork.SetNull();
+        size = 0;
+        txCount = 0;
+        maxSize = 0;
+        feePoolAmt = 0;
+        nonce.clear();
+        utxoCommitment.clear();
+        minerData.clear();
     }
 
+    /** Return true if this data structure is empty */
     bool IsNull() const { return (nBits == 0); }
+
+    /** Hash for identification, not mining */
     uint256 GetHash() const;
 
+    /* The block header is formed by the sha256 of the sha256 of the mini-header and the sha256 of the extended header.
+       This allows extra-light (mini-headers only) clients to only keep the mini-header the extended header
+       commitment, and the nonce. */
+
+    /** Returns the sha256 of the block header (except nonce),
+       which is combined with the nonce to produce the mining target */
+    uint256 GetMiningHeaderCommitment() const;
+
+    /** convenient but inefficient for mining.  For mining use GetMiningHeaderCommitment() and loop {
+       modify nonce; ::GetMiningHash(...) } */
+    uint256 GetMiningHash() const;
+
+    /* Solve this block.  Not for performance use. The function modifies the nonce but does not change its size.
+       NOTE: if nonce size is 0 or small, there may be no solution ever found!
+
+       This cannot be a member function because the POW functionality is not included in as many products
+       as the block header, so is not part of various libraries.  Instead call the global function:
+
+       bool ::MineBlock(const CBlockHeader& block, int nTries, const Consensus::Params &cparams);
+    */
+
+    /** Return the miner-reported time that block was created */
     int64_t GetBlockTime() const { return (int64_t)nTime; }
 };
-/** The expected size of a serialized block header */
-static const unsigned int SERIALIZED_HEADER_SIZE = ::GetSerializeSize(CBlockHeader(), SER_NETWORK, PROTOCOL_VERSION);
+
+/** Combine a hashed header with a nonce to get the hash value used in proof-of-work calculations */
+uint256 GetMiningHash(const uint256 &headerCommitment, const std::vector<unsigned char> &nonce);
+
 
 class CBlock : public CBlockHeader
 {
-private:
-    // memory only
-    mutable uint64_t nBlockSize; // Serialized block size in bytes
-
 public:
     // Xpress Validation: (memory only)
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
@@ -114,20 +199,6 @@ public:
         *((CBlockHeader *)this) = header;
     }
 
-    static bool VersionKnown(int32_t nVersion, int32_t voteBits)
-    {
-        if (nVersion >= 1 && nVersion <= 4)
-            return true;
-        // BIP009 / versionbits:
-        if (nVersion & BIP_009_MASK)
-        {
-            uint32_t v = nVersion & ~BIP_009_MASK;
-            if ((v & ~voteBits) == 0)
-                return true;
-        }
-        return false;
-    }
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -137,25 +208,10 @@ public:
         READWRITE(vtx);
     }
 
-    uint64_t GetHeight() const // Returns the block's height as specified in its coinbase transaction
-    {
-        if (nVersion < 2)
-            throw std::runtime_error("Block does not contain height");
-        const CScript &sig = vtx[0]->vin[0].scriptSig;
-        int numlen = sig[0];
-        if (numlen == OP_0)
-            return 0;
-        if ((numlen >= OP_1) && (numlen <= OP_16))
-            return numlen - OP_1 + 1;
-        // Did you call this on a pre BIP34, or it could be a deliberately invalid block
-        if ((int)sig.size() - 1 < numlen)
-            throw std::runtime_error("Invalid block height");
-        std::vector<unsigned char> heightScript(numlen);
-        copy(sig.begin() + 1, sig.begin() + 1 + numlen, heightScript.begin());
-        CScriptNum coinbaseHeight(heightScript, false, numlen);
-        return coinbaseHeight.getint();
-    }
+    /** Returns the block's height as specified in its header */
+    uint64_t GetHeight() const { return height; }
 
+    /** Clear all fields in this object */
     void SetNull()
     {
         CBlockHeader::SetNull();
@@ -163,26 +219,29 @@ public:
         fChecked = false;
         fExcessive = false;
         fXVal = false;
-        nBlockSize = 0;
     }
 
-    CBlockHeader GetBlockHeader() const
-    {
-        CBlockHeader block;
-        block.nVersion = nVersion;
-        block.hashPrevBlock = hashPrevBlock;
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime = nTime;
-        block.nBits = nBits;
-        block.nNonce = nNonce;
-        return block;
-    }
+    /** Return this blocks header */
+    const CBlockHeader GetBlockHeader() const { return *this; }
 
+    /** return a human readable description of this block */
     std::string ToString() const;
 
-    // Return the serialized block size in bytes. This is only done once and then the result stored
-    // in nBlockSize for future reference, saving unncessary and expensive serializations.
+    /** return the network serialization of this block as a hex string */
+    std::string GetHex() const;
+
+    /**
+    Return the serialized block size in bytes. This is only done once and then the result stored
+    in the header's "size" field for future reference, saving unncessary and expensive serializations.
+    The block size does NOT include the nonce size, because the nonce size may change while solving the block
+    */
     uint64_t GetBlockSize() const;
+
+    /** Recalculate the block's serialized size, not counting the nonce field */
+    uint64_t CalculateBlockSize() const;
+
+    /** Update the header based on changes to the block's contents (i.e. tx added, size changed) */
+    void UpdateHeader();
 };
 
 /**

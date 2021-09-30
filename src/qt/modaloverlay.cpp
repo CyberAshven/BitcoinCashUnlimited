@@ -126,16 +126,16 @@ void ModalOverlay::tipUpdate(int count, const QDateTime &blockDate, double nVeri
 
     // show remaining amount of blocks
     // estimate the number of headers left based on nPowTargetSpacing
-    int nEstimateNumHeadersLeft = QDateTime::fromTime_t(pindexBestHeader.load()->nTime).secsTo(currentDate) /
+    int nEstimateNumHeadersLeft = QDateTime::fromTime_t(pindexBestHeader.load()->time()).secsTo(currentDate) /
                                   Params().GetConsensus().nPowTargetSpacing;
-    bool fHasBestHeader = pindexBestHeader.load()->nHeight >= count;
+    bool fHasBestHeader = pindexBestHeader.load()->height() >= count;
     if (nEstimateNumHeadersLeft < HEADER_HEIGHT_SYNC_DELTA && fHasBestHeader)
     {
-        ui->amountOfBlocksLeft->setText(QString::number(pindexBestHeader.load()->nHeight - bestBlockHeight));
+        ui->amountOfBlocksLeft->setText(QString::number(pindexBestHeader.load()->height() - bestBlockHeight));
     }
     else
     {
-        ui->amountOfBlocksLeft->setText(tr("Unknown. Syncing Headers (%1)...").arg(pindexBestHeader.load()->nHeight));
+        ui->amountOfBlocksLeft->setText(tr("Unknown. Syncing Headers (%1)...").arg(pindexBestHeader.load()->height()));
         ui->expectedTimeLeft->setText(tr("Unknown. Syncing Headers..."));
     }
 }

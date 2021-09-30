@@ -17,6 +17,7 @@ class NotifyTest(BitcoinTestFramework):
     def setup_network(self):
         self.nodes = []
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
+        logging.info("Alert file is: " + self.alert_filename)
         with open(self.alert_filename, 'w') as f:
             pass  # Just open then close to create zero-length file
         self.nodes.append(start_node(0, self.options.tmpdir,
@@ -33,33 +34,14 @@ class NotifyTest(BitcoinTestFramework):
         ########################################
         # Run blocknotify and alertnotify tests.
         ########################################
-        # Mine 51 up-version blocks
-        self.nodes[1].generate(51)
-        self.sync_all()
-        # -alertnotify should trigger on the 51'st,
-        # but mine and sync another to give
-        # -alertnotify time to write
-        self.nodes[1].generate(1)
-        self.sync_all()
 
+        self.nodes[0].issuealert("this is an alert")
+        time.sleep(1)
         with open(self.alert_filename, 'r') as f:
             alert_text = f.read()
 
         if len(alert_text) == 0:
-            raise AssertionError("-alertnotify did not warn of up-version blocks")
-
-        # Mine more up-version blocks, should not get more alerts:
-        self.nodes[1].generate(1)
-        self.sync_all()
-        self.nodes[1].generate(1)
-        self.sync_all()
-
-        with open(self.alert_filename, 'r') as f:
-            alert_text2 = f.read()
-
-        if alert_text != alert_text2:
-            raise AssertionError("-alertnotify excessive warning of up-version blocks")
-
+            raise AssertionError("-alertnotify did not work")
 
         stop_nodes(self.nodes)
         wait_bitcoinds()
@@ -68,6 +50,7 @@ class NotifyTest(BitcoinTestFramework):
         # Run blocknotify and walletnotify tests.
         # Create new files when a block is received or wallet event happens.
         ####################################################################
+        logging.info("touch check 1")
         self.touch_filename1 = os.path.join(self.options.tmpdir, "newfile1")
         self.touch_filename2 = os.path.join(self.options.tmpdir, "newfile2")
         self.touch_filename3 = os.path.join(self.options.tmpdir, "newfile3")
@@ -79,16 +62,22 @@ class NotifyTest(BitcoinTestFramework):
         self.is_network_split = False
 
         # check files not created after startup
+        logging.info("touch check 2")
         waitFor(10, lambda: os.path.isfile(self.touch_filename1) == False)
         waitFor(10, lambda: os.path.isfile(self.touch_filename2) == False)
         waitFor(10, lambda: os.path.isfile(self.touch_filename3) == False)
         waitFor(10, lambda: os.path.isfile(self.touch_filename4) == False)
 
         # mine a block. Both nodes should have created a file: newfile1 and newfile3.
+        logging.info("generate")
         self.nodes[1].generate(1)
+        logging.info("sync")
         self.sync_all()
+        logging.info("sleep")
         time.sleep(1)
-
+        
+        logging.info("touch check 3")
+        
         # check blocknotify - both nodes should have run the blocknotify command.
         waitFor(10, lambda: os.path.isfile(self.touch_filename1) == True)
         waitFor(10, lambda: os.path.isfile(self.touch_filename3) == True)
@@ -102,11 +91,16 @@ class NotifyTest(BitcoinTestFramework):
 
         # check walletnotify - send a transaction from node1 to itself. Only node1 should have run
         # the walletnotify command.
+        logging.info("generate 100")
         self.nodes[1].generate(100)
+        logging.info("sync")
         self.sync_all()
+        logging.info("sync done")
         address = self.nodes[1].getnewaddress("test1")
+        logging.info("getnewaddress done")
         txid = self.nodes[1].sendtoaddress(address, 1, "", "", True)
         sync_mempools(self.nodes)
+        logging.info("sync_mempools done")
         waitFor(10, lambda: os.path.isfile(self.touch_filename2) == False)
         waitFor(10, lambda: os.path.isfile(self.touch_filename4) == True)
         os.remove(self.touch_filename4)
@@ -124,3 +118,17 @@ class NotifyTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     NotifyTest().main()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = NotifyTest()
+    t.drop_to_pdb = True
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+    }
+    logging.getLogger().setLevel(logging.INFO)
+    # you may want these additional flags:
+    # "--srcdir=<out-of-source-build-dir>/debug/src"
+    # "--tmpdir=/ramdisk/test"
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

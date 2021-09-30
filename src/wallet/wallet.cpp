@@ -1010,7 +1010,7 @@ void CWallet::MarkConflicted(const uint256 &hashBlock, const uint256 &hashTx)
     {
         if (chainActive.Contains(pindex))
         {
-            conflictconfirms = -(chainActive.Height() - pindex->nHeight + 1);
+            conflictconfirms = -(chainActive.Height() - pindex->height() + 1);
         }
     }
     // If number of conflict confirms cannot be determined, this means
@@ -1576,7 +1576,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex *pindexStart, bool fUpdate)
             Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), chainActive.Tip(), false);
         while (pindex)
         {
-            if (pindex->nHeight % 100 == 0 && dProgressTip - dProgressStart > 0.0)
+            if (pindex->height() % 100 == 0 && dProgressTip - dProgressStart > 0.0)
                 ShowProgress(
                     _("Rescanning..."), std::max(1, std::min(99, (int)((Checkpoints::GuessVerificationProgress(
                                                                             chainParams.Checkpoints(), pindex, false) -
@@ -1602,7 +1602,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex *pindexStart, bool fUpdate)
             {
                 nNow = GetTime();
                 if (pindex) // if pindex is nullptr we are done anyway so no need to show the log
-                    LOGA("Still rescanning. At block %d. Progress=%f\n", pindex->nHeight,
+                    LOGA("Still rescanning. At block %d. Progress=%f\n", pindex->height(),
                         Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex, false));
             }
         }
@@ -3725,7 +3725,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const
 
     // map in which we'll infer heights of other keys
     // the tip can be reorganised; use a 144-block safety margin
-    CBlockIndex *pindexMax = chainActive[std::max(0, chainActive.Height() - 144)];
+    CBlockIndex *pindexMax = chainActive[std::max((int64_t)0, chainActive.Height() - 144)];
     std::map<CKeyID, CBlockIndex *> mapKeyFirstBlock;
     std::set<CKeyID> setKeys;
     GetKeys(setKeys);
@@ -3751,7 +3751,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const
         if (blit != mapBlockIndex.end() && chainActive.Contains(blit->second))
         {
             // ... which are already in a block
-            int nHeight = blit->second->nHeight;
+            int nHeight = blit->second->height();
             for (const CTxOut &txout : wtx.vout)
             {
                 // iterate over all their outputs
@@ -3760,7 +3760,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const
                 {
                     // ... and all their affected keys
                     std::map<CKeyID, CBlockIndex *>::iterator rit = mapKeyFirstBlock.find(keyid);
-                    if (rit != mapKeyFirstBlock.end() && nHeight < rit->second->nHeight)
+                    if (rit != mapKeyFirstBlock.end() && nHeight < rit->second->height())
                         rit->second = blit->second;
                 }
                 vAffected.clear();
@@ -3947,7 +3947,7 @@ bool CWallet::InitLoadWallet()
         if (fPruneMode)
         {
             CBlockIndex *block = chainActive.Tip();
-            while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA) && block->pprev->nTx > 0 &&
+            while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA) && block->pprev->processed() &&
                    pindexRescan != block)
                 block = block->pprev;
 
@@ -3957,8 +3957,8 @@ bool CWallet::InitLoadWallet()
         }
 
         uiInterface.InitMessage(_("Rescanning..."));
-        LOGA("Rescanning last %i blocks (from block %i)...\n", chainActive.Height() - pindexRescan->nHeight,
-            pindexRescan->nHeight);
+        LOGA("Rescanning last %i blocks (from block %i)...\n", chainActive.Height() - pindexRescan->height(),
+            pindexRescan->height());
         nStart = GetTimeMillis();
         walletInstance->ScanForWalletTransactions(pindexRescan, true);
         LOGA(" rescan      %15dms\n", GetTimeMillis() - nStart);
@@ -4082,7 +4082,7 @@ int CMerkleTx::SetMerkleBranch(const CBlock &block, int txIdx)
     if (!pindex || !chainActive.Contains(pindex))
         return 0;
 
-    return chainActive.Height() - pindex->nHeight + 1;
+    return chainActive.Height() - pindex->height() + 1;
 }
 
 int CMerkleTx::GetDepthInMainChain(const CBlockIndex *&pindexRet) const
@@ -4096,7 +4096,7 @@ int CMerkleTx::GetDepthInMainChain(const CBlockIndex *&pindexRet) const
         return 0;
 
     pindexRet = pindex; // we can return a pindex out of the lock because block headers are never deleted
-    return ((nIndex == -1) ? (-1) : 1) * (chainActive.Height() - pindex->nHeight + 1);
+    return ((nIndex == -1) ? (-1) : 1) * (chainActive.Height() - pindex->height() + 1);
 }
 
 int CMerkleTx::GetBlocksToMaturity() const

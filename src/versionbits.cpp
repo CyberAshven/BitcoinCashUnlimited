@@ -178,7 +178,7 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex 
     if (pindexPrev != nullptr)
     {
         assert(nPeriod);
-        pindexPrev = pindexPrev->GetAncestor(pindexPrev->nHeight - ((pindexPrev->nHeight + 1) % nPeriod));
+        pindexPrev = pindexPrev->GetAncestor(pindexPrev->height() - ((pindexPrev->height() + 1) % nPeriod));
     }
 
     // Walk backwards in steps of nPeriod to find a pindexPrev which was DEFINED
@@ -203,7 +203,7 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex 
         // push the pindex for later forward walking
         vToCompute.push_back(pindexPrev);
         // go back one more period
-        pindexPrev = pindexPrev->GetAncestor(pindexPrev->nHeight - nPeriod);
+        pindexPrev = pindexPrev->GetAncestor(pindexPrev->height() - nPeriod);
     }
 
     // At this point, cache[pindexPrev] is known
@@ -256,7 +256,7 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex 
                 stateNext = THRESHOLD_LOCKED_IN;
                 // bip135: make a note of lock-in time & height
                 // this will be used for assessing grace period conditions.
-                nActualLockinBlock = pindexPrev->nHeight;
+                nActualLockinBlock = pindexPrev->height();
                 nActualLockinTime = pindexPrev->GetMedianTimePast();
             }
             break;
@@ -265,7 +265,7 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex 
         {
             // bip135: Progress to ACTIVE only once all grace conditions are met.
             if (pindexPrev->GetMedianTimePast() >= nActualLockinTime + nMinLockedTime &&
-                pindexPrev->nHeight >= nActualLockinBlock + nMinLockedBlocks)
+                pindexPrev->height() >= nActualLockinBlock + nMinLockedBlocks)
             {
                 stateNext = THRESHOLD_ACTIVE;
             }
@@ -310,8 +310,8 @@ protected:
     int64_t MinLockedTime(const Consensus::Params &params) const { return params.vDeployments[id].minlockedtime; }
     bool Condition(const CBlockIndex *pindex, const Consensus::Params &params) const
     {
-        return (((pindex->nVersion & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) &&
-                (pindex->nVersion & Mask(params)) != 0);
+        return false;
+        /* TODO version bits feature selector will need to be moved if used */
     }
 
 public:

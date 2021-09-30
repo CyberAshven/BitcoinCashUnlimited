@@ -160,11 +160,11 @@ static isminetype IsMine(const CKeyStore &keystore,
 
             // FIXME do not always log, use a  specific debug category or create one if no others fit
             LOGA("Found Freeze Have Key. nFreezeLockTime=%d. BestBlockHeight=%d \n", nFreezeLockTime.getint64(),
-                bestBlock->nHeight);
+                bestBlock->height());
             if (nFreezeLockTime < LOCKTIME_THRESHOLD)
             {
                 // locktime is a block
-                if (nFreezeLockTime > bestBlock->nHeight)
+                if (nFreezeLockTime > bestBlock->height())
                     return ISMINE_WATCH_SOLVABLE;
                 else
                     return ISMINE_SPENDABLE;

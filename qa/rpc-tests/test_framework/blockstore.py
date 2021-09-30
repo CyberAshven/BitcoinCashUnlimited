@@ -26,7 +26,7 @@ class BlockStore(object):
         f = BytesIO(serialized_block)
         ret = CBlock()
         ret.deserialize(f)
-        ret.calc_sha256()
+        ret.calc_hash()
         return ret
 
     def get_header(self, blockhash):
@@ -48,7 +48,7 @@ class BlockStore(object):
         response = msg_headers()
         headersList = [ current_block_header ]
         maxheaders = 2000
-        while (headersList[0].sha256 not in locator.vHave):
+        while (headersList[0].gethash() not in locator.vHave):
             prevBlockHash = headersList[0].hashPrevBlock
             prevBlockHeader = self.get_header(prevBlockHash)
             if prevBlockHeader is not None:
@@ -56,7 +56,7 @@ class BlockStore(object):
             else:
                 break
         headersList = headersList[:maxheaders] # truncate if we have too many
-        hashList = [x.sha256 for x in headersList]
+        hashList = [x.gethash() for x in headersList]
         index = len(headersList)
         if (hash_stop in hashList):
             index = hashList.index(hash_stop)+1
@@ -64,16 +64,16 @@ class BlockStore(object):
         return response
 
     def add_block(self, block):
-        block.calc_sha256()
+        block.calc_hash()
         try:
-            self.blockDB[repr(block.sha256)] = bytes(block.serialize())
+            self.blockDB[repr(block.gethash())] = bytes(block.serialize())
         except TypeError as e:
             print("Unexpected error: ", sys.exc_info()[0], e.args)
-        self.currentBlock = block.sha256
-        self.headers_map[block.sha256] = CBlockHeader(block)
+        self.currentBlock = block.gethash()
+        self.headers_map[block.gethash()] = CBlockHeader(block)
 
     def add_header(self, header):
-        self.headers_map[header.sha256] = header
+        self.headers_map[header.gethash()] = header
 
     def get_blocks(self, inv):
         responses = []

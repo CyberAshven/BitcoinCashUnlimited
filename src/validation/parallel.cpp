@@ -142,7 +142,7 @@ bool CParallelValidation::Initialize(const boost::thread::id this_id, const CBlo
     {
         // If the chain tip has passed this block by, its an orphan.  It cannot be connected to the active chain, so
         // return.
-        if (chainActive.Tip()->nChainWork > pindex->nChainWork)
+        if (chainActive.Tip()->chainWork() > pindex->chainWork())
         {
             LOGA("returning because chainactive tip is now ahead of chainwork for this block\n");
             return false;
@@ -386,10 +386,10 @@ bool CParallelValidation::QuitReceived(const boost::thread::id this_id, const bo
 
 bool CParallelValidation::ChainWorkHasChanged(const arith_uint256 &nStartingChainWork)
 {
-    if (chainActive.Tip()->nChainWork != nStartingChainWork)
+    if (chainActive.Tip()->chainWork() != nStartingChainWork)
     {
         LOG(PARALLEL, "Quitting - Chain Work %s is not the same as the starting Chain Work %s\n",
-            chainActive.Tip()->nChainWork.ToString(), nStartingChainWork.ToString());
+            chainActive.Tip()->chainWork().ToString(), nStartingChainWork.ToString());
         return true;
     }
     return false;

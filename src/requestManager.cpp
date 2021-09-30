@@ -258,7 +258,7 @@ void CRequestManager::AskForDuringIBD(const std::vector<CInv> &objArray, CNode *
         if (state != nullptr)
         {
             if (state->pindexBestKnownBlock != nullptr &&
-                state->pindexBestKnownBlock->nChainWork > chainActive.Tip()->nChainWork)
+                state->pindexBestKnownBlock->chainWork() > chainActive.Tip()->chainWork())
             {
                 AskFor(objArray, pnode, priority);
             }
@@ -994,9 +994,10 @@ void CRequestManager::ProcessBlockAvailability(NodeId nodeid)
     if (!state->hashLastUnknownBlock.IsNull())
     {
         auto *pindex = LookupBlockIndex(state->hashLastUnknownBlock);
-        if (pindex && pindex->nChainWork > 0)
+        if (pindex && pindex->chainWork() > 0)
         {
-            if (state->pindexBestKnownBlock == nullptr || pindex->nChainWork >= state->pindexBestKnownBlock->nChainWork)
+            if (state->pindexBestKnownBlock == nullptr ||
+                pindex->chainWork() >= state->pindexBestKnownBlock->chainWork())
             {
                 state->pindexBestKnownBlock = pindex;
             }
@@ -1015,10 +1016,10 @@ void CRequestManager::UpdateBlockAvailability(NodeId nodeid, const uint256 &hash
 
     ProcessBlockAvailability(nodeid);
 
-    if (pindex && pindex->nChainWork > 0)
+    if (pindex && pindex->chainWork() > 0)
     {
         // An actually better block was announced.
-        if (state->pindexBestKnownBlock == nullptr || pindex->nChainWork >= state->pindexBestKnownBlock->nChainWork)
+        if (state->pindexBestKnownBlock == nullptr || pindex->chainWork() >= state->pindexBestKnownBlock->chainWork())
         {
             state->pindexBestKnownBlock = pindex;
         }
@@ -1053,7 +1054,7 @@ void CRequestManager::RequestNextBlocksToDownload(CNode *pto)
             {
                 vGetBlocks.emplace_back(inv);
                 // LOG(REQ, "AskFor block %s (%d) peer=%s\n", pindex->GetBlockHash().ToString(),
-                //     pindex->nHeight, pto->GetLogName());
+                //     pindex->height(), pto->GetLogName());
             }
         }
         if (!vGetBlocks.empty())
@@ -1111,7 +1112,7 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
 
     LOCK(cs_main);
     if (state->pindexBestKnownBlock == nullptr ||
-        state->pindexBestKnownBlock->nChainWork < chainActive.Tip()->nChainWork)
+        state->pindexBestKnownBlock->chainWork() < chainActive.Tip()->chainWork())
     {
         // This peer has nothing interesting.
         return;
@@ -1122,7 +1123,7 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
         // Bootstrap quickly by guessing a parent of our best tip is the forking point.
         // Guessing wrong in either direction is not a problem.
         state->pindexLastCommonBlock =
-            chainActive[std::min(state->pindexBestKnownBlock->nHeight, chainActive.Height())];
+            chainActive[std::min(state->pindexBestKnownBlock->height(), chainActive.Height())];
     }
 
     // If the peer reorganized, our previous pindexLastCommonBlock may not be an ancestor
@@ -1139,19 +1140,19 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
     // much disk space to store unconnected blocks.
     int nWindowEnd = chainActive.Height() + BLOCK_DOWNLOAD_WINDOW.load();
 
-    int nMaxHeight = std::min<int>(state->pindexBestKnownBlock->nHeight, nWindowEnd + 1);
-    while (pindexWalk->nHeight < nMaxHeight)
+    int nMaxHeight = std::min<int>(state->pindexBestKnownBlock->height(), nWindowEnd + 1);
+    while (pindexWalk->height() < nMaxHeight)
     {
         // Read up to 128 (or more, if more blocks than that are needed) successors of pindexWalk (towards
         // pindexBestKnownBlock) into vToFetch. We fetch 128, because CBlockIndex::GetAncestor may be as expensive
         // as iterating over ~100 CBlockIndex* entries anyway.
-        int nToFetch = std::min((size_t)(nMaxHeight - pindexWalk->nHeight), count - vBlocks.size());
+        int nToFetch = std::min((size_t)(nMaxHeight - pindexWalk->height()), count - vBlocks.size());
         if (nToFetch == 0)
         {
             break;
         }
         vToFetch.resize(nToFetch);
-        pindexWalk = state->pindexBestKnownBlock->GetAncestor(pindexWalk->nHeight + nToFetch);
+        pindexWalk = state->pindexBestKnownBlock->GetAncestor(pindexWalk->height() + nToFetch);
         vToFetch[nToFetch - 1] = pindexWalk;
         for (unsigned int i = nToFetch - 1; i > 0; i--)
         {
@@ -1193,7 +1194,7 @@ void CRequestManager::FindNextBlocksToDownload(CNode *node, size_t count, std::v
             else
             {
                 // Return if we've reached the end of the download window.
-                if (pindex->nHeight > nWindowEnd)
+                if (pindex->height() > nWindowEnd)
                 {
                     return;
                 }

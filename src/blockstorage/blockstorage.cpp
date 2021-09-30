@@ -127,7 +127,7 @@ bool DetermineStorageSync(BlockDBMode &_otherMode)
     pblocktreeother->FindBlockIndex(bestHashOther, &bestIndexOther);
 
     // if the best height of the storage type we are using is higher than any other type, return false
-    if (bestIndexMode.nHeight >= bestIndexOther.nHeight)
+    if (bestIndexMode.height() >= bestIndexOther.height())
     {
         return false;
     }
@@ -181,7 +181,7 @@ void SyncStorage(const CChainParams &chainparams)
                     LOGA("SyncStorage(): writing genesis block to disk failed");
                     assert(false);
                 }
-                CBlockIndex *pindex = AddToBlockIndex(block);
+                CBlockIndex *pindex = AddToBlockIndex(chainparams, block);
                 if (!ReceivedBlockTransactions(block, state, pindex, blockPos))
                 {
                     LOGA("SyncStorage(): genesis block not accepted");
@@ -195,18 +195,12 @@ void SyncStorage(const CChainParams &chainparams)
             {
                 // TODO only one thread should create a new pindex at a time.
                 CBlockIndex *pindexNew = InsertBlockIndex(item.second.GetBlockHash());
-                pindexNew->pprev = InsertBlockIndex(item.second.hashPrev);
-                pindexNew->nHeight = item.second.nHeight;
+                pindexNew->pprev = InsertBlockIndex(item.second.header.hashPrevBlock);
+                pindexNew->header = item.second.header;
                 pindexNew->nFile = 0;
                 pindexNew->nDataPos = 0;
                 pindexNew->nUndoPos = 0;
-                pindexNew->nVersion = item.second.nVersion;
-                pindexNew->hashMerkleRoot = item.second.hashMerkleRoot;
-                pindexNew->nTime = item.second.nTime;
-                pindexNew->nBits = item.second.nBits;
-                pindexNew->nNonce = item.second.nNonce;
                 pindexNew->nStatus = item.second.nStatus;
-                pindexNew->nTx = item.second.nTx;
                 pindexNew->nSequenceId = item.second.nSequenceId;
                 pindexNew->nTimeReceived = item.second.nTimeReceived;
                 index = pindexNew;
@@ -220,7 +214,8 @@ void SyncStorage(const CChainParams &chainparams)
                 {
                     unsigned int nBlockSize = ::GetSerializeSize(block_lev, SER_DISK, CLIENT_VERSION);
                     CDiskBlockPos blockPos;
-                    if (!FindBlockPos(state, blockPos, nBlockSize + 8, index->nHeight, block_lev.GetBlockTime(), false))
+                    if (!FindBlockPos(
+                            state, blockPos, nBlockSize + 8, index->height(), block_lev.GetBlockTime(), false))
                     {
                         LOGA("SyncStorage(): couldnt find block pos when syncing sequential with info stored in db, "
                              "asserting false \n");
@@ -279,9 +274,9 @@ void SyncStorage(const CChainParams &chainparams)
 
             if (!index->GetBlockPos().IsNull() && !index->GetUndoPos().IsNull())
             {
-                if (index->nHeight > bestHeight)
+                if (index->height() > bestHeight)
                 {
-                    bestHeight = index->nHeight;
+                    bestHeight = index->height();
                     pindexBest = index;
                 }
             }
@@ -353,7 +348,7 @@ void SyncStorage(const CChainParams &chainparams)
                     LOGA("SyncStorage(): writing genesis block to disk failed");
                     assert(false);
                 }
-                CBlockIndex *pindex = AddToBlockIndex(block);
+                CBlockIndex *pindex = AddToBlockIndex(chainparams, block);
                 if (!ReceivedBlockTransactions(block, state, pindex, blockPos))
                 {
                     LOGA("SyncStorage(): genesis block not accepted");
@@ -366,20 +361,14 @@ void SyncStorage(const CChainParams &chainparams)
             if (!index)
             {
                 CBlockIndex *pindexNew = InsertBlockIndex(item.second.GetBlockHash());
-                pindexNew->pprev = InsertBlockIndex(item.second.hashPrev);
-                pindexNew->nHeight = item.second.nHeight;
+                pindexNew->pprev = InsertBlockIndex(item.second.header.hashPrevBlock);
                 // for blockdb nFile, nDataPos, and nUndoPos are switches, 0 is dont have. !0 is have. actual value
                 // irrelevant
                 pindexNew->nFile = item.second.nFile;
                 pindexNew->nDataPos = item.second.nDataPos;
                 pindexNew->nUndoPos = item.second.nUndoPos;
-                pindexNew->nVersion = item.second.nVersion;
-                pindexNew->hashMerkleRoot = item.second.hashMerkleRoot;
-                pindexNew->nTime = item.second.nTime;
-                pindexNew->nBits = item.second.nBits;
-                pindexNew->nNonce = item.second.nNonce;
+                pindexNew->header = item.second.header;
                 pindexNew->nStatus = item.second.nStatus;
-                pindexNew->nTx = item.second.nTx;
                 pindexNew->nSequenceId = item.second.nSequenceId;
                 pindexNew->nTimeReceived = item.second.nTimeReceived;
                 index = pindexNew;
@@ -431,15 +420,15 @@ void SyncStorage(const CChainParams &chainparams)
 
             if (!index->GetUndoPos().IsNull() && !index->GetBlockPos().IsNull())
             {
-                if (index->nHeight > bestHeight)
+                if (index->height() > bestHeight)
                 {
-                    bestHeight = index->nHeight;
+                    bestHeight = index->height();
                     // set pindex to the better height so we start from there when syncing
                     pindexBest = index;
                 }
             }
             setDirtyBlockIndex.insert(index);
-            if (lastFinishedFile <= loadedblockfile && index->nHeight > (int)blockfiles[lastFinishedFile].nHeightLast)
+            if (lastFinishedFile <= loadedblockfile && index->height() > (int)blockfiles[lastFinishedFile].nHeightLast)
             {
                 fs::remove(GetDataDir() / "blocks" / strprintf("blk%05u.dat", lastFinishedFile));
                 fs::remove(GetDataDir() / "blocks" / strprintf("rev%05u.dat", lastFinishedFile));
@@ -564,11 +553,11 @@ void FindFilesToPrune(std::set<int> &setFilesToPrune, uint64_t nPruneAfterHeight
     {
         return;
     }
-    if ((uint64_t)chainActive.Tip()->nHeight <= nPruneAfterHeight)
+    if ((uint64_t)chainActive.Tip()->height() <= nPruneAfterHeight)
     {
         return;
     }
-    uint64_t nLastBlockWeCanPrune = chainActive.Tip()->nHeight - MIN_BLOCKS_TO_KEEP;
+    uint64_t nLastBlockWeCanPrune = chainActive.Tip()->height() - MIN_BLOCKS_TO_KEEP;
 
     if (!pblockdb)
     {

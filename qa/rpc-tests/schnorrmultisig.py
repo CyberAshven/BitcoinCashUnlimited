@@ -75,6 +75,7 @@ class SchnorrMultisigTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.block_heights = {}
+        self.block_chainwork = {}
         self.extra_args = [["-debug=mempool"]]
 
     def bootstrap_p2p(self):
@@ -93,25 +94,28 @@ class SchnorrMultisigTest(BitcoinTestFramework):
         block_height = node.getblockcount()
         blockhash = node.getblockhash(block_height)
         block = FromHex(CBlock(), node.getblock(blockhash, 0))
-        block.calc_sha256()
-        self.block_heights[block.sha256] = block_height
+        block.rehash()
+        self.block_heights[block.gethash()] = block_height
+        self.block_chainwork[block.gethash()] = block.chainWork
         return block
 
     def build_block(self, parent, transactions=(), nTime=None):
         """Make a new block with an OP_1 coinbase output.
 
         Requires parent to have its height registered."""
-        parent.calc_sha256()
-        block_height = self.block_heights[parent.sha256] + 1
+        parent.rehash()
+        block_height = self.block_heights[parent.gethash()] + 1
+        work = self.block_chainwork[parent.gethash()] + 2
         block_time = (parent.nTime + 1) if nTime is None else nTime
 
         block = create_block(
-            parent.sha256, create_coinbase(block_height, scriptPubKey = CScript([OP_TRUE])), block_time)
+            parent.gethash(), block_height, work, create_coinbase(block_height, scriptPubKey = CScript([OP_TRUE])), block_time)
         block.vtx.extend(transactions)
         make_conform_to_ctor(block)
-        block.hashMerkleRoot = block.calc_merkle_root()
+        block.update_fields()
         block.solve()
-        self.block_heights[block.sha256] = block_height
+        self.block_heights[block.gethash()] = block_height
+        self.block_chainwork[block.gethash()] = work
         return block
 
     def check_for_ban_on_rejected_tx(self, tx, reject_reason=None):

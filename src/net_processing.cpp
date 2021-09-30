@@ -82,9 +82,9 @@ bool PeerHasHeader(const CNodeState *state, CBlockIndex *pindex)
 {
     if (pindex == nullptr)
         return false;
-    if (state->pindexBestKnownBlock && pindex == state->pindexBestKnownBlock->GetAncestor(pindex->nHeight))
+    if (state->pindexBestKnownBlock && pindex == state->pindexBestKnownBlock->GetAncestor(pindex->height()))
         return true;
-    if (state->pindexBestHeaderSent && pindex == state->pindexBestHeaderSent->GetAncestor(pindex->nHeight))
+    if (state->pindexBestHeaderSent && pindex == state->pindexBestHeaderSent->GetAncestor(pindex->height()))
         return true;
     return false;
 }
@@ -151,7 +151,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                                 LOG(NET,
                                     "%s: ignoring request from peer=%s for excessive block of height %d not on "
                                     "the main chain\n",
-                                    __func__, pfrom->GetLogName(), mi->nHeight);
+                                    __func__, pfrom->GetLogName(), mi->height());
                         }
                         // TODO: in the future we can throttle old block requests by setting send=false if we are out
                         // of bandwidth
@@ -178,7 +178,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                 if (fSend && !pfrom->fWhitelisted &&
                     ((((nLocalServices & NODE_NETWORK_LIMITED) == NODE_NETWORK_LIMITED) &&
                         ((nLocalServices & NODE_NETWORK) != NODE_NETWORK) &&
-                        (chainActive.Tip()->nHeight - mi->nHeight > (int)NODE_NETWORK_LIMITED_MIN_BLOCKS + 2))))
+                        (chainActive.Tip()->height() - mi->height() > (int)NODE_NETWORK_LIMITED_MIN_BLOCKS + 2))))
                 {
                     LOG(NET, "Ignore block request below NODE_NETWORK_LIMITED threshold from peer=%d\n",
                         pfrom->GetId());
@@ -1076,13 +1076,13 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         if (pindex)
             pindex = chainActive.Next(pindex);
         int nLimit = 500;
-        LOG(NET, "getblocks %d to %s limit %d from peer=%d\n", (pindex ? pindex->nHeight : -1),
+        LOG(NET, "getblocks %d to %s limit %d from peer=%d\n", (pindex ? pindex->height() : -1),
             hashStop.IsNull() ? "end" : hashStop.ToString(), nLimit, pfrom->id);
         for (; pindex; pindex = chainActive.Next(pindex))
         {
             if (pindex->GetBlockHash() == hashStop)
             {
-                LOG(NET, "  getblocks stopping at %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
+                LOG(NET, "  getblocks stopping at %d %s\n", pindex->height(), pindex->GetBlockHash().ToString());
                 break;
             }
             // If pruning, don't inv blocks unless we have on disk and are likely to still have
@@ -1092,9 +1092,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             {
                 READLOCK(cs_mapBlockIndex); // for nStatus
                 if (fPruneMode && (!(pindex->nStatus & BLOCK_HAVE_DATA) ||
-                                      pindex->nHeight <= chainActive.Tip()->nHeight - nPrunedBlocksLikelyToHave))
+                                      pindex->height() <= chainActive.Tip()->height() - nPrunedBlocksLikelyToHave))
                 {
-                    LOG(NET, " getblocks stopping, pruned or too old block at %d %s\n", pindex->nHeight,
+                    LOG(NET, " getblocks stopping, pruned or too old block at %d %s\n", pindex->height(),
                         pindex->GetBlockHash().ToString());
                     break;
                 }
@@ -1104,7 +1104,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             {
                 // When this block is requested, we'll send an inv that'll
                 // trigger the peer to getblocks the next batch of inventory.
-                LOG(NET, "  getblocks stopping at limit %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
+                LOG(NET, "  getblocks stopping at limit %d %s\n", pindex->height(), pindex->GetBlockHash().ToString());
                 pfrom->hashContinue = pindex->GetBlockHash();
                 break;
             }
@@ -1139,7 +1139,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             // we must use CBlocks, as CBlockHeaders won't include the 0x00 nTx count at the end
             int nLimit = MAX_HEADERS_RESULTS;
-            LOG(NET, "getheaders height %d for block %s from peer %s\n", (pindex ? pindex->nHeight : -1),
+            LOG(NET, "getheaders height %d for block %s from peer %s\n", (pindex ? pindex->height() : -1),
                 hashStop.ToString(), pfrom->GetLogName());
             for (; pindex; pindex = chainActive.Next(pindex))
             {
@@ -1385,7 +1385,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             // Headers message had its maximum size; the peer may have more headers.
             // TODO: optimize: if pindexLast is an ancestor of chainActive.Tip or pindexBestHeader, continue
             // from there instead.
-            LOG(NET, "more getheaders (%d) to end to peer=%s (startheight:%d)\n", pindexLast->nHeight,
+            LOG(NET, "more getheaders (%d) to end to peer=%s (startheight:%d)\n", pindexLast->height(),
                 pfrom->GetLogName(), pfrom->nStartingHeight);
             pfrom->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexLast), uint256());
 
@@ -1427,7 +1427,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                                 continue;
 
                             ask = (state->pindexBestKnownBlock == nullptr ||
-                                   pindexLast->nChainWork > state->pindexBestKnownBlock->nChainWork);
+                                   pindexLast->chainWork() > state->pindexBestKnownBlock->chainWork());
                         } // let go of the CNodeState lock before we PushMessage since that is trapping op.
 
                         if (ask)
@@ -1436,7 +1436,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                             pnode->PushMessage(NetMsgType::GETHEADERS, CBlockLocator(), pindexLast->GetBlockHash());
                             LOG(NET | BLK, "Requesting header for blockavailability, peer=%s block=%s height=%d\n",
                                 pnode->GetLogName(), pindexLast->GetBlockHash().ToString().c_str(),
-                                pindexBestHeader.load()->nHeight);
+                                pindexBestHeader.load()->height());
                         }
                     }
                 }
@@ -1462,7 +1462,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 // We want to make sure that the peer doesn't just send us any old valid header. The block height of the
                 // last header they send us should be equal to our block height at the time we made the GETHEADERS
                 // request.
-                if (pindexLast && state->nFirstHeadersExpectedHeight <= pindexLast->nHeight)
+                if (pindexLast && state->nFirstHeadersExpectedHeight <= pindexLast->height())
                 {
                     state->fFirstHeadersReceived = true;
                     LOG(NET, "Initial headers received for peer=%s\n", pfrom->GetLogName());
@@ -1481,7 +1481,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         // If this set of headers is valid and ends in a block with at least as
         // much work as our tip, download as much as possible.
         if (fCanDirectFetch && pindexLast && pindexLast->IsValid(BLOCK_VALID_TREE) &&
-            chainActive.Tip()->nChainWork <= pindexLast->nChainWork)
+            chainActive.Tip()->chainWork() <= pindexLast->chainWork())
         {
             // Set tweak value.  Mostly used in testing direct fetch.
             if (maxBlocksInTransitPerPeer.Value() != 0)
@@ -1507,7 +1507,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 {
                     requester.AskFor(inv, pfrom);
                     LOG(REQ, "AskFor block via headers direct fetch %s (%d) peer=%d\n",
-                        pindex->GetBlockHash().ToString(), pindex->nHeight, pfrom->id);
+                        pindex->GetBlockHash().ToString(), pindex->height(), pfrom->id);
                     nAskFor++;
                 }
                 // We don't care about how many blocks are in flight.  We just need to make sure we don't
@@ -1522,7 +1522,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             if (nAskFor > 1)
             {
                 LOG(NET, "Downloading blocks toward %s (%d) via headers direct fetch\n",
-                    pindexLast->GetBlockHash().ToString(), pindexLast->nHeight);
+                    pindexLast->GetBlockHash().ToString(), pindexLast->height());
             }
         }
 
@@ -1765,7 +1765,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             // Sanity check. The serialized block size should match the size that is in our receive queue.  If not
             // this could be an attack block of some kind.
-            DbgAssert(nCheckBlockSize == pblock->GetBlockSize(), return true);
+            DbgAssert(pblock->GetBlockSize() <= nCheckBlockSize &&
+                          nCheckBlockSize <= pblock->GetBlockSize() + CBlockHeader::MAX_NONCE_SIZE + 1,
+                return true);
         }
 
         CInv inv(MSG_BLOCK, pblock->GetHash());
@@ -1775,7 +1777,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         if (IsChainNearlySyncd()) // BU send the received block out expedited channels quickly
         {
             CValidationState state;
-            if (CheckBlockHeader(*pblock, state, true)) // block header is fine
+            if (CheckBlockHeader(chainparams.GetConsensus(), *pblock, state, true)) // block header is fine
                 SendExpeditedBlock(*pblock, pfrom);
         }
 
@@ -2588,19 +2590,19 @@ bool SendMessages(CNode *pto)
                 if (pindexStart->pprev)
                     pindexStart = pindexStart->pprev;
                 // BU Bug fix for Core:  Don't start downloading headers unless our chain is shorter
-                if (pindexStart->nHeight < pto->nStartingHeight)
+                if (pindexStart->height() < pto->nStartingHeight)
                 {
                     CNodeStateAccessor modableState(nodestate, pto->GetId());
                     modableState->fSyncStarted = true;
                     modableState->nSyncStartTime = GetTime();
                     modableState->fRequestedInitialBlockAvailability = true;
-                    modableState->nFirstHeadersExpectedHeight = pindexStart->nHeight;
+                    modableState->nFirstHeadersExpectedHeight = pindexStart->height();
                     nSyncStarted++;
 
                     if (pto->fClient)
                         nSyncStartedPruned++;
 
-                    LOG(NET, "initial getheaders (%d) to peer=%s (startheight:%d)\n", pindexStart->nHeight,
+                    LOG(NET, "initial getheaders (%d) to peer=%s (startheight:%d)\n", pindexStart->height(),
                         pto->GetLogName(), pto->nStartingHeight);
                     pto->PushMessage(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexStart), uint256());
                 }
@@ -2622,7 +2624,7 @@ bool SendMessages(CNode *pto)
                 pto->PushMessage(NetMsgType::GETHEADERS, CBlockLocator(), pindexBestHeader.load()->GetBlockHash());
                 LOG(NET | BLK, "Requesting header for initial blockavailability, peer=%s block=%s height=%d\n",
                     pto->GetLogName(), pindexBestHeader.load()->GetBlockHash().ToString(),
-                    pindexBestHeader.load()->nHeight);
+                    pindexBestHeader.load()->height());
             }
         }
 
@@ -2856,7 +2858,7 @@ bool SendMessages(CNode *pto)
         // be nullified between the two calls.
         CBlockIndex *pTip = chainActive.Tip();
         CBlockIndex *pBestInvalid = pindexBestInvalid.load();
-        if (!IsChainSyncd() || (pBestInvalid && pTip && pBestInvalid->nChainWork > pTip->nChainWork))
+        if (!IsChainSyncd() || (pBestInvalid && pTip && pBestInvalid->chainWork() > pTip->chainWork()))
         {
             TRY_LOCK(cs_main, locked);
             if (locked)

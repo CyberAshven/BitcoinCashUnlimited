@@ -672,6 +672,8 @@ void CNode::LookAhead()
         strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::XTHINBLOCK ||
         strCommand == NetMsgType::THINBLOCK)
     {
+        /* TODO Header is not a constant size */
+        /*
         if (msg.nDataPos >= SERIALIZED_HEADER_SIZE)
         {
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
@@ -683,6 +685,7 @@ void CNode::LookAhead()
 
             fDownloading.store(true);
         }
+        */
     }
 }
 

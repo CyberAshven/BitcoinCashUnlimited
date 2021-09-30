@@ -79,7 +79,7 @@ bool IsDAAEnabled(const Consensus::Params &consensusparams, const CBlockIndex *p
     {
         return false;
     }
-    return IsDAAEnabled(consensusparams, pindexTip->nHeight);
+    return IsDAAEnabled(consensusparams, pindexTip->height());
 }
 
 bool IsNov2018Activated(const Consensus::Params &consensusparams, const int32_t nHeight)
@@ -93,7 +93,7 @@ bool IsNov2018Activated(const Consensus::Params &consensusparams, const CBlockIn
     {
         return false;
     }
-    return IsNov2018Activated(consensusparams, pindexTip->nHeight);
+    return IsNov2018Activated(consensusparams, pindexTip->height());
 }
 
 bool IsNov2019Activated(const Consensus::Params &consensusparams, const int32_t nHeight)
@@ -107,7 +107,7 @@ bool IsNov2019Activated(const Consensus::Params &consensusparams, const CBlockIn
     {
         return false;
     }
-    return IsNov2019Activated(consensusparams, pindexTip->nHeight);
+    return IsNov2019Activated(consensusparams, pindexTip->height());
 }
 
 bool IsMay2020Activated(const Consensus::Params &consensusparams, const int32_t nHeight)
@@ -121,7 +121,7 @@ bool IsMay2020Activated(const Consensus::Params &consensusparams, const CBlockIn
     {
         return false;
     }
-    return IsMay2020Activated(consensusparams, pindexTip->nHeight);
+    return IsMay2020Activated(consensusparams, pindexTip->height());
 }
 
 bool IsNov2020Activated(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
@@ -132,7 +132,7 @@ bool IsNov2020Activated(const Consensus::Params &consensusparams, const CBlockIn
     }
     if (consensusparams.nov2020Height)
     {
-        return pindexTip->nHeight >= consensusparams.nov2020Height;
+        return pindexTip->height() >= consensusparams.nov2020Height;
     }
     else
     {

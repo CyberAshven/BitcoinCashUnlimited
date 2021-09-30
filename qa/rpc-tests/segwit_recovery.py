@@ -72,6 +72,7 @@ class SegwitRecoveryTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.block_heights = {}
+        self.block_chainwork = {}
         self.tip = None
         self.blocks = {}
         # We have 2 nodes:
@@ -112,18 +113,20 @@ class SegwitRecoveryTest(BitcoinTestFramework):
             base_block_hash = self.genesis_hash
             block_time = TEST_TIME
         else:
-            base_block_hash = self.tip.sha256
+            base_block_hash = self.tip.gethash()
             block_time = self.tip.nTime + 1
         # First create the coinbase
         height = self.block_heights[base_block_hash] + 1
+        work = self.block_chainwork[base_block_hash] + 2
         coinbase = create_coinbase(height, scriptPubKey = CScript([OP_TRUE]))
         coinbase.rehash()
-        block = create_block(base_block_hash, coinbase, block_time)
+        block = create_block(base_block_hash, height, work, coinbase, block_time)
 
         # Do PoW, which is cheap on regnet
         block.solve()
         self.tip = block
-        self.block_heights[block.sha256] = height
+        self.block_heights[block.gethash()] = height
+        self.block_chainwork[block.gethash()] = work
         assert number not in self.blocks
         self.blocks[number] = block
         return block
@@ -132,6 +135,7 @@ class SegwitRecoveryTest(BitcoinTestFramework):
         self.bootstrap_p2p()
         self.genesis_hash = int(self.nodes[0].getbestblockhash(), 16)
         self.block_heights[self.genesis_hash] = 0
+        self.block_chainwork[self.genesis_hash] = 2
         spendable_outputs = []
 
         # shorthand
@@ -159,15 +163,14 @@ class SegwitRecoveryTest(BitcoinTestFramework):
         def update_block(block_number, new_transactions):
             block = self.blocks[block_number]
             block.vtx.extend(new_transactions)
-            old_sha256 = block.sha256
+            old_sha256 = block.gethash()
             make_conform_to_ctor(block)
-            block.hashMerkleRoot = block.calc_merkle_root()
+            block.update_fields()
             block.solve()
             # Update the internal state just like in next_block
             self.tip = block
-            if block.sha256 != old_sha256:
-                self.block_heights[
-                    block.sha256] = self.block_heights[old_sha256]
+            if block.gethash() != old_sha256:
+                self.block_heights[block.gethash()] = self.block_heights[old_sha256]
                 del self.block_heights[old_sha256]
             self.blocks[block_number] = block
             return block
@@ -246,8 +249,7 @@ class SegwitRecoveryTest(BitcoinTestFramework):
 
         # Create segwit funding and spending transactions
         txfund, txspend = create_segwit_fund_and_spend_tx(out[0])
-        txfund_case0, txspend_case0 = create_segwit_fund_and_spend_tx(
-            out[1], True)
+        txfund_case0, txspend_case0 = create_segwit_fund_and_spend_tx(out[1], True)
 
         # Mine txfund, as it can't go into node_std mempool because it's
         # nonstandard.
@@ -261,10 +263,8 @@ class SegwitRecoveryTest(BitcoinTestFramework):
 
         # Check that upgraded nodes checking for standardness are not banning
         # nodes sending segwit spending txns.
-        check_for_no_ban_on_rejected_tx(
-            self, node_std, txspend, CLEANSTACK_ERROR)
-        check_for_no_ban_on_rejected_tx(
-            self, node_std, txspend_case0, EVAL_FALSE_ERROR)
+        check_for_no_ban_on_rejected_tx(self, node_std, txspend, CLEANSTACK_ERROR)
+        check_for_no_ban_on_rejected_tx(self, node_std, txspend_case0, EVAL_FALSE_ERROR)
 
         txspend_id = node_nonstd.decoderawtransaction(ToHex(txspend))["txid"]
         txspend_case0_id = node_nonstd.decoderawtransaction(ToHex(txspend_case0))["txid"]

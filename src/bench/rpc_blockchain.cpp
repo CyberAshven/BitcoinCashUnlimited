@@ -13,6 +13,7 @@
 
 #include <univalue.h>
 
+#if 0 // TODO reenable when a large and real nextchain block becomes available
 static void BlockToJsonVerbose(benchmark::State &state)
 {
     TestingSetup test_setup(CBaseChainParams::REGTEST);
@@ -26,7 +27,7 @@ static void BlockToJsonVerbose(benchmark::State &state)
     CBlockIndex blockindex;
     const uint256 blockHash = block.GetHash();
     blockindex.phashBlock = &blockHash;
-    blockindex.nBits = 403014710;
+    blockindex.header.nBits = 403014710;
 
     while (state.KeepRunning())
     {
@@ -35,3 +36,4 @@ static void BlockToJsonVerbose(benchmark::State &state)
 }
 
 BENCHMARK(BlockToJsonVerbose, 10);
+#endif

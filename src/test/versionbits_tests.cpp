@@ -12,6 +12,8 @@
 #include "validation/validation.h"
 #include "versionbits.h"
 
+#if 0 // Version bits removed
+
 #include <boost/test/unit_test.hpp>
 
 /* Define a virtual block time, one block per 10 minutes after Nov 14 2014, 0:55:36am */
@@ -421,3 +423,4 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 
 
 BOOST_AUTO_TEST_SUITE_END()
+#endif

@@ -1570,7 +1570,7 @@ UniValue groupedlistsinceblock(const UniValue &params, bool fHelp)
         if (InterpretBool(params[4].get_str()))
             filter = filter | ISMINE_WATCH_ONLY;
 
-    int depth = pindex ? (1 + chainActive.Height() - pindex->nHeight) : -1;
+    int depth = pindex ? (1 + chainActive.Height() - pindex->height()) : -1;
 
     UniValue transactions(UniValue::VARR);
 

@@ -197,7 +197,7 @@ is therefore 1 byte longer (for the sign). */
     /** Return this bignum's magnitude (the sign is ignored) as an unsigned 64 bit integer.
         If this BigNum is too large, the least significant 64 bits are returned.
     */
-    unsigned long int asUint64() const { return mpz_get_ui(n); }
+    uint64_t asUint64() const { return mpz_get_ui(n); }
     /** Return this bignum's magnitude (the sign is ignored) as a signed 64 bit integer.
         If this BigNum is too large, the least significant 63 magnitude bits are returned, and the appropriate sign
         is applied.

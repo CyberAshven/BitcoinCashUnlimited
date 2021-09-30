@@ -173,7 +173,7 @@ uint64_t CBlockLevelDB::PruneDB(uint64_t nLastBlockWeCanPrune)
     CDBBatch undoBatch(*pwrapperundo);
     while (nDBUsedSpace >= nPruneTarget && pindexOldest != nullptr)
     {
-        if (pindexOldest->nHeight >= (int)nLastBlockWeCanPrune)
+        if (pindexOldest->height() >= (int64_t)nLastBlockWeCanPrune)
         {
             break;
         }

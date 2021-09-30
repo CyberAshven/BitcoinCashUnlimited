@@ -25,8 +25,8 @@ struct CompareBlocksByHeight
         /* Make sure that unequal blocks with the same height do not compare
            equal. Use the pointers themselves to make a distinction. */
 
-        if (a->nHeight != b->nHeight)
-            return (a->nHeight > b->nHeight);
+        if (a->height() != b->height())
+            return (a->height() > b->height());
 
         return a < b;
     }

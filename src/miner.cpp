@@ -112,8 +112,9 @@ uint64_t BlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t
     uint64_t nHeaderSize, nCoinbaseSize, nCoinbaseReserve;
 
     // BU add the proper block size quantity to the actual size
+    // TODO make this a constant when header size stabilizes
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
-    assert(nHeaderSize == 80); // BU always 80 bytes
+    // assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
 
 
@@ -167,7 +168,7 @@ CTransactionRef BlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _n
 
     // Make sure the coinbase is big enough.
     uint64_t nCoinbaseSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (nCoinbaseSize < MIN_TX_SIZE && IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
+    if (nCoinbaseSize < MIN_TX_SIZE)
     {
         tx.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
     }
@@ -202,7 +203,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
     CBlockIndex *pindexPrev = chainActive.Tip();
     assert(pindexPrev); // can't make a new block if we don't even have the genesis block
 
-    may2020Enabled = IsMay2020Activated(Params().GetConsensus(), pindexPrev);
+    may2020Enabled = IsMay2020Activated(chainparams.GetConsensus(), pindexPrev);
 
     if (may2020Enabled)
     {
@@ -212,14 +213,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
 
     {
         READLOCK(mempool.cs_txmempool);
-        nHeight = pindexPrev->nHeight + 1;
+        nHeight = pindexPrev->height() + 1;
 
         pblock->nTime = GetAdjustedTime();
-        pblock->nVersion = UnlimitedComputeBlockVersion(pindexPrev, chainparams.GetConsensus(), pblock->nTime);
-        // -regtest only: allow overriding block.nVersion with
-        // -blockversion=N to test forking scenarios
-        if (chainparams.MineBlocksOnDemand())
-            pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
+        pblock->height = nHeight;
 
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
         nLockTimeCutoff =
@@ -284,7 +281,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
-        pblock->nNonce = 0;
+        pblock->chainWork = ArithToUint256(pindexPrev->chainWork() + GetWorkForDifficultyBits(pblock->nBits));
+        pblock->feePoolAmt = 0; // to be used later
+        pblock->maxSize = 0; // to be used later
+        pblock->hashAncestor.SetNull(); // to be used later
+
         if (!may2020Enabled)
             pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0], STANDARD_SCRIPT_VERIFY_FLAGS);
         else // coinbase May2020 Sigchecks is always 0 since no scripts executed in coinbase tx.
@@ -296,6 +297,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
     // configured.
     pblock->fXVal = xvalTweak.Value();
 
+    pblock->UpdateHeader(); // fill values like num tx, size, and merkle root
     CValidationState state;
     if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
     {
@@ -424,7 +426,7 @@ bool BlockAssembler::TestForBlock(CTxMemPool::txiter iter)
 
     // On BCH if Nov 15th 2019 has been activated make sure tx size
     // is greater or equal than 100 bytes
-    if (IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
+    if (IsNov2018Activated(chainparams.GetConsensus(), chainActive.Tip()))
     {
         if (iter->GetTxSize() < MIN_TX_SIZE)
             return false;

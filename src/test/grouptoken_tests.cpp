@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "consensus/grouptokens.h"
+#include "consensus/merkle.h"
 #include "main.h"
 #include "miner.h"
 #include "test/test_bitcoin.h"
@@ -1523,12 +1524,12 @@ static bool tryBlock(const std::vector<CMutableTransaction> &txns,
     block.fXVal = false;
     for (const CMutableTransaction &tx : txns)
         block.vtx.push_back(MakeTransactionRef(tx));
-    // IncrementExtraNonce creates a valid coinbase and merkleRoot
-    unsigned int extraNonce = 0;
-    IncrementExtraNonce(&block, extraNonce);
-
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus()))
-        ++block.nNonce;
+    // enfore LTOR ordering of transactions
+    std::sort(block.vtx.begin() + 1, block.vtx.end(), NumericallyLessTxHashComparator());
+    block.UpdateHeader(); // make sure the size field is properly calculated
+    block.nonce.resize(7); // Try weird sizes
+    bool worked = MineBlock(block, 1UL << (7 * 8), chainparams.GetConsensus());
+    assert(worked);
 
     bool ret;
     ret = ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false);

@@ -146,7 +146,7 @@ void TxIndex::ThreadSync()
             int64_t current_time = GetTime();
             if (last_log_time + SYNC_LOG_INTERVAL < current_time)
             {
-                LOGA("Syncing txindex with block chain from height %d\n", pindex->nHeight);
+                LOGA("Syncing txindex with block chain from height %d\n", pindex->height());
                 last_log_time = current_time;
             }
 
@@ -173,7 +173,7 @@ void TxIndex::ThreadSync()
 
     if (pindex)
     {
-        LOGA("txindex is enabled at height %d\n", pindex->nHeight);
+        LOGA("txindex is enabled at height %d\n", pindex->height());
     }
     else
     {
@@ -210,7 +210,7 @@ void TxIndex::BlockConnected(const CBlock &block, CBlockIndex *pindex)
         return;
 
     // If we're reindexing we need to write the transaction from the genesis block here
-    if (fReindex && pindex->nHeight == 1)
+    if (fReindex && pindex->height() == 1)
         WriteGenesisTransaction();
 
     if (WriteBlock(block, pindex))

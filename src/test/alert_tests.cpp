@@ -36,8 +36,8 @@ BOOST_AUTO_TEST_CASE(PartitionAlert)
             indexDummy[i].pprev = nullptr;
         else
             indexDummy[i].pprev = &indexDummy[i - 1];
-        indexDummy[i].nHeight = i;
-        indexDummy[i].nTime = now - (100 - i) * nPowTargetSpacing;
+        indexDummy[i].header.height = i;
+        indexDummy[i].header.nTime = now - (100 - i) * nPowTargetSpacing;
         // Other members don't matter, the partition check code doesn't
         // use them
     }
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(PartitionAlert)
     SetMockTime(now);
     int64_t quickSpacing = nPowTargetSpacing * 2 / 5;
     for (int i = 0; i < 100; i++) // Tweak chain timestamps:
-        indexDummy[i].nTime = now - (100 - i) * quickSpacing;
+        indexDummy[i].header.nTime = now - (100 - i) * quickSpacing;
     PartitionCheck(falseFunc, csDummy, &indexDummy[99], nPowTargetSpacing);
     BOOST_CHECK(!strMiscWarning.empty());
     BOOST_TEST_MESSAGE(std::string("Got alert text: ") + strMiscWarning);

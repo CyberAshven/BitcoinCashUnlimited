@@ -16,6 +16,12 @@ class CBlockIndex;
 class uint256;
 class arith_uint256;
 
+/* Solve this block.  Not for performance use. The function modifies the nonce but does not change its size.
+   NOTE: if nonce size is 0 or small, there may be no solution ever found!
+ */
+bool MineBlock(CBlockHeader &blockHeader, unsigned long int tries, const Consensus::Params &cparams);
+
+
 arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
     const int64_t nPowTargetSpacing,
     const int64_t nTimeDiff,

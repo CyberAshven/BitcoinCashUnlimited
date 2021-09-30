@@ -3,6 +3,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+
+// Removed since block version is removed
+#if 0
+
 #include "chain.h"
 #include "random.h"
 #include "versionbits.h"
@@ -397,3 +401,5 @@ BOOST_AUTO_TEST_CASE(genversionbits_mintime_test)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+#endif

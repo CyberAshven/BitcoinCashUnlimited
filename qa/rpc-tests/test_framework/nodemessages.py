@@ -47,8 +47,8 @@ def wait_until(predicate, attempts=float('inf'), timeout=float('inf')):
             if predicate():
                 return True
         attempt += 1
-        elapsed += 0.05
-        time.sleep(0.05)
+        elapsed += 0.25
+        time.sleep(0.25)
 
     return False
 
@@ -200,6 +200,10 @@ def ser_uint256(u):
 
 
 def uint256_from_str(s):
+    """Decode a uint256 from a little-endian byte array or hex string (bitcoind strings are little-endian)
+    """
+    if len(s) == 64:
+        s = unhexlify(s)
     r = 0
     t = struct.unpack("<IIIIIIII", s[:32])
     for i in range(8):
@@ -306,6 +310,33 @@ def deser_compact_size(f):
         nit = struct.unpack("<Q", f.read(8))[0]
     return nit
 
+def deser_varint(f):
+    done = False
+    num = 0
+    while True:
+        b = struct.unpack("<B", f.read(1))[0]
+        num = (num << 7) | (b&0x7F)
+        if b&0x80:
+            num += 1
+        else:
+            return num
+
+def ser_varint(n):
+    ret = bytearray()
+
+    i = 0
+    ret.append(0)
+    while True:
+        ret[i] = ret[i] | (n & 0x7F)
+        if n <= 0x7F: break
+        n = (n >> 7) - 1
+        i += 1
+        ret.append(0x80)
+
+    return bytes(reversed(ret))
+
+
+
 def deser_string_vector(f):
     nit = struct.unpack("<B", f.read(1))[0]
     if nit == 253:
@@ -319,7 +350,6 @@ def deser_string_vector(f):
         t = deser_string(f)
         r.append(t)
     return r
-
 
 def ser_string_vector(l):
     r = b""
@@ -369,7 +399,7 @@ def ser_int_vector(l):
 
 
 def FromHex(obj, hex_string):
-    obj.deserialize(BytesIO(unhexlify(hex_string.encode('ascii'))))
+    obj.deserialize(BytesIO(unhexlify(hex_string.strip().encode('ascii'))))
     return obj
 
 # Convert a binary-serializable object to hex (eg for submission via RPC)
@@ -453,6 +483,8 @@ class CInv(object):
     }
 
     def __init__(self, t=0, h=0):
+        assert type(t) is int
+        assert type(h) is int
         self.type = t
         self.hash = h
 
@@ -777,9 +809,7 @@ class CTransaction(object):
 
         return (hash, None)
 
-
-
-class CBlockHeader(object):
+class SatoshiBlockHeader(object):
     def __init__(self, header=None):
         if header is None:
             self.set_null()
@@ -864,16 +894,16 @@ class CBlockHeader(object):
         return "".join(s)
 
     def __str__(self):
-        return "CBlockHeader(hash=%064x nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+        return "SatoshiBlockHeader(hash=%064x nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
             % (self.gethash(), self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, time.ctime(self.nTime), self.nBits, self.nNonce)
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+        return "SatoshiBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
                time.ctime(self.nTime), self.nBits, self.nNonce)
 
 
-class CBlock(CBlockHeader):
+class SatoshiBlock(SatoshiBlockHeader):
     def __init__(self, header=None):
         super(CBlock, self).__init__(header)
         self.vtx = []
@@ -953,6 +983,295 @@ class CBlock(CBlockHeader):
         return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
                time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
+
+
+class CBlockHeader(object):
+    def __init__(self, header=None):
+        if header is None:
+            self.set_null()
+        else:
+            self.set(header)
+
+    def set(self, header):
+        self.hashPrevBlock = header.hashPrevBlock
+        self.nBits = header.nBits
+        self.hashAncestor = header.hashAncestor
+        self.hashMerkleRoot = header.hashMerkleRoot
+        self.hashTxFilter = header.hashTxFilter
+        self.nTime = header.nTime
+        self.height = header.height
+        self.chainWork = header.chainWork
+        self.size = header.size
+        self.txCount = header.txCount
+        self.maxSize = header.maxSize
+        self.feePoolAmt = header.feePoolAmt
+        self.utxoCommitment = header.utxoCommitment
+        self.minerData = header.minerData
+        self.nonce = header.nonce
+        self.hashNum = None
+        self.calc_hash()
+
+    def set_null(self):
+        self.hashPrevBlock = 0
+        self.nBits = 0
+        self.hashAncestor = 0
+        self.hashMerkleRoot = 0
+        self.hashTxFilter = 0
+        self.nTime = 0
+        self.height = 0
+        self.chainWork = 0
+        self.size = 0
+        self.txCount = 0
+        self.maxSize = 0
+        self.feePoolAmt = 0
+        self.utxoCommitment = b""
+        self.minerData = b""
+        self.nonce = None
+        self.hashNum = None
+        self.hash = None
+
+    def deserialize(self, f):
+        self.hashPrevBlock = deser_uint256(f)
+        self.nBits = struct.unpack("<I", f.read(4))[0]
+        self.hashAncestor = deser_uint256(f)
+        self.hashMerkleRoot = deser_uint256(f)
+        self.hashTxFilter = deser_uint256(f)
+        self.nTime = struct.unpack("<I", f.read(4))[0]
+        self.height = deser_varint(f)
+        self.chainWork = deser_uint256(f)
+        self.size = struct.unpack("<Q", f.read(8))[0]
+        self.txCount = deser_varint(f)
+        self.maxSize = deser_varint(f)
+        self.feePoolAmt = deser_varint(f)
+        self.utxoCommitment = deser_string(f)
+        self.minerData = deser_string(f)
+        self.nonce = deser_string(f)
+        self.hashNum = None
+        self.hash = None
+
+    def serialize(self):
+        r = b""
+        r += ser_uint256(self.hashPrevBlock)
+        r += struct.pack("<I", self.nBits)
+        r += ser_uint256(self.hashAncestor)
+        r += ser_uint256(self.hashMerkleRoot)
+        r += ser_uint256(self.hashTxFilter)
+        r += struct.pack("<I", self.nTime)
+        r += ser_varint(self.height)
+        r += ser_uint256(self.chainWork)
+        r += struct.pack("<Q", self.size)
+        r += ser_varint(self.txCount)
+        r += ser_varint(self.maxSize)
+        r += ser_varint(self.feePoolAmt)
+        r += ser_string(self.utxoCommitment)
+        r += ser_string(self.minerData)
+        r += ser_string(self.nonce)
+        return r
+
+    def calc_mining_commitment(self):
+        if True:
+            hpv = ser_uint256(self.hashPrevBlock)
+            mh = b""
+            mh += hpv
+            mh += struct.pack("<I", self.nBits)
+            # print("mh bytes: " + mh.hex())
+            shaMh = sha256(mh)
+            # print("miniheader: " + shaMh[::-1].hex())  # note bitcoind prints hash backwards from how it uses it so that's why [::-1]
+
+            eh = b""
+            eh += ser_uint256(self.hashAncestor)
+            eh += ser_uint256(self.hashTxFilter)
+            eh += ser_uint256(self.hashMerkleRoot)
+            eh += struct.pack("<I", self.nTime)
+            eh += struct.pack("<Q", self.height)
+            eh += ser_uint256(self.chainWork)
+            eh += struct.pack("<Q", self.size)
+            eh += struct.pack("<Q", self.txCount)
+            eh += struct.pack("<Q", self.maxSize)
+            eh += struct.pack("<Q", self.feePoolAmt)
+            eh += ser_string(self.utxoCommitment)
+            eh += ser_string(self.minerData)
+            shaEh = sha256(eh)
+            # print("extended bytes: " + eh.hex())
+            # print("ext: " + shaEh[::-1].hex())
+
+            hashBytes = sha256(shaMh + shaEh)
+            # print("full mining commitment: " + hashBytes.hex())
+            return hashBytes
+
+    def calc_hash(self):
+        if self.hashNum is None:
+            mh = b""
+            mh += ser_uint256(self.hashPrevBlock)
+            mh += struct.pack("<I", self.nBits)
+            shaMh = sha256(mh)
+
+            eh = b""
+            eh += ser_uint256(self.hashAncestor)
+            eh += ser_uint256(self.hashTxFilter)
+            eh += ser_uint256(self.hashMerkleRoot)
+            eh += struct.pack("<I", self.nTime)
+            eh += struct.pack("<Q", self.height)
+            eh += ser_uint256(self.chainWork)
+            eh += struct.pack("<Q", self.size)
+            eh += struct.pack("<Q", self.txCount)
+            eh += struct.pack("<Q", self.maxSize)
+            eh += struct.pack("<Q", self.feePoolAmt)
+            eh += ser_string(self.utxoCommitment)
+            eh += ser_string(self.minerData)
+            eh += ser_string(self.nonce)
+
+            shaEh = sha256(eh)
+            hashBytes = sha256(shaMh + shaEh)
+            self.hashNum = uint256_from_str(hashBytes)
+            self.hash = encode(hashBytes[::-1], 'hex_codec').decode('ascii')
+        return self.hash
+
+    def gethashprevblock(self, encoding = 'int'):
+        assert encoding == 'hex' or encoding == 'int'
+        if encoding == 'int':
+            return self.hashPrevBlock
+        return hex(self.hashPrevBlock)
+
+
+    def gethash(self, encoding = 'int'):
+        assert encoding == 'hex' or encoding == 'int'
+        self.calc_hash()
+        if encoding == 'int':
+            return self.hashNum
+        return hex(self.hashNum)
+
+    def gethashhex(self):
+        self.calc_hash()
+        return self.hash
+
+    def rehash(self):
+        self.hashNum = None
+        self.calc_hash()
+        return self.hashNum
+
+    def summary(self):
+        s = []
+        s.append("Block:  %064x  Time:%s  Version:0x%x Bits:0x%08x\n" %
+                 (self.gethash(), time.ctime(self.nTime), self.nVersion, self.nBits))
+        s.append("Parent: %064x  Merkle: %064x" % (self.hashPrevBlock, self.hashMerkleRoot))
+        return "".join(s)
+
+    def __str__(self):
+        return "CBlockHeader(hash=%064x nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nonce=%s)" \
+            % (self.gethash(), self.nVersion, self.hashPrevBlock, self.hashMerkleRoot, time.ctime(self.nTime), self.nBits, self.nonce.hex())
+
+    def __repr__(self):
+        return "CBlockHeader(hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nonce=%s)" \
+            % (self.hashPrevBlock, self.hashMerkleRoot,
+               time.ctime(self.nTime), self.nBits, self.nonce.hex())
+
+
+class CBlock(CBlockHeader):
+    def __init__(self, header=None):
+        if type(header) is str:
+            FromHex(self, header)
+        else:
+            super(CBlock, self).__init__(header)
+            self.vtx = []
+
+    def deserialize(self, f):
+        super(CBlock, self).deserialize(f)
+        self.vtx = deser_vector(f, CTransaction)
+
+    def serialize(self):
+        r = b""
+        r += super(CBlock, self).serialize()
+        r += ser_vector(self.vtx)
+        return r
+
+    def update_fields(self):
+        self.hashMerkleRoot = self.calc_merkle_root()
+        self.calc_size()
+        self.txCount = len(self.vtx)
+        self.hashNum = None # force recalculation of hash since block changed
+        self.hash = None
+
+    def calc_merkle_root(self):
+        hashes = []
+        for tx in self.vtx:
+            tx.calc_sha256()
+            hashes.append(ser_uint256(tx.sha256))
+        while len(hashes) > 1:
+            newhashes = []
+            for i in range(0, len(hashes), 2):
+                i2 = min(i + 1, len(hashes) - 1)
+                newhashes.append(hash256(hashes[i] + hashes[i2]))
+            hashes = newhashes
+        if hashes:
+            return uint256_from_str(hashes[0])
+        return 0
+
+    def calc_size(self):
+         self.size = len(self.serialize()) - (len(self.nonce) + 1)
+
+    def calc_mining_hash(self):
+        assert 0  # TODO
+
+    def is_valid(self):
+        miningHash = self.calc_mining_hash()
+        target = uint256_from_compact(self.nBits)
+        if miningHash > target:
+            return False
+        for tx in self.vtx:
+            if not tx.is_valid():
+                return False
+        if self.calc_merkle_root() != self.hashMerkleRoot:
+            return False
+        return True
+
+    def solve(self):
+
+        assert self.txCount == len(self.vtx)
+        assert self.size == len(self.serialize()) - (len(self.nonce) + 1)
+
+        target = uint256_from_compact(self.nBits)
+        mining_commitment = uint256_from_str(self.calc_mining_commitment())
+        # print("Mining block commitment: %x" % mining_commitment)
+        while True:
+
+            r = b""
+            r += ser_uint256(mining_commitment)
+            r += ser_string(self.nonce)
+            miningHash = hash256(r)
+            sha256ofMh = sha256(miningHash)
+
+            # create a private key from the blockhash
+            private_key = miningHash
+
+            # create a schorr sig by signing with the sha256(blockhash) and, private key from above
+            sig = sign(private_key, sha256ofMh)
+
+            # get the sha256 of the schnorr sig
+            schnorr_sha256 = uint256_from_str(sha256(sig))
+            if schnorr_sha256 < target:
+                break
+
+            # Roll 3 bytes TODO: verify that nonce is big enough
+            if self.nonce[0] == 255:
+                if len(self.nonce) == 1: self.nonce.append(0)
+                if self.nonce[1] == 255:
+                    if len(self.nonce) == 2: self.nonce.append(0)
+                    self.nonce[2] += 1
+                self.nonce[1] += 1
+            self.nonce[0] += 1
+        self.hashNum = None # force recalculation of hash since block changed
+        self.hash = None
+
+    def __str__(self):
+        return "CBlock(hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nonce=%s vtx_len=%d)" \
+            % (self.hashPrevBlock, self.hashMerkleRoot,
+               time.ctime(self.nTime), self.nBits, self.nonce.hex(), len(self.vtx))
+
+    def __repr__(self):
+        return "CBlock(hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nonce=%s vtx=%s)" \
+            % (self.hashPrevBlock, self.hashMerkleRoot,
+               time.ctime(self.nTime), self.nBits, self.nonce.hex(), repr(self.vtx))
 
 
 class CUnsignedAlert(object):
@@ -1188,6 +1507,7 @@ class BlockTransactionsRequest(object):
 class BlockTransactions(object):
 
     def __init__(self, blockhash=0, transactions = None):
+        assert blockhash != None
         self.blockhash = blockhash
         self.transactions = transactions if transactions != None else []
 
@@ -1716,7 +2036,28 @@ class msg_blocktxn(object):
 def Test():
     import doctest
     import sys
+    varint_test()
     print(doctest.testmod(sys.modules[__name__],verbose=True))
+
+def varint_test():
+    def cv(array, val):
+        a = io.BytesIO(bytes(array))
+        vi = deser_varint(a)
+        assert vi == val
+        va = ser_varint(val)
+        assert list(va) == array
+
+    cv([0], 0)
+    cv([1], 1)
+    cv([0x7f], 127)
+    cv([0x80, 0x00], 128)
+    cv([0x80,0x7F], 255 )
+    cv([0x81, 0x00], 256 )
+    cv([0xFE, 0x7F], 16383)
+    cv([0xFF, 0x00], 16384)
+    cv([0xFF, 0x7F], 16511)
+    cv([0x82, 0xFE, 0x7F], 65535)
+    cv([0x8E, 0xFE, 0xFE, 0xFF, 0x00], 2**32)
 
 ## py.test code
 def testCTransactionCopyConstruct():

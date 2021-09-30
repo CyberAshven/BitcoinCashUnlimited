@@ -33,19 +33,23 @@ class InvalidTxRequestTest(ComparisonTestFramework):
     def get_tests(self):
         if self.tip is None:
             self.tip = int("0x" + self.nodes[0].getbestblockhash(), 0)
+            self.tipHdr = self.nodes[0].getblock(0)
+            self.work = int(self.tipHdr["chainwork"],16) + 2
+
         self.block_time = int(time.time())+1
 
         '''
         Create a new block with an anyone-can-spend coinbase
         '''
         height = 1
-        block = create_block(self.tip, create_coinbase(height), self.block_time)
+        block = create_block(self.tip, height, self.work, create_coinbase(height), self.block_time)
         self.block_time += 1
         block.solve()
         # Save the coinbase for later
         self.block1 = block
-        self.tip = block.sha256
+        self.tip = block.gethash()
         height += 1
+        self.work+=2
         yield TestInstance([[block, True]])
 
         '''
@@ -53,12 +57,13 @@ class InvalidTxRequestTest(ComparisonTestFramework):
         '''
         test = TestInstance(sync_every_block=False)
         for i in range(100):
-            block = create_block(self.tip, create_coinbase(height), self.block_time)
+            block = create_block(self.tip, height, self.work, create_coinbase(height), self.block_time)
             block.solve()
-            self.tip = block.sha256
+            self.tip = block.gethash()
             self.block_time += 1
             test.blocks_and_transactions.append([block, True])
             height += 1
+            self.work = block.chainWork + 2  # +2 because regtest
         yield test
 
         # b'\x64' is OP_NOTIF

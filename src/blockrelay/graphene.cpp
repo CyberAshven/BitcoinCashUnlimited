@@ -374,7 +374,7 @@ bool CRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CGrapheneBlock::CheckBlockHeader(const CBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckProofOfWork(header.GetHash(), header.nBits, Params().GetConsensus()))
+    if (!CheckProofOfWork(header.GetMiningHash(), header.nBits, Params().GetConsensus()))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp
@@ -463,7 +463,7 @@ bool CGrapheneBlock::HandleMessage(CDataStream &vRecv, CNode *pfrom, std::string
         }
 
         // Request full block if this one isn't extending the best chain
-        if (pIndex->nChainWork <= chainActive.Tip()->nChainWork)
+        if (pIndex->chainWork() <= chainActive.Tip()->chainWork())
         {
             thinrelay.RequestBlock(pfrom, inv.hash);
             thinrelay.ClearAllBlockData(pfrom, grapheneBlock->header.GetHash());
@@ -595,26 +595,21 @@ std::set<uint64_t> CGrapheneBlock::UpdateResolvedTxsAndIdentifyMissing(
 
 bool CGrapheneBlock::process(CNode *pfrom, std::string strCommand, std::shared_ptr<CBlockThinRelay> pblock)
 {
+    DbgAssert(pblock->grapheneblock != nullptr, return false);
+    DbgAssert(pblock->grapheneblock.get() == this, return false);
+    std::shared_ptr<CGrapheneBlock> grapheneBlock = pblock->grapheneblock;
+
     // In PV we must prevent two graphene blocks from simulaneously processing that were recieved from the
     // same peer. This would only happen as in the example of an expedited block coming in
     // after an graphene request, because we would never explicitly request two graphene blocks from the same peer.
-    if (PV->IsAlreadyValidating(pfrom->id, pblock->GetHash()))
+    if (PV->IsAlreadyValidating(pfrom->id, grapheneBlock->header.GetHash()))
     {
         LOGA("Not processing this grapheneblock from %s because %s is already validating in another thread\n",
             pfrom->GetLogName(), pblock->GetHash().ToString().c_str());
         return false;
     }
 
-    DbgAssert(pblock->grapheneblock != nullptr, return false);
-    DbgAssert(pblock->grapheneblock.get() == this, return false);
-    std::shared_ptr<CGrapheneBlock> grapheneBlock = pblock->grapheneblock;
-
-    pblock->nVersion = header.nVersion;
-    pblock->nBits = header.nBits;
-    pblock->nNonce = header.nNonce;
-    pblock->nTime = header.nTime;
-    pblock->hashMerkleRoot = header.hashMerkleRoot;
-    pblock->hashPrevBlock = header.hashPrevBlock;
+    *((CBlockHeader *)(pblock.get())) = header;
     pfrom->gr_shorttxidk0.store(shorttxidk0);
     pfrom->gr_shorttxidk1.store(shorttxidk1);
 
@@ -1397,7 +1392,7 @@ bool IsGrapheneBlockValid(CNode *pfrom, const CBlockHeader &header)
 {
     // check block header
     CValidationState state;
-    if (!CheckBlockHeader(header, state, true))
+    if (!CheckBlockHeader(Params().GetConsensus(), header, state, true))
     {
         return error("Received invalid header for graphene block %s from peer %s", header.GetHash().ToString(),
             pfrom->GetLogName());
@@ -1710,7 +1705,7 @@ std::vector<CTransaction> TransactionsFromBlockByCheapHash(std::set<uint64_t> &v
     }
     else
     {
-        if (hdr->nHeight < (chainActive.Tip()->nHeight - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
+        if (hdr->height() < (chainActive.Tip()->height() - (int)thinrelay.MAX_THINTYPE_BLOCKS_IN_FLIGHT))
             throw std::runtime_error("get_grblocktx request too far from the tip");
 
         const Consensus::Params &consensusParams = Params().GetConsensus();

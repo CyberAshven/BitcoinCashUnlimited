@@ -35,34 +35,12 @@ void RegisterNextChainRPCCommands(CRPCTable &table)
         table.appendCommand(cmd);
 }
 
-
-static CBlock CreateGenesisBlock(const char *genesisText,
+extern CBlock CreateGenesisBlock(const char *genesisText,
     const CScript &genesisOutputScript,
     uint32_t nTime,
-    uint32_t nNonce,
+    const std::vector<unsigned char> &nonce,
     uint32_t nBits,
-    const CAmount &genesisReward)
-{
-    CMutableTransaction txNew;
-    txNew.nVersion = 1;
-    txNew.vin.resize(1);
-    txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << ((int)0) << CScriptNum(7227)
-                                       << std::vector<unsigned char>((const unsigned char *)genesisText,
-                                              (const unsigned char *)genesisText + strlen(genesisText));
-    txNew.vout[0].nValue = genesisReward;
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
-
-    CBlock genesis;
-    genesis.nTime = nTime;
-    genesis.nBits = nBits;
-    genesis.nNonce = nNonce;
-    genesis.vtx.push_back(MakeTransactionRef(txNew));
-    genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.nVersion = CBlock::CURRENT_VERSION;
-    return genesis;
-}
+    const CAmount &genesisReward);
 
 UniValue genesis(const UniValue &params, bool fHelp)
 {
@@ -84,8 +62,8 @@ UniValue genesis(const UniValue &params, bool fHelp)
     const CScript genesisOutputScript = CScript() << OP_1;
     // CAmount genesisReward(5000000000);
     CAmount genesisReward(0);
-    CBlock block =
-        CreateGenesisBlock(genesisComment.c_str(), genesisOutputScript, GetTime(), 0, genesisDiff, genesisReward);
+    CBlock block = CreateGenesisBlock(genesisComment.c_str(), genesisOutputScript, GetTime(),
+        std::vector<unsigned char>(4), genesisDiff, genesisReward);
 
     CBlock *pblock = &block;
     const Consensus::Params &conp = chp.GetConsensus();
@@ -97,14 +75,21 @@ UniValue genesis(const UniValue &params, bool fHelp)
     if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(conp.powLimit))
         throw std::runtime_error("Invalid nBits difficulty");
 
-    while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, conp))
+    uint32_t count = 0;
+    pblock->nonce.resize(4);
+    pblock->GetBlockSize();
+    while (!CheckProofOfWork(pblock->GetMiningHash(), pblock->nBits, conp))
     {
-        ++pblock->nNonce;
+        ++count;
+        pblock->nonce[0] = count & 255;
+        pblock->nonce[0] = (count >> 8) & 255;
+        pblock->nonce[0] = (count >> 16) & 255;
+        pblock->nonce[0] = (count >> 24) & 255;
         if (ShutdownRequested())
             throw std::runtime_error("aborted");
-        if ((pblock->nNonce & 0xfff) == 0)
+        if ((count & 0xfff) == 0)
         {
-            LOGA("GENESIS nonce: ", pblock->nNonce);
+            LOGA("GENESIS nonce: ", count);
         }
     }
 
@@ -113,19 +98,17 @@ UniValue genesis(const UniValue &params, bool fHelp)
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
 
     std::ostringstream logs;
-    logs << "GENESIS Block: Time: " << pblock->nTime << " Nonce: " << pblock->nNonce << " Bits: " << pblock->nBits
-         << " Version: " << pblock->nVersion << " Reward: " << genesisReward << "extraNonce: " << 7227
-         << " Comment: " << genesisComment << " Script: " << FormatScript(genesisOutputScript)
-         << " Hash: " << pblock->GetHash().GetHex() << " Hex: " << strHex << "\n";
+    logs << "GENESIS Block: Time: " << pblock->nTime << " Nonce: " << HexStr(pblock->nonce)
+         << " Bits: " << pblock->nBits << " Reward: " << genesisReward << " Comment: " << genesisComment
+         << " Script: " << FormatScript(genesisOutputScript) << " Hash: " << pblock->GetHash().GetHex()
+         << " Hex: " << strHex << "\n";
     LOGA(logs.str().c_str());
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("time", (int64_t)pblock->nTime);
-    ret.pushKV("nonce", (uint64_t)pblock->nNonce);
+    ret.pushKV("nonce", HexStr(pblock->nonce));
     ret.pushKV("bits", (uint64_t)pblock->nBits);
-    ret.pushKV("version", pblock->nVersion);
     ret.pushKV("reward", genesisReward);
-    ret.pushKV("extraNonce", 7227);
     ret.pushKV("comment", genesisComment);
     ret.pushKV("script", FormatScript(genesisOutputScript));
     ret.pushKV("hash", pblock->GetHash().GetHex());

@@ -119,7 +119,7 @@ void TxToJSON(const CTransaction &tx, const int64_t txTime, const uint256 hashBl
         {
             if (chainActive.Contains(pindex))
             {
-                entry.pushKV("confirmations", 1 + chainActive.Height() - pindex->nHeight);
+                entry.pushKV("confirmations", 1 + chainActive.Height() - pindex->height());
                 entry.pushKV("time", pindex->GetBlockTime());
                 entry.pushKV("blocktime", pindex->GetBlockTime());
                 confs = true;
@@ -570,7 +570,7 @@ UniValue getrawtransactionssince(const UniValue &params, bool fHelp)
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
     }
-    int hashBlockHeight = pblockindex->nHeight;
+    int hashBlockHeight = pblockindex->height();
     UniValue resultSet(UniValue::VOBJ);
     int64_t fetched = 0;
     while (fetched < limit)
@@ -668,9 +668,9 @@ UniValue gettxoutproof(const UniValue &params, bool fHelp)
     {
         LOCK(cs_main);
         CoinAccessor coin(*pcoinsTip, oneTxid);
-        if (coin && !coin->IsSpent() && coin->nHeight > 0 && coin->nHeight <= chainActive.Height())
+        if (coin && !coin->IsSpent() && coin->height() > 0 && coin->height() <= chainActive.Height())
         {
-            pblockindex = chainActive[coin->nHeight];
+            pblockindex = chainActive[coin->height()];
         }
     }
 

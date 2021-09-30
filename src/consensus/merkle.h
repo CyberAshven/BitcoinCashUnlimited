@@ -34,6 +34,7 @@ uint256 ComputeMerkleRootFromBranch(const uint256 &leaf, const std::vector<uint2
  * *mutated is set to true if a duplicated subtree was found.
  */
 uint256 BlockMerkleRoot(const CBlock &block, bool *mutated = nullptr);
+uint256 BlockMerkleRoot(const SatoshiBlock &block, bool *mutated = nullptr);
 
 /*
  * Compute the Merkle branch for the tree of transactions in a block, for a
@@ -41,5 +42,6 @@ uint256 BlockMerkleRoot(const CBlock &block, bool *mutated = nullptr);
  * This can be verified using ComputeMerkleRootFromBranch.
  */
 std::vector<uint256> BlockMerkleBranch(const CBlock &block, uint32_t position);
+std::vector<uint256> BlockMerkleBranch(const SatoshiBlock &block, uint32_t position);
 
 #endif // BITCOIN_CONSENSUS_MERKLE_H

@@ -18,7 +18,7 @@ MIN_TX_SIZE = 100
 MAX_TXOUT_PUBKEY_SCRIPT = 10000
 
 # Create a block (with regtest difficulty)
-def create_block(hashprev, coinbase, nTime=None, txns=None, ctor=True):
+def create_block(hashprev, height, chainwork, coinbase, nTime=None, txns=None, ctor=True):
     block = CBlock()
     if nTime is None:
         import time
@@ -28,17 +28,23 @@ def create_block(hashprev, coinbase, nTime=None, txns=None, ctor=True):
             raise ValueError("nTime should be int, got {}".format(type(nTime)))
         block.nTime = nTime
     if type(hashprev) is str:
-        hashprev = int(hashprev, 16)
+        hashprev = uint256_from_bigendian(hashprev)
+    block.chainWork = chainwork
+    block.height = height
     block.hashPrevBlock = hashprev
-    block.nBits = 0x207fffff # Will break after a difficulty adjustment...
+    block.nBits = 0x207fffff # Will break after a difficulty adjustment... which never happens in regtest
     if coinbase:
         block.vtx.append(coinbase)
     if txns:
         if ctor:
             txns.sort(key=lambda x: x.hash)
         block.vtx += txns
-    block.hashMerkleRoot = block.calc_merkle_root()
-    block.calc_sha256()
+    block.txCount = len(block.vtx)
+    block.nonce = b""
+    block.utxoCommitment = b""
+    block.minerData = b""
+    block.nonce = bytearray(3)
+    block.update_fields()
     return block
 
 def make_conform_to_ctor(block):
