@@ -1096,11 +1096,6 @@ bool AppInit2(Config &config)
     if (GetBoolArg("-peerbloomfilters", DEFAULT_PEERBLOOMFILTERS))
         nLocalServices |= NODE_BLOOM;
 
-    // BUIP010 Xtreme Thinblocks: begin section Initialize XTHIN service
-    if (GetBoolArg("-use-thinblocks", DEFAULT_USE_THINBLOCKS))
-        nLocalServices |= NODE_XTHIN;
-    // BUIP010 Xtreme Thinblocks: end section
-
     // BUIPXXX Graphene Blocks: begin section initialize Graphene service
     if (GetBoolArg("-use-grapheneblocks", DEFAULT_USE_GRAPHENE_BLOCKS))
         nLocalServices |= NODE_GRAPHENE;

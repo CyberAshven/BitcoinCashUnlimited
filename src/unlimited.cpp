@@ -6,8 +6,8 @@
 #include "unlimited.h"
 
 #include "base58.h"
-#include "blockrelay/graphene.h"
-#include "blockrelay/thinblock.h"
+
+
 #include "blockstorage/blockstorage.h"
 #include "cashaddrenc.h"
 #include "chain.h"
@@ -1058,25 +1058,6 @@ int GetBlockchainHeight()
 {
     LOCK(cs_main);
     return chainActive.Height();
-}
-
-void LoadFilter(CNode *pfrom, CBloomFilter *filter)
-{
-    if (!filter->IsWithinSizeConstraints())
-        // There is no excuse for sending a too-large filter
-        dosMan.Misbehaving(pfrom, 100);
-    else
-    {
-        uint64_t nSizeFilter;
-        {
-            LOCK(pfrom->cs_filter);
-            nSizeFilter = ::GetSerializeSize(*pfrom->pThinBlockFilter, SER_NETWORK, PROTOCOL_VERSION);
-            thindata.UpdateInBoundBloomFilter(nSizeFilter);
-            delete pfrom->pThinBlockFilter;
-            pfrom->pThinBlockFilter = new CBloomFilter(*filter);
-        }
-        LOG(THIN, "Thinblock Bloom filter size: %d\n", nSizeFilter);
-    }
 }
 
 // Statistics:

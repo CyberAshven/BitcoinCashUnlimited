@@ -5,7 +5,7 @@
 #ifndef BITCOIN_EXPEDITED_H
 #define BITCOIN_EXPEDITED_H
 
-#include "blockrelay/thinblock.h"
+
 
 enum
 {
@@ -25,8 +25,8 @@ enum
 extern bool CheckAndRequestExpeditedBlocks(CNode *pfrom);
 
 // be an expedited block source and if so, request them.
-extern void SendExpeditedBlock(CXThinBlock &thinBlock, unsigned char hops, CNode *pskip = nullptr);
-extern void SendExpeditedBlock(const CBlock &block, CNode *pskip = nullptr);
+// extern void SendExpeditedBlock(CXThinBlock &thinBlock, unsigned char hops, CNode *pskip = nullptr);
+// extern void SendExpeditedBlock(const CBlock &block, CNode *pskip = nullptr);
 extern bool HandleExpeditedRequest(CDataStream &vRecv, CNode *pfrom);
 
 // process incoming unsolicited block

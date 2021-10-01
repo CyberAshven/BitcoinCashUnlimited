@@ -179,10 +179,13 @@ VNodeRefs CConnMgr::ExpeditedBlockNodes()
 
 bool CConnMgr::PushExpeditedRequest(CNode *pNode, uint64_t flags)
 {
-    if (!IsThinBlocksEnabled())
-        return error("Thinblocks is not enabled so cannot request expedited blocks from peer %s", pNode->GetLogName());
 
-    if (!pNode->ThinBlockCapable())
+    // TODO - need to reconfigure expedited blocks
+
+    //if (!IsThinBlocksEnabled())
+    return error("Thinblocks is not enabled so cannot request expedited blocks from peer %s", pNode->GetLogName());
+
+    // if (!pNode->ThinBlockCapable())
         return error("Remote peer has not enabled Thinblocks so you cannot request expedited blocks from %s",
             pNode->GetLogName());
 

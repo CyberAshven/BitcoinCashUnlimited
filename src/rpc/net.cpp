@@ -5,8 +5,8 @@
 
 #include "rpc/server.h"
 
-#include "blockrelay/graphene.h"
-#include "blockrelay/thinblock.h"
+
+
 #include "chainparams.h"
 #include "clientversion.h"
 #include "dosman.h"
@@ -48,8 +48,6 @@ UniValue GetServicesNames(uint64_t services)
         servicesNames.push_back("BLOOM");
     if (services & NODE_WITNESS)
         servicesNames.push_back("WITNESS");
-    if (services & NODE_XTHIN)
-        servicesNames.push_back("XTHIN");
     if (services & NODE_BITCOIN_CASH)
         servicesNames.push_back("CASH");
     if (services & NODE_GRAPHENE)
@@ -497,50 +495,6 @@ static UniValue GetNetworksInfo()
     return networks;
 }
 
-static UniValue GetThinBlockStats()
-{
-    UniValue obj(UniValue::VOBJ);
-    bool enabled = IsThinBlocksEnabled();
-    obj.pushKV("enabled", enabled);
-    if (enabled)
-    {
-        obj.pushKV("summary", thindata.ToString());
-        obj.pushKV("mempool_limiter", thindata.MempoolLimiterBytesSavedToString());
-        obj.pushKV("inbound_percent", thindata.InBoundPercentToString());
-        obj.pushKV("outbound_percent", thindata.OutBoundPercentToString());
-        obj.pushKV("response_time", thindata.ResponseTimeToString());
-        obj.pushKV("validation_time", thindata.ValidationTimeToString());
-        obj.pushKV("outbound_bloom_filters", thindata.OutBoundBloomFiltersToString());
-        obj.pushKV("inbound_bloom_filters", thindata.InBoundBloomFiltersToString());
-        obj.pushKV("thin_block_size", thindata.ThinBlockToString());
-        obj.pushKV("thin_full_tx", thindata.FullTxToString());
-        obj.pushKV("rerequested", thindata.ReRequestedTxToString());
-    }
-    return obj;
-}
-
-static UniValue GetGrapheneStats()
-{
-    UniValue obj(UniValue::VOBJ);
-    bool enabled = IsGrapheneBlockEnabled();
-    obj.pushKV("enabled", enabled);
-    if (enabled)
-    {
-        obj.pushKV("summary", graphenedata.ToString());
-        obj.pushKV("inbound_percent", graphenedata.InBoundPercentToString());
-        obj.pushKV("outbound_percent", graphenedata.OutBoundPercentToString());
-        obj.pushKV("response_time", graphenedata.ResponseTimeToString());
-        obj.pushKV("validation_time", graphenedata.ValidationTimeToString());
-        obj.pushKV("filter", graphenedata.FilterToString());
-        obj.pushKV("iblt", graphenedata.IbltToString());
-        obj.pushKV("rank", graphenedata.RankToString());
-        obj.pushKV("graphene_block_size", graphenedata.GrapheneBlockToString());
-        obj.pushKV("graphene_additional_tx_size", graphenedata.AdditionalTxToString());
-        obj.pushKV("rerequested", graphenedata.ReRequestedTxToString());
-    }
-    return obj;
-}
-
 static UniValue GetSBGrapheneStats()
 {
     UniValue obj(UniValue::VOBJ);
@@ -559,27 +513,6 @@ static UniValue GetSBGrapheneStats()
         obj.pushKV("graphene_block_size", sb_graphenedata.GrapheneBlockToString());
         obj.pushKV("graphene_additional_tx_size", sb_graphenedata.AdditionalTxToString());
         obj.pushKV("rerequested", sb_graphenedata.ReRequestedTxToString());
-    }
-    return obj;
-}
-
-
-static UniValue GetCompactBlockStats()
-{
-    UniValue obj(UniValue::VOBJ);
-    bool enabled = IsCompactBlocksEnabled();
-    obj.pushKV("enabled", enabled);
-    if (enabled)
-    {
-        obj.pushKV("summary", compactdata.ToString());
-        obj.pushKV("mempool_limiter", compactdata.MempoolLimiterBytesSavedToString());
-        obj.pushKV("inbound_percent", compactdata.InBoundPercentToString());
-        obj.pushKV("outbound_percent", compactdata.OutBoundPercentToString());
-        obj.pushKV("response_time", compactdata.ResponseTimeToString());
-        obj.pushKV("validation_time", compactdata.ValidationTimeToString());
-        obj.pushKV("compact_block_size", compactdata.CompactBlockToString());
-        obj.pushKV("compact_full_tx", compactdata.FullTxToString());
-        obj.pushKV("rerequested", compactdata.ReRequestedTxToString());
     }
     return obj;
 }
@@ -689,10 +622,7 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
         }
     }
     obj.pushKV("localaddresses", localAddresses);
-    obj.pushKV("thinblockstats", GetThinBlockStats());
-    obj.pushKV("compactblockstats", GetCompactBlockStats());
     obj.pushKV("bobcompactblockstats", GetBobCompactBlockStats());
-    obj.pushKV("grapheneblockstats", GetGrapheneStats());
     obj.pushKV("sb_grapheneblockstats", GetSBGrapheneStats());
     obj.pushKV("warnings", GetWarnings("statusbar"));
     return obj;
@@ -708,17 +638,14 @@ UniValue clearblockstats(const UniValue &params, bool fHelp)
                             "\nExample:\n" +
                             HelpExampleCli("clearblockstats", ""));
 
-    if (IsThinBlocksEnabled())
-        thindata.ClearThinBlockStats();
-    if (IsGrapheneBlockEnabled())
+    if (SBIsGrapheneBlockEnabled())
     {
-        graphenedata.ClearGrapheneBlockStats();
         sb_graphenedata.ClearGrapheneBlockStats();
     }
-    if (IsCompactBlocksEnabled())
-        compactdata.ClearCompactBlockStats();
     if (IsBobCompactBlocksEnabled())
+    {
         bobcompactdata.ClearCompactBlockStats();
+    }
 
     return NullUniValue;
 }

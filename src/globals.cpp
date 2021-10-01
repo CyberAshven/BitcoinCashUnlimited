@@ -10,10 +10,10 @@
 
 #include "addrman.h"
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/compactblock.h"
-#include "blockrelay/graphene.h"
+
+
 #include "blockrelay/mempool_sync.h"
-#include "blockrelay/thinblock.h"
+
 #include "blockstorage/blockcache.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -613,10 +613,7 @@ CCriticalSection cs_blockvalidationtime;
 CStatHistory<uint64_t> nBlockValidationTime("blockValidationTime", STAT_OP_MAX | STAT_INDIVIDUAL);
 
 // Single classes for gather thin type block relay statistics
-CThinBlockData thindata;
-CGrapheneBlockData graphenedata;
 CSBGrapheneBlockData sb_graphenedata;
-CCompactBlockData compactdata;
 CBobCompactBlockData bobcompactdata;
 ThinTypeRelay thinrelay;
 CCriticalSection cs_mempoolsync;

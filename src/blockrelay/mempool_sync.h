@@ -6,7 +6,7 @@
 #define BITCOIN_MEMPOOL_SYNC_H
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+#include "graphene_set.h"
 #include "consensus/consensus.h"
 #include "net.h"
 #include "utiltime.h"
@@ -197,5 +197,7 @@ CMempoolSyncInfo GetMempoolSyncInfo();
 uint64_t NegotiateMempoolSyncVersion(CNode *pfrom);
 CNode *SelectMempoolSyncPeer(std::vector<CNode *> vNodesCopy);
 void ClearDisconnectedFromMempoolSyncMaps(NodeId nodeid);
+// Generate cheap hash from seeds using SipHash
+uint64_t GetShortID(uint64_t shorttxidk0, uint64_t shorttxidk1, const uint256 &txhash);
 
 #endif // BITCOIN_MEMPOOL_SYNC_H

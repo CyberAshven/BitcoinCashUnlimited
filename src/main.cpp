@@ -9,9 +9,9 @@
 #include "addrman.h"
 #include "arith_uint256.h"
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+
 #include "blockrelay/mempool_sync.h"
-#include "blockrelay/thinblock.h"
+
 #include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "blockstorage/sequential_files.h"
@@ -158,9 +158,6 @@ void FinalizeNode(NodeId nodeid)
     // Clear thintype block data if we have any.
     thinrelay.ClearAllBlocksToReconstruct(nodeid);
     thinrelay.ClearAllBlocksInFlight(nodeid);
-
-    // Clear Graphene blocks held by sender for this receiver
-    thinrelay.ClearSentGrapheneBlocks(nodeid);
 
     // Update block sync counters
     {

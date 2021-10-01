@@ -16,7 +16,7 @@
 
 #include "addrman.h"
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/graphene.h"
+
 #include "blockrelay/mempool_sync.h"
 #include "chainparams.h"
 #include "connmgr.h"
@@ -641,18 +641,11 @@ static bool IsPriorityMsg(std::string strCommand)
     //       We for instance don't want to be sending BLOCK's as priority messages if the peer is only in the process
     //       of initial sync. Also, BLOCK's can be quite large and we don't want them to be dominating our priority
     //       sending process. We prefer small objects that can be forwarded with one SockeSendData() attempt.
-    if (strCommand == NetMsgType::HEADERS || strCommand == NetMsgType::GRAPHENEBLOCK ||
-        strCommand == NetMsgType::GET_GRAPHENE || strCommand == NetMsgType::GRAPHENETX ||
-        strCommand == NetMsgType::GET_GRAPHENE_RECOVERY || strCommand == NetMsgType::GRAPHENE_RECOVERY ||
-        strCommand == NetMsgType::GET_GRAPHENETX || strCommand == NetMsgType::GET_XTHIN ||
-        strCommand == NetMsgType::GET_SB_GRAPHENE || strCommand == NetMsgType::SB_GRAPHENETX ||
+    if (strCommand == NetMsgType::GET_SB_GRAPHENE || strCommand == NetMsgType::SB_GRAPHENETX ||
         strCommand == NetMsgType::GET_SB_GRAPHENE_RECOVERY || strCommand == NetMsgType::SB_GRAPHENE_RECOVERY ||
-        strCommand == NetMsgType::GET_SB_GRAPHENETX || strCommand == NetMsgType::GET_THIN ||
-        strCommand == NetMsgType::XTHINBLOCK || strCommand == NetMsgType::THINBLOCK ||
-        strCommand == NetMsgType::XBLOCKTX || strCommand == NetMsgType::GET_XBLOCKTX ||
+        strCommand == NetMsgType::GET_SB_GRAPHENETX ||
         strCommand == NetMsgType::XPEDITEDREQUEST || strCommand == NetMsgType::XPEDITEDBLK ||
-        strCommand == NetMsgType::XPEDITEDTXN || strCommand == NetMsgType::CMPCTBLOCK ||
-        strCommand == NetMsgType::GETBLOCKTXN || strCommand == NetMsgType::BLOCKTXN ||
+        strCommand == NetMsgType::XPEDITEDTXN ||
         strCommand == NetMsgType::BLOCK || strCommand == NetMsgType::BOBCMPCTBLOCK ||
         strCommand == NetMsgType::GETBOBSUB || strCommand == NetMsgType::BOBSUB)
     {
@@ -666,6 +659,10 @@ static bool IsPriorityMsg(std::string strCommand)
 
 void CNode::LookAhead()
 {
+
+    // TODO - rework this for tailstorm
+
+    /*
     AssertLockHeld(cs_vRecvMsg);
     if (fDownloading.load())
         return;
@@ -689,6 +686,7 @@ void CNode::LookAhead()
             fDownloading.store(true);
         }
     }
+    */
 }
 
 bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
@@ -2084,9 +2082,7 @@ void ThreadOpenConnections()
         // if the grants are all taken and we want to disconnect a node in the event that
         // we don't have enough connections to XTHIN capable nodes yet.
         int nOutbound = 0;
-        int nThinBlockCapable = 0;
         set<vector<unsigned char> > setConnected;
-        CNode *pNonXthinNode = nullptr;
         CNode *pNonNodeNetwork = nullptr;
         bool fDisconnected = false;
         {
@@ -2098,31 +2094,18 @@ void ThreadOpenConnections()
                     setConnected.insert(pnode->addr.GetGroup());
                     nOutbound++;
 
-                    if (pnode->ThinBlockCapable())
-                        nThinBlockCapable++;
-                    else
-                        pNonXthinNode = pnode;
-
                     // If sync is not yet complete then disconnect any pruned outbound connections
                     if (IsInitialBlockDownload() && !(pnode->nServices & NODE_NETWORK))
+                    {
                         pNonNodeNetwork = pnode;
+                    }
                 }
             }
             // Disconnect a node that is not XTHIN capable if all outbound slots are full and we
             // have not yet connected to enough XTHIN nodes.
             if (!fReindex)
             {
-                if (nOutbound >= nMaxOutConnections && nThinBlockCapable <= min(nMinXthinNodes, nMaxOutConnections) &&
-                    nDisconnects < MAX_DISCONNECTS && IsThinBlocksEnabled() && IsChainNearlySyncd())
-                {
-                    if (pNonXthinNode != nullptr)
-                    {
-                        pNonXthinNode->fDisconnect = true;
-                        fDisconnected = true;
-                        nDisconnects++;
-                    }
-                }
-                else if (IsInitialBlockDownload())
+                if (IsInitialBlockDownload())
                 {
                     if (pNonNodeNetwork != nullptr)
                     {
@@ -2149,8 +2132,7 @@ void ThreadOpenConnections()
                 MilliSleep(500);
                 {
                     LOCK(cs_vNodes);
-                    if (find(vNodes.begin(), vNodes.end(), pNonXthinNode) == vNodes.end() ||
-                        find(vNodes.begin(), vNodes.end(), pNonNodeNetwork) == vNodes.end())
+                    if (find(vNodes.begin(), vNodes.end(), pNonNodeNetwork) == vNodes.end())
                     {
                         nOutbound--;
                         break;

@@ -8,7 +8,7 @@
 #define BITCOIN_NET_H
 
 #include "banentry.h"
-#include "blockrelay/compactblock.h"
+
 #include "bloom.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -658,14 +658,6 @@ public:
     {
         DbgAssert(nRefCount > 0, );
         nRefCount--;
-    }
-
-    // BUIP010:
-    bool ThinBlockCapable()
-    {
-        if (nServices & NODE_XTHIN)
-            return true;
-        return false;
     }
 
     // BUIPXXX:

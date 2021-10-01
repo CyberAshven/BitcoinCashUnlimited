@@ -6,7 +6,7 @@
 #ifndef BITCOIN_UNLIMITED_H
 #define BITCOIN_UNLIMITED_H
 
-#include "blockrelay/thinblock.h"
+
 #include "chain.h"
 #include "checkqueue.h"
 #include "coins.h"
@@ -218,8 +218,6 @@ extern std::set<uint256> setUnVerifiedOrphanTxHash;
 
 extern CCriticalSection cs_xval;
 // Xpress Validation: end
-
-extern void LoadFilter(CNode *pfrom, CBloomFilter *filter);
 
 extern CSemaphore *semOutboundAddNode;
 extern CStatHistory<uint64_t> recvAmt;

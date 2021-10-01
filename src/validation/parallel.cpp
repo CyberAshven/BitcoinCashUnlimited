@@ -5,8 +5,8 @@
 #include "parallel.h"
 
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/compactblock.h"
-#include "blockrelay/graphene.h"
+
+
 #include "blockstorage/blockstorage.h"
 #include "chainparams.h"
 #include "dosman.h"
@@ -619,22 +619,16 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
 
             double nValidationTime = (double)(GetStopwatchMicros() - startTime) / 1000000.0;
             if ((strCommand != NetMsgType::BLOCK) &&
-                (IsThinBlocksEnabled() || IsGrapheneBlockEnabled() || IsCompactBlocksEnabled()))
+                (SBIsGrapheneBlockEnabled() || IsBobCompactBlocksEnabled()))
             {
                 LOG(THIN | GRAPHENE | CMPCT, "Processed Block %s reconstructed from (%s) in %.2f seconds, peer=%s\n",
                     inv.hash.ToString(), strCommand, (double)(GetStopwatchMicros() - startTime) / 1000000.0,
                     pfrom->GetLogName());
 
-                if (strCommand == NetMsgType::GRAPHENEBLOCK || strCommand == NetMsgType::GRAPHENETX)
-                    graphenedata.UpdateValidationTime(nValidationTime);
-                else if (strCommand == NetMsgType::SB_GRAPHENEBLOCK || strCommand == NetMsgType::SB_GRAPHENETX)
+                if (strCommand == NetMsgType::SB_GRAPHENEBLOCK || strCommand == NetMsgType::SB_GRAPHENETX)
                     sb_graphenedata.UpdateValidationTime(nValidationTime);
-                else if (strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::BLOCKTXN)
-                    compactdata.UpdateValidationTime(nValidationTime);
                 else if (strCommand == NetMsgType::BOBCMPCTBLOCK || strCommand == NetMsgType::BOBSUB)
                     bobcompactdata.UpdateValidationTime(nValidationTime);
-                else
-                    thindata.UpdateValidationTime(nValidationTime);
             }
             else
             {

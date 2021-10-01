@@ -4,10 +4,10 @@
 
 #include "requestManager.h"
 #include "blockrelay/blockrelay_common.h"
-#include "blockrelay/compactblock.h"
-#include "blockrelay/graphene.h"
+
+
 #include "blockrelay/mempool_sync.h"
-#include "blockrelay/thinblock.h"
+
 #include "chain.h"
 #include "chainparams.h"
 #include "consensus/consensus.h"
@@ -67,8 +67,7 @@ extern bool CanDirectFetch(const Consensus::Params &consensusParams);
 
 static bool IsBlockType(const CInv &obj)
 {
-    return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
-            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_TAILSTORMBLOCK) ||
+    return ((obj.type == MSG_BLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_TAILSTORMBLOCK) ||
             (obj.type == MSG_SB_GRAPHENEBLOCK) || (obj.type == MSG_BOB_CMPCT_BLOCK));
 }
 
@@ -477,12 +476,6 @@ CNodeRequestData::CNodeRequestData(CNodeRef n)
 
     // Calculate how much we like this node:
 
-    // Prefer thin block nodes over low latency ones when the chain is syncd
-    if (noderef.get()->ThinBlockCapable() && IsChainNearlySyncd())
-    {
-        desirability += MaxLatency;
-    }
-
     // The bigger the latency (in microseconds), the less we want to request from this node
     int latency = noderef.get()->txReqLatency.GetTotalTyped();
     // data has never been requested from this node.  Should we encourage investigation into whether this node is fast,
@@ -533,7 +526,7 @@ static bool IsGrapheneVersionSupported(CNode *pfrom)
 {
     try
     {
-        NegotiateGrapheneVersion(pfrom);
+        SBNegotiateGrapheneVersion(pfrom);
         return true;
     }
     catch (const std::runtime_error &error)
@@ -567,7 +560,7 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
         {
             // Ask for compact Tailstorm block
             // Must download a compact block from a compact block enabled peer.
-            if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
+            if (IsBobCompactBlocksEnabled() && pfrom->CompactBlockCapable())
             {
                 if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::BOBCMPCTBLOCK))
                 {
@@ -634,72 +627,7 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     if (IsChainNearlySyncd() &&
         (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
     {
-        // Ask for Graphene blocks
-        // Must download a graphene block from a graphene enabled peer.
-        if (IsGrapheneBlockEnabled() && pfrom->GrapheneCapable() && IsGrapheneVersionSupported(pfrom))
-        {
-            if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::GRAPHENEBLOCK))
-            {
-                MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
-
-                // Instead of building a bloom filter here as we would for an xthin, we actually
-                // just need to fill in CMempoolInfo
-                inv2.type = MSG_GRAPHENEBLOCK;
-                CMemPoolInfo receiverMemPoolInfo = GetGrapheneMempoolInfo();
-                ss << inv2;
-                ss << receiverMemPoolInfo;
-                graphenedata.UpdateOutBoundMemPoolInfo(
-                    ::GetSerializeSize(receiverMemPoolInfo, SER_NETWORK, PROTOCOL_VERSION));
-
-                pfrom->PushMessage(NetMsgType::GET_GRAPHENE, ss);
-                LOG(GRAPHENE, "Requesting graphene block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
-                return true;
-            }
-        }
-
-
-        // Ask for an xthin if Graphene is not possible.
-        // Must download an xthinblock from a xthin peer.
-        if (IsThinBlocksEnabled() && pfrom->ThinBlockCapable())
-        {
-            if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::XTHINBLOCK))
-            {
-                MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
-
-                CBloomFilter filterMemPool;
-                inv2.type = MSG_XTHINBLOCK;
-                std::vector<uint256> vOrphanHashes;
-                {
-                    READLOCK(orphanpool.cs_orphanpool);
-                    for (auto &mi : orphanpool.mapOrphanTransactions)
-                        vOrphanHashes.emplace_back(mi.first);
-                }
-                BuildSeededBloomFilter(filterMemPool, vOrphanHashes, inv2.hash, pfrom);
-                ss << inv2;
-                ss << filterMemPool;
-
-                pfrom->PushMessage(NetMsgType::GET_XTHIN, ss);
-                LOG(THIN, "Requesting xthinblock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
-                return true;
-            }
-        }
-
-        // Ask for a compact block if Graphene or xthin is not possible.
-        // Must download an xthinblock from a xthin peer.
-        if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
-        {
-            if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::CMPCTBLOCK))
-            {
-                MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
-
-                std::vector<CInv> vGetData;
-                inv2.type = MSG_CMPCT_BLOCK;
-                vGetData.push_back(inv2);
-                pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
-                LOG(CMPCT, "Requesting compact block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
-                return true;
-            }
-        }
+        // TODO - depending on the type of block that timed out, rereuqest using the appropriate tailstorm method
     }
 
     // Request a full block if the BlockRelayTimer has expired.
@@ -1557,21 +1485,6 @@ bool CRequestManager::MarkBlockAsReceived(const uint256 &hash, CNode *pnode)
         // Update the appropriate response time based on the type of block received.
         if (IsChainNearlySyncd())
         {
-            // Update Thinblock stats
-            if (thinrelay.IsBlockInFlight(pnode, NetMsgType::XTHINBLOCK, hash))
-            {
-                thindata.UpdateResponseTime(nResponseTime);
-            }
-            // Update Graphene stats
-            if (thinrelay.IsBlockInFlight(pnode, NetMsgType::GRAPHENEBLOCK, hash))
-            {
-                graphenedata.UpdateResponseTime(nResponseTime);
-            }
-            // Update CompactBlock stats
-            if (thinrelay.IsBlockInFlight(pnode, NetMsgType::CMPCTBLOCK, hash))
-            {
-                compactdata.UpdateResponseTime(nResponseTime);
-            }
             // Update Compact Tailstorm Block stats
             if (thinrelay.IsBlockInFlight(pnode, NetMsgType::BOBCMPCTBLOCK, hash))
             {

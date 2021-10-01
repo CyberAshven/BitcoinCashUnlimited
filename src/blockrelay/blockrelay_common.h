@@ -20,6 +20,24 @@ class CTailstormBlock;
 
 typedef int NodeId;
 
+static const uint64_t DEFAULT_PREFERENTIAL_TIMER = 1000;
+static const bool DEFAULT_USE_GRAPHENE_BLOCKS = true;
+static const bool DEFAULT_USE_COMPACT_BLOCKS = true;
+
+enum FastFilterSupport
+{
+    EITHER,
+    FAST,
+    REGULAR
+};
+
+const uint8_t GRAPHENE_FAST_FILTER_SUPPORT = EITHER;
+const uint64_t GRAPHENE_MIN_VERSION_SUPPORTED = 0;
+const uint64_t GRAPHENE_MAX_VERSION_SUPPORTED = 6;
+const unsigned char MIN_MEMPOOL_INFO_BYTES = 8;
+const uint8_t SHORTTXIDS_LENGTH = 8;
+const double FAILURE_RECOVERY_SUCCESS_RATE = 0.999;
+
 /**
  * Used for thin type blocks that we want to reconstruct into a full block. All the data
  * necessary to recreate the block are held within the thinrelay objects which are subsequently
@@ -29,10 +47,6 @@ class CBlockThinRelay : public CBlock
 {
 public:
     //! thinrelay block types: (memory only)
-    std::shared_ptr<CThinBlock> thinblock;
-    std::shared_ptr<CXThinBlock> xthinblock;
-    std::shared_ptr<CompactBlock> cmpctblock;
-    std::shared_ptr<CGrapheneBlock> grapheneblock;
     std::shared_ptr<CSBGrapheneBlock> sb_grapheneblock;
     std::shared_ptr<BobCompactBlock> bobcmpctblock;
 
@@ -45,11 +59,8 @@ public:
     {
         CBlock::SetNull();
         nCurrentBlockSize = 0;
-        thinblock.reset();
-        xthinblock.reset();
-        cmpctblock.reset();
-        grapheneblock.reset();
         sb_grapheneblock.reset();
+        bobcmpctblock.reset();
     }
 };
 
@@ -76,7 +87,6 @@ class ThinTypeRelay
 public:
     CCriticalSection cs_inflight;
     CCriticalSection cs_reconstruct;
-    CCriticalSection cs_graphene_sender;
     // put a cap on the total number of thin type blocks we can have in flight. This lowers any possible
     // attack surface.
     size_t MAX_THINTYPE_BLOCKS_IN_FLIGHT = 6;
@@ -96,20 +106,14 @@ private:
     // Counters for how many of each peer are currently connected.  We use the set to store the
     // nodeid so that we can then get a unique count of peers with with to update the atomic counters.
     CCriticalSection cs_addpeers;
-    std::set<NodeId> setThinBlockPeers;
     std::set<NodeId> setGraphenePeers;
     std::set<NodeId> setCompactBlockPeers;
-    std::atomic<int32_t> nThinBlockPeers{0};
     std::atomic<int32_t> nGraphenePeers{0};
     std::atomic<int32_t> nCompactBlockPeers{0};
-
-    // blocks still in flight sent by the sender.
-    std::map<NodeId, std::shared_ptr<CGrapheneBlock> > mapGrapheneSentBlocks GUARDED_BY(cs_graphene_sender);
 
 public:
     void AddPeers(CNode *pfrom);
     uint32_t GetGraphenePeers() { return nGraphenePeers.load(); }
-    uint32_t GetThinBlockPeers() { return nThinBlockPeers.load(); }
     uint32_t GetCompactBlockPeers() { return nCompactBlockPeers.load(); }
     void AddCompactBlockPeer(CNode *pfrom);
     void RemovePeers(CNode *pfrom);
@@ -122,11 +126,8 @@ public:
     bool AddBlockInFlight(CNode *pfrom, const uint256 &hash, const std::string thinType);
     void ClearBlockInFlight(NodeId id, const uint256 &hash);
     void ClearAllBlocksInFlight(NodeId id);
-    void SetSentGrapheneBlocks(NodeId id, CGrapheneBlock &grapheneBlock);
-    std::shared_ptr<CGrapheneBlock> GetSentGrapheneBlocks(NodeId id);
-    void ClearSentGrapheneBlocks(NodeId id);
     void CheckForDownloadTimeout(CNode *pfrom);
-    void RequestBlock(CNode *pfrom, const uint256 &hash);
+    void RequestBlock(CNode *pfrom, const CInv &inv);
 
     // Accessor methods to the blocks that we're reconstructing from thintype blocks such as
     // xthins or graphene.

@@ -107,7 +107,6 @@ UniValue getinfo(const UniValue &params, bool fHelp)
     obj.pushKV("timeoffset", GetTimeOffset());
     obj.pushKV("connections", nNodes);
     obj.pushKV("peers_graphene", (int)thinrelay.GetGraphenePeers());
-    obj.pushKV("peers_xthinblock", (int)thinrelay.GetThinBlockPeers());
     obj.pushKV("peers_cmpctblock", (int)thinrelay.GetCompactBlockPeers());
     obj.pushKV("proxy", (proxy.IsValid() ? proxy.proxy.ToStringIPPort() : string()));
     obj.pushKV("difficulty", (double)GetDifficulty());

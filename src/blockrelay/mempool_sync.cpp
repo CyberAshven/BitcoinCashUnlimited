@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "blockrelay/mempool_sync.h"
+#include "blockrelay/graphene_set.h"
 #include "connmgr.h"
 #include "dosman.h"
 #include "net.h"
@@ -181,7 +181,7 @@ bool CMempoolSync::process(CNode *pfrom)
         for (const uint256 &hash : mempoolTxHashes)
         {
             uint64_t cheapHash = GetShortID(mempoolSyncRequested[nodeId].shorttxidk0,
-                mempoolSyncRequested[nodeId].shorttxidk1, hash, SHORT_ID_VERSION);
+                mempoolSyncRequested[nodeId].shorttxidk1, hash);
             mapPartialTxHash.insert(std::make_pair(cheapHash, hash));
         }
     }
@@ -273,7 +273,7 @@ bool CRequestMempoolSyncTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         for (auto &hash : mempoolTxHashes)
         {
             uint64_t cheapHash = GetShortID(mempoolSyncResponded[nodeId].shorttxidk0,
-                mempoolSyncResponded[nodeId].shorttxidk1, hash, SHORT_ID_VERSION);
+                mempoolSyncResponded[nodeId].shorttxidk1, hash);
 
             if (reqMempoolSyncTx.setCheapHashesToRequest.count(cheapHash) == 0)
                 continue;
@@ -491,4 +491,16 @@ void ClearDisconnectedFromMempoolSyncMaps(NodeId nodeid)
     LOCK(cs_mempoolsync);
     mempoolSyncRequested.erase(nodeid);
     mempoolSyncResponded.erase(nodeid);
+}
+
+// Generate cheap hash from seeds using SipHash
+uint64_t GetShortID(uint64_t shorttxidk0, uint64_t shorttxidk1, const uint256 &txhash)
+{
+    // If both shorttxidk0 and shorttxidk1 are equal to 0, then it is very likely
+    // that the values have not been properly instantiated using FillShortTxIDSelector,
+    // but are instead unchanged from the default initialization value.
+    DbgAssert(!(shorttxidk0 == 0 && shorttxidk1 == 0), );
+
+    static_assert(SHORTTXIDS_LENGTH == 8, "shorttxids calculation assumes 8-byte shorttxids");
+    return SipHashUint256(shorttxidk0, shorttxidk1, txhash) & 0xffffffffffffffL;
 }

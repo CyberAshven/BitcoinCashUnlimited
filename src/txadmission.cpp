@@ -1126,7 +1126,6 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
                         }
                         else
                         {
-                            thindata.UpdateMempoolLimiterBytesSaved(nSize);
                             LOG(MEMPOOL, "AcceptToMemoryPool : free transaction %s rejected by rate limiter\n",
                                 hash.ToString());
                             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "rate limited free transaction");
@@ -1143,7 +1142,6 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
                     }
                     else
                     {
-                        thindata.UpdateMempoolLimiterBytesSaved(nSize);
                         LOG(MEMPOOL, "AcceptToMemoryPool : min fee not met for %s\n", hash.ToString());
                         return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met");
                     }
