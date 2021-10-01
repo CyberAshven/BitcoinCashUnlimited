@@ -106,6 +106,8 @@ public Q_SLOTS:
     /** Set tx's per second in the UI */
     void setTransactionsPerSecond(double smoothedTps, double instantaneousTps, double peakTps);
     /** Set block propagation statistics in the UI */
+    //void setCompactBlockPropagationStats(const CompactBlockQuickStats &compact)
+    /** Set block propagation statistics in the UI */
     void setSBGrapheneBlockPropagationStats(const SBGrapheneQuickStats &graphene);
     /** Go forward or back in history */
     void browseHistory(int offset);

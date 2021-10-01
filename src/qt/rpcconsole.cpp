@@ -710,6 +710,38 @@ void RPCConsole::setTransactionsPerSecond(double smoothedTps, double instantaneo
     ui->smoothedAvgDisplayed->setText(FormatTps(ui->transactionGraph->getSmoothedTpsAverage_Displayed()));
 }
 
+//TODO: Bring this back for Tailstorm compact blocks
+/*
+void RPCConsole::setCompactBlockPropagationStats(const CompactBlockQuickStats &compact)
+{
+    if (!IsCompactBlocksEnabled())
+    {
+        ui->blocksCompactTotals->setText(tr("Disabled"));
+        ui->blocksCompact24hAverages->setText(tr("Disabled"));
+        return;
+    }
+
+    // Total: n (Sent: i / Received: r) saved bw
+    QString text = QString::number(compact.nTotalOutbound + compact.nTotalInbound) + " (Sent: ";
+    text += QString::number(compact.nTotalOutbound) + " / Received: ";
+    text += QString::number(compact.nTotalInbound) + ") saved ";
+    text += QString::fromStdString(formatInfoUnit(compact.nTotalBandwidthSavings));
+
+    ui->blocksCompactTotals->setText(text);
+
+    // 24-hour Average: n (Sent: i / Received: r), Compression (i% / r%), ReRequests f (f%)
+    text = QString::number(compact.nLast24hOutbound + compact.nLast24hInbound) + " (Sent: ";
+    text += QString::number(compact.nLast24hOutbound) + " / Received: ";
+    text += QString::number(compact.nLast24hInbound) + "), Compression (";
+    text += QString::number(compact.fLast24hOutboundCompression, 'f', 1) + "% / ";
+    text += QString::number(compact.fLast24hInboundCompression, 'f', 1) + "%), ReRequests ";
+    text += QString::number(compact.nLast24hRerequestTx) + " (";
+    text += QString::number(compact.fLast24hRerequestTxPercent, 'f', 1) + "%)";
+
+    ui->blocksCompact24hAverages->setText(text);
+}
+*/
+
 void RPCConsole::setSBGrapheneBlockPropagationStats(const SBGrapheneQuickStats &graphene)
 {
     if (!SBIsGrapheneBlockEnabled())
