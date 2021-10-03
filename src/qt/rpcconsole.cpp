@@ -647,13 +647,16 @@ void RPCConsole::setNumBlocks(int count, const QDateTime &blockDate, double nVer
         ui->numberOfBlocks->setText(QString::number(count));
         ui->lastBlockTime->setText(blockDate.toString(time_format));
 
-        ui->lastBlockSize->setText(QString::number(nBlockSizeAtChainTip.load()));
-        if (nBlockSizeAtChainTip.load() == 0)
+        // Get the blocksize at the current chaintip
+        uint64_t nBlockSize = chainActive.Tip()->GetBlockHeader().size;
+
+        ui->lastBlockSize->setText(QString::number(nBlockSize));
+        if (nBlockSize == 0)
             ui->lastBlockSize->setText("N/A");
-        else if (nBlockSizeAtChainTip.load() < 1000000)
-            ui->lastBlockSize->setText(QString::number(nBlockSizeAtChainTip.load() / 1000.0, 'f', 2) + " KB");
+        else if (nBlockSize < 1000000)
+            ui->lastBlockSize->setText(QString::number(nBlockSize / 1000.0, 'f', 2) + " KB");
         else
-            ui->lastBlockSize->setText(QString::number(nBlockSizeAtChainTip.load() / 1000000.0, 'f', 2) + " MB");
+            ui->lastBlockSize->setText(QString::number(nBlockSize / 1000000.0, 'f', 2) + " MB");
     }
 }
 

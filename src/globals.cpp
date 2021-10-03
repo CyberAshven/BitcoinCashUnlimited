@@ -622,10 +622,6 @@ uint64_t lastMempoolSyncClear = GetStopwatchMicros();
 // Are we shutting down. Replaces boost interrupts.
 std::atomic<bool> shutdown_threads{false};
 
-// Size of last block that was successfully connected at the tip.
-std::atomic<uint64_t> nBlockSizeAtChainTip{0};
-
-
 #ifdef ENABLE_MUTRACE
 class CPrintSomePointers
 {
