@@ -158,13 +158,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             auto iter = mapBlockIndex.find(inv.hash);
             if (iter != mapBlockIndex.end())
             {
-                if (iter->second->isTailstorm == false)
-                {
-                    LOG(NET, "Peer %s requested non tailstorm block %s as tailstorm", pfrom->GetLogName(),
-                        inv.hash.ToString());
-                    vNotFound.push_back(inv);
-                }
-                else if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
+                if (!ReadBlockFromDisk(block, iter->second, Params().GetConsensus()))
                 {
                     // We don't have the block yet, although we know about it.
                     LOG(NET, "Peer %s requested block %s that cannot be read", pfrom->GetLogName(),
@@ -211,6 +205,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             CBlockIndex *mi = LookupBlockIndex(inv.hash);
             if (mi)
             {
+                /*
                 if (mi->isTailstorm) // Requesting the wrong type of block
                 {
                     LOG(NET, "%s: ignoring old-style block request from peer=%s for tailstorm block %s\n", __func__,
@@ -218,6 +213,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                     // TODO: reply with some kind of error?
                     continue;
                 }
+                */
 
                 bool fSend = false;
                 {
@@ -1227,12 +1223,11 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 hashStop.ToString(), pfrom->GetLogName());
             for (; pindex; pindex = chainActive.Next(pindex))
             {
-                if (pindex->isTailstorm)
-                {
-                    vBobHeaders.push_back(pindex->GetTailstormBlockHeader());
-                }
+                vBobHeaders.push_back(pindex->GetBlockHeader());
                 if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
+                {
                     break;
+                }
             }
         }
         // pindex can be nullptr either if we sent chainActive.Tip() OR
@@ -2691,7 +2686,7 @@ bool SendMessages(CNode *pto)
                         // add this to the headers message
                         try
                         {
-                            vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
+                            vTailstormHeaders.push_back(pindex->GetBlockHeader());
                         }
                         catch (const std::invalid_argument &e)
                         {
@@ -2709,7 +2704,7 @@ bool SendMessages(CNode *pto)
                         fFoundStartingHeader = true;
                         try
                         {
-                            vTailstormHeaders.push_back(pindex->GetTailstormBlockHeader());
+                            vTailstormHeaders.push_back(pindex->GetBlockHeader());
                         }
                         catch (const std::invalid_argument &e)
                         {
@@ -2746,7 +2741,7 @@ bool SendMessages(CNode *pto)
                         // setInventoryKnown to track this.)
                         if (!PeerHasHeader(state, pindex))
                         {
-                            CInv inv((pindex->isTailstorm) ? MSG_TAILSTORMBLOCK : MSG_BLOCK, hashToAnnounce);
+                            CInv inv(MSG_TAILSTORMBLOCK, hashToAnnounce);
                             LOG(NET, "Push inventory C %s\n", inv.ToString());
                             pto->PushInventory(inv);
                             LOG(NET, "%s: sending inv peer=%d hash=%s\n", __func__, pto->id, hashToAnnounce.ToString());

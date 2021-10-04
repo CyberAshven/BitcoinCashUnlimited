@@ -1081,9 +1081,7 @@ void CRequestManager::RequestNextBlocksToDownload(CNode *pto)
         std::vector<CInv> vGetBlocks;
         for (CBlockIndex *pindex : vToDownload)
         {
-            CInv inv(MSG_BLOCK, pindex->GetBlockHash());
-            if (pindex->isTailstorm)
-                inv.type = MSG_TAILSTORMBLOCK;
+            CInv inv(MSG_TAILSTORMBLOCK, pindex->GetBlockHash());
             if (!AlreadyHaveBlock(inv))
             {
                 vGetBlocks.emplace_back(inv);

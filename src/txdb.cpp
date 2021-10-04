@@ -440,15 +440,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 // Construct block index object
                 LOG(WB, "!!!This is the last place where I can see pindexNew being set to the wrong hash value: %s\n",
                     diskindex.GetBlockHash().ToString());
-                uint256 hash;
-                if (diskindex.isTailstorm)
-                {
-                    hash = diskindex.GetTailstormBlockHash();
-                }
-                else
-                {
-                    hash = diskindex.GetBlockHash();
-                }
+                uint256 hash = diskindex.GetBlockHash();
                 CBlockIndex *pindexNew = InsertBlockIndex(hash);
                 pindexNew->pprev = InsertBlockIndex(diskindex.hashPrev);
                 pindexNew->nHeight = diskindex.nHeight;
@@ -464,21 +456,12 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nTx = diskindex.nTx;
                 pindexNew->nSequenceId = diskindex.nSequenceId;
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
-                pindexNew->isTailstorm = diskindex.isTailstorm;
                 pindexNew->subblockHashes = diskindex.subblockHashes;
                 pindexNew->subblockNTxMap = diskindex.subblockNTxMap;
 
-                if (pindexNew->isTailstorm)
+                if (!CheckTailstormPoW(pindexNew->GetBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
                 {
-                    if (!CheckTailstormPoW(pindexNew->GetTailstormBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
-                    {
-                        return error("LoadBlockIndex(): CheckTailstormPoW failed: %s", pindexNew->ToString());
-                    }
-                }
-                else
-                {
-                    if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
-                        return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
+                    return error("LoadBlockIndex(): CheckTailstormPoW failed: %s", pindexNew->ToString());
                 }
                 pcursor->Next();
             }

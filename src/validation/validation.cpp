@@ -170,7 +170,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader &block, CValidationState &sta
         }
         READLOCK(cs_mapBlockIndex);
         const CBlockIndex *pindexMainChain = chainActive[nHeight];
-        if (pindexMainChain && pindexMainChain->GetBlockHeader() == block)
+        //if (pindexMainChain && pindexMainChain->GetBlockHeader() == block)
         {
             return true; // if this header is in the main chain it is valid and we are done
         }
@@ -311,7 +311,7 @@ CBlockIndex *AddToBlockIndex(const CBlockHeader &block)
         return it->second;
 
     // Construct new block index object
-    CBlockIndex *pindexNew = new CBlockIndex(block);
+    CBlockIndex *pindexNew = nullptr; // new CBlockIndex(block);
     // We assign the sequence id to blocks only when the full data is available,
     // to avoid miners withholding blocks but broadcasting headers, to get a
     // competitive advantage.
@@ -1253,9 +1253,9 @@ bool TestBlockValidity(CValidationState &state,
         return error("%s: CheckAgainstCheckpoint(): %s", __func__, state.GetRejectReason().c_str());
 
     CCoinsViewCache viewNew(pcoinsTip);
-    CBlockIndex indexDummy(block);
-    indexDummy.pprev = pindexPrev;
-    indexDummy.nHeight = pindexPrev->nHeight + 1;
+    // CBlockIndex indexDummy(block);
+    // indexDummy.pprev = pindexPrev;
+    // indexDummy.nHeight = pindexPrev->nHeight + 1;
 
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
@@ -1264,8 +1264,8 @@ bool TestBlockValidity(CValidationState &state,
         return false;
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return false;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
-        return false;
+    // if (!ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
+    //    return false;
     assert(state.IsValid());
 
     return true;
@@ -1639,9 +1639,9 @@ bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIn
         }
     }
 
-    CBlockIndex indexDummy(block);
-    indexDummy.pprev = pindexPrev;
-    indexDummy.nHeight = pindexPrev == nullptr ? 1 : pindexPrev->nHeight + 1;
+    // CBlockIndex indexDummy(block);
+    // indexDummy.pprev = pindexPrev;
+    // indexDummy.nHeight = pindexPrev == nullptr ? 1 : pindexPrev->nHeight + 1;
 
     // Check whether this block exceeds what we want to relay.
     block.fExcessive = CheckExcessive(block, block.GetBlockSize(), nTx, nLargestTx);
@@ -3149,71 +3149,6 @@ void ResubmitTransactions(const std::vector<CTransactionRef> &vtx)
     }
 }
 
-bool DisconnectBchBlockTip(CValidationState &state,
-    const CBlockIndex *pindexDelete,
-    const Consensus::Params &consensusParams,
-    const bool fRollBack)
-{
-    // Read block from disk.
-    CBlockRef pblock(new CBlock());
-    if (!ReadBlockFromDisk(pblock, pindexDelete, consensusParams, false))
-    {
-        return AbortNode(state, "DisconnectTip(): Failed to read block");
-    }
-    // Apply the block atomically to the chain state.
-    int64_t nStart = GetStopwatchMicros();
-    {
-        CCoinsViewCache view(pcoinsTip);
-        if (DisconnectBlock(*pblock, pindexDelete, view) != DISCONNECT_OK)
-            return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
-        bool result = view.Flush();
-        assert(result);
-    }
-    LOG(BENCH, "- Disconnect block: %.2fms\n", (GetStopwatchMicros() - nStart) * 0.001);
-    // Write the chain state to disk, if necessary.
-    if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
-        return false;
-
-    // these bloom filters stop us from doing duplicate work on tx we already know about.
-    // but since we rewound, we need to do this duplicate work -- clear them so tx we have already processed
-    // can be processed again.
-    txRecentlyInBlock.reset();
-    recentRejects.reset();
-
-    // If the tip is finalized, then undo it.
-    if (pindexFinalized == pindexDelete)
-    {
-        pindexFinalized = pindexDelete->pprev;
-    }
-
-    // Update chainActive and related variables.
-    UpdateTip(pindexDelete->pprev);
-    // Let wallets know transactions went from 1-confirmed to
-    // 0-confirmed or conflicted:
-    for (const auto &ptx : pblock->vtx)
-    {
-        SyncWithWallets(ptx, nullptr, -1);
-    }
-
-    // Clear mempool if rolling back the chain using the "rollbackchain" rpc command, otherwise clear and
-    // place all tx back into the admission queue. "Rollbackchain" is used for significant manually triggered
-    // reorganizations, such as switching between forks, so it makes no sense to keep the transactions because
-    // they will likely be invalid or already confirmed on the other fork.
-    if (fRollBack)
-    {
-        WRITELOCK(mempool.cs_txmempool);
-        mempool._clear();
-        boost::unique_lock<boost::mutex> lock(csCommitQ);
-        txCommitQ->clear();
-    }
-    else
-    {
-        ResubmitTransactions(pblock->vtx);
-    }
-
-    return true;
-}
-
 /** Disconnect chainActive's tip. */
 bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack)
 {
@@ -3223,10 +3158,7 @@ bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusPa
     CBlockIndex *pindexDelete = chainActive.Tip();
     assert(pindexDelete);
 
-    if (pindexDelete->isTailstorm)
-        return DisconnectTailstormTip(state, pindexDelete, consensusParams, fRollBack);
-    else
-        return DisconnectBchBlockTip(state, pindexDelete, consensusParams, fRollBack);
+    return DisconnectTailstormTip(state, pindexDelete, consensusParams, fRollBack);
 }
 
 

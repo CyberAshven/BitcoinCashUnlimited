@@ -790,10 +790,6 @@ bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out)
     {
         CBlockIndex *blkidx = chain[h];
         DbgAssert(blkidx, return false); // Should never be null because we are starting from tip height to 1
-        if (!blkidx->isTailstorm)
-        {
-            continue;
-        }
         if (blkidx->subblockNTxMap.count(hash) == 0)
         {
             continue;

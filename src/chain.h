@@ -196,8 +196,6 @@ public:
     //! Verification status of this block. See enum BlockStatus
     unsigned int nStatus;
 
-    bool isTailstorm;
-
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
@@ -231,7 +229,6 @@ public:
         nSequenceId = 0;
         nTimeReceived = 0;
 
-        isTailstorm = false;
         nVersion = 0;
         hashMerkleRoot = uint256();
         nTime = 0;
@@ -240,17 +237,6 @@ public:
     }
 
     CBlockIndex() { SetNull(); }
-    CBlockIndex(const CBlockHeader &block)
-    {
-        SetNull();
-
-        isTailstorm = false;
-        nVersion = block.nVersion;
-        hashMerkleRoot = block.hashMerkleRoot;
-        nTime = block.nTime;
-        nBits = block.nBits;
-        nNonce = block.nNonce;
-    }
 
     CBlockIndex(const CTailstormBlockHeader &block);
 
@@ -276,25 +262,7 @@ public:
         return ret;
     }
 
-    CBlockHeader GetBlockHeader() const
-    {
-        if (isTailstorm)
-        {
-            throw std::invalid_argument("Incorrect header type");
-        }
-
-        CBlockHeader block;
-        block.nVersion = nVersion;
-        if (pprev)
-            block.hashPrevBlock = pprev->GetBlockHash();
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime = nTime;
-        block.nBits = nBits;
-        block.nNonce = nNonce;
-        return block;
-    }
-
-    CTailstormBlockHeader GetTailstormBlockHeader() const;
+    CTailstormBlockHeader GetBlockHeader() const;
 
     /** return true for every block from fork block and forward [x,+inf)
      * state: fork activated */
@@ -445,24 +413,11 @@ public:
         // sequence id and time received
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
-        READWRITE(isTailstorm);
         READWRITE(subblockHashes);
         READWRITE(subblockNTxMap);
     }
 
-    uint256 GetBlockHash() const
-    {
-        CBlockHeader block;
-        block.nVersion = nVersion;
-        block.hashPrevBlock = hashPrev;
-        block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime = nTime;
-        block.nBits = nBits;
-        block.nNonce = nNonce;
-        return block.GetHash();
-    }
-
-    uint256 GetTailstormBlockHash() const;
+    uint256 GetBlockHash() const;
 
     std::string ToString() const
     {

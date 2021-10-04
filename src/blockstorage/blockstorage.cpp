@@ -496,35 +496,10 @@ bool ReadBlockFromDisk(CBlockRef &pblock,
             pblock->GetHash().ToString().c_str());
         return true;
     }
-    // if it is not in the memory cache, fetch from disk
     CBlock *block = new CBlock();
-    if (tryboth == true && pindex->isTailstorm == true)
+    if (!pblockdb->ReadBlock(pindex, *block))
     {
-        CTailstormBlock bblock;
-        if (!pblockdb->ReadBlock(pindex, bblock))
-        {
-            return false;
-        }
-        if (bblock.GetHash() != pindex->GetBlockHash())
-        {
-            LOG(WB, "!!!read from disk (this is correct): %s  read from block index (this is incorrect): %s",
-                bblock.GetHash().ToString(), pindex->GetBlockHash().ToString());
-            return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() on %u doesn't match index for %s at %s",
-                __LINE__, pindex->ToString(), pindex->GetBlockPos().ToString());
-        }
-        block->nVersion = bblock.nVersion;
-        block->hashPrevBlock = bblock.hashPrevBlock;
-        block->hashMerkleRoot = bblock.hashMerkleRoot;
-        block->nTime = (uint32_t)bblock.nTime;
-        block->nBits = bblock.nBits;
-        block->vtx = bblock.vtx;
-    }
-    else
-    {
-        if (!pblockdb->ReadBlock(pindex, *block))
-        {
-            return false;
-        }
+        return false;
     }
     if (block->GetHash() != pindex->GetBlockHash())
     {

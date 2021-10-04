@@ -203,7 +203,6 @@ UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns)
 UniValue TailstormBlockToJSON(CTailstormBlockRef block, const CBlockIndex *blockindex, bool txDetails, bool listTxns)
 {
     DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
-    DbgAssert(blockindex->isTailstorm, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with normal block"));
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
@@ -266,7 +265,6 @@ UniValue TailstormBlockToJSON(CTailstormBlockRef block, const CBlockIndex *block
 UniValue TailstormBlockToJSON(const CBlockIndex *blockindex, bool txDetails, bool listTxns)
 {
     DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
-    DbgAssert(blockindex->isTailstorm, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with normal block"));
 
     CTailstormBlockRef block(new CTailstormBlock);
     if (!ReadBlockFromDisk(block, blockindex, Params().GetConsensus()))

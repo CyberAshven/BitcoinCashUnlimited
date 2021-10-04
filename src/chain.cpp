@@ -96,8 +96,6 @@ int static inline GetSkipHeight(int height)
 CBlockIndex::CBlockIndex(const CTailstormBlockHeader &block)
 {
     SetNull();
-
-    isTailstorm = true;
     nVersion = block.nVersion;
     hashMerkleRoot = block.hashMerkleRoot;
     nTime = block.nTime;
@@ -108,11 +106,8 @@ CBlockIndex::CBlockIndex(const CTailstormBlockHeader &block)
     subblockNTxMap = block.subblockNTxMap;
 }
 
-CTailstormBlockHeader CBlockIndex::GetTailstormBlockHeader() const
+CTailstormBlockHeader CBlockIndex::GetBlockHeader() const
 {
-    if (!isTailstorm)
-        throw std::invalid_argument("Incorrect tailstorm header type");
-
     CTailstormBlockHeader block;
     block.nVersion = nVersion;
     if (pprev)
@@ -268,7 +263,7 @@ bool AreOnTheSameFork(const CBlockIndex *pa, const CBlockIndex *pb)
     return pindexCommon == pa || pindexCommon == pb;
 }
 
-uint256 CDiskBlockIndex::GetTailstormBlockHash() const
+uint256 CDiskBlockIndex::GetBlockHash() const
 {
     CTailstormBlockHeader block;
     block.nVersion = nVersion;

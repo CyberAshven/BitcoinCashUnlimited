@@ -871,9 +871,9 @@ static UniValue getblock(const UniValue &params, bool fHelp)
     else if (nVerbose == 2)
         fVerbose = true;
 
-    if (pindex->isTailstorm)
+    //if (pindex->isTailstorm)
         return TailstormBlockToJSON(pindex, fVerbose, fListTxns);
-
+/*
     const CBlock block = GetBlockChecked(pindex);
 
     if (nVerbose == 0 && fListTxns == true)
@@ -885,6 +885,7 @@ static UniValue getblock(const UniValue &params, bool fHelp)
     }
 
     return blockToJSON(block, pindex, fVerbose, fListTxns);
+*/
 }
 
 static void ApplyStats(CCoinsStats &stats,
