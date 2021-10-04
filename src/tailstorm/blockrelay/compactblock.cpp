@@ -126,7 +126,7 @@ bool HandleBobCompactMessage(CDataStream &vRecv, CNode *pfrom)
             "compact block from peer %s contextual error: %s", pfrom->GetLogName(), state.GetRejectReason().c_str());
     }
 
-    CInv inv(MSG_BLOCK, compactBlock->GetHash());
+    CInv inv(MSG_TAILSTORMBLOCK, compactBlock->GetHash());
     requester.UpdateBlockAvailability(pfrom->GetId(), inv.hash);
     LOG(CMPCT, "received compact block %s from peer %s of %d bytes\n", inv.hash.ToString(), pfrom->GetLogName(),
         compactBlock->GetSize());
@@ -427,7 +427,6 @@ bool BobCompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     else
     {
         // We have all the transactions now that are in this block: try to reassemble and process.
-        CInv inv2(CInv(MSG_BLOCK, compactReReqResponse.blockhash));
 
         // for compression statistics, we have to add up the size of compactblock and the re-requested Txns.
         uint64_t nSizeCompactBlockTx = msgSize;

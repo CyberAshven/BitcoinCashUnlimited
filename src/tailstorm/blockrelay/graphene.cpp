@@ -384,7 +384,6 @@ bool CSBGrapheneBlock::ValidateAndRecontructBlock(uint256 blockhash,
     }
 
     // We have all the transactions now that are in this block: try to reassemble and process.
-    CInv inv2(MSG_BLOCK, blockhash);
 
     // for compression statistics, we have to add up the size of grapheneblock and the re-requested grapheneBlockTx.
     uint64_t nSizeGrapheneBlockTx = msgSize;
