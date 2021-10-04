@@ -798,11 +798,13 @@ bool FindCommittedSubblock(CChain &chain, const uint256 &hash, CSubBlock &out)
         CTailstormBlockRef block(new CTailstormBlock);
         if (!ReadBlockFromDisk(block, blkidx, Params().GetConsensus()))
         {
+            LOGA("FindCommittedSubblock(): Could not read tailstorm block from disk while trying to fetch subblock \n");
             // TODO dont assert if pruned
             DbgAssert(false, return false); // We should be able to read every block we have data on
         }
         if (!block->GetSubBlock(hash, out))
         {
+            LOGA("FindCommittedSubblock(): Could not get subblock from tailstorm block \n");
             DbgAssert(false, return false); // Hash must be here because we found it in the NtxMap
         }
         return true;
