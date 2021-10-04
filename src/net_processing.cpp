@@ -1731,7 +1731,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         requester.ProcessingBlock(hash, pfrom);
         requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
 
-        if (!ProcessNewSubBlock(subblock))
+        if (!ProcessNewSubBlock(subblock, pfrom))
         {
             LOG(BLK, "Received invalid subblock %s from peer=%s", subblock.GetHash().GetHex(), pfrom->GetLogName());
         }

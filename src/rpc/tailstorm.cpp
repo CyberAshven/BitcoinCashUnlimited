@@ -337,7 +337,7 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
             // that has more work than our block.
             PV->StopAllValidationThreads(pblock->GetBlockHeader().nBits);
 
-            if (!ProcessNewSubBlock(*pblock))
+            if (!ProcessNewSubBlock(*pblock, nullptr))
             {
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewSubBlock, subblock not accepted");
             }

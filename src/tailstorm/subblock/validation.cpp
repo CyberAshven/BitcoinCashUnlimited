@@ -8,6 +8,7 @@
 #include "validation.h"
 
 // other bitcoin includes
+#include "blockrelay/blockrelay_common.h"
 #include "chain.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
@@ -168,9 +169,14 @@ bool TestSubBlockValidity(CValidationState &state,
 }
 
 
-bool ProcessNewSubBlock(const CSubBlock &subblock)
+bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
 {
     CValidationState state;
+    // pfrom is nullptr on the mining node
+    if (pfrom)
+    {
+        thinrelay.ClearBlockInFlight(pfrom->id, subblock.GetHash());
+    }
     if (CheckSubBlock(subblock, state, true, true))
     {
 

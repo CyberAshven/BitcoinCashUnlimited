@@ -11,6 +11,7 @@
 // other bitcoin includes
 #include "chainparams.h"
 #include "consensus/validation.h"
+#include "net.h"
 
 class CBlockIndex;
 
@@ -26,6 +27,6 @@ bool TestSubBlockValidity(CValidationState &state,
     bool fCheckPOW = true,
     bool fCheckMerkleRoot = true);
 
-bool ProcessNewSubBlock(const CSubBlock &subblock);
+bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom);
 
 #endif

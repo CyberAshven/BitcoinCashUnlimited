@@ -930,7 +930,7 @@ bool CSBGrapheneBlock::process(CNode *pfrom, std::string strCommand)
     LOG(GRAPHENE, "Graphene block stats: %s\n", sb_graphenedata.ToString().c_str());
 
     // Create full subblock
-    ProcessNewSubBlock(*this);
+    ProcessNewSubBlock(*this, pfrom);
     return true;
 }
 
