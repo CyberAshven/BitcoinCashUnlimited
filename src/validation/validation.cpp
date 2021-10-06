@@ -3336,7 +3336,6 @@ bool ConnectTip(CValidationState &state,
         }
         int64_t nStart = GetStopwatchMicros();
         bool result = view.Flush();
-        nBlockSizeAtChainTip.store(pblock->GetBlockSize());
         assert(result);
         LOG(BENCH, "      - Update Coins %.3fms\n", GetStopwatchMicros() - nStart);
 

@@ -16,8 +16,6 @@
 #include "txmempool.h"
 #include "versionbits.h"
 
-extern std::atomic<uint64_t> nBlockSizeAtChainTip;
-
 /** Default for -blockchain.maxReorgDepth. A value less than zero disables the feature */
 static const int DEFAULT_MAX_REORG_DEPTH = -1; // disabled
 /**

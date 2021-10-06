@@ -57,7 +57,6 @@ bool CVerifyDB::VerifyDB(const CChainParams &chainparams, CCoinsView *coinsview,
         if (!pblock)
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->height(),
                 pindex->GetBlockHash().ToString());
-        nBlockSizeAtChainTip.store(pblock->GetBlockSize());
 
         // check level 1: verify block validity
         if (nCheckLevel >= 1 && !CheckBlock(chainparams.GetConsensus(), *pblock, state))
