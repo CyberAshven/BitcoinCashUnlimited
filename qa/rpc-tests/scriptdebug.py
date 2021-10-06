@@ -132,16 +132,16 @@ class DebugSession:
             self.sm.eval(CScript([OP_DROP]))
             if self.flags & cashlib.ScriptFlags.SCRIPT_VERIFY_CLEANSTACK:
                 if len(stk) > 1:
-                    print("Script finished with result %s but unclean stack" % hexlify(stkTop))
+                    print("Script finished with result %s but unclean stack: %s" % (prettyStk(stkTop), [ prettyStk(x) for x in stk]))
                     return (cashlib.ScriptError.SCRIPT_ERR_CLEANSTACK, result[1])
-            if ord(stkTop) == 1:
+            if stkTop[0] == cashlib.StackItemType.BYTES and ord(stkTop[1]) == 1:
                 return (cashlib.ScriptError.SCRIPT_ERR_OK, result[1])
             else:
                 return (cashlib.ScriptError.SCRIPT_EVAL_FALSE, result[1])
         return None
 
     def evalRedeemScript(self):
-        return self.evalWithReturn(self.redeemScript)
+        return self.evalWithReturn(self.redeemScript[1])
 
     def evals(self, script):
         worked = self.sm.begin(script)
@@ -161,7 +161,7 @@ class DebugSession:
                             textrest.append("OPx%x" % opcode)
                     else:
                         textrest.append("DATA(%s)" % hexlify(data))
-                print("  stack: ", [ hexlify(x) for x in stk])
+                print("  stack: ", [ prettyStk(x) for x in stk])
                 print("  script: ", textrest)
                 count += 1
                 pos = self.sm.step()
@@ -174,7 +174,6 @@ class DebugSession:
                 print("Error: %d (%s): %s" % (err, err.name, str(e)))
                 return (err, pos)
         return (cashlib.ScriptError.SCRIPT_ERR_OK, pos)
-
 
 class ScriptDebugTest (BitcoinTestFramework):
 
@@ -244,8 +243,25 @@ class ScriptDebugTest (BitcoinTestFramework):
         result = dbg.evalConstraintScript()
         assert(result[0] == cashlib.ScriptError.SCRIPT_ERR_OK)
 
+    def multisigTest(self):
+        prevTx = "0100000001622614617497345f05d732f51d93a2be4e82d3e0753d9fb8f12602267241b518060000006441823adf2066b671ac1a0d9ea0bb1fffcd38e3689d03e41127f3a70edd6f2bdfa0af22292faadccfcd3a0fb513650e57320e4e2c94968eb5edceec591728c63def412103c1294d14e5daa5c55e7a9c2f7d92cb134d3d2302b2b54712ea7c588240064c85feffffff01624e00000000000017a9143509b289c19490e9bf123d07eca281c80bfab18d873c7d0900"
+        spendTx ="010000000103ff48b851370170e26f2a47bc9eb02ba146a6ae7593ba1aa13172eecb980cad00000000f05541645b754af4bc4bea3ce8f1a29cbbd5cf40bba5982a9b50920f1488a9a22c37064b60155b20fca82760ca9834b13d1eae3396cefa6dfc178f7ec06dd580f4974a4141bc1e337422a4c71100726a8d27f58ba908ffd2a72d2015e8f03021be319a32c5b521cd1c4a46e0c4567c83b8aa158e9a2df8701d7a44630d54a63b8e8def01d8414c695221032fed71dcd99e1c7f74b828b85f9bd45f1a7e8b96dfbf0d56a66ac6ae4bc1209e210341f6b344c440f0c2dc592cd1c6783a82fded9bfb6dd1beba44d30a694aa382272103ffbc963d0cd9160dd7d153400f094629afbf1fc793fba147888d3beff02bec3653aeffffffff01d24c0000000000001976a914254a0a048668e68ba545f1a24ea7e6a05cdec66988ac00000000"
+
+        dbg = DebugSession(prevTx, spendTx, flags=cashlib.ScriptFlags.STANDARD_SCRIPT_VERIFY_FLAGS | cashlib.ScriptFlags.SCRIPT_ENABLE_SCHNORR_MULTISIG | cashlib.ScriptFlags.SCRIPT_ENABLE_CHECKDATASIG )
+        print("Evaluating spend script")
+        dbg.evalSpendScript()
+        print("Evaluating constraint script")
+        result = dbg.evalConstraintScript()
+        print(result)
+        print("Evaluating redeem script")
+        pdb.set_trace()
+        redeemResult = dbg.evalRedeemScript()
+        print(redeemResult)
+
+
     def run_test(self):
-        self.runAscript()
+        self.multisigTest()
+        # self.runAscript()
         # self.runDSVtest()
 
 
