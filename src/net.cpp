@@ -26,6 +26,7 @@
 #include "extversionkeys.h"
 #include "hashwrapper.h"
 #include "iblt.h"
+#include "policy/policy.h"
 #include "primitives/transaction.h"
 #include "requestManager.h"
 #include "ui_interface.h"
@@ -615,8 +616,7 @@ void CNode::copyStats(CNodeStats &stats)
 
 static bool IsMessageOversized(CNetMessage &msg)
 {
-    if (maxMessageSizeMultiplier && msg.in_data && (msg.hdr.nMessageSize > BLOCKSTREAM_CORE_MAX_BLOCK_SIZE) &&
-        (msg.hdr.nMessageSize > (maxMessageSizeMultiplier * excessiveBlockSize)))
+    if (msg.in_data && (msg.hdr.nMessageSize > GetMaxAllowedNetMessage()))
     {
         // TODO: warn if too many nodes are doing this
         return true;
@@ -2958,13 +2958,6 @@ void NetCleanup()
 
 void RelayTransaction(const CTransactionRef ptx)
 {
-    if (ptx->GetTxSize() > maxTxSize.Value())
-    {
-        LOGA("Will not announce (INV) excessive transaction %s.  Size: %llu, Limit: %llu\n", ptx->GetHash().ToString(),
-            ptx->GetTxSize(), (uint64_t)maxTxSize.Value());
-        return;
-    }
-
     CInv inv(MSG_TX, ptx->GetHash());
     {
         LOCK(cs_mapRelay);
@@ -3024,7 +3017,7 @@ void CNode::RecordBytesSent(uint64_t bytes)
 
 void CNode::SetMaxOutboundTarget(uint64_t limit)
 {
-    uint64_t nRecommendedMinimum = (nMaxOutboundTimeframe * excessiveBlockSize) / 600;
+    uint64_t nRecommendedMinimum = (nMaxOutboundTimeframe * chainActive.Tip()->GetNextMaxBlockSize()) / 600;
     nMaxOutboundLimit = limit;
 
     if (limit > 0 && limit < nRecommendedMinimum)
@@ -3067,7 +3060,7 @@ bool CNode::OutboundTargetReached(bool fHistoricalBlockServingLimit)
     {
         // keep a large enough buffer to at least relay each block once
         uint64_t timeLeftInCycle = GetMaxOutboundTimeLeftInCycle();
-        uint64_t buffer = (timeLeftInCycle * excessiveBlockSize) / 600;
+        uint64_t buffer = (timeLeftInCycle * chainActive.Tip()->GetNextMaxBlockSize()) / 600;
         if (buffer >= nMaxOutboundLimit || nMaxOutboundTotalBytesSentInCycle >= nMaxOutboundLimit - buffer)
             return true;
     }

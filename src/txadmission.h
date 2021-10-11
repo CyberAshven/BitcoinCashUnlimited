@@ -18,7 +18,7 @@ static const double DEFAULT_MINLIMITERTXFEE = (double)DEFAULT_MIN_RELAY_TX_FEE /
 /** The default value for -maxrelaytxfee in sat/byte */
 static const double DEFAULT_MAXLIMITERTXFEE = (double)DEFAULT_MIN_RELAY_TX_FEE / 1000;
 /** The number of block heights to gradually choke spam transactions over */
-static const unsigned int MAX_BLOCK_SIZE_MULTIPLIER = 3;
+static const unsigned int MAX_BLOCK_CHOKE = 3;
 
 /** The maximum number of free transactions (in KB) that can enter the mempool per minute.
  *  For a 1MB block we allow 15KB of free transactions per 1 minute.

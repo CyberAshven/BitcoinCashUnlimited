@@ -1941,6 +1941,8 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
             "  \"avgfeerate\": xxxxx,      (numeric) Average feerate (in satoshis per virtual byte)\n"
             "  \"avgtxsize\": xxxxx,       (numeric) Average transaction size\n"
             "  \"blockhash\": xxxxx,       (string) The block hash (to check for potential reorgs)\n"
+            "  \"blocksize\": xxxxx,       (numeric) The block size in bytes\n"
+            "  \"nextmaxblocksize\": xxxxx,(numeric) The next maximum block size that can be mined, in bytes\n"
             "  \"feerate_percentiles\": [  (array of numeric) Feerates at the 10th, 25th, 50th, 75th, and 90th "
             "percentile weight unit (in satoshis per virtual byte)\n"
             "      \"10th_percentile_feerate\",      (numeric) The 10th percentile feerate\n"
@@ -2168,6 +2170,8 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
     ret_all.pushKV("avgfeerate", ValueFromAmount(total_size ? totalfee / total_size : 0)); // Unit: sat/byte
     ret_all.pushKV("avgtxsize", (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0);
     ret_all.pushKV("blockhash", pindex->GetBlockHash().GetHex());
+    ret_all.pushKV("blocksize", pindex->GetBlockSize());
+    ret_all.pushKV("nextmaxblocksize", pindex->GetNextMaxBlockSize());
     ret_all.pushKV("feerate_percentiles", feerates_res);
     ret_all.pushKV("height", (int64_t)pindex->height());
     ret_all.pushKV("ins", inputs);

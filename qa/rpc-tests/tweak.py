@@ -53,13 +53,15 @@ class TweakTest (BitcoinTestFramework):
         assert data["mining.blockSize"] == 200002
         assert data["mining.comment"] == "slartibartfast built fjords not fnords"
 
+        
+        # TODO: re-enable this when/if two tweaks are added that have incompatible values
         # check incompatible double set
-        try:
-            node.set("mining.blockSize=300000","net.excessiveBlock=10000")
-            assert 0 # the 2nd param is inconsistent with the current state of mining.blockSize
-        except JSONRPCException as e:
-            # if one set fails, no changes should be made (set is atomic)
-            assert node.get("mining.blockSize")["mining.blockSize"] == 200002
+        #try:
+        #    node.set("mining.blockSize=300000","net.excessiveBlock=10000")
+        #    assert 0 # the 2nd param is inconsistent with the current state of mining.blockSize
+        #except JSONRPCException as e:
+        #    # if one set fails, no changes should be made (set is atomic)
+        #    assert node.get("mining.blockSize")["mining.blockSize"] == 200002
 
         # check wildcard
         netTweaks = node.get("net.*")

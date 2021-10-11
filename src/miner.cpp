@@ -10,6 +10,7 @@
 #include "chain.h"
 #include "chainparams.h"
 #include "coins.h"
+#include "consensus/adaptive_blocksize.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
@@ -79,11 +80,9 @@ BlockAssembler::BlockAssembler(const CChainParams &_chainparams)
       lastFewTxs(0), blockFinished(false)
 {
     // Largest block you're willing to create:
-    nBlockMaxSize = maxGeneratedBlock;
-    // Core:
-    // nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
-    // Limit to between 1K and MAX_BLOCK_SIZE-1K for sanity:
-    // nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE-1000), nBlockMaxSize));
+    nBlockMaxSize = chainActive.Tip()->GetNextMaxBlockSize();
+    if (nBlockMaxSize > maxGeneratedBlock)
+        nBlockMaxSize = maxGeneratedBlock;
 
     // Minimum block size you want to create; block will be filled with free transactions
     // until there are no more or the block reaches this size:
@@ -134,7 +133,6 @@ uint64_t BlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t
     // BU Miners take the block we give them, wipe away our coinbase and add their own.
     // So if their reserve choice is bigger then our coinbase then use that.
     nCoinbaseSize = std::max(nCoinbaseSize, nCoinbaseReserve);
-
 
     return nHeaderSize + nCoinbaseSize;
 }
@@ -203,13 +201,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
     CBlockIndex *pindexPrev = chainActive.Tip();
     assert(pindexPrev); // can't make a new block if we don't even have the genesis block
 
-    may2020Enabled = IsMay2020Activated(chainparams.GetConsensus(), pindexPrev);
-
-    if (may2020Enabled)
-    {
-        maxSigOpsAllowed = maxSigChecks.Value();
-    }
-
+    maxSigOpsAllowed = GetMaxBlockSigChecks(pindexPrev->GetNextMaxBlockSize());
 
     {
         READLOCK(mempool.cs_txmempool);
@@ -303,10 +295,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
     {
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
-    if (pblock->fExcessive)
-    {
-        throw std::runtime_error(strprintf("%s: Excessive block generated: %s", __func__, FormatStateMessage(state)));
-    }
 
     return pblocktemplate;
 }
@@ -371,43 +359,13 @@ bool BlockAssembler::IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtr
         return false;
     }
 
-    if (!may2020Enabled)
+    if (nBlockSigOps + nExtraSigOps > maxSigOpsAllowed)
     {
-        // Enforce the "old" sigops for <= 1MB blocks
-        if (nBlockSize + nExtraSize <= BLOCKSTREAM_CORE_MAX_BLOCK_SIZE)
-        {
-            // BU: be conservative about what is generated
-            if (nBlockSigOps + nExtraSigOps >= MAX_BLOCK_SIGOPS_PER_MB)
-            {
-                // BU: so a block that is near the sigops limit might be shorter than it could be if
-                // the high sigops tx was backed out and other tx added.
-                if (nBlockSigOps > MAX_BLOCK_SIGOPS_PER_MB - 2)
-                    blockFinished = true;
-                return false;
-            }
-        }
-        else
-        {
-            if (nBlockSigOps + nExtraSigOps > GetMaxBlockSigOpsCount(nBlockSize))
-            {
-                if (nBlockSigOps > GetMaxBlockSigOpsCount(nBlockSize) - 2)
-                    // very close to the limit, so the block is finished.  So a block that is near the sigops limit
-                    // might be shorter than it could be if the high sigops tx was backed out and other tx added.
-                    blockFinished = true;
-                return false;
-            }
-        }
-    }
-    else // may2020
-    {
-        if (nBlockSigOps + nExtraSigOps > maxSigOpsAllowed)
-        {
-            if (nBlockSigOps > maxSigOpsAllowed - 2)
-                // very close to the limit, so the block is finished.  So a block that is near the sigops limit
-                // might be shorter than it could be if the high sigops tx was backed out and other tx added.
-                blockFinished = true;
-            return false;
-        }
+        // very close to the limit, so the block is finished.  So a block that is near the sigops limit
+        // might be shorter than it could be if the high sigops tx was backed out and other tx added.
+        if (nBlockSigOps > maxSigOpsAllowed - 2)
+            blockFinished = true;
+        return false;
     }
 
     return true;

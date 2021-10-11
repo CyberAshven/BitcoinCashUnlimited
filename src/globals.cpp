@@ -189,10 +189,7 @@ vector<std::string> vUseDNSSeeds;
 vector<std::string> vAddedNodes;
 set<CNetAddr> setservAddNodeAddresses;
 
-uint64_t maxGeneratedBlock = DEFAULT_BLOCK_MAX_SIZE;
-uint64_t excessiveBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
-unsigned int excessiveAcceptDepth = DEFAULT_EXCESSIVE_ACCEPT_DEPTH;
-unsigned int maxMessageSizeMultiplier = DEFAULT_MAX_MESSAGE_SIZE_MULTIPLIER;
+uint64_t maxGeneratedBlock = 0;
 int nMaxOutConnections = DEFAULT_MAX_OUTBOUND_CONNECTIONS;
 bool fCanonicalTxsOrder = true;
 uint32_t blockVersion = 0; // Overrides the mined block version if non-zero
@@ -290,10 +287,6 @@ CTweak<uint32_t> randomlyDontInv("net.randomlyDontInv",
     "Skip sending an INV for some percent of transactions (default: 0)",
     0);
 
-CTweakRef<uint64_t> ebTweak("net.excessiveBlock",
-    strprintf("Excessive block size in bytes (default: %d)", excessiveBlockSize),
-    &excessiveBlockSize,
-    &ExcessiveBlockValidator);
 CTweak<bool> ignoreNetTimeouts("net.ignoreTimeouts",
     "ignore inactivity timeouts, used during debugging (default: false)",
     false);
@@ -325,8 +318,7 @@ CTweakRef<uint64_t> miningBlockSize("mining.blockSize",
     strprintf("Maximum block size in bytes.  The maximum block size returned from 'getblocktemplate' will be this "
               "value minus mining.coinbaseReserve (default: %d)",
         maxGeneratedBlock),
-    &maxGeneratedBlock,
-    &MiningBlockSizeValidator);
+    &maxGeneratedBlock);
 CTweakRef<unsigned int> maxDataCarrierTweak("mining.dataCarrierSize",
     strprintf("Maximum size of OP_RETURN data script in bytes (default: %d)", nMaxDatacarrierBytes),
     &nMaxDatacarrierBytes,
@@ -346,16 +338,18 @@ CTweakRef<bool> miningForkOpGroupTweak("mining.forkOpgroup",
     "Enable enforcement of the OP_GROUP opcode at the fork point",
     &miningForkOpGroup);
 
-CTweak<uint64_t> maxScriptOps("consensus.maxScriptOps",
-    strprintf("Maximum number of script operations allowed.  Stack pushes are excepted (default: %ld)",
+CTweak<uint64_t> maxScriptOps("test.maxScriptOps",
+    strprintf("Maximum number of script operations allowed.  Stack pushes are excepted.  Use for testing only! "
+              "(default: %ld)",
         MAX_OPS_PER_SCRIPT),
     MAX_OPS_PER_SCRIPT);
 
-CTweak<uint64_t> maxSigChecks("consensus.maxBlockSigChecks",
-    strprintf("Consensus parameter specifying the maximum sigchecks in a block.  Use for testing only! (default for "
-              "mainnet: %ld)",
-        MAY2020_MAX_BLOCK_SIGCHECK_COUNT),
-    MAY2020_MAX_BLOCK_SIGCHECK_COUNT);
+CTweak<uint64_t> maxSigChecks("test.maxBlockSigChecks",
+    strprintf(
+        "Override the adaptive consensus parameter specifying the maximum sigchecks in a block. A value of zero means"
+        " this override is turned off.  Use for testing only! (default: %ld)",
+        0),
+    0);
 
 CTweak<bool> unsafeGetBlockTemplate("mining.unsafeGetBlockTemplate",
     "Allow getblocktemplate to succeed even if the chain tip is old or this node is not connected to other nodes "
@@ -366,13 +360,6 @@ CTweak<bool> xvalTweak("mining.xval",
     strprintf("Turn on/off Xpress Validation when mining a new block(true/false - default: %d)", DEFAULT_XVAL_ENABLED),
     DEFAULT_XVAL_ENABLED);
 
-CTweak<unsigned int> maxTxSize("net.excessiveTx",
-    strprintf("Largest transaction size in bytes (default: %ld)", DEFAULT_LARGEST_TRANSACTION),
-    DEFAULT_LARGEST_TRANSACTION);
-CTweakRef<unsigned int> eadTweak("net.excessiveAcceptDepth",
-    "Excessive block chain acceptance depth in blocks",
-    &excessiveAcceptDepth,
-    &AcceptDepthValidator);
 CTweakRef<int> maxOutConnectionsTweak("net.maxOutboundConnections",
     "Maximum number of outbound connections",
     &nMaxOutConnections,
@@ -395,9 +382,20 @@ CTweakRef<unsigned int> briTweak("net.blockRetryInterval",
     &MIN_BLK_REQUEST_RETRY_INTERVAL);
 
 CTweak<unsigned int> blockLookAheadInterval("test.blockLookAheadInterval",
-    "How long to wait in microseconds before requesting a block from another source when we currently downloading "
-    "the block from another peer",
+    strprintf(
+        "How long to wait in microseconds before requesting a block from another source when we currently downloading "
+        "the block from another peer (default: %d)",
+        MIN_BLK_REQUEST_RETRY_INTERVAL),
     MIN_BLK_REQUEST_RETRY_INTERVAL);
+
+CTweak<uint64_t> maxAllowedNetMessage("test.maxAllowedNetMessage",
+    strprintf("What is the maximum allowed net message size in bytes (zero means use adaptive setting, default: %d)",
+        0),
+    0);
+
+CTweak<uint64_t> nextMaxBlockSize("test.nextMaxBlockSize",
+    strprintf("What is the maximum allowed block size in bytes (zero means use adaptive setting, default: %d)", 0),
+    0);
 
 CTweakRef<std::string> subverOverrideTweak("net.subversionOverride",
     "If set, this field will override the normal subversion field.  This is useful if you need to hide your node",

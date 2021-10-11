@@ -112,6 +112,8 @@
       "avgfeerate": 0.0,
       "avgtxsize": 0,
       "blockhash": "aa7779a9e50bf9e209c38d9a81c61fc471a757856a3e564f240304f7bebc5e18",
+      "blocksize": 293,
+      "nextmaxblocksize": 100000,
       "feerate_percentiles": [
         0.0,
         0.0,
@@ -147,6 +149,8 @@
       "avgfeerate": 1e-08,
       "avgtxsize": 192,
       "blockhash": "8950fbb8681eda93cfe19f4198d619e003377469ce1e64c7d62f36b36e43770b",
+      "blocksize": 485,
+      "nextmaxblocksize": 100000,
       "feerate_percentiles": [
         1e-08,
         1e-08,
@@ -182,6 +186,8 @@
       "avgfeerate": 1.01e-06,
       "avgtxsize": 225,
       "blockhash": "a796b7d0fb5dbacc39ab104ca6aa89d9911fd69b9581ee0e2d947270030fd0ee",
+      "blocksize": 968,
+      "nextmaxblocksize": 100000,
       "feerate_percentiles": [
         1e-08,
         1e-08,

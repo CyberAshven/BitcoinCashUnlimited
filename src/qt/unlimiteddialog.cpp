@@ -185,21 +185,9 @@ void UnlimitedDialog::validateBlockSize()
 {
     ui.statusLabel->setStyleSheet("QLabel { color: red; }");
 
-    uint64_t mmb = ui.miningMaxBlock->text().toInt();
-    uint64_t ebs = excessiveBlockSize;
-
-    if (!MiningAndExcessiveBlockValidatorRule(ebs, mmb))
-    {
-        ui.statusLabel->setText(tr("Mined block size cannot be larger then excessive block size!"));
-        ui.miningMaxBlock->setStyleSheet("QLineEdit {  background-color: red; }");
-        ui.okButton->setEnabled(false);
-    }
-    else
-    {
-        ui.statusLabel->clear();
-        ui.miningMaxBlock->setStyleSheet("");
-        ui.okButton->setEnabled(true);
-    }
+    ui.statusLabel->clear();
+    ui.miningMaxBlock->setStyleSheet("");
+    ui.okButton->setEnabled(true);
 }
 
 bool UnlimitedDialog::shapingAveEditFinished(void)

@@ -5,6 +5,7 @@
 #include "blockrelay/blockrelay_common.h"
 #include "blockrelay/graphene.h"
 #include "net.h"
+#include "policy/policy.h"
 #include "random.h"
 #include "requestManager.h"
 #include "sync.h"
@@ -415,7 +416,8 @@ void ThinTypeRelay::AddBlockBytes(uint64_t bytes, std::shared_ptr<CBlockThinRela
     pblock->nCurrentBlockSize += bytes;
 }
 
-uint64_t ThinTypeRelay::GetMaxAllowedBlockSize() { return maxMessageSizeMultiplier * excessiveBlockSize; }
+uint64_t ThinTypeRelay::GetMaxAllowedBlockSize() { return GetMaxAllowedNetMessage(); }
+
 void ThinTypeRelay::ClearAllBlockData(CNode *pnode, const uint256 &hash)
 {
     // Clear the entries for block to reconstruct and block in flight

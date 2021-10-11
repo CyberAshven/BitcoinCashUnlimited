@@ -210,15 +210,16 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
 
 BOOST_AUTO_TEST_CASE(test_consensus_sigops_limit)
 {
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(1), MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(123456), MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(1000000), MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(1000001), 2 * MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(1348592), 2 * MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(2000000), 2 * MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(2000001), 3 * MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(2654321), 3 * MAX_BLOCK_SIGOPS_PER_MB);
-    BOOST_CHECK_EQUAL(GetMaxBlockSigOpsCount(std::numeric_limits<uint32_t>::max()), 4295 * MAX_BLOCK_SIGOPS_PER_MB);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(0), 0);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(1), 0);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(141), 1);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(211), 1);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(212), 1);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(281), 1);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(282), 2);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(123456), 875);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(1000000), 7092);
+    BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(1000001), 7092);
 }
 
 BOOST_AUTO_TEST_CASE(test_max_sigops_per_tx)

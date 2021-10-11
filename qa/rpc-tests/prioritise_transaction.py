@@ -27,7 +27,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
         self.nodes = []
         self.is_network_split = False
 
-        self.nodes.append(start_node(0, self.options.tmpdir, ["-mining.blockSize=" + str(MAX_BLOCK_SIZE),"-minlimitertxfee=1", "-printpriority=1", "-limitfreerelay=15", "-debug=mempool"]))
+        self.nodes.append(start_node(0, self.options.tmpdir, ["-mining.blockSize=" + str(MAX_BLOCK_SIZE), "-test.nextMaxBlockSize=" + str(MAX_BLOCK_SIZE), "-minlimitertxfee=1", "-printpriority=1", "-limitfreerelay=15", "-debug=mempool"]))
         self.relayfee = self.nodes[0].getnetworkinfo()['relayfee']
 
     def run_test(self):

@@ -29,7 +29,6 @@ class GrapheneOptimizedTest(GrapheneBlockTest):
             "-net.grapheneMinVersionSupported=" + self.vL1,
             "-net.grapheneMaxVersionSupported=" + self.vH1,
             "-net.grapheneFastFilterCompatibility=0",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 
@@ -42,7 +41,6 @@ class GrapheneOptimizedTest(GrapheneBlockTest):
             "-net.grapheneMinVersionSupported=" + self.vL2,
             "-net.grapheneMaxVersionSupported=" + self.vH2,
             "-net.grapheneFastFilterCompatibility=0",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 

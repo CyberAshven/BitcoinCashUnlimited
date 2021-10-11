@@ -30,8 +30,6 @@ public:
     enum UOptionID
     {
         MaxGeneratedBlock, // uint64_t
-        ExcessiveBlockSize,
-        ExcessiveAcceptDepth,
         UseReceiveShaping, // bool
         UseSendShaping, // bool
         ReceiveBurst, // int

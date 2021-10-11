@@ -8,7 +8,7 @@
 #define BITCOIN_SYNC_H
 
 #include "deadlock-detection/threaddeadlock.h"
-#include "recursive_shared_mutex.h"
+#include "rsm/include/recursive_shared_mutex.h"
 #include "threadsafety.h"
 #include "util.h"
 #include "utiltime.h"
