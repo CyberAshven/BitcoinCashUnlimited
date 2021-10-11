@@ -1,0 +1,51 @@
+
+image: ubuntu:18.04
+
+stages:
+    - build
+    - build_tests
+
+cache: &global_cache_settings
+    paths:
+        - ccache/
+
+.ccache_scripts:
+    before_script:
+        - mkdir -p ccache
+        - export CCACHE_BASEDIR=${PWD}
+        - export CCACHE_DIR=${PWD}/ccache
+        - export CCACHE_COMPILERCHECK=content
+        - ccache --zero-stats || true
+
+.cache-debian:
+    extends: .ccache_scripts
+    cache:
+        <<: *global_cache_settings
+        key: debian_cache
+
+build-debian:
+    stage: build
+    extends: .cache-debian
+    needs: []
+    script:
+        - apt-get update
+        - apt-get install -y --no-install-recommends --no-upgrade -qq build-essential libtool autotools-dev automake pkg-config ca-certificates ccache libboost-all-dev
+        - ./autogen.sh
+        - mkdir build; cd build
+        - ../configure --enable-debug
+        - make -j `nproc`
+        - ccache --show-stats
+    artifacts:
+        paths:
+            - ./build/test/test_threadsupport
+
+build-debian-tests:
+    stage: build_tests
+    extends: .cache-debian
+    needs: ["build-debian"]
+    script:
+        - apt-get update
+        - apt-get install -y --no-install-recommends --no-upgrade -qq build-essential libtool autotools-dev automake pkg-config ca-certificates ccache libboost-all-dev
+        - (cd build; ./test/test_threadsupport)
+    dependencies:
+        - build-debian
