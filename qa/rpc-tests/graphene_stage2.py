@@ -48,7 +48,6 @@ class GrapheneStage2Test(BitcoinTestFramework):
             "-net.grapheneIbltSizeOverride=1",
             "-net.grapheneBloomFprOverride=0.0",
             "-net.randomlyDontInv=100",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 

@@ -19,7 +19,6 @@ class GrapheneOptimizedTest(GrapheneBlockTest):
             "-use-thinblocks=0",
             "-use-compactblocks=0",
             "-net.grapheneFastFilterCompatibility=2",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 
@@ -30,7 +29,6 @@ class GrapheneOptimizedTest(GrapheneBlockTest):
             "-use-thinblocks=0",
             "-use-compactblocks=0",
             "-net.grapheneFastFilterCompatibility=0",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 

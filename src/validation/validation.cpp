@@ -12,6 +12,7 @@
 #include "blockstorage/sequential_files.h"
 #include "checkpoints.h"
 #include "connmgr.h"
+#include "consensus/adaptive_blocksize.h"
 #include "consensus/grouptokens.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
@@ -156,7 +157,6 @@ bool CheckBlockHeader(const Consensus::Params &consensusParams,
     }
     // Check proof of work matches claimed amount
     uint256 miningHash = block.GetMiningHash();
-    // printf("check mining hash: %s\n", miningHash.GetHex().c_str());
     if (fCheckPOW && !CheckProofOfWork(miningHash, block.nBits, consensusParams))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
@@ -207,6 +207,11 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
     if (block.hashTxFilter != uint256())
     {
         return state.DoS(100, error("%s: premature transaction filter use", __func__), REJECT_INVALID, "bad-txfilter");
+    }
+    // Ensure that the blocksize is within limits according to the adaptive block size algorithm.
+    if (pindexPrev && block.size > pindexPrev->GetNextMaxBlockSize())
+    {
+        return state.DoS(100, error("%s: announced block size too large", __func__), REJECT_INVALID, "bad-blk-size");
     }
 
     // Check proof of work
@@ -389,6 +394,8 @@ CBlockIndex *AddToBlockIndex(const CChainParams &chainparams, const CBlockHeader
         if (pindexNew->pprev && pindexNew->pprev->nStatus & BLOCK_FAILED_MASK)
             pindexNew->nStatus |= BLOCK_FAILED_CHILD;
     }
+    pindexNew->nNextMaxBlockSize = CalculateNextMaxBlockSize(pindexNew->pprev, block.size);
+
     auto expectedWork =
         ArithToUint256((pindexNew->pprev ? pindexNew->pprev->chainWork() : 0) + GetBlockProof(*pindexNew));
     if (pindexNew->header.chainWork != expectedWork)
@@ -914,9 +921,7 @@ void CheckBlockIndex(const Consensus::Params &consensusParams)
                 // even if some data has been pruned.
 
                 // PV:  this is no longer true under certain condition for PV - leaving it in here for further review
-                // BU: if the chain is excessive it won't be on the list of active chain candidates
-                //if ((!chainContainsExcessive(pindex)) && (pindexFirstMissing == nullptr || pindex ==
-        chainActive.Tip()) )
+                //if (pindexFirstMissing == nullptr || pindex == chainActive.Tip())
                 //    assert(setBlockIndexCandidates.count(pindex));
 
                     // If some parent is missing, then it could be that this block was in
@@ -955,11 +960,8 @@ void CheckBlockIndex(const Consensus::Params &consensusParams)
         // Can't be in mapBlocksUnlinked if we don't HAVE_DATA
         if (!(pindex->nStatus & BLOCK_HAVE_DATA))
             assert(!foundInUnlinked);
-        // BU: blocks that are excessive are placed in the unlinked map
-        if ((pindexFirstMissing == nullptr) && (!chainContainsExcessive(pindex)))
-        {
+        if (pindexFirstMissing == nullptr)
             assert(!foundInUnlinked); // We aren't missing data for any parent -- cannot be in mapBlocksUnlinked.
-        }
         if (pindex->pprev && (pindex->nStatus & BLOCK_HAVE_DATA) && pindexFirstNeverProcessed == nullptr &&
             pindexFirstMissing != nullptr)
         {
@@ -1425,10 +1427,7 @@ CBlockIndex *FindMostWorkChain()
         uint64_t depth = 0;
         bool fFailedChain = false;
         bool fMissingData = false;
-        bool fRecentExcessive = false; // Has there been a excessive block within our accept depth?
-        // Was there an excessive block prior to our accept depth (if so we ignore the accept depth -- this chain has
-        // already been accepted as valid)
-        bool fOldExcessive = false;
+
         // follow the chain all the way back to where it joins the current active chain.
         while (pindexTest && !chainActive.Contains(pindexTest))
         {
@@ -1440,52 +1439,14 @@ CBlockIndex *FindMostWorkChain()
             // to a chain unless we have all the non-active-chain parent blocks.
             fFailedChain = pindexTest->nStatus & BLOCK_FAILED_MASK;
             fMissingData = !(pindexTest->nStatus & BLOCK_HAVE_DATA);
-            if (depth < excessiveAcceptDepth)
-            {
-                // Unlimited: deny this candidate chain if there's a recent excessive block
-                fRecentExcessive |= ((pindexTest->nStatus & BLOCK_EXCESSIVE) != 0);
-            }
-            else
-            {
-                // Unlimited: unless there is an even older excessive block
-                fOldExcessive |= ((pindexTest->nStatus & BLOCK_EXCESSIVE) != 0);
-            }
-
-            if (fFailedChain | fMissingData | fRecentExcessive)
+            if (fFailedChain | fMissingData)
                 break;
             pindexTest = pindexTest->pprev;
             depth++;
         }
 
-        // If there was a recent excessive block, check a certain distance beyond the acceptdepth to see if this chain
-        // has already seen an excessive block... if it has then allow the chain.
-        // This stops the client from always tracking excessiveDepth blocks behind the chain tip in a situation where
-        // lots of excessive blocks are being created.
-        // But after a while with no excessive blocks, we reset and our reluctance to accept an excessive block resumes
-        // on this chain.
-        // An alternate algorithm would be to move the excessive block size up to match the size of the accepted block,
-        // but this changes a user-defined field and is awkward to code because
-        // block sizes are not saved.
-        if ((fRecentExcessive && !fOldExcessive) && (depth < excessiveAcceptDepth + EXCESSIVE_BLOCK_CHAIN_RESET))
-        {
-            CBlockIndex *chain = pindexTest;
-            // skip accept depth blocks, we are looking for an older excessive
-            while (chain && (depth < excessiveAcceptDepth))
-            {
-                chain = chain->pprev;
-                depth++;
-            }
-
-            while (chain && (depth < excessiveAcceptDepth + EXCESSIVE_BLOCK_CHAIN_RESET))
-            {
-                fOldExcessive |= ((chain->nStatus & BLOCK_EXCESSIVE) != 0);
-                chain = chain->pprev;
-                depth++;
-            }
-        }
-
         // Conditions where we want to reject the chain
-        if (fFailedChain || fMissingData || (fRecentExcessive && !fOldExcessive))
+        if (fFailedChain || fMissingData)
         {
             // Candidate chain is not usable (either invalid or missing data)
             CBlockIndex *pBestInvalid = pindexBestInvalid.load();
@@ -1499,7 +1460,7 @@ CBlockIndex *FindMostWorkChain()
                 {
                     pindexFailed->nStatus |= BLOCK_FAILED_CHILD;
                 }
-                else if (fMissingData || (fRecentExcessive && !fOldExcessive))
+                else if (fMissingData)
                 {
                     // If we're missing data, then add back to mapBlocksUnlinked,
                     // so that if the block arrives in the future we can try adding
@@ -1662,10 +1623,7 @@ bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIn
         nLockTimeCutoff =
             (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST) ? pindexPrev->GetMedianTimePast() : block.GetBlockTime();
 
-    // Check that all transactions are finalized and count the number of
-    // transactions to check for excessive transaction limits.
-    uint64_t nTx = 0;
-    uint64_t nLargestTx = 0;
+    // Check that all transactions are finalized.
     for (const auto &tx : block.vtx)
     {
         if (!IsFinalTx(tx, nHeight, nLockTimeCutoff))
@@ -1675,10 +1633,6 @@ bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIn
         }
         if (!ContextualCheckTransaction(tx, state, pindexPrev, Params()))
             return false;
-
-        nTx++;
-        if (tx->GetTxSize() > nLargestTx)
-            nLargestTx = tx->GetTxSize();
     }
 
     // Enforce block nVersion=2 rule that the coinbase starts with serialized block height
@@ -1708,8 +1662,6 @@ bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIn
     indexDummy.pprev = pindexPrev;
     indexDummy.header.height = pindexPrev == nullptr ? 1 : pindexPrev->height() + 1;
 
-    // Check whether this block exceeds what we want to relay.
-    block.fExcessive = CheckExcessive(block, block.GetBlockSize(), nTx, nLargestTx);
     return true;
 }
 
@@ -1805,12 +1757,6 @@ bool ReceivedBlockTransactions(const CBlock &block,
     pindexNew->nDataPos = pos.nPos;
     pindexNew->nUndoPos = 0;
     pindexNew->nStatus |= BLOCK_HAVE_DATA;
-
-    if (block.fExcessive)
-    {
-        pindexNew->nStatus |= BLOCK_EXCESSIVE;
-    }
-
     pindexNew->RaiseValidity(BLOCK_VALID_TRANSACTIONS);
     setDirtyBlockIndex.insert(pindexNew);
 
@@ -2519,7 +2465,6 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
     std::vector<ValidationResourceTracker> txResourceTracker;
     std::vector<int> prevheights;
     int nInputs = 0;
-    unsigned int nSigOps = 0;
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     int nChecked = 0;
@@ -2725,8 +2670,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
 
             LOG(BENCH, "Number of SigChecks performed: %d\n", blockSigChecks);
 
-            // May 2020 block consensus rule
-            uint64_t maxSigChecksAllowed = maxSigChecks.Value();
+            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->GetNextMaxBlockSize());
             if (blockSigChecks > maxSigChecksAllowed)
             {
                 return state.DoS(

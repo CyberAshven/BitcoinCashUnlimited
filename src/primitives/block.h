@@ -190,7 +190,6 @@ public:
     // memory only
     // 0.11: mutable std::vector<uint256> vMerkleTree;
     mutable bool fChecked;
-    mutable bool fExcessive; // Is the block "excessive"
 
     CBlock() { SetNull(); }
     CBlock(const CBlockHeader &header)
@@ -217,7 +216,6 @@ public:
         CBlockHeader::SetNull();
         vtx.clear();
         fChecked = false;
-        fExcessive = false;
         fXVal = false;
     }
 

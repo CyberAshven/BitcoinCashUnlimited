@@ -293,6 +293,7 @@ libbitcoin_server_a_SOURCES = \
   chain.cpp \
   checkpoints.cpp \
   connmgr.cpp \
+  consensus/adaptive_blocksize.cpp \
   consensus/grouptokens.cpp \
   consensus/tx_verify.cpp \
   DoubleSpendProof.cpp \
@@ -499,6 +500,8 @@ libbitcoin_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
+  consensus/adaptive_blocksize.cpp \
+  consensus/adapative_blocksize.h \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \

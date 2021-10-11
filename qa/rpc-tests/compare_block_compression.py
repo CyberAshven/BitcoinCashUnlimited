@@ -43,7 +43,6 @@ class BlockTest(BitcoinTestFramework):
     def setup_network(self, split=False):
         node_opts = [
             "-rpcservertimeout=0",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 

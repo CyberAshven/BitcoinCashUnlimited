@@ -169,7 +169,7 @@ bool ContextualCheckTransaction(const CTransactionRef tx,
 
     if (IsMay2020Activated(consensusParams, nHeight) == false)
     {
-        // Check that the transaction doesn't have an excessive number of sigops
+        // Check that the transaction doesn't have too many sigops
         unsigned int nSigOps = GetLegacySigOpCount(tx, STANDARD_SCRIPT_VERIFY_FLAGS);
         if (nSigOps > MAX_TX_SIGOPS_COUNT)
             return state.DoS(10, false, REJECT_INVALID, "bad-txns-too-many-sigops");
@@ -200,7 +200,7 @@ bool CheckTransaction(const CTransactionRef tx, CValidationState &state)
     // Sigops moved to ContextualCheckTransaction because the consensus rule goes away after may2020 fork
 
     // Size limit
-    if (tx->GetTxSize() > maxTxSize.Value())
+    if (tx->GetTxSize() > DEFAULT_LARGEST_TRANSACTION)
     {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
     }

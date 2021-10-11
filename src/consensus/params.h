@@ -176,6 +176,12 @@ struct Params
     boost::optional<int64_t> nov2020Height;
     /** May 15, 2021 MTP activation time will be 12:00:00 UTC */
     uint64_t may2021ActivationTime;
+
+    /** Adaptive Block Size settings */
+    uint64_t nDefaultMaxBlockSize;
+    uint64_t nShortBlockWindow;
+    uint64_t nLongBlockWindow;
+    uint64_t nBlockSizeMultiplier;
 };
 } // namespace Consensus
 

@@ -338,7 +338,6 @@ test/DoS_tests.cpp
 test/electrs_tests.cpp
 test/electrumrpcinfo_tests.cpp
 test/electrumserver_tests.cpp
-test/excessiveblock_test.cpp
 test/exploit_tests.cpp
 test/finalization_tests.cpp
 test/fork_tests.cpp
@@ -514,4 +513,6 @@ consensus/tx_verify.h
 consensus/validation.h
 consensus/grouptokens.h
 consensus/grouptokens.cpp
+consensus/adaptive_blocksize.h
+consensus/adaptive_blocksize.cpp
 cashlib/cashlib.cpp

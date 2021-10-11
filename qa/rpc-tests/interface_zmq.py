@@ -116,6 +116,7 @@ class ZMQTest (BitcoinTestFramework):
         assert fundTx == zmqNotif
         zmqNotif = self.rawtx.receive()
 
+        self.nodes[0].setminercomment("got one")
         genhashes = self.nodes[0].generate(1)
         # notify tx 1
         zmqNotif1 = self.hashtx.receive().hex()
@@ -124,7 +125,7 @@ class ZMQTest (BitcoinTestFramework):
         # notify coinbase
         zmqNotif2 = self.hashtx.receive().hex()
         zmqNotif2r = self.rawtx.receive()
-        assert b"/EB32/AD12" in zmqNotif2r
+        assert b"got one" in zmqNotif2r
         # notify tx 1 again
         zmqNotif = self.hashtx.receive().hex()
         assert fundTx == zmqNotif

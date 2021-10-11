@@ -22,7 +22,6 @@ class MempoolSyncTest(BitcoinTestFramework):
             "-debug=mempoolsync",
             "-net.syncMempoolWithPeers=1",
             "-net.randomlyDontInv=100",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 

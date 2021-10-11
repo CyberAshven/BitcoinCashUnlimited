@@ -40,7 +40,6 @@ class GrapheneBlockTest(BitcoinTestFramework):
             "-debug=graphene",
             "-use-grapheneblocks=1",
             "-use-thinblocks=0",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 

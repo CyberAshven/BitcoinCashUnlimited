@@ -142,17 +142,7 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                             LOG(NET, "%s: ignoring request from peer=%s for old block that isn't in the main chain\n",
                                 __func__, pfrom->GetLogName());
                         }
-                        else
-                        {
-                            // Don't relay excessive blocks that are not on the active chain
-                            if (mi->nStatus & BLOCK_EXCESSIVE)
-                                fSend = false;
-                            if (!fSend)
-                                LOG(NET,
-                                    "%s: ignoring request from peer=%s for excessive block of height %d not on "
-                                    "the main chain\n",
-                                    __func__, pfrom->GetLogName(), mi->height());
-                        }
+
                         // TODO: in the future we can throttle old block requests by setting send=false if we are out
                         // of bandwidth
                     }

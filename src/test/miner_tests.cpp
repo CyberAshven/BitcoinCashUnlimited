@@ -5,6 +5,7 @@
 
 #include "chainparams.h"
 #include "coins.h"
+#include "consensus/adaptive_blocksize.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
 #include "consensus/tx_verify.h"
@@ -277,7 +278,6 @@ void TestPackageSelection(const CChainParams &chainparams, CScript scriptPubKey,
     SetArg("-blockprioritysize", std::to_string(0));
     dMinLimiterTxFee.Set(1.0);
     dMaxLimiterTxFee.Set(1.0);
-    excessiveBlockSize = maxGeneratedBlock;
     fCanonicalTxsOrder = false;
 
     // Test that a medium fee transaction will be selected after a higher fee
@@ -432,7 +432,6 @@ void GenerateBlocks(const CChainParams &chainparams,
         nTotalBlockSize += pblocktemplate->block.GetBlockSize();
         nTotalMine += GetStopwatchMicros() - nStartMine;
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
         unsigned int blockSize = pblocktemplate->block.GetBlockSize();
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
@@ -462,7 +461,6 @@ void PerformanceTest_PackageSelection(const CChainParams &chainparams,
     std::vector<CTransactionRef> &txFirst)
 {
     maxGeneratedBlock = 10000000;
-    excessiveBlockSize = maxGeneratedBlock;
     dMinLimiterTxFee.Set(1.0);
     dMaxLimiterTxFee.Set(1.0);
 
@@ -581,7 +579,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     entry.dPriority = 111.0;
     entry.nHeight = 11;
     maxGeneratedBlock = 100000;
-    excessiveBlockSize = maxGeneratedBlock;
     LOCK(cs_main);
     fCheckpointsEnabled = false;
 
@@ -589,11 +586,9 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
 
     // Simple block creation, with coinbase message
-    settingsToUserAgentString();
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
 
     // Simple block creation, with coinbase message and miner message.
-    settingsToUserAgentString();
     minerComment = "I am a meat popsicle.";
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
 
@@ -716,7 +711,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
@@ -738,14 +732,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
-        if (pblocktemplate->block.GetBlockSize() > maxGeneratedBlock)
-        {
-            printf("Error\n");
-        }
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
+
         minRoom = std::min(minRoom, maxGeneratedBlock - blockSize);
         // printf("%lu %lu <= %lu\n", (long unsigned int) blockSize, (long unsigned int)
         // pblocktemplate->block.GetBlockSize(), (long unsigned int) maxGeneratedBlock);
@@ -770,10 +760,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         // minerComment = testMinerComment.substr(0,i%100);
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
-        BOOST_CHECK(pblocktemplate->block.fExcessive == false);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
         unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
+
         minRoom = std::min(minRoom, maxGeneratedBlock - blockSize);
         // printf("%lu %lu (miner comment is %d) <= %lu\n", (long unsigned int) blockSize, (long unsigned int)
         // pblocktemplate->block.GetBlockSize(), i%100, (long unsigned int) maxGeneratedBlock);
@@ -892,6 +882,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         next->header.chainWork = ArithToUint256(prev->chainWork() + GetBlockProof(*next));
         next->header.height = prev->height() + 1;
         next->BuildSkip();
+        next->nNextMaxBlockSize = DEFAULT_NEXT_MAX_BLOCK_SIZE;
         chainActive.SetTip(next);
     }
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
@@ -906,6 +897,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         next->pprev = prev;
         next->header.height = prev->height() + 1;
         next->BuildSkip();
+        next->nNextMaxBlockSize = DEFAULT_NEXT_MAX_BLOCK_SIZE;
         chainActive.SetTip(next);
     }
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
@@ -1041,6 +1033,31 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // PerformanceTest_PackageSelection(chainparams, scriptPubKey, txFirst);
 
     fCheckpointsEnabled = true;
+}
+
+BOOST_AUTO_TEST_CASE(AdaptiveBlockSize)
+{
+    // Test median calculation
+    std::vector<uint64_t> vSizes1 = {12, 0, 5, 7, 9, 4, 8, 1000, 98};
+    BOOST_CHECK_EQUAL(CalculateMedian(vSizes1), 8);
+
+    std::vector<uint64_t> vSizes1a = {12, 0, 5, 7, 9, 4, 8, 1000, 98, 44, 1234567890};
+    BOOST_CHECK_EQUAL(CalculateMedian(vSizes1a), 9);
+
+    std::vector<uint64_t> vSizes1b = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    BOOST_CHECK_EQUAL(CalculateMedian(vSizes1b), 6);
+
+    std::vector<uint64_t> vSizes1c = {1};
+    BOOST_CHECK_EQUAL(CalculateMedian(vSizes1c), 1);
+
+    // Check we have an odd number of elements
+    std::vector<uint64_t> vSizes2 = {12, 0, 5, 7, 9, 4, 8, 1000, 98, 44};
+    BOOST_CHECK_EXCEPTION(CalculateMedian(vSizes2), std::runtime_error,
+        HasReason("Data size does not contain an odd number of elements"));
+
+    std::vector<uint64_t> vSizes2a = {12, 0};
+    BOOST_CHECK_EXCEPTION(CalculateMedian(vSizes2a), std::runtime_error,
+        HasReason("Data size does not contain an odd number of elements"));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

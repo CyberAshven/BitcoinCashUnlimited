@@ -19,6 +19,7 @@
 #include <vector>
 
 extern CSharedCriticalSection cs_mapBlockIndex;
+extern CTweak<uint64_t> nextMaxBlockSize;
 
 class CBlockFileInfo
 {
@@ -144,8 +145,6 @@ enum BlockStatus : uint32_t
     BLOCK_HAVE_UNDO = 16, //! undo data available in rev*.dat
     BLOCK_HAVE_MASK = BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO,
 
-    BLOCK_EXCESSIVE = 32, // BU: This block is bigger than what we really want to accept.
-
     BLOCK_FAILED_VALID = 64, //! stage after last reached validness failed
     BLOCK_FAILED_CHILD = 128, //! descends from failed block
     BLOCK_FAILED_MASK = BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
@@ -213,6 +212,9 @@ public:
     //! The time (in seconds) the block header was added to the index.
     uint64_t nTimeReceived;
 
+    //! Used in mining to determine the boundaries for block size
+    uint64_t nNextMaxBlockSize;
+
     void SetNull()
     {
         phashBlock = nullptr;
@@ -225,6 +227,7 @@ public:
         nStatus = 0;
         nSequenceId = 0;
         nTimeReceived = 0;
+        nNextMaxBlockSize = 0;
 
         header.SetNull();
     }
@@ -289,6 +292,7 @@ public:
 
     uint256 GetBlockHash() const { return *phashBlock; }
     int64_t GetBlockTime() const { return (int64_t)header.nTime; }
+    uint64_t GetBlockSize() const { return header.size; }
     enum
     {
         nMedianTimeSpan = 11
@@ -352,6 +356,17 @@ public:
     //! Efficiently find an ancestor of this block.
     CBlockIndex *GetAncestor(int height);
     const CBlockIndex *GetAncestor(int height) const;
+
+    //! Find the next maximum block size allowed
+    uint64_t GetNextMaxBlockSize() const
+    {
+        // for testing purposes you can override the adapative block size settings
+        // by using the tweak.
+        if (nextMaxBlockSize.Value())
+            return nextMaxBlockSize.Value();
+
+        return nNextMaxBlockSize;
+    }
 };
 
 arith_uint256 GetBlockProof(const CBlockIndex &block);
@@ -407,6 +422,9 @@ public:
         // sequence id and time received
         READWRITE(VARINT(nSequenceId));
         READWRITE(nTimeReceived);
+
+        // max size for the next block in the chain
+        READWRITE(nNextMaxBlockSize);
     }
 
     uint256 GetBlockHash() const { return header.GetHash(); }

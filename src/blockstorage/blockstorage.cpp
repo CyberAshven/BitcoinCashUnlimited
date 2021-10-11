@@ -203,6 +203,7 @@ void SyncStorage(const CChainParams &chainparams)
                 pindexNew->nStatus = item.second.nStatus;
                 pindexNew->nSequenceId = item.second.nSequenceId;
                 pindexNew->nTimeReceived = item.second.nTimeReceived;
+                pindexNew->nNextMaxBlockSize = item.second.nNextMaxBlockSize;
                 index = pindexNew;
             }
 
@@ -371,6 +372,7 @@ void SyncStorage(const CChainParams &chainparams)
                 pindexNew->nStatus = item.second.nStatus;
                 pindexNew->nSequenceId = item.second.nSequenceId;
                 pindexNew->nTimeReceived = item.second.nTimeReceived;
+                pindexNew->nNextMaxBlockSize = item.second.nNextMaxBlockSize;
                 index = pindexNew;
             }
 

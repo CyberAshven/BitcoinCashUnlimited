@@ -1077,19 +1077,19 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
                 nMinRelay = std::max(nMinRelay, _dMinLimiterTxFee);
                 nFreeLimit = std::min(nFreeLimit, (double)nLimitFreeRelay);
             }
-            else if (poolBytes < (nLargestBlockSeen * MAX_BLOCK_SIZE_MULTIPLIER))
+            else if (poolBytes < (nLargestBlockSeen * MAX_BLOCK_CHOKE))
             {
                 // Gradually choke off what is considered a free transaction
                 nMinRelay = std::max(nMinRelay,
                     _dMinLimiterTxFee + ((_dMaxLimiterTxFee - _dMinLimiterTxFee) * (poolBytes - nLargestBlockSeen) /
-                                            (nLargestBlockSeen * (MAX_BLOCK_SIZE_MULTIPLIER - 1))));
+                                            (nLargestBlockSeen * (MAX_BLOCK_CHOKE - 1))));
 
                 // Gradually choke off the nFreeLimit as well but leave at least nMinLimitFreeRelay
                 // So that some free transactions can still get through
-                nFreeLimit = std::min(nFreeLimit,
-                    ((double)nLimitFreeRelay -
-                        ((double)(nLimitFreeRelay - nMinLimitFreeRelay) * (double)(poolBytes - nLargestBlockSeen) /
-                            (nLargestBlockSeen * (MAX_BLOCK_SIZE_MULTIPLIER - 1)))));
+                nFreeLimit =
+                    std::min(nFreeLimit, ((double)nLimitFreeRelay - ((double)(nLimitFreeRelay - nMinLimitFreeRelay) *
+                                                                        (double)(poolBytes - nLargestBlockSeen) /
+                                                                        (nLargestBlockSeen * (MAX_BLOCK_CHOKE - 1)))));
                 if (nFreeLimit < nMinLimitFreeRelay)
                     nFreeLimit = nMinLimitFreeRelay;
             }
@@ -1116,8 +1116,7 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
                     // -limitfreerelay unit is thousand-bytes-per-minute
                     // At default rate it would take over a month to fill 1GB
                     LOG(MEMPOOL, "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount + nSize);
-                    if ((dFreeCount + nSize) >=
-                        (nFreeLimit * 10 * 1000 * nLargestBlockSeen / BLOCKSTREAM_CORE_MAX_BLOCK_SIZE))
+                    if ((dFreeCount + nSize) >= (nFreeLimit * 10 * 1000 * nLargestBlockSeen / ONE_MEGABYTE))
                     {
                         if (debugger)
                         {

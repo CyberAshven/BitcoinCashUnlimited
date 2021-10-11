@@ -286,9 +286,10 @@ public:
         pchCashMessageStart[3] = 0xe8;
         nDefaultPort = DEFAULT_MAINNET_PORT;
         nPruneAfterHeight = 100000;
-        nDefaultExcessiveBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
-        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE;
-        nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
+        consensus.nDefaultMaxBlockSize = DEFAULT_MAX_BLOCK_SIZE;
+        consensus.nShortBlockWindow = SHORT_BLOCK_WINDOW;
+        consensus.nLongBlockWindow = LONG_BLOCK_WINDOW;
+        consensus.nBlockSizeMultiplier = BLOCK_SIZE_MULTIPLIER;
 
         std::vector<unsigned char> nonce;
         std::vector<unsigned char> hardCodedNonce;
@@ -412,9 +413,10 @@ public:
         pchCashMessageStart[3] = 0xfa;
         nDefaultPort = DEFAULT_REGTESTNET_PORT;
         nPruneAfterHeight = 1000;
-        nDefaultExcessiveBlockSize = DEFAULT_EXCESSIVE_BLOCK_SIZE;
-        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE_REGTEST;
-        nDefaultMaxBlockMiningSize = DEFAULT_BLOCK_MAX_SIZE;
+        consensus.nDefaultMaxBlockSize = DEFAULT_MAX_BLOCK_SIZE_REGTEST;
+        consensus.nShortBlockWindow = SHORT_BLOCK_WINDOW_REGTEST;
+        consensus.nLongBlockWindow = LONG_BLOCK_WINDOW_REGTEST;
+        consensus.nBlockSizeMultiplier = BLOCK_SIZE_MULTIPLIER;
 
         std::vector<unsigned char> nonce; // TODO set this to something
         nonce.resize(1);
@@ -505,6 +507,7 @@ public:
         //    consensus.hashGenesisBlock ==
         //    uint256S("a73e8992af2a3b498c5114a6144b03bc41de938b39643fd82030f9721c0f8f1e"));
 
+
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -521,9 +524,10 @@ public:
         nDefaultPort = 7230;
         nPruneAfterHeight = 100000;
 
-        nDefaultExcessiveBlockSize = 1024000000;
-        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE;
-        nDefaultMaxBlockMiningSize = 1024000000;
+        consensus.nDefaultMaxBlockSize = DEFAULT_MAX_BLOCK_SIZE_TESTNET4;
+        consensus.nShortBlockWindow = SHORT_BLOCK_WINDOW;
+        consensus.nLongBlockWindow = LONG_BLOCK_WINDOW;
+        consensus.nBlockSizeMultiplier = BLOCK_SIZE_MULTIPLIER;
 
         // Aug, 1 2017 hard fork
         consensus.uahfHeight = 0;
@@ -640,9 +644,10 @@ public:
         nDefaultPort = 7228;
         nPruneAfterHeight = 100000;
 
-        nDefaultExcessiveBlockSize = 1024000000;
-        nMinMaxBlockSize = MIN_EXCESSIVE_BLOCK_SIZE;
-        nDefaultMaxBlockMiningSize = 1024000000;
+        consensus.nDefaultMaxBlockSize = DEFAULT_MAX_BLOCK_SIZE;
+        consensus.nShortBlockWindow = SHORT_BLOCK_WINDOW;
+        consensus.nLongBlockWindow = LONG_BLOCK_WINDOW;
+        consensus.nBlockSizeMultiplier = BLOCK_SIZE_MULTIPLIER;
 
         // Aug, 1 2017 hard fork
         consensus.uahfHeight = 0;

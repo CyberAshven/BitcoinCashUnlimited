@@ -48,7 +48,6 @@ void UnlimitedModel::Init()
     // Ensure restart flag is unset on client startup
     setRestartRequired(false);
 
-    uint64_t tmpExcessiveBlockSize = excessiveBlockSize;
     uint64_t tmpMaxGeneratedBlock = maxGeneratedBlock;
 
     if (!settings.contains("maxGeneratedBlock"))
@@ -56,18 +55,7 @@ void UnlimitedModel::Init()
     else
         tmpMaxGeneratedBlock = settings.value("maxGeneratedBlock").toInt();
 
-    if (!MiningAndExcessiveBlockValidatorRule(tmpExcessiveBlockSize, tmpMaxGeneratedBlock))
-    {
-        std::ostringstream emsg;
-        emsg << "Sorry, your configured maximum mined block (" << tmpMaxGeneratedBlock
-             << ") is larger than your configured excessive size (" << tmpExcessiveBlockSize
-             << ").  This would cause you to orphan your own blocks.";
-        LOGA(emsg.str().c_str());
-    }
-    else
-    {
-        miningBlockSize.Set(tmpMaxGeneratedBlock);
-    }
+    miningBlockSize.Set(tmpMaxGeneratedBlock);
 
     bool inUse = settings.value("fUseReceiveShaping").toBool();
     int64_t burstKB = settings.value("nReceiveBurst").toLongLong();
