@@ -78,7 +78,7 @@ static void VerifyScriptBench(benchmark::State &state)
     uint256 sighash = SignatureHash(witScriptPubkey, txSpend, 0, SIGHASH_ALL, txCredit.vout[0].nValue);
     assert(sighash != SIGNATURE_HASH_ERROR);
     std::vector<unsigned char> sig1;
-    key.SignECDSA(sighash, sig1);
+    key.SignSchnorr(sighash, sig1);
     sig1.push_back(static_cast<unsigned char>(SIGHASH_ALL));
     auto pubkeyvec = ToByteVector(pubkey);
     sig1.insert(sig1.end(), pubkeyvec.begin(), pubkeyvec.end());

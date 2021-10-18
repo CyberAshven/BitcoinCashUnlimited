@@ -47,15 +47,15 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         # 2) No script verification error occurred
         assert 'errors' not in rawTxSigned
 
-        #### Make sure you can still sign with NOFORKID for doing cross chain signing with legacy Bitcoin
+        #### Make sure you can not sign with NOFORKID.
         rawTxSigned_noforkid = self.nodes[0].signrawtransaction(rawTx, inputs, privKeys, "ALL|NOFORKID")
 
-        # 1) The transaction has a complete set of signatures
+        # 1) The transaction does not have a complete set of signatures
         assert 'complete' in rawTxSigned_noforkid
-        assert_equal(rawTxSigned_noforkid['complete'], True)
+        assert_equal(rawTxSigned_noforkid['complete'], False)
 
-        # 2) No script verification error occurred
-        assert 'errors' not in rawTxSigned_noforkid
+        # 2) Script verification error should occurred
+        assert 'errors' in rawTxSigned_noforkid
 
 
     def script_verification_error_test(self):

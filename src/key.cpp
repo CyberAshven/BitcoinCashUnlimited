@@ -339,8 +339,9 @@ bool CKey::VerifyPubKey(const CPubKey &pubkey) const
     uint256 hash;
     CHash256().Write((unsigned char *)str.data(), str.size()).Write(rnd, sizeof(rnd)).Finalize(hash.begin());
     std::vector<unsigned char> vchSig;
-    SignECDSA(hash, vchSig);
-    return pubkey.VerifyECDSA(hash, vchSig);
+
+    SignSchnorr(hash, vchSig);
+    return pubkey.VerifySchnorr(hash, vchSig);
 }
 
 bool CKey::SignCompact(const uint256 &hash, std::vector<uint8_t> &vchSig) const

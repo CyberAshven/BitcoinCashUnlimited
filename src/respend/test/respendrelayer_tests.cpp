@@ -266,7 +266,9 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
         const CScript &scriptPubKey = tx1.vout[0].scriptPubKey;
         CScript &scriptSigRes = s2.vin[0].scriptSig;
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
-        BOOST_CHECK(worked);
+        // The return value will indicate that the signature is not fully valid (because SIGHASH_FORKID is missing)
+        // however it will have been signed correctly and can be used for our testing purpose.
+        BOOST_CHECK(!worked);
     }
     CTransaction spend2c(s2);
     ClearInventory(&node);

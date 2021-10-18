@@ -49,7 +49,7 @@ bool bSpendZeroConfChange = DEFAULT_SPEND_ZEROCONF_CHANGE;
 bool fSendFreeTransactions = DEFAULT_SEND_FREE_TRANSACTIONS;
 
 const unsigned int P2PKH_LEN = 34;
-const unsigned int MIN_BYTES_IN_TX = 192;
+const unsigned int MIN_BYTES_IN_TX = 185;
 
 const char *DEFAULT_WALLET_DAT = "wallet.dat";
 
@@ -2619,6 +2619,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient> &vecSend,
             CAmount nFeeNeeded = 0;
             // Estimate base fee from an approx minimum size tx
             nFeeRet = GetMinimumFee(MIN_BYTES_IN_TX, nTxConfirmTarget, mempool);
+
             // Loop until there is enough fee
             while (true)
             {
@@ -2896,7 +2897,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient> &vecSend,
                         return false;
                     }
 
-
                     nFeeNeeded = GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
                     if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded)
                     {
@@ -3121,6 +3121,7 @@ CAmount CWallet::GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarge
         if (nFeeNeeded == 0)
             nFeeNeeded = fallbackFee.GetFee(nTxBytes);
     }
+
     // prevent user from paying a fee below minRelayTxFee or minTxFee
     nFeeNeeded = std::max(nFeeNeeded, GetRequiredFee(nTxBytes));
     // But always obey the maximum

@@ -49,7 +49,7 @@ class WalletTest (BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, 4, bitcoinConfDict, wallets)
 
     def setup_network(self, split=False):
-        self.node_args = [['-usehd=0'], ['-usehd=0'], ['-usehd=0']]
+        self.node_args = [['-usehd=0', '-maxtxfee=1'], ['-usehd=0', '-maxtxfee=1'], ['-usehd=0', '-maxtxfee=1']]
         self.nodes = start_nodes(3, self.options.tmpdir, self.node_args)
         connect_nodes_full(self.nodes)
         self.is_network_split=False
@@ -159,6 +159,7 @@ class WalletTest (BitcoinTestFramework):
         node_2_bal -= Decimal('5')
         assert_equal(self.nodes[2].getbalance(), node_2_bal)
         node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), Decimal('10'), fee_per_byte, count_bytes(self.nodes[2].getrawtransaction(txid)))
+
 
         # Sendmany 2 BTC
         txid = self.nodes[2].sendmany('from1', {address: 2}, 0, "", [])

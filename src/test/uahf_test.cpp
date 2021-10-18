@@ -2,8 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "data/tx_invalid.json.h"
-#include "data/tx_valid.json.h"
 #include "test/test_bitcoin.h"
 
 #include "clientversion.h"
@@ -28,7 +26,7 @@
 
 #include <univalue.h>
 
-BOOST_FIXTURE_TEST_SUITE(uahf_tests, BasicTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(uahf_test, BasicTestingSetup)
 
 // Helper: create two dummy transactions, each with
 // two outputs.  The first has 11 and 50 CENT outputs
@@ -92,7 +90,9 @@ BOOST_AUTO_TEST_CASE(uahf_sighash)
         const CScript &scriptPubKey = dummyTransactions[0].vout[0].scriptPubKey;
         CScript &scriptSigRes = t.vin[0].scriptSig;
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
-        BOOST_CHECK(worked);
+        // The return value will indicate that the signature is not fully valid (because SIGHASH_FORKID is missing)
+        // however it will have been signed correctly and can be used for our testing purpose.
+        BOOST_CHECK(!worked);
         BOOST_CHECK(IsTxProbablyNewSigHash(t) == false);
     }
 

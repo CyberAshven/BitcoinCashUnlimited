@@ -156,17 +156,6 @@ BOOST_AUTO_TEST_CASE(opcodes_random_flags) {
             CheckError(flags, {DER64, {}, pubkeyC}, scriptCHECKDATASIGVERIFY,
                        SCRIPT_ERR_CHECKDATASIGVERIFY);
         }
-
-        // test OP_CHECKMULTISIG/VERIFY
-        // We fail with BADLENGTH no matter what.
-        CheckError(flags, {{}, Zero64_with_hashtype, {1}, pubkeyC, {1}},
-                   scriptCHECKMULTISIG, SCRIPT_ERR_SIG_BADLENGTH);
-        CheckError(flags, {{}, Zero64_with_hashtype, {1}, pubkeyC, {1}},
-                   scriptCHECKMULTISIGVERIFY, SCRIPT_ERR_SIG_BADLENGTH);
-        CheckError(flags, {{}, DER64_with_hashtype, {1}, pubkeyC, {1}},
-                   scriptCHECKMULTISIG, SCRIPT_ERR_SIG_BADLENGTH);
-        CheckError(flags, {{}, DER64_with_hashtype, {1}, pubkeyC, {1}},
-                   scriptCHECKMULTISIGVERIFY, SCRIPT_ERR_SIG_BADLENGTH);
     }
 }
 

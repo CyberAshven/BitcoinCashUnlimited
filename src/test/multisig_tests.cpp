@@ -42,7 +42,7 @@ CScript sign_multisig(const CScript scriptPubKey,
     for (const CKey &key : keys)
     {
         vector<uint8_t> vchSig;
-        BOOST_CHECK(key.SignECDSA(hash, vchSig));
+        BOOST_CHECK(key.SignSchnorr(hash, vchSig));
         vchSig.push_back((uint8_t)SIGHASH_ALL | SIGHASH_FORKID);
         result << vchSig;
     }

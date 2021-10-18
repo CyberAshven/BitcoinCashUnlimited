@@ -8,6 +8,7 @@
 #define BITCOIN_CONSENSUS_CONSENSUS_H
 
 #include "chain.h"
+#include "script/interpreter.h"
 #include "tweak.h"
 #include "uint256.h"
 
@@ -49,6 +50,26 @@ static const unsigned int SMALLEST_MAX_BLOOM_FILTER_SIZE = 36000; // bytes
 
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 static const int COINBASE_MATURITY = 100;
+
+/**
+ * Mandatory script verification flags that all new blocks must comply with for
+ * them to be valid. (but old blocks may not comply with) Currently just P2SH,
+ * but in the future other flags may be added, such as a soft-fork to enforce
+ * strict DER encoding.
+ *
+ * Failing one of these tests may trigger a DoS ban - see CheckInputs() for
+ * details.
+ */
+/* clang-format off */
+static const uint32_t MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH |
+                                                      SCRIPT_VERIFY_STRICTENC |
+                                                      SCRIPT_ENABLE_SIGHASH_FORKID |
+                                                      SCRIPT_VERIFY_LOW_S |
+                                                      SCRIPT_VERIFY_NULLFAIL |
+                                                      SCRIPT_VERIFY_MINIMALDATA |
+                                                      SCRIPT_ENABLE_SCHNORR_MULTISIG;
+/* clang-format on */
+
 
 /**
  * The ratio between the maximum allowable block size and the maximum allowable

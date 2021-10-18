@@ -36,7 +36,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char> &vchSig,
         return false;
 
     uint256 hash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount);
-    if (!key.SignECDSA(hash, vchSig))
+    if (!key.SignSchnorr(hash, vchSig))
         return false;
     vchSig.push_back((unsigned char)nHashType);
     return true;
@@ -354,16 +354,13 @@ bool DummySignatureCreator::CreateSig(std::vector<unsigned char> &vchSig,
     const CScript &scriptCode) const
 {
     // Create a dummy signature that is a valid DER-encoding
-    vchSig.assign(72, '\000');
+    // This is a validly-encoded 64 byte DER sig; also a valid Schnorr encoding.
+    vchSig.assign(65, 0x44);
     vchSig[0] = 0x30;
-    vchSig[1] = 69;
+    vchSig[1] = 0x3e;
     vchSig[2] = 0x02;
-    vchSig[3] = 33;
-    vchSig[4] = 0x01;
-    vchSig[4 + 33] = 0x02;
-    vchSig[5 + 33] = 32;
-    vchSig[6 + 33] = 0x01;
-    vchSig[6 + 33 + 32] = SIGHASH_ALL;
+    vchSig[33] = 0x02;
+    vchSig[64] = SIGHASH_ALL | SIGHASH_FORKID;
     return true;
 }
 

@@ -160,7 +160,7 @@ SLAPI int GetPubKey(unsigned char *keyData, unsigned char *result, unsigned int 
 }
 
 /** Sign data (compatible with OP_CHECKDATASIG) */
-SLAPI int SignData(unsigned char *data,
+SLAPI int SignDataEDCSA(unsigned char *data,
     int datalen,
     unsigned char *secret,
     unsigned char *result,
@@ -171,7 +171,7 @@ SLAPI int SignData(unsigned char *data,
     uint256 hash;
     CSHA256().Write(data, datalen).Finalize(hash.begin());
     std::vector<uint8_t> sig;
-    if (!key.SignSchnorr(hash, sig))
+    if (!key.SignECDSA(hash, sig))
     {
         return 0;
     }
@@ -188,7 +188,7 @@ SLAPI int SignData(unsigned char *data,
     however, it is not necessary to provide the spend script.
     Returns length of returned signature.
 */
-SLAPI int SignTx(unsigned char *txData,
+SLAPI int SignTxECDSA(unsigned char *txData,
     int txbuflen,
     unsigned int inputIdx,
     int64_t inputAmount,
@@ -294,7 +294,7 @@ SLAPI int SignTxSchnorr(unsigned char *txData,
 
     The returned signature will not have a sighashtype byte.
 */
-SLAPI int SignHashSchnorr(const unsigned char *hash,
+SLAPI int SignDataSchnorr(const unsigned char *hash,
     unsigned char *keyData,
     unsigned char *result,
     unsigned int resultLen)

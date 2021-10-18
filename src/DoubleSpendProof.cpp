@@ -116,9 +116,7 @@ public:
         ss << m_spender.lockTime << (int)m_spender.pushData.front().back();
         const uint256 sighash = ss.GetHash();
 
-        if (vchSig.size() == 64)
-            return pubkey.VerifySchnorr(sighash, vchSig);
-        return pubkey.VerifyECDSA(sighash, vchSig);
+        return pubkey.VerifySchnorr(sighash, vchSig);
     }
     bool CheckLockTime(const CScriptNum &) const override { return true; }
     bool CheckSequence(const CScriptNum &) const override { return true; }
