@@ -45,20 +45,16 @@ UniValue GetServicesNames(uint64_t services)
         servicesNames.push_back("GETUTXO");
     if (services & NODE_BLOOM)
         servicesNames.push_back("BLOOM");
-    if (services & NODE_WITNESS)
-        servicesNames.push_back("WITNESS");
     if (services & NODE_XTHIN)
         servicesNames.push_back("XTHIN");
-    if (services & NODE_BITCOIN_CASH)
-        servicesNames.push_back("CASH");
     if (services & NODE_GRAPHENE)
         servicesNames.push_back("GRAPHENE");
-    if (services & NODE_WEAKBLOCKS)
-        servicesNames.push_back("WEAKBLOCKS");
     if (services & NODE_CF)
         servicesNames.push_back("CF");
     if (services & NODE_NETWORK_LIMITED)
         servicesNames.push_back("NETWORK_LIMITED");
+    if (services & NODE_EXTVERSION)
+        servicesNames.push_back("EXTVER");
 
     return servicesNames;
 }

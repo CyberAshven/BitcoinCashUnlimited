@@ -381,35 +381,15 @@ enum
     // but no longer do as of protocol version 70011 (= NO_BLOOM_VERSION)
     NODE_BLOOM = (1 << 2),
 
-    // Indicates that a node can be asked for blocks and transactions including
-    // witness data.
-    // BU: Bitcoin Unlimitd does not support this (added to display connected node services correctly)
-    NODE_WITNESS = (1 << 3),
-
     // NODE_XTHIN means the node supports Xtreme Thinblocks
     // If this is turned off then the node will not service xthin requests nor
     // make xthin requests
     NODE_XTHIN = (1 << 4),
 
-    // NODE_BITCOIN_CASH means the node supports the BCH chain.  This is intended to be just
-    // a temporary service bit until the fork actually happens.  Once the split between BTC
-    // and BCH chain is stable it can be removed.
-    NODE_BITCOIN_CASH = (1 << 5),
-
     // NODE_GRAPHENE means the node supports Graphene blocks
     // If this is turned off then the node will not service graphene requests nor
     // make graphene requests
     NODE_GRAPHENE = (1 << 6),
-
-    // Bits 24-31 are reserved for temporary experiments. Just pick a bit that
-    // isn't getting used, or one not being used much, and notify the
-    // Bitcoin Unlimited devevelopement team. Remember that service bits are just
-    // unauthenticated advertisements, so your code must be robust against
-    // collisions and other cases where nodes may be advertising a service they
-    // do not actually support. Other service bits should be allocated via the
-    // BUIP process.
-
-    NODE_WEAKBLOCKS = (1 << 7),
 
     // NODE_CF indicates the node is capable of serving compact block filters to SPV clients.
     NODE_CF = (1 << 8),
@@ -421,6 +401,14 @@ enum
 
     // indicates if node is using extversion
     NODE_EXTVERSION = (1 << 11),
+
+    // Bits 24-31 are reserved for temporary experiments. Just pick a bit that
+    // isn't getting used, or one not being used much, and notify the
+    // Bitcoin Unlimited devevelopement team. Remember that service bits are just
+    // unauthenticated advertisements, so your code must be robust against
+    // collisions and other cases where nodes may be advertising a service they
+    // do not actually support. Other service bits should be allocated via the
+    // BUIP process.
 };
 
 /** A CService with information about it as peer */

@@ -1099,8 +1099,6 @@ bool AppInit2(Config &config)
         nLocalServices |= NODE_GRAPHENE;
     // BUIPXXX Graphene Blocks: end section
 
-    // BitcoinCash service bit
-    nLocalServices |= NODE_BITCOIN_CASH;
     // we use extversion by default
     if (GetBoolArg("-use-extversion", DEFAULT_USE_EXTVERSION))
         nLocalServices |= NODE_EXTVERSION;
