@@ -649,7 +649,7 @@ UniValue signdata(const UniValue &params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid message format");
     }
     std::vector<uint8_t> sig;
-    key.SignECDSA(hash, sig);
+    key.SignSchnorr(hash, sig);
     if (sig.empty())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Sign failed");
     if (verbose)

@@ -507,14 +507,14 @@ static bool CheckTransactionECDSASignatureEncoding(const valtype &vchSig, uint32
 }
 
 /**
- * Check that the signature provided to authentify a transaction is properly
+ * Check that the signature provided to authenticate a transaction is properly
  * encoded Schnorr signature (or null). Signatures passed to the new-mode
  * OP_CHECKMULTISIG and its verify variant must be checked using this function.
  */
 static bool CheckTransactionSchnorrSignatureEncoding(const valtype &vchSig, uint32_t flags, ScriptError *serror)
 {
-    // Insist that this sig is Schnorr
-    if (vchSig.size() != 65)
+    // Insist that this sig is Schnorr (64-byte signatures + 1 sighash type bit), or null (1 sighash type bit)
+    if (vchSig.size() != 65 && vchSig.size() != 1)
         return set_error(serror, SCRIPT_ERR_SIG_NONSCHNORR);
     return CheckSignatureEncodingSigHashChoice(vchSig, flags, serror, true);
 }
@@ -1664,7 +1664,6 @@ bool ScriptMachine::Step()
 
                     // Assuming success is usually a bad idea, but the schnorr path can only succeed.
                     bool fSuccess = true;
-
                     if ((flags & SCRIPT_ENABLE_SCHNORR_MULTISIG) && stacktop(-idxDummy).size() != 0)
                     {
                         stats.consensusSigCheckCount += nSigsCount; // 2020-05-15 sigchecks consensus rule
@@ -1784,7 +1783,7 @@ bool ScriptMachine::Step()
                             // Note how this makes the exact order of pubkey/signature evaluation distinguishable
                             // by CHECKMULTISIG NOT if the STRICTENC flag is set. See the script_(in)valid tests for
                             // details.
-                            if (!CheckTransactionECDSASignatureEncoding(vchSig, flags, serror) ||
+                            if (!CheckTransactionSchnorrSignatureEncoding(vchSig, flags, serror) ||
                                 !CheckPubKeyEncoding(vchPubKey, flags, serror))
                             {
                                 // serror is set

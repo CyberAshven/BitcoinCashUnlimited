@@ -1098,10 +1098,10 @@ bool CheckInputs(const CTransactionRef &tx,
             pvChecks->reserve(tx->vin.size());
 
         // The first loop above does all the inexpensive checks.
-        // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+        // Only if ALL inputs pass do we perform expensive signature checks.
         // Helps prevent CPU exhaustion attacks.
 
-        // Skip ECDSA signature verification when connecting blocks before the
+        // Skip signature verification when connecting blocks before the
         // last block chain checkpoint. Assuming the checkpoints are valid this
         // is safe because block merkle hashes are still computed and checked,
         // and any change will be caught at the next checkpoint. Of course, if

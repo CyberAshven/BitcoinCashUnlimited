@@ -33,25 +33,6 @@ static const unsigned int MAX_OP_RETURN_RELAY = 223; //! bytes (+1 for OP_RETURN
 extern bool fAcceptDatacarrier;
 extern unsigned nMaxDatacarrierBytes;
 
-/**
- * Mandatory script verification flags that all new blocks must comply with for
- * them to be valid. (but old blocks may not comply with) Currently just P2SH,
- * but in the future other flags may be added, such as a soft-fork to enforce
- * strict DER encoding.
- *
- * Failing one of these tests may trigger a DoS ban - see CheckInputs() for
- * details.
- */
-/* clang-format off */
-static const uint32_t MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH |
-                                                      SCRIPT_VERIFY_STRICTENC |
-                                                      SCRIPT_ENABLE_SIGHASH_FORKID |
-                                                      SCRIPT_VERIFY_LOW_S |
-                                                      SCRIPT_VERIFY_NULLFAIL |
-                                                      SCRIPT_VERIFY_MINIMALDATA |
-                                                      SCRIPT_ENABLE_SCHNORR_MULTISIG;
-/* clang-format on */
-
 enum txnouttype
 {
     TX_NONSTANDARD,

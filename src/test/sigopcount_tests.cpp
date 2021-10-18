@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript scriptPubKey = CScript() << 1 << ToByteVector(pubkey) << ToByteVector(pubkey) << 2
                                          << OP_CHECKMULTISIGVERIFY;
         // Do not use a valid signature to avoid using wallet operations.
-        CScript scriptSig = CScript() << OP_0 << OP_0;
+        CScript scriptSig = CScript() << OP_0 << OP_1;
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
 
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript redeemScript = CScript() << 1 << ToByteVector(pubkey) << ToByteVector(pubkey) << 2
                                          << OP_CHECKMULTISIGVERIFY;
         CScript scriptPubKey = GetScriptForDestination(CScriptID(redeemScript));
-        CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
+        CScript scriptSig = CScript() << OP_0 << OP_1 << ToByteVector(redeemScript);
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
         BOOST_CHECK_EQUAL(GetTransactionSigOpCount(MakeTransactionRef(CTransaction(spendingTx)), coins, flags), 2);
@@ -364,7 +364,7 @@ CScript sign_multisig(const CScript &scriptPubKey, std::vector<CKey> keys, const
     for (const CKey &key : keys)
     {
         vector<unsigned char> vchSig;
-        BOOST_CHECK(key.SignECDSA(hash, vchSig));
+        BOOST_CHECK(key.SignSchnorr(hash, vchSig));
         vchSig.push_back(sighashType);
         result << vchSig;
     }
@@ -405,9 +405,8 @@ BOOST_AUTO_TEST_CASE(consensusSigCheck)
         CMutableTransaction txTo12 = BuildSpendingTransaction(CScript(), txFrom12);
 
         CScript goodsig1 = sign_multisig(scriptPubKey12, key1, CTransaction(txTo12), txFrom12.vout[0].nValue);
-
         sigchecks = evalForSigChecks(goodsig1, scriptPubKey12, flags);
-        BOOST_CHECK(sigchecks == 2); // ECDSA multisig sigchecks is N in a M-of-N sig
+        BOOST_CHECK(sigchecks == 2); // Schnorr multisig sigchecks is N in a M-of-N sig
     }
 
     {
@@ -421,9 +420,9 @@ BOOST_AUTO_TEST_CASE(consensusSigCheck)
     {
         CScript constraint = CScript() << OP_2 << ToByteVector(key1.GetPubKey()) << ToByteVector(key2.GetPubKey())
                                        << ToByteVector(key3.GetPubKey()) << OP_3 << OP_CHECKMULTISIG << OP_DROP << OP_1;
-        CScript satisfier = CScript() << OP_0 << OP_0 << OP_0;
+        CScript satisfier = CScript() << OP_3 << fakeSchnorrSig << fakeSchnorrSig;
         sigchecks = evalForSigChecks(satisfier, constraint, flags);
-        BOOST_CHECK(sigchecks == 0);
+        BOOST_CHECK(sigchecks == 2); // Schnorr multisig sigchecks is M in a M-of-N sig
     }
 
     { // CHECKSIG is 1

@@ -13,12 +13,12 @@ SLAPI int Bin2Hex(unsigned char *val, int length, char *result, unsigned int res
 /** Given a private key, return its corresponding public key */
 SLAPI int GetPubKey(unsigned char *keyData, unsigned char *result, unsigned int resultLen);
 
-/** Sign one input of a transaction
+/** Sign one input of a transaction using an ECDSA signature
     All buffer arguments should be in binary-serialized data.
     The transaction (txData) must contain the COutPoint (tx hash and vout) of all relevant inputs,
     however, it is not necessary to provide the spend script.
 */
-SLAPI int SignTx(unsigned char *txData,
+SLAPI int SignTxECDSA(unsigned char *txData,
     int txbuflen,
     unsigned int inputIdx,
     int64_t inputAmount,
@@ -28,6 +28,37 @@ SLAPI int SignTx(unsigned char *txData,
     unsigned char *keyData,
     unsigned char *result,
                       unsigned int resultLen);
+
+/** Sign one input of a transaction using a Schnorr signature
+    All buffer arguments should be in binary-serialized data.
+    The transaction (txData) must contain the COutPoint (tx hash and vout) of all relevant inputs,
+    however, it is not necessary to provide the spend script.
+*/
+SLAPI int SignTxSchnorr(unsigned char *txData,
+    int txbuflen,
+    unsigned int inputIdx,
+    int64_t inputAmount,
+    unsigned char *prevoutScript,
+    uint32_t priorScriptLen,
+    uint32_t nHashType,
+    unsigned char *keyData,
+    unsigned char *result,
+                      unsigned int resultLen);
+
+/* Sign some data using an ECDSA signature */
+SLAPI int SignDataECDSA(const unsigned char *hash,
+    unsigned char *keyData,
+    unsigned char *result,
+    unsigned int resultLen);
+
+
+
+/* Sign some data using a Shnorr signature */
+SLAPI int SignDataSchnorr(const unsigned char *hash,
+    unsigned char *keyData,
+    unsigned char *result,
+    unsigned int resultLen);
+
 
 /** Calculates the sha256 of data, and places it in result.  Result must be 32 bytes */
 SLAPI void sha256(const unsigned char* data, unsigned char len, unsigned char* result);

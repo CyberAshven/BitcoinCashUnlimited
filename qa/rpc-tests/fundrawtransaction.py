@@ -39,8 +39,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         # The size of the signature of every input may be at most 2 bytes larger
         # than a minimum sized signature.
 
-        #            = 2 bytes * minRelayTxFeePerByte
-        feeTolerance = 2 * min_relay_tx_fee/1000
+        #      Legacy = 2 bytes * minRelayTxFeePerByte, but with Schnorr sigs which are all 64 bytes the
+        #      estimated fee calculation will always be accurate and we therefore no longer need a feetolerance.
+        #      We leave feeTolerance here for historical purposes.
+        feeTolerance = 0 * min_relay_tx_fee/1000
         if feeTolerance < 0.00000001:
             feeTolerance = 0.00000001
 
@@ -359,14 +361,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         outputs = {self.nodes[1].getnewaddress():1.1}
         rawTx = self.nodes[0].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[0].fundrawtransaction(rawTx)
-
         #create same transaction over sendtoaddress
         txId = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1.1)
         signedFee = self.nodes[0].getrawmempool(True)[txId]['fee']
 
         #compare fee
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert(feeDelta >= 0 and feeDelta <= feeTolerance)
+        assert(feeDelta >= 0)
+        assert(feeDelta <= feeTolerance)
         ############################################################
 
         ############################################################

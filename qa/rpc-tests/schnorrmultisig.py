@@ -26,6 +26,7 @@ from test_framework.nodemessages import (
     CTxOut,
     FromHex,
     ToHex,
+    msg_tx,
 )
 from test_framework.mininode import (
     P2PDataStore,
@@ -196,7 +197,7 @@ class SchnorrMultisigTest(BitcoinTestFramework):
 
             return txspend
 
-        # This is valid.
+        # This is invalid.
         ecdsa0tx = create_fund_and_spend_tx(OP_0, 'ecdsa')
 
         # This is invalid.
@@ -211,38 +212,20 @@ class SchnorrMultisigTest(BitcoinTestFramework):
         tip = self.build_block(tip, fundings)
         self.p2p.send_blocks_and_test([tip], node)
 
-        logging.info("Send a legacy ECDSA multisig into mempool.")
-        self.p2p.send_txs_and_test([ecdsa0tx], node)
-        waitFor(10, lambda: node.getrawmempool() == [ecdsa0tx.hash])
-
-        logging.info("Trying to mine a non-null-dummy ECDSA.")
-        self.check_for_ban_on_rejected_block(
-            self.build_block(tip, [ecdsa1tx]), BADINPUTS_ERROR)
-        logging.info(
-            "If we try to submit it by mempool or RPC, it is rejected and we are banned")
-        assert_raises_rpc_error(-26, ECDSA_NULLDUMMY_ERROR, node.sendrawtransaction, ToHex(ecdsa1tx))
-        self.check_for_ban_on_rejected_tx(ecdsa1tx, ECDSA_NULLDUMMY_ERROR)
-
         logging.info(
             "Submitting a Schnorr-multisig via net, and mining it in a block")
         self.p2p.send_txs_and_test([schnorr1tx], node)
-        waitFor(10, lambda: set(node.getrawmempool()) == {ecdsa0tx.hash, schnorr1tx.hash})
+        waitFor(10, lambda: set(node.getrawmempool()) == {schnorr1tx.hash})
         tip = self.build_block(tip, [schnorr1tx])
-        self.p2p.send_blocks_and_test([tip], node)
-
-        logging.info(
-            "That legacy ECDSA multisig is still in mempool, let's mine it")
-        waitFor(10, lambda: node.getrawmempool() == [ecdsa0tx.hash])
-        tip = self.build_block(tip, [ecdsa0tx])
         self.p2p.send_blocks_and_test([tip], node)
         waitFor(10, lambda: node.getrawmempool() == [])
 
-        logging.info(
-            "Trying Schnorr in legacy multisig is invalid and banworthy.")
-        self.check_for_ban_on_rejected_tx(
-            schnorr0tx, SCHNORR_LEGACY_MULTISIG_ERROR)
-        self.check_for_ban_on_rejected_block(
-            self.build_block(tip, [schnorr0tx]), BADINPUTS_ERROR)
+        # This should no longer work since ECDSA is not allowed in the mempool
+        logging.info("Try to send a legacy ECDSA multisig into mempool.")
+        self.p2p.send_message(msg_tx(ecdsa0tx))
+        self.p2p.send_message(msg_tx(ecdsa1tx))
+        assert_equal(node.getmempoolinfo()["size"], 0)
+
 
 if __name__ == '__main__':
     SchnorrMultisigTest().main()
