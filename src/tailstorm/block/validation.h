@@ -15,6 +15,7 @@
 #include "txdebugger.h"
 #include "txmempool.h"
 #include "validation/forks.h"
+#include "validation/validation.h"
 #include "versionbits.h"
 
 class CNode;
@@ -54,11 +55,16 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
     const CChainParams &chainparams,
     bool fJustCheck = false);
 
-/** disconnects pIndexDelete, WHICH MUST BE THE CHAIN TIP from the blockchain, unwinding and resubmitting txs to 
+/** disconnects pIndexDelete, WHICH MUST BE THE CHAIN TIP from the blockchain, unwinding and resubmitting txs to
 the blockchain */
-bool DisconnectTailstormTip(CValidationState &state, const CBlockIndex *pindexDelete, const Consensus::Params &consensusParams, const bool fRollBack);
+bool DisconnectTailstormTip(CValidationState &state,
+    const CBlockIndex *pindexDelete,
+    const Consensus::Params &consensusParams,
+    const bool fRollBack);
 
-DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CBlockIndex *pindex, CCoinsViewCache &view);
+DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block,
+    const CBlockIndex *pindex,
+    CCoinsViewCache &view);
 
 /**
  * Process an incoming block. This only returns after the best known valid
@@ -79,10 +85,10 @@ DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CB
  * @return True if state.IsValid()
  */
 
- bool ActivateBestChainTailstorm(CValidationState &state,
-     const CChainParams &chainparams,
-     const CTailstormBlock *pblock = nullptr,
-     CNode *pfrom = nullptr);
+bool ActivateBestChainTailstorm(CValidationState &state,
+    const CChainParams &chainparams,
+    const CTailstormBlock *pblock = nullptr,
+    CNode *pfrom = nullptr);
 
 bool ProcessNewTailstormBlock(CValidationState &state,
     const CChainParams &chainparams,

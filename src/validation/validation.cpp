@@ -215,7 +215,7 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
     }
 
     // Check proof of work
-    uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, &block, consensusParams);
+    uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, block.GetBlockTime(), consensusParams);
     if (block.nBits != expectedNbits)
     {
         return state.DoS(100,

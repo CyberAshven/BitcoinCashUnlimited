@@ -154,6 +154,11 @@ bool ConnectBlock(const CBlock &block,
     bool fJustCheck = false,
     bool fParallel = false);
 
+void InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state);
+
+/** Update chainActive and related internal data structures. */
+void UpdateTip(CBlockIndex *pindexNew);
+
 /** Disconnect the current chainActive.Tip() */
 bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack = false);
 

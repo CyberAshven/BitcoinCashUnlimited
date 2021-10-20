@@ -620,7 +620,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             txFirst.push_back(pblock->vtx[0]);
 
         pblock->height = tip->height() + 1;
-        pblock->nBits = GetNextWorkRequired(tip, pblock, chainparams.GetConsensus());
+        pblock->nBits = GetNextWorkRequired(tip, pblock->GetBlockTime(), chainparams.GetConsensus());
         pblock->chainWork = ArithToUint256(tip->chainWork() + GetWorkForDifficultyBits(pblock->nBits));
         pblock->txCount = 1;
 

@@ -199,6 +199,7 @@ BITCOIN_CORE_H = \
   pow.h \
   protocol.h \
   random.h \
+  rank_items.h \
   reverse_iterator.h \
   reverselock.h \
   rpc/blockchain.h \
@@ -224,6 +225,17 @@ BITCOIN_CORE_H = \
   support/cleanse.h \
   support/pagelocker.h \
   sync.h \
+  tailstorm/dag.h \
+  tailstorm/pow.h \
+  tailstorm/tailstorm.h \
+  tailstorm/block/block.h \
+  tailstorm/block/miner.h \
+  tailstorm/block/merkletailblock.h \
+  tailstorm/block/validation.h \
+  tailstorm/subblock/subblock.h \
+  tailstorm/subblock/miner.h \
+  tailstorm/subblock/merklesubblock.h \
+  tailstorm/subblock/validation.h \
   threadgroup.h \
   threadsafety.h \
   timedata.h \
@@ -322,6 +334,7 @@ libbitcoin_server_a_SOURCES = \
   policy/fees.cpp \
   policy/policy.cpp \
   pow.cpp \
+  rank_items.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
   rpc/client.cpp \
@@ -331,12 +344,23 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  rpc/tailstorm.cpp \
   respend/respendlogger.cpp \
   respend/respendrelayer.cpp \
   respend/respenddetector.cpp \
   script/sigcache.cpp \
   script/ismine.cpp \
   script/scriptattributes.cpp \
+  tailstorm/dag.cpp \
+  tailstorm/pow.cpp \
+  tailstorm/block/block.cpp \
+  tailstorm/block/miner.cpp \
+  tailstorm/block/merkletailblock.cpp \
+  tailstorm/block/validation.cpp \
+  tailstorm/subblock/subblock.cpp \
+  tailstorm/subblock/miner.cpp \
+  tailstorm/subblock/merklesubblock.cpp \
+  tailstorm/subblock/validation.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txadmission.cpp \

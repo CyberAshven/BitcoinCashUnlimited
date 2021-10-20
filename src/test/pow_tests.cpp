@@ -167,13 +167,13 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     blocks[1] = GetBlockIndex(&blocks[0], 150, initialBits);
     // The nBits for the next block should not be equal to the anchor block's nBits
     CBlockHeader blkHeaderDummy;
-    uint32_t nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    uint32_t nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr);
     BOOST_CHECK(nBits != initialBits);
 
     // If we add another block at 1050 seconds, we should return to the anchor block's nBits
     blocks[i] = GetBlockIndex(&blocks[i - 1], 1050, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(nBits == initialBits);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr);
 
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     // Before we do anything else, check that timestamps *before* the anchor block work fine.
     // Jumping 2 days into the past will give a timestamp before the achnor, and should halve the target
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 - 172800, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     currentPow = arith_uint256().SetCompact(nBits);
     // Because nBits truncates target, we don't end up with exactly 1/2 the target
     BOOST_CHECK(currentPow <= arith_uint256().SetCompact(initialBits) / 2);
@@ -190,7 +190,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
 
     // Jumping forward 2 days should return the target to the initial value
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 + 172800, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     currentPow = arith_uint256().SetCompact(nBits);
     BOOST_CHECK(nBits == initialBits);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr);
@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
         BOOST_CHECK_EQUAL(blocks[i].tgtBits(), nBits);
     }
 
-    nBits = GetNextASERTWorkRequired(&blocks[i - 1], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i - 1], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
 
     BOOST_CHECK_EQUAL(nBits, initialBits);
 
@@ -210,18 +210,18 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     for (size_t j = 0; j < 10; i++, j++)
     {
         blocks[i] = GetBlockIndex(&blocks[i - 1], 600, nBits);
-        BOOST_CHECK_EQUAL(GetNextASERTWorkRequired(&blocks[i], &blkHeaderDummy, params, &blocks[1]), nBits);
+        BOOST_CHECK_EQUAL(GetNextASERTWorkRequired(&blocks[i], blkHeaderDummy.GetBlockTime(), params, &blocks[1]), nBits);
     }
 
     // If we add a two blocks whose solvetimes together add up to 1200s,
     // then the next block's target should be the same as the one before these blocks
     // (at this point, equal to initialBits).
     blocks[i] = GetBlockIndex(&blocks[i - 1], 300, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     blocks[i] = GetBlockIndex(&blocks[i - 1], 900, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     BOOST_CHECK_EQUAL(nBits, initialBits);
@@ -229,11 +229,11 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
 
     // Same in reverse - this time slower block first, followed by faster block.
     blocks[i] = GetBlockIndex(&blocks[i - 1], 900, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     blocks[i] = GetBlockIndex(&blocks[i - 1], 300, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     BOOST_CHECK_EQUAL(nBits, initialBits);
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
 
     // Jumping forward 2 days should double the target (halve the difficulty)
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 + 2 * 24 * 3600, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     currentPow = arith_uint256().SetCompact(nBits) / 2;
@@ -249,14 +249,14 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
 
     // Jumping backward 2 days should bring target back to where we started
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 - 2 * 24 * 3600, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     BOOST_CHECK_EQUAL(nBits, initialBits);
 
     // Jumping backward 2 days should halve the target (double the difficulty)
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 - 2 * 24 * 3600, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     currentPow = arith_uint256().SetCompact(nBits);
@@ -266,12 +266,12 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
 
     // And forward again
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 + 2 * 24 * 3600, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     BOOST_CHECK_EQUAL(nBits, initialBits);
     blocks[i] = GetBlockIndex(&blocks[i - 1], 600 + 2 * 24 * 3600, nBits);
-    nBits = GetNextASERTWorkRequired(&blocks[i++], &blkHeaderDummy, params, &blocks[1]);
+    nBits = GetNextASERTWorkRequired(&blocks[i++], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[1])) < dMaxErr); // absolute
     BOOST_CHECK(fabs(GetASERTApproximationError(&blocks[i - 1], nBits, &blocks[i - 2])) < dMaxErr); // relative
     currentPow = arith_uint256().SetCompact(nBits) / 2;
@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
     for (size_t j = 0; j < 4 * 24 * 3600 + 660; j++)
     {
         blocks[i].header.nTime++;
-        nBits = GetNextASERTWorkRequired(&blocks[i], &blkHeaderDummy, params, &blocks[1]);
+        nBits = GetNextASERTWorkRequired(&blocks[i], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
 
         if (j > 8)
         {
@@ -348,7 +348,7 @@ BOOST_AUTO_TEST_CASE(asert_difficulty_test)
         currentTarget.SetCompact(nBits);
 
         blocks[i] = GetBlockIndex(&blocks[i - 1], 500, nBits);
-        nextBits = GetNextASERTWorkRequired(&blocks[i], &blkHeaderDummy, params, &blocks[1]);
+        nextBits = GetNextASERTWorkRequired(&blocks[i], blkHeaderDummy.GetBlockTime(), params, &blocks[1]);
         arith_uint256 nextTarget;
         nextTarget.SetCompact(nextBits);
 
@@ -579,7 +579,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // If we consult DAA, then it uses cw144 which returns a significantly lower target because
     // we have been mining too fast by a ratio 600/500 for a whole day.
     BOOST_CHECK(!IsNov2020Activated(params, pindexPreActivation));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(pindexPreActivation, &blkHeaderDummy, params), 0x180236e1);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(pindexPreActivation, blkHeaderDummy.GetBlockTime(), params), 0x180236e1);
 
     // ASERT has never run yet, so cache is unpopulated.
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), nullptr);
@@ -593,10 +593,10 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // saw. Since solvetime is expected the next target is unchanged.
     CBlockIndex indexActivation0 = GetBlockIndex(pindexPreActivation, 600, 0x180236e1);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation0));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, &blkHeaderDummy, params), 0x180236e1);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, blkHeaderDummy.GetBlockTime(), params), 0x180236e1);
     // second call will have used anchor cache, shouldn't change anything
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation0);
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, &blkHeaderDummy, params), 0x180236e1);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation0, blkHeaderDummy.GetBlockTime(), params), 0x180236e1);
 
     // Now we'll generate some more activations/anchors, using unique targets for each one
     // (if the algo gets confused between different anchors, we will know).
@@ -605,32 +605,32 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     CBlockIndex indexActivation1 = GetBlockIndex(pindexPreActivation, 0, 0x18023456);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation1));
     // cache will be stale here, and we should get the right result regardless:
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation1, &blkHeaderDummy, params), 0x180232fd);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation1, blkHeaderDummy.GetBlockTime(), params), 0x180232fd);
     // second call will have used anchor cache, shouldn't change anything
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation1);
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation1, &blkHeaderDummy, params), 0x180232fd);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation1, blkHeaderDummy.GetBlockTime(), params), 0x180232fd);
     // for good measure, try again with wiped cache
     ResetASERTAnchorBlockCache();
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation1, &blkHeaderDummy, params), 0x180232fd);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation1, blkHeaderDummy.GetBlockTime(), params), 0x180232fd);
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation1);
 
     // Try activation with expected solvetime, which will keep target the same.
     uint32_t anchorBits2 = 0x180210fe;
     CBlockIndex indexActivation2 = GetBlockIndex(pindexPreActivation, 600, anchorBits2);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation2));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation2, &blkHeaderDummy, params), anchorBits2);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation2, blkHeaderDummy.GetBlockTime(), params), anchorBits2);
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation2);
 
     // Try a three-month solvetime which will cause us to hit powLimit.
     uint32_t anchorBits3 = 0x18034567;
     CBlockIndex indexActivation3 = GetBlockIndex(pindexPreActivation, 86400 * 90, anchorBits3);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation2));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3, &blkHeaderDummy, params), 0x1d00ffff);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3, blkHeaderDummy.GetBlockTime(), params), 0x1d00ffff);
     // If the next block jumps back in time, we get back our original difficulty level.
     CBlockIndex indexActivation3_return = GetBlockIndex(&indexActivation3, -86400 * 90 + 2 * 600, anchorBits3);
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3_return, &blkHeaderDummy, params), anchorBits3);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3_return, blkHeaderDummy.GetBlockTime(), params), anchorBits3);
     // Retry for cache
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3_return, &blkHeaderDummy, params), anchorBits3);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation3_return, blkHeaderDummy.GetBlockTime(), params), anchorBits3);
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation3);
 
     // Make an activation with MTP == activation exactly. This is a backwards timestamp jump
@@ -639,7 +639,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     indexActivation4.header.nTime = activationTime;
     BOOST_CHECK_EQUAL(indexActivation4.GetMedianTimePast(), activationTime);
     BOOST_CHECK(IsNov2020Activated(params, &indexActivation4));
-    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation4, &blkHeaderDummy, params), 0x18010db3);
+    BOOST_CHECK_EQUAL(GetNextWorkRequired(&indexActivation4, blkHeaderDummy.GetBlockTime(), params), 0x18010db3);
     BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation4);
 
     // Finally create a random chain on top of our second activation, using ASERT targets all the way.
@@ -650,7 +650,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     {
         BOOST_REQUIRE(bidx < int(blocks.size()));
         ResetASERTAnchorBlockCache();
-        uint32_t nextBits = GetNextWorkRequired(pindexChain2, &blkHeaderDummy, params);
+        uint32_t nextBits = GetNextWorkRequired(pindexChain2, blkHeaderDummy.GetBlockTime(), params);
         BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation2);
         blocks[bidx] = GetBlockIndex(pindexChain2, InsecureRandRange(1200), nextBits);
         pindexChain2 = &blocks[bidx++];
@@ -658,7 +658,7 @@ BOOST_AUTO_TEST_CASE(asert_activation_anchor_test)
     // Scan back down to make sure all targets are same when we keep cached anchor.
     for (CBlockIndex *pindex = pindexChain2; pindex != &indexActivation2; pindex = pindex->pprev)
     {
-        uint32_t nextBits = GetNextWorkRequired(pindex->pprev, &blkHeaderDummy, params);
+        uint32_t nextBits = GetNextWorkRequired(pindex->pprev, blkHeaderDummy.GetBlockTime(), params);
         BOOST_CHECK_EQUAL(nextBits, pindex->tgtBits());
         BOOST_CHECK_EQUAL(GetASERTAnchorBlockCache(), &indexActivation2);
     }

@@ -12,10 +12,7 @@
 
 uint256 CSubBlockHeader::GetHash() const { return SerializeHash(*this); }
 
-uint64_t CSubBlock::GetBlockSize() const
-{
-    return ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-}
+uint64_t CSubBlock::GetBlockSize() const { return ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION); }
 
 void CSubBlock::SetNull()
 {
@@ -23,10 +20,7 @@ void CSubBlock::SetNull()
     vtx.clear();
 }
 
-bool CSubBlock::IsNull() const
-{
-    return (vtx.empty() && CSubBlockHeader::IsNull());
-}
+bool CSubBlock::IsNull() const { return (vtx.empty() && CSubBlockHeader::IsNull()); }
 
 CSubBlockHeader CSubBlock::GetBlockHeader() const
 {

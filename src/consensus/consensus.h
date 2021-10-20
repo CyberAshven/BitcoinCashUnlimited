@@ -51,6 +51,8 @@ static const unsigned int SMALLEST_MAX_BLOOM_FILTER_SIZE = 36000; // bytes
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 static const int COINBASE_MATURITY = 100;
 
+static const unsigned int TAILSTORM_K = 3;
+
 /**
  * Mandatory script verification flags that all new blocks must comply with for
  * them to be valid. (but old blocks may not comply with) Currently just P2SH,

@@ -26,6 +26,7 @@
 #include "init.h"
 #include "leakybucket.h"
 #include "miner.h"
+#include "miner_common.h"
 #include "net.h"
 #include "policy/policy.h"
 #include "primitives/block.h"
@@ -61,7 +62,6 @@ extern void AlertNotify(const std::string &strMessage);
 
 using namespace std;
 
-extern CTxMemPool mempool; // from main.cpp
 static atomic<uint64_t> nLargestBlockSeen{ONE_MEGABYTE}; // track the largest block we've seen
 static atomic<bool> fIsChainNearlySyncd{false};
 

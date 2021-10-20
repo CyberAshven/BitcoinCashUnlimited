@@ -359,6 +359,16 @@ extern const char *REQTXVAL;
  * A p2p message for the validaterawtransaction rpc response
  */
 extern const char *RESTXVAL;
+
+/**
+ * Contains a subblock
+ */
+extern const char *SUBBLOCK;
+
+/**
+ * Contains a tailstormblock
+ */
+extern const char *TAILSTORMBLOCK;
 }; // namespace NetMsgType
 
 
@@ -491,7 +501,10 @@ enum
     // message, which solves the conflict with MSG_THINBLOCK and MSG_CMPCT_BLOCK.
     MSG_THINBLOCK = MSG_CMPCT_BLOCK,
 
-    MSG_DOUBLESPENDPROOF = 7
+    MSG_DOUBLESPENDPROOF = 7,
+
+    MSG_SUBBLOCK = 8,
+    MSG_TAILSTORMBLOCK = 9
 };
 
 #endif // BITCOIN_PROTOCOL_H

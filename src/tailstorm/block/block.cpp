@@ -15,10 +15,7 @@
 struct TxEncodeHashComparator
 {
 public:
-    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const
-    {
-        return a->GetHash() < b->GetHash();
-    }
+    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetHash() < b->GetHash(); }
 };
 
 void CTailstormBlock::UpdateTxLists()
@@ -37,7 +34,7 @@ void CTailstormBlock::UpdateTxLists()
     // insert unique txs (first index reserved for coinbase)
     vtx.resize(allTxRefs.size() + 1);
     uint64_t idx = 1;
-    for (auto &pair: allTxRefs)
+    for (auto &pair : allTxRefs)
     {
         vtx[idx] = pair.second;
         idx++;
@@ -45,11 +42,11 @@ void CTailstormBlock::UpdateTxLists()
     std::sort(vtx.begin() + 1, vtx.end(), TxEncodeHashComparator());
 
     std::vector<int> idxs(vtx.size());
-    std::iota (std::begin(idxs), std::end(idxs), 0);
+    std::iota(std::begin(idxs), std::end(idxs), 0);
 
     // populate index map
     std::map<uint256, uint64_t> txHashToIndex;
-    for (uint64_t i=0; i < vtx.size(); i++)
+    for (uint64_t i = 0; i < vtx.size(); i++)
     {
         txHashToIndex[vtx[i]->GetHash()] = i;
     }
@@ -76,7 +73,7 @@ std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > CT
 
     // populate index map
     std::unordered_map<uint64_t, CTransactionRef> indexToTxRef;
-    for (uint64_t i=0; i < vtx.size(); i++)
+    for (uint64_t i = 0; i < vtx.size(); i++)
     {
         indexToTxRef[i] = vtx[i];
     }

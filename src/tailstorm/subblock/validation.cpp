@@ -3,9 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 // tailstorm file includes
+#include "validation.h"
 #include "tailstorm/dag.h"
 #include "tailstorm/pow.h"
-#include "validation.h"
 
 // other bitcoin includes
 #include "blockrelay/blockrelay_common.h"
@@ -87,7 +87,8 @@ bool CheckSubBlock(const CSubBlock &subblock, CValidationState &state, bool fChe
     {
         if (subblock.vtx[i]->IsCoinBase())
         {
-            return state.DoS(100, error("CheckSubBlock(): subblock contains a coinbase"), REJECT_INVALID, "bad-cb-contains");
+            return state.DoS(
+                100, error("CheckSubBlock(): subblock contains a coinbase"), REJECT_INVALID, "bad-cb-contains");
         }
     }
     // Check transactions
@@ -104,7 +105,7 @@ bool CheckSubBlock(const CSubBlock &subblock, CValidationState &state, bool fChe
 
 bool ContextualCheckSubBlock(const CSubBlock &block, CValidationState &state, CBlockIndex *const pindexPrev)
 {
-    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
+    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->height() + 1;
     const Consensus::Params &consensusParams = Params().GetConsensus();
     // Start enforcing BIP113 (Median Time Past)
     int nLockTimeFlags = 0;
@@ -179,12 +180,12 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
     }
     if (CheckSubBlock(subblock, state, true, true))
     {
-
         auto mtp = chainActive.Tip()->GetMedianTimePast();
 
         if (subblock.GetBlockTime() < mtp)
         {
-            LOG(NET, "Subblock %s is retired (time %d < %d)\n", subblock.GetHash().GetHex(), subblock.GetBlockTime(), mtp);
+            LOG(NET, "Subblock %s is retired (time %d < %d)\n", subblock.GetHash().GetHex(), subblock.GetBlockTime(),
+                mtp);
             return true; // The subblock is fine, but we've already moved on
         }
 

@@ -126,7 +126,6 @@ struct BlockHasher
 };
 
 extern CCriticalSection cs_main;
-extern CTxMemPool mempool;
 typedef std::unordered_map<uint256, CBlockIndex *, BlockHasher> BlockMap;
 extern CSharedCriticalSection cs_mapBlockIndex;
 extern BlockMap mapBlockIndex;

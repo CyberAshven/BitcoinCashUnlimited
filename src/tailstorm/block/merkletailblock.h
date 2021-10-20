@@ -7,10 +7,10 @@
 #ifndef BITCOIN_TAILSTORM_BLOCK_MERKLETAILBLOCK_H
 #define BITCOIN_TAILSTORM_BLOCK_MERKLETAILBLOCK_H
 
+#include "block.h"
 #include "bloom.h"
 #include "merkleblock.h"
 #include "serialize.h"
-#include "block.h"
 #include "tailstorm/subblock/merklesubblock.h"
 #include "uint256.h"
 
@@ -33,7 +33,7 @@ public:
 
     /** Create from a CBlock, matching the txids in the set
      */
-   CMerkleTailBlock(const CTailstormBlock &block, const std::set<uint256> &txids);
+    CMerkleTailBlock(const CTailstormBlock &block, const std::set<uint256> &txids);
 
     CMerkleTailBlock() {}
     ADD_SERIALIZE_METHODS;

@@ -4,9 +4,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "merklesubblock.h"
 #include "consensus/consensus.h"
 #include "hashwrapper.h"
-#include "merklesubblock.h"
 #include "utilstrencodings.h"
 
 using namespace std;

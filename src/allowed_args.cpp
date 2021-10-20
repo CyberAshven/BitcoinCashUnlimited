@@ -14,6 +14,7 @@
 #include "init.h"
 #include "main.h"
 #include "miner.h"
+#include "miner_common.h"
 #include "netbase.h"
 #include "policy/policy.h"
 #include "qt/guiconstants.h"

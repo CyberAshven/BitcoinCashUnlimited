@@ -30,11 +30,11 @@ public:
 
     CSubBlock subblock;
 
-    std::set<CDagNode*> ancestors; // should point to the nodes of the parentHashes
-    std::set<CDagNode*> descendants; // points to the nodes of the children
+    std::set<CDagNode *> ancestors; // should point to the nodes of the parentHashes
+    std::set<CDagNode *> descendants; // points to the nodes of the children
 
 private:
-    CDagNode(){} // disable default constructor
+    CDagNode() {} // disable default constructor
 
 public:
     CDagNode(CSubBlock _subblock)
@@ -44,13 +44,10 @@ public:
         dag_id = -1;
     }
 
-    friend bool operator<(const CDagNode &a, const CDagNode &b)
-    {
-        return a.hash < b.hash;
-    }
+    friend bool operator<(const CDagNode &a, const CDagNode &b) { return a.hash < b.hash; }
 
-    void AddAncestor(CDagNode* ancestor);
-    void AddDescendant(CDagNode* descendant);
+    void AddAncestor(CDagNode *ancestor);
+    void AddDescendant(CDagNode *descendant);
     bool IsBase();
     bool IsTip();
     bool IsValid();
@@ -58,36 +55,35 @@ public:
 
 class CTailstormDag
 {
-friend class CTailstormDagSet;
+    friend class CTailstormDagSet;
 
 protected:
     int16_t id; // should match the index of the vector in which this dag is in the dag set
-    std::deque<CDagNode*> _dag;
+    std::deque<CDagNode *> _dag;
 
 public:
     // output spent, the tx hash it was spent in
     std::map<COutPoint, uint256> spent_outputs;
     uint64_t score;
-    std::set<int16_t>incompatible_dags;
+    std::set<int16_t> incompatible_dags;
 
 private:
-    CTailstormDag(){} // disable default constructor
+    CTailstormDag() {} // disable default constructor
 
 protected:
     void SetId(int16_t new_id);
-    bool CheckForCompatibility(CDagNode* newNode);
+    bool CheckForCompatibility(CDagNode *newNode);
     void UpdateCompatibility(const int16_t &new_id, const std::set<int16_t> &old_ids);
     void UpdateDagScore();
 
 public:
-    CTailstormDag(uint16_t _id, CDagNode* first_node)
+    CTailstormDag(uint16_t _id, CDagNode *first_node)
     {
         id = _id;
         assert(id != -1);
         Insert(first_node);
     }
-    bool Insert(CDagNode* new_node);
-
+    bool Insert(CDagNode *new_node);
 };
 
 // this class can not have any public data members, all datamembers are
@@ -96,7 +92,7 @@ class CTailstormDagSet
 {
 protected:
     CSharedCriticalSection cs_dagset;
-    std::map<uint256, CDagNode*> mapAllNodes;
+    std::map<uint256, CDagNode *> mapAllNodes;
     std::vector<CTailstormDag> vdags;
 
 private:
@@ -108,10 +104,7 @@ protected:
     bool _MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id);
 
 public:
-    CTailstormDagSet()
-    {
-        Clear();
-    }
+    CTailstormDagSet() { Clear(); }
 
     void Clear();
 

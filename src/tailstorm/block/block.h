@@ -48,7 +48,7 @@ public:
         READWRITE(subblockNTxMap);
     }
 
-    int GetSubblockHashes(std::set<uint256>& out)
+    int GetSubblockHashes(std::set<uint256> &out)
     {
         int ret = 0;
         for (auto const &item : subblockNTxMap)
@@ -79,14 +79,14 @@ class CTailstormBlock : public CTailstormBlockHeader
 {
 private:
     // memory only
-    mutable uint64_t nBlockSize=0; // Serialized block size in bytes
+    mutable uint64_t nBlockSize = 0; // Serialized block size in bytes
 
 public:
     // no network
     std::vector<CTransactionRef> vtx;
 
     // memory only
-    mutable std::vector<std::shared_ptr<CSubBlock>> vdag;
+    mutable std::vector<std::shared_ptr<CSubBlock> > vdag;
     mutable std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > decodedMap;
 
     // no network
@@ -116,7 +116,8 @@ public:
         READWRITE(*(CTailstormBlockHeader *)this);
         READWRITE(dagEncodingMap);
         READWRITE(vtx);
-        if (!ser_action.ForRead()) nBlockSize=0;  // Force block size recalculation since block is being overwritten
+        if (!ser_action.ForRead())
+            nBlockSize = 0; // Force block size recalculation since block is being overwritten
     }
 
     void SetNull()
@@ -125,7 +126,7 @@ public:
         vdag.clear();
         dagEncodingMap.clear();
         CTailstormBlockHeader::SetNull();
-        nBlockSize=0;  // Force block size recalculation
+        nBlockSize = 0; // Force block size recalculation
     }
     void UpdateTxLists();
     std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists() const;

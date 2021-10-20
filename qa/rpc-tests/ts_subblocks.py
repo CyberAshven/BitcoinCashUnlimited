@@ -22,7 +22,6 @@ class DeltaBlocksTest(BitcoinTestFramework):
             "-rpcservertimeout=0",
             "-debug=weakblocks",
             "-use-grapheneblocks=0",
-            "-excessiveblocksize=6000000",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000"]
 
@@ -37,7 +36,8 @@ class DeltaBlocksTest(BitcoinTestFramework):
 
     def run_test(self):
         # Generate some blocks
-        self.nodes[0].generatetailstormblocks(105)
+        self.nodes[0].generate(105)
+  #        self.nodes[0].generatetailstormblocks(105)
         time.sleep(1)
 
         logging.info("Send 5 transactions from node0 (to its own address)")

@@ -16,7 +16,6 @@
 
 #include <random>
 
-extern CTxMemPool mempool;
 extern CTweak<bool> syncMempoolWithPeers;
 extern CTweak<uint64_t> mempoolSyncMinVersionSupported;
 extern CTweak<uint64_t> mempoolSyncMaxVersionSupported;

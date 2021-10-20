@@ -17,6 +17,7 @@
 #include "init.h"
 #include "main.h"
 #include "miner.h"
+#include "miner_common.h"
 #include "net.h"
 #include "pow.h"
 #include "rpc/server.h"

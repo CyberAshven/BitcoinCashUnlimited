@@ -44,6 +44,7 @@
 #include "script/script.h"
 #include "script/sigcache.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txadmission.h"
 #include "txdb.h"
@@ -91,9 +92,12 @@ uint64_t nPruneTarget = 0;
 uint64_t nDBUsedSpace = 0;
 uint32_t nXthinBloomFilterSize = SMALLEST_MAX_BLOOM_FILTER_SIZE;
 
-// BU: Move global objects to a single file
-extern CTxMemPool mempool;
+/* tailstorm */
+CCriticalSection cs_tipDagCache;
+CTailstormDagSet tailstormDagSet;
+std::map<uint256, CDagNode> tipDagCache GUARDED_BY(cs_tipDagCache);
 
+// Move global objects to a single file
 extern CTweak<unsigned int> blockDownloadWindow;
 extern CTweak<uint64_t> reindexTypicalBlockSize;
 

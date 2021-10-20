@@ -30,7 +30,7 @@ arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
     const int64_t nHalfLife) noexcept;
 
 uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t nBlockTime,
     const Consensus::Params &params,
     const CBlockIndex *pindexReferenceBlock) noexcept;
 
@@ -47,7 +47,7 @@ void ResetASERTAnchorBlockCache() noexcept;
  */
 const CBlockIndex *GetASERTAnchorBlockCache() noexcept;
 
-unsigned int GetNextWorkRequired(const CBlockIndex *pindexLast, const CBlockHeader *pblock, const Consensus::Params &);
+unsigned int GetNextWorkRequired(const CBlockIndex *pindexLast, const int64_t nBlockTime, const Consensus::Params &);
 unsigned int CalculateNextWorkRequired(const CBlockIndex *pindexLast,
     int64_t nFirstBlockTime,
     const Consensus::Params &);
@@ -68,7 +68,7 @@ int64_t GetBlockProofEquivalentTime(const CBlockIndex &to,
  * Bitcoin cash's difficulty adjustment mechanism.
  */
 uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t nBlockTime,
     const Consensus::Params &params);
 
 #endif // BITCOIN_POW_H

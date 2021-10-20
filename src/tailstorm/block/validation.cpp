@@ -3,9 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 // tailstorm file includes
+#include "validation.h"
 #include "tailstorm/dag.h"
 #include "tailstorm/pow.h"
-#include "validation.h"
 
 // other bitcoin includes
 #include "blockrelay/blockrelay_common.h"
@@ -31,6 +31,8 @@
 
 #include <boost/scope_exit.hpp>
 #include <unordered_set>
+
+#if 0
 
 extern bool fCheckForPruning;
 extern std::map<uint256, NodeId> mapBlockSource;
@@ -96,7 +98,8 @@ bool CheckTailstormBlockHeader(const CTailstormBlockHeader &header, CValidationS
     // Check proof-of-work
     if (!CheckTailstormPoW(header, Params().GetConsensus(), TAILSTORM_K))
     {
-        return state.DoS(50, error("%s(): tailstorm block validity check failed", __func__), REJECT_INVALID, "high-hash");
+        return state.DoS(
+            50, error("%s(): tailstorm block validity check failed", __func__), REJECT_INVALID, "high-hash");
     }
     // Check timestamp
     if (header.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
@@ -107,7 +110,9 @@ bool CheckTailstormBlockHeader(const CTailstormBlockHeader &header, CValidationS
     return true;
 }
 
-bool ContextualCheckBlockHeader(const CTailstormBlockHeader &block, CValidationState &state, CBlockIndex *const pindexPrev)
+bool ContextualCheckBlockHeader(const CTailstormBlockHeader &block,
+    CValidationState &state,
+    CBlockIndex *const pindexPrev)
 {
     const Consensus::Params &consensusParams = Params().GetConsensus();
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
@@ -116,8 +121,9 @@ bool ContextualCheckBlockHeader(const CTailstormBlockHeader &block, CValidationS
     uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, block.GetBlockTime(), consensusParams);
     if (block.nBits != expectedNbits)
     {
-        return state.DoS(100, error("%s: incorrect proof of work. Height %d, Block nBits 0x%x, expected 0x%x", __func__,
-                                  nHeight, block.nBits, expectedNbits),
+        return state.DoS(100,
+            error("%s: incorrect proof of work. Height %d, Block nBits 0x%x, expected 0x%x", __func__, nHeight,
+                block.nBits, expectedNbits),
             REJECT_INVALID, "bad-diffbits");
     }
 
@@ -234,8 +240,8 @@ bool AcceptTailstormBlockHeader(const CTailstormBlockHeader &block,
             {
                 READLOCK(cs_mapBlockIndex);
                 if (pindex->nStatus & BLOCK_FAILED_MASK)
-                    return state.Invalid(
-                        error("%s: subblock %s height %d is marked invalid", __func__, hash.ToString(), pindex->nHeight),
+                    return state.Invalid(error("%s: subblock %s height %d is marked invalid", __func__, hash.ToString(),
+                                             pindex->height()),
                         0, "duplicate");
             }
             return true;
@@ -247,8 +253,9 @@ bool AcceptTailstormBlockHeader(const CTailstormBlockHeader &block,
         // Get prev block index
         CBlockIndex *pindexPrev = LookupBlockIndex(block.hashPrevBlock);
         if (!pindexPrev)
-            return state.DoS(10, error("%s: previous block %s not found while accepting %s", __func__,
-                                     block.hashPrevBlock.ToString(), hash.ToString()),
+            return state.DoS(10,
+                error("%s: previous block %s not found while accepting %s", __func__, block.hashPrevBlock.ToString(),
+                    hash.ToString()),
                 0, "bad-prevblk");
         {
             READLOCK(cs_mapBlockIndex);
@@ -281,9 +288,7 @@ bool AcceptTailstormBlockHeader(const CTailstormBlockHeader &block,
 }
 
 
-bool ContextualCheckTailstormBlock(const CTailstormBlock &block,
-    CValidationState &state,
-    CBlockIndex *const pindexPrev)
+bool ContextualCheckTailstormBlock(const CTailstormBlock &block, CValidationState &state, CBlockIndex *const pindexPrev)
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
     const Consensus::Params &consensusParams = Params().GetConsensus();
@@ -342,10 +347,11 @@ bool ContextualCheckTailstormBlock(const CTailstormBlock &block,
             {
                 uint256 hashp = block.hashPrevBlock;
                 uint256 hash = block.GetHash();
-                return state.DoS(100, error("%s: block height mismatch in coinbase, expected %d, got %d, block is %s, "
-                                            "parent block is %s, pprev is %s",
-                                          __func__, nHeight, blockCoinbaseHeight, hash.ToString(), hashp.ToString(),
-                                          pindexPrev->phashBlock->ToString()),
+                return state.DoS(100,
+                    error("%s: block height mismatch in coinbase, expected %d, got %d, block is %s, "
+                          "parent block is %s, pprev is %s",
+                        __func__, nHeight, blockCoinbaseHeight, hash.ToString(), hashp.ToString(),
+                        pindexPrev->phashBlock->ToString()),
                     REJECT_INVALID, "bad-cb-height");
             }
         }
@@ -403,7 +409,8 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
     // Check timestamp
     if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
     {
-        return state.Invalid(error("%s(): block timestamp too far in the future", __func__), REJECT_INVALID, "time-too-new");
+        return state.Invalid(
+            error("%s(): block timestamp too far in the future", __func__), REJECT_INVALID, "time-too-new");
     }
 
     // These are checks that are independent of context.
@@ -465,14 +472,16 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
         // check proper destination
         if (block.vtx[0]->vout[index].scriptPubKey != block.vdag[index]->vtx[0]->vin[0].scriptSig)
         {
-            return state.DoS(100, error("%s(): invalid coinbase payout recipient", __func__), REJECT_INVALID, "bad-cb-payout-dest");
+            return state.DoS(
+                100, error("%s(): invalid coinbase payout recipient", __func__), REJECT_INVALID, "bad-cb-payout-dest");
         }
         if (index != 0)
         {
             // check proper amount
             if (block.vtx[0]->vout[index].nValue != payoutPer)
             {
-                return state.DoS(100, error("%s(): improper coinbase payout amount1", __func__), REJECT_INVALID, "bad-cb-payout-amnt1");
+                return state.DoS(100, error("%s(): improper coinbase payout amount1", __func__), REJECT_INVALID,
+                    "bad-cb-payout-amnt1");
             }
             totalPaid = totalPaid + payoutPer;
         }
@@ -482,11 +491,13 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
             CAmount vout0_amnt = payoutPer + extraAtZero;
             if (totalPaid + vout0_amnt != valueOut)
             {
-                return state.DoS(100, error("%s(): improper coinbase payout amount2", __func__), REJECT_INVALID, "bad-cb-payout-amnt2");
+                return state.DoS(100, error("%s(): improper coinbase payout amount2", __func__), REJECT_INVALID,
+                    "bad-cb-payout-amnt2");
             }
             if (block.vtx[0]->vout[index].nValue != vout0_amnt)
             {
-                return state.DoS(100, error("%s(): improper coinbase payout amount3", __func__), REJECT_INVALID, "bad-cb-payout-amnt3");
+                return state.DoS(100, error("%s(): improper coinbase payout amount3", __func__), REJECT_INVALID,
+                    "bad-cb-payout-amnt3");
             }
         }
     }
@@ -504,7 +515,8 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
         {
             if (setBlockTxHashes.count(ptx->GetHash()) == 0)
             {
-                return state.DoS(100, error("%s(): transaction from subblock missing in block", __func__), REJECT_INVALID, "bad-sub-txn-missing");
+                return state.DoS(100, error("%s(): transaction from subblock missing in block", __func__),
+                    REJECT_INVALID, "bad-sub-txn-missing");
             }
             setSubTxHashes.emplace(ptx->GetHash());
         }
@@ -545,7 +557,9 @@ bool CheckTailstormBlock(const CTailstormBlock &block, CValidationState &state)
     return true;
 }
 
+
 /** Mark a block as having its data received and checked (up to BLOCK_VALID_TRANSACTIONS). */
+
 bool ReceivedBlockTransactions(const CTailstormBlock &block,
     CValidationState &state,
     CBlockIndex *pindexNew,
@@ -622,7 +636,7 @@ bool AcceptTailstormBlock(const CTailstormBlock &block,
     }
 
     LOG(PARALLEL, "Check TailstormBlock %s with chain work %s block height %d\n", pindex->phashBlock->ToString(),
-        pindex->nChainWork.ToString(), pindex->nHeight);
+        pindex->nChainWork.ToString(), pindex->height());
 
     // Try to process all requested blocks that we don't have, but only
     // process an unrequested block if it's new and has enough work to
@@ -638,7 +652,7 @@ bool AcceptTailstormBlock(const CTailstormBlock &block,
     // blocks which are too close in height to the tip.  Apply this test
     // regardless of whether pruning is enabled; it should generally be safe to
     // not process unrequested blocks.
-    bool fTooFarAhead = (pindex->nHeight > int(chainActive.Height() + MIN_BLOCKS_TO_KEEP));
+    bool fTooFarAhead = (pindex->height() > int(chainActive.Height() + MIN_BLOCKS_TO_KEEP));
 
     // TODO: deal better with return value and error conditions for duplicate
     // and unrequested blocks.
@@ -670,7 +684,7 @@ bool AcceptTailstormBlock(const CTailstormBlock &block,
         }
         return false;
     }
-    int nHeight = pindex->nHeight;
+    int nHeight = pindex->height();
     // Write block to history file
     try
     {
@@ -753,10 +767,10 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
     // two in the chain that violate it. This prevents exploiting the issue against nodes during their
     // initial block download.
     bool fEnforceBIP30 = (!pindex->phashBlock) || // Enforce on CreateNewBlock invocations which don't have a hash.
-                         !((pindex->nHeight == 91842 &&
+                         !((pindex->height() == 91842 &&
                                pindex->GetBlockHash() ==
                                    uint256S("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec")) ||
-                             (pindex->nHeight == 91880 &&
+                             (pindex->height() == 91880 &&
                                  pindex->GetBlockHash() ==
                                      uint256S("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")));
 
@@ -806,7 +820,7 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
             fScriptChecks = !fCheckpointsEnabled || block.nTime > timeBarrier;
         else
             fScriptChecks = !fCheckpointsEnabled || block.nTime > timeBarrier ||
-                            (uint32_t)pindex->nHeight > pBestHeader->nHeight - (144 * checkScriptDays.Value());
+                            (uint32_t)pindex->height() > pBestHeader->nHeight - (144 * checkScriptDays.Value());
     }
 
     CAmount nFees = 0;
@@ -819,7 +833,7 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
 
     // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY)
     int nLockTimeFlags = 0;
-    if (pindex->nHeight >= chainparams.GetConsensus().BIP68Height)
+    if (pindex->height() >= chainparams.GetConsensus().BIP68Height)
     {
         nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
     }
@@ -858,7 +872,7 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
             }
             try
             {
-                AddCoins(view, tx, pindex->nHeight);
+                AddCoins(view, tx, pindex->height());
             }
             catch (std::logic_error &e)
             {
@@ -878,7 +892,7 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
                 {
                     return state.DoS(100,
                         error("%s: block %s lexical misordering tx %d (%s < %s)", __func__, block.GetHash().ToString(),
-                                         i, curTxHash.ToString(), prevTxHash.ToString()),
+                            i, curTxHash.ToString(), prevTxHash.ToString()),
                         REJECT_INVALID, "bad-txn-order");
                 }
                 prevTxHash = curTxHash;
@@ -919,8 +933,9 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
                     }
                     if (abort)
                     {
-                        return state.DoS(100, error("%s: block %s inputs missing/spent in tx %d %s", __func__,
-                                                  block.GetHash().ToString(), i, tx.GetHash().ToString()),
+                        return state.DoS(100,
+                            error("%s: block %s inputs missing/spent in tx %d %s", __func__, block.GetHash().ToString(),
+                                i, tx.GetHash().ToString()),
                             REJECT_INVALID, "bad-txns-inputs-missingorspent");
                     }
                 }
@@ -928,8 +943,9 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
 
                 if (!SequenceLocks(txref, nLockTimeFlags, &prevheights, *pindex))
                 {
-                    return state.DoS(100, error("%s: block %s contains a non-BIP68-final transaction", __func__,
-                                              block.GetHash().ToString()),
+                    return state.DoS(100,
+                        error("%s: block %s contains a non-BIP68-final transaction", __func__,
+                            block.GetHash().ToString()),
                         REJECT_INVALID, "bad-txns-nonfinal");
                 }
 
@@ -964,7 +980,7 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
                 blockundo.vtxundo.push_back(CTxUndo());
             }
 
-            SpendCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+            SpendCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->height());
 
             vPos.push_back(std::make_pair(tx.GetHash(), pos));
             pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
@@ -988,8 +1004,8 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
             // May2020 transaction consensus rule
             if (txSigChecks > MAY2020_MAX_TX_SIGCHECK_COUNT)
             {
-                return state.DoS(100, false, REJECT_INVALID, "bad-tx-sigchecks", false,
-                    "per transaction sigcheck limit exceeded");
+                return state.DoS(
+                    100, false, REJECT_INVALID, "bad-tx-sigchecks", false, "per transaction sigcheck limit exceeded");
             }
         }
 
@@ -998,16 +1014,16 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
         uint64_t maxSigChecksAllowed = maxSigChecks.Value();
         if (blockSigChecks > maxSigChecksAllowed)
         {
-            return state.DoS(
-                100, false, REJECT_INVALID, "bad-blk-sigchecks", false, "block sigcheck limit exceeded");
+            return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigchecks", false, "block sigcheck limit exceeded");
         }
     }
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
+    CAmount blockReward = nFees + GetBlockSubsidy(pindex->height(), chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
     {
-        return state.DoS(100, error("%s(): coinbase pays too much (actual=%d vs limit=%d)",
-                                  __func__, block.vtx[0]->GetValueOut(), blockReward),
+        return state.DoS(100,
+            error("%s(): coinbase pays too much (actual=%d vs limit=%d)", __func__, block.vtx[0]->GetValueOut(),
+                blockReward),
             REJECT_INVALID, "bad-cb-amount");
     }
 
@@ -1076,14 +1092,17 @@ bool ConnectTailstormBlock(const CTailstormBlock &block,
 }
 
 
-
-bool DisconnectTailstormTip(CValidationState &state, const CBlockIndex *pindexDelete, const Consensus::Params &consensusParams, const bool fRollBack)
+bool DisconnectTailstormTip(CValidationState &state,
+    const CBlockIndex *pindexDelete,
+    const Consensus::Params &consensusParams,
+    const bool fRollBack)
 {
     // you cannot be extending the chain whiles simultaneously disconnecting a tip
     AssertLockHeld(cs_main);
     AssertLockHeld(PV->cs_blockvalidationthread);
 
-    LOG(BLK, "Disconnect block %s, tip is now %s\n", pindexDelete->ToString(), (pindexDelete->pprev) ? pindexDelete->pprev->ToString() : "pre-genesis");
+    LOG(BLK, "Disconnect block %s, tip is now %s\n", pindexDelete->ToString(),
+        (pindexDelete->pprev) ? pindexDelete->pprev->ToString() : "pre-genesis");
     // Read block from disk.
     CTailstormBlockRef pblock(new CTailstormBlock());
     if (!ReadBlockFromDisk(pblock, pindexDelete, consensusParams))
@@ -1095,7 +1114,8 @@ bool DisconnectTailstormTip(CValidationState &state, const CBlockIndex *pindexDe
     {
         CCoinsViewCache view(pcoinsTip);
         if (DisconnectTailstormBlock(*pblock, pindexDelete, view) != DISCONNECT_OK)
-            return error("DisconnectTailstormTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
+            return error(
+                "DisconnectTailstormTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool result = view.Flush();
         assert(result);
     }
@@ -1145,10 +1165,11 @@ bool DisconnectTailstormTip(CValidationState &state, const CBlockIndex *pindexDe
 }
 
 
-
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When UNCLEAN or FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block, const CBlockIndex *pindex, CCoinsViewCache &view)
+DisconnectResult DisconnectTailstormBlock(const CTailstormBlock &block,
+    const CBlockIndex *pindex,
+    CCoinsViewCache &view)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -1358,9 +1379,9 @@ bool ActivateBestChainStepTailstorm(CValidationState &state,
 
         while (chainActive.Tip() && chainActive.Tip() != pindexFork)
         {
-            // Disconnect active blocks which are no longer in the best chain. We do not need to concern ourselves with any
-            // block validation threads that may be running for the chain we are rolling back. They will automatically fail
-            // validation during ConnectBlock() once the chaintip has changed..
+            // Disconnect active blocks which are no longer in the best chain. We do not need to concern ourselves with
+            // any block validation threads that may be running for the chain we are rolling back. They will
+            // automatically fail validation during ConnectBlock() once the chaintip has changed..
             if (!DisconnectTip(state, chainparams.GetConsensus()))
             {
                 return false;
@@ -1412,8 +1433,8 @@ bool ActivateBestChainStepTailstorm(CValidationState &state,
                 LOG(PARALLEL, "Returning because chain work has changed while connecting blocks\n");
                 return true;
             }
-            if (!ConnectTipTailstorm(state, chainparams, pindexConnect,
-                    pindexConnect == pindexMostWork && fBlock ? pblock : nullptr))
+            if (!ConnectTipTailstorm(
+                    state, chainparams, pindexConnect, pindexConnect == pindexMostWork && fBlock ? pblock : nullptr))
             {
                 if (state.IsInvalid())
                 {
@@ -1659,15 +1680,17 @@ bool ProcessNewTailstormBlock(CValidationState &state,
     bool checked = CheckTailstormBlock(*pblock, state);
     if (!checked)
     {
-        LOGA("%s(): Invalid tailstorm block: ver:%x time:%d Tx size:%d len:%d\n", __func__, pblock->nVersion, pblock->nTime,
-            pblock->vtx.size(), pblock->GetBlockSize());
+        LOGA("%s(): Invalid tailstorm block: ver:%x time:%d Tx size:%d len:%d\n", __func__, pblock->nVersion,
+            pblock->nTime, pblock->vtx.size(), pblock->GetBlockSize());
     }
 
-    // WARNING: cs_main is not locked here throughout but is released and then re-locked during ActivateBestChainTailstorm
+    // WARNING: cs_main is not locked here throughout but is released and then re-locked during
+    // ActivateBestChainTailstorm
     //          If you lock cs_main throughout ProcessNewBlock then you will in effect prevent PV from happening.
-    //          TODO: in order to lock cs_main all the way through we must remove the locking from ActivateBestChainTailstorm
-    //                but it will require great care because ActivateBestChainTailstorm requires cs_main however it is also
-    //                called from other places.  Currently it seems best to leave cs_main here as is.
+    //          TODO: in order to lock cs_main all the way through we must remove the locking from
+    //          ActivateBestChainTailstorm
+    //                but it will require great care because ActivateBestChainTailstorm requires cs_main however it is
+    //                also called from other places.  Currently it seems best to leave cs_main here as is.
     {
         LOCK(cs_main);
         uint256 hash = pblock->GetHash();
@@ -1747,9 +1770,10 @@ bool ProcessNewTailstormBlock(CValidationState &state,
         }
 
         LOG(BENCH,
-            "ProcessNewTailstormBlock, time: %d, block: %s, len: %d, numTx: %d, maxVin: %llu, maxVout: %llu, maxTx:%llu\n",
-            end - start, pblock->GetHash().ToString(), pblock->GetBlockSize(), pblock->vtx.size(), maxVin,
-            maxVout, maxTxSizeLocal);
+            "ProcessNewTailstormBlock, time: %d, block: %s, len: %d, numTx: %d, maxVin: %llu, maxVout: %llu, "
+            "maxTx:%llu\n",
+            end - start, pblock->GetHash().ToString(), pblock->GetBlockSize(), pblock->vtx.size(), maxVin, maxVout,
+            maxTxSizeLocal);
         LOG(BENCH, "tx: %s, vin: %llu, vout: %llu, len: %d\n", txIn.GetHash().ToString(), txIn.vin.size(),
             txIn.vout.size(), ::GetSerializeSize(txIn, SER_NETWORK, PROTOCOL_VERSION));
         LOG(BENCH, "tx: %s, vin: %llu, vout: %llu, len: %d\n", txOut.GetHash().ToString(), txOut.vin.size(),
@@ -1762,3 +1786,4 @@ bool ProcessNewTailstormBlock(CValidationState &state,
     nBlockValidationTime << (end - start);
     return true;
 }
+#endif

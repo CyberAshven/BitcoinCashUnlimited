@@ -9,32 +9,17 @@
 #include "consensus/consensus.h"
 #include "txmempool.h"
 
-void CDagNode::AddAncestor(CDagNode* ancestor)
-{
-    ancestors.emplace(ancestor);
-}
+void CDagNode::AddAncestor(CDagNode *ancestor) { ancestors.emplace(ancestor); }
 
-void CDagNode::AddDescendant(CDagNode* descendant)
-{
-    descendants.emplace(descendant);
-}
+void CDagNode::AddDescendant(CDagNode *descendant) { descendants.emplace(descendant); }
 
 // there is nothing below it
-bool CDagNode::IsBase()
-{
-    return ancestors.empty();
-}
+bool CDagNode::IsBase() { return ancestors.empty(); }
 
 // there is nothing above it
-bool CDagNode::IsTip()
-{
-    return descendants.empty();
-}
+bool CDagNode::IsTip() { return descendants.empty(); }
 
-bool CDagNode::IsValid()
-{
-    return (subblock.IsNull() == false && dag_id >= 0);
-}
+bool CDagNode::IsValid() { return (subblock.IsNull() == false && dag_id >= 0); }
 
 void CTailstormDag::SetId(int16_t new_id)
 {
@@ -42,7 +27,7 @@ void CTailstormDag::SetId(int16_t new_id)
     id = new_id;
 }
 
-bool CTailstormDag::CheckForCompatibility(CDagNode* newNode)
+bool CTailstormDag::CheckForCompatibility(CDagNode *newNode)
 {
     // we are already incompatible with this node, no need to check its inputs
     if (incompatible_dags.count(newNode->dag_id))
@@ -93,10 +78,10 @@ void CTailstormDag::UpdateCompatibility(const int16_t &new_id, const std::set<in
 void CTailstormDag::UpdateDagScore()
 {
     // keep track of what has been mapNodeScore
-    std::map<CDagNode*, uint64_t> mapNodeScore;
+    std::map<CDagNode *, uint64_t> mapNodeScore;
     // build out the dag by level, a nodes level is determined by
     // its shortest path to a base
-    std::vector<std::set<CDagNode*> > leveled_dag;
+    std::vector<std::set<CDagNode *> > leveled_dag;
     // first find the bases
     leveled_dag.emplace_back();
     bool do_another_level = false;
@@ -137,7 +122,7 @@ void CTailstormDag::UpdateDagScore()
     }
     // calculate the score
     uint16_t total_score = 0;
-    std::vector<std::set<CDagNode*> >::reverse_iterator riter = leveled_dag.rbegin();
+    std::vector<std::set<CDagNode *> >::reverse_iterator riter = leveled_dag.rbegin();
     size_t depth = 1;
     while (riter != leveled_dag.rend())
     {
@@ -165,7 +150,7 @@ void CTailstormDag::UpdateDagScore()
     score = total_score;
 }
 
-bool CTailstormDag::Insert(CDagNode* new_node)
+bool CTailstormDag::Insert(CDagNode *new_node)
 {
     std::map<COutPoint, uint256> new_spends;
     for (auto &tx : new_node->subblock.vtx)
@@ -241,7 +226,7 @@ bool CTailstormDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
         {
             return false;
         }
-        for (CDagNode* node : vdags[id]._dag)
+        for (CDagNode *node : vdags[id]._dag)
         {
             vdags[base_dag_id].Insert(node);
             for (auto &tx : node->subblock.vtx)
@@ -268,7 +253,7 @@ bool CTailstormDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
     new_id = base_dag_id;
 
     // update the txs in this dag
-    for (CDagNode* node : vdags[base_dag_id]._dag)
+    for (CDagNode *node : vdags[base_dag_id]._dag)
     {
         for (auto &tx : node->subblock.vtx)
         {
@@ -298,7 +283,7 @@ size_t CTailstormDagSet::Size()
 bool CTailstormDagSet::Find(const uint256 &hash, CSubBlock &subblock)
 {
     READLOCK(cs_dagset);
-    std::map<uint256, CDagNode*>::iterator iter = mapAllNodes.find(hash);
+    std::map<uint256, CDagNode *>::iterator iter = mapAllNodes.find(hash);
     if (iter != mapAllNodes.end())
     {
         subblock = iter->second->subblock;
@@ -324,21 +309,21 @@ bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
     }
 
     // Create newz
-    CDagNode* newNode = new CDagNode(sub_block);
+    CDagNode *newNode = new CDagNode(sub_block);
     // this emplace will always succeed since we already checked for the hash above
     mapAllNodes.emplace(newNode->hash, newNode);
 
     std::set<int16_t> merge_list;
     for (auto &hash : sub_block.GetAncestorHashes())
     {
-        std::map<uint256, CDagNode*>::iterator ancestor_iter = mapAllNodes.find(hash);
+        std::map<uint256, CDagNode *>::iterator ancestor_iter = mapAllNodes.find(hash);
         if (ancestor_iter == mapAllNodes.end())
         {
             // TODO : A subblock is missing, try to re-request it or something
             continue;
         }
         // use a pointer to the node already inserted in mapAllNodes to avoid obj duplication
-        CDagNode* ancestor = ancestor_iter->second;
+        CDagNode *ancestor = ancestor_iter->second;
         newNode->AddAncestor(ancestor);
         merge_list.emplace(ancestor->dag_id);
         ancestor->AddDescendant(newNode);
@@ -425,12 +410,12 @@ bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
     }
 
     size_t nodeCt = 0;
-    for (auto& node :vdags[best_dag]._dag)
+    for (auto &node : vdags[best_dag]._dag)
     {
         dag.emplace(*node);
         nodeCt++;
 
-        //TODO: Do something more sophisticated to handle cases where there are more
+        // TODO: Do something more sophisticated to handle cases where there are more
         // nodes than are necessary to assemble a block
         if (nodeCt == TAILSTORM_K)
             break;
@@ -445,7 +430,7 @@ BestDagInfo CTailstormDagSet::GetBestDagInfo()
     int16_t best_dag = -1;
     uint64_t best_dag_score = 0;
     // first find the best dag, we want to mine on top of this one.
-    for (auto& dag : vdags)
+    for (auto &dag : vdags)
     {
         if (best_dag == -1)
         {
@@ -469,7 +454,7 @@ BestDagInfo CTailstormDagSet::GetBestDagInfo()
     bestdaginfo.compatible_dags.push_back(best_dag);
     if (vdags.size() > 1)
     {
-        for (auto& dag : vdags)
+        for (auto &dag : vdags)
         {
             if (dag.id != best_dag)
             {
@@ -485,7 +470,7 @@ BestDagInfo CTailstormDagSet::GetBestDagInfo()
         }
     }
     // get the tips from all compatible dags
-    for (auto& dag_index : bestdaginfo.compatible_dags)
+    for (auto &dag_index : bestdaginfo.compatible_dags)
     {
         for (auto &node : vdags[dag_index]._dag)
         {

@@ -35,6 +35,24 @@ extern CTailstormDagSet tailstormDagSet;
 extern std::set<CTailstormBlock> tailstormBlocks;
 UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns);
 
+double GetDifficulty(unsigned int nBits)
+{
+    int nShift = (nBits >> 24) & 0xff;
+
+    double dDiff = (double)0x0000ffff / (double)(nBits & 0x00ffffff);
+
+    while (nShift < 29)
+    {
+        dDiff *= 256.0;
+        nShift++;
+    }
+    while (nShift > 29)
+    {
+        dDiff /= 256.0;
+        nShift--;
+    }
+    return dDiff;
+}
 
 static UniValue getsubblock(const UniValue &params, bool fHelp)
 {
@@ -115,7 +133,7 @@ static UniValue getsubblock(const UniValue &params, bool fHelp)
 
         if (!found)  // Look for a committed subblock
         {
-            found = FindCommittedSubblock(chainActive, hash, subblock);
+      //      found = FindCommittedSubblock(chainActive, hash, subblock);
         }
     }
     else
@@ -209,17 +227,17 @@ UniValue TailstormBlockToJSON(CTailstormBlockRef block, const CBlockIndex *block
     int confirmations = -1;
     // Only report confirmations if the block is on the main chain
     if (chainActive.Contains(blockindex))
-        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+        confirmations = chainActive.Height() - blockindex->height() + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("size", (int)::GetSerializeSize(*block, SER_NETWORK, PROTOCOL_VERSION));
-    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("height", blockindex->height());
     result.pushKV("version", block->nVersion);
     result.pushKV("versionHex", strprintf("%08x", block->nVersion));
     result.pushKV("time", block->GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("bits", strprintf("%08x", block->nBits));
     result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    result.pushKV("chainwork", blockindex->chainWork().GetHex());
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     CBlockIndex *pnext = chainActive.Next(blockindex);
@@ -267,10 +285,10 @@ UniValue TailstormBlockToJSON(const CBlockIndex *blockindex, bool txDetails, boo
     DbgAssert(blockindex, throw JSONRPCError(RPC_INVALID_REQUEST, "Called tailstorm API with index nullptr"));
 
     CTailstormBlockRef block(new CTailstormBlock);
-    if (!ReadBlockFromDisk(block, blockindex, Params().GetConsensus()))
-    {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot access tailstorm block");
-    }
+  //  if (!ReadBlockFromDisk(block, blockindex, Params().GetConsensus()))
+ //   {
+  ////      throw JSONRPCError(RPC_INVALID_REQUEST, "Cannot access tailstorm block");
+   // }
 
     return TailstormBlockToJSON(block, blockindex, txDetails, listTxns);
 }
@@ -377,7 +395,7 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
                         PV->StopAllValidationThreads(pTailstormBlock->GetBlockHeader().nBits);
 
                         CValidationState state;
-                        if (!ProcessNewTailstormBlock(state, Params(), nullptr, pTailstormBlock, true, nullptr))
+                   //     if (!ProcessNewTailstormBlock(state, Params(), nullptr, pTailstormBlock, true, nullptr))
                         {
                             std::string msg = strprintf("ProcessNewTailstormBlock tailstorm block not accepted with code=%d, reason=%s, message=%s", state.GetRejectCode(), state.GetRejectReason(), state.GetDebugMessage());
                             LOG(WB, msg);

@@ -100,7 +100,7 @@ void SubBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t coinba
 
 uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
 {
-    CBlockHeader h;
+    CSubBlockHeader h;
     uint64_t nHeaderSize, nCoinbaseSize, nCoinbaseReserve;
 
     // BU add the proper block size quantity to the actual size
@@ -226,7 +226,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         // we must get the tips before locking mempool because we can not recursively lock mempool
         BestDagInfo bdi = tailstormDagSet.GetBestDagInfo();
         READLOCK(mempool.cs_txmempool);
-        nHeight = pindexPrev->nHeight + 1;
+        nHeight = pindexPrev->height() + 1;
 
         pblock->nTime = GetAdjustedTime();
         pblock->nVersion = UnlimitedComputeBlockVersion(pindexPrev, chainparams.GetConsensus(), pblock->nTime);
@@ -282,8 +282,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     CValidationState state;
     if (!TestSubBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
     {
-        throw std::runtime_error(
-            strprintf("%s: TestSubBlockValidity failed: %s", __func__, FormatStateMessage(state)));
+        throw std::runtime_error(strprintf("%s: TestSubBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
 
     // TODO : maybe add in some excessive size check, subblocks should always be small enough that

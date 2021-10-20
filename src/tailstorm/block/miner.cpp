@@ -41,6 +41,7 @@
 #include <queue>
 #include <thread>
 
+
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
@@ -102,7 +103,7 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue
     tx.vin[0].scriptSig = CScript() << _nHeight << OP_0;
     // set the vout to be tailstorm K at least
     tx.vout.resize(TAILSTORM_K);
-    CAmount valuePer = nValue / TAILSTORM_K;  // TODO HANDLE rounding
+    CAmount valuePer = nValue / TAILSTORM_K; // TODO HANDLE rounding
     std::set<CDagNode>::iterator iter = dag.begin();
     CAmount total_paid = 0;
     unsigned int i = 0;
@@ -179,7 +180,7 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
             return nullptr;
         }
         READLOCK(mempool.cs_txmempool);
-        nHeight = pindexPrev->nHeight + 1;
+        nHeight = pindexPrev->height() + 1;
 
         pblock->nTime = GetAdjustedTime();
         pblock->nVersion = UnlimitedComputeBlockVersion(pindexPrev, chainparams.GetConsensus(), pblock->nTime);
@@ -218,8 +219,9 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
         AssertLockHeld(mempool.cs_txmempool);
         std::vector<const CTxMemPoolEntry *> vtxe;
         std::map<uint256, const CTxMemPoolEntry *> vtxeMap;
-		// TODO: Griffith to make this more efficient after refactoring DAG
-        for (CTxMemPool::indexed_transaction_set::const_iterator it = mempool.mapTx.begin(); it != mempool.mapTx.end(); it++)
+        // TODO: Griffith to make this more efficient after refactoring DAG
+        for (CTxMemPool::indexed_transaction_set::const_iterator it = mempool.mapTx.begin(); it != mempool.mapTx.end();
+             it++)
         {
             if (blockTxHashes.count(it->GetSharedTx()->GetHash()) > 0)
             {
@@ -244,7 +246,6 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
                 pblocktemplate->vTxFees.push_back(vtxeMap[tx->GetHash()]->GetFee());
                 pblocktemplate->vTxSigOps.push_back(vtxeMap[tx->GetHash()]->GetSigOpCount());
             }
-
         }
         pblocktemplate->vTxFees[0] = -nFees;
 

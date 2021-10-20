@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(generate_merkle_block_hex)
 
     // Write to file
     std::ofstream outfile;
-    outfile.open ("/tmp/generate_merkle_block_hex.dat");
+    outfile.open("/tmp/generate_merkle_block_hex.dat");
     outfile << hexStr;
     outfile.close();
 }
@@ -83,13 +83,14 @@ BOOST_AUTO_TEST_CASE(generate_merkle_subblock_hex)
 
     // Write to file
     std::ofstream outfile;
-    outfile.open ("/tmp/generate_merkle_subblock_hex.dat");
+    outfile.open("/tmp/generate_merkle_subblock_hex.dat");
     outfile << hexStr;
     outfile.close();
 }
 
 BOOST_AUTO_TEST_CASE(generate_merkle_tailblock_hex)
 {
+/*
     // Set up objects
     CMutableTransaction mtx;
     mtx.vin.resize(1);
@@ -139,9 +140,10 @@ BOOST_AUTO_TEST_CASE(generate_merkle_tailblock_hex)
 
     // Write to file
     std::ofstream outfile;
-    outfile.open ("/tmp/generate_merkle_tailblock_hex.dat");
+    outfile.open("/tmp/generate_merkle_tailblock_hex.dat");
     outfile << hexStr;
     outfile.close();
+*/
 }
 
 BOOST_AUTO_TEST_SUITE_END()

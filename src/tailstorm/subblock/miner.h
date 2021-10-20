@@ -8,9 +8,9 @@
 #define BITCOIN_TAILSTORM_SUBBLOCK_MINER_H
 
 // tailstorm file includes
+#include "subblock.h"
 #include "tailstorm/dag.h"
 #include "tailstorm/pow.h"
-#include "subblock.h"
 
 // other bitcoin includes
 #include "miner_common.h"
@@ -32,6 +32,8 @@ extern CCriticalSection cs_coinbaseFlags;
 
 extern std::atomic<int64_t> nTotalPackage;
 extern std::atomic<int64_t> nTotalScore;
+
+int64_t UpdateTime(CSubBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev);
 
 namespace Consensus
 {

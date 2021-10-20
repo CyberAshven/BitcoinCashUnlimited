@@ -17,6 +17,7 @@
 #include "consensus/validation.h"
 #include "hashwrapper.h"
 #include "main.h"
+#include "miner_common.h"
 #include "net.h"
 #include "policy/policy.h"
 #include "pow.h"
@@ -59,7 +60,6 @@ using namespace std;
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockSize = 0;
 
-
 int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev)
 {
     int64_t nOldTime = pblock->nTime;
@@ -70,7 +70,7 @@ int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParam
 
     // Updating time can change work required on testnet:
     if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), consensusParams);
 
     return nNewTime - nOldTime;
 }
@@ -174,15 +174,6 @@ CTransactionRef BlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _n
     return MakeTransactionRef(std::move(tx));
 }
 
-struct NumericallyLessTxHashComparator
-{
-public:
-    bool operator()(const CTxMemPoolEntry *a, const CTxMemPoolEntry *b) const
-    {
-        return a->GetTx().GetHash() < b->GetTx().GetHash();
-    }
-};
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize)
 {
     resetBlock(scriptPubKeyIn, coinbaseSize);
@@ -272,7 +263,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), chainparams.GetConsensus());
         pblock->chainWork = ArithToUint256(pindexPrev->chainWork() + GetWorkForDifficultyBits(pblock->nBits));
         pblock->feePoolAmt = 0; // to be used later
         pblock->maxSize = 0; // to be used later

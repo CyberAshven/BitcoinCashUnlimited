@@ -74,6 +74,9 @@ const char *DSPROOF = "dsproof";
 
 const char *REQTXVAL = "req-txval";
 const char *RESTXVAL = "res-txval";
+
+const char *SUBBLOCK = "subblock";
+const char *TAILSTORMBLOCK = "tailstormblk";
 }; // namespace NetMsgType
 
 static const char *ppszTypeName[] = {
@@ -85,6 +88,8 @@ static const char *ppszTypeName[] = {
     NetMsgType::XTHINBLOCK,
     NetMsgType::GRAPHENEBLOCK,
     NetMsgType::DSPROOF,
+    NetMsgType::SUBBLOCK,
+    NetMsgType::TAILSTORMBLOCK,
 };
 
 /** All known message types. Keep this in the same order as the list of
@@ -141,6 +146,8 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::DSPROOF,
     NetMsgType::REQTXVAL,
     NetMsgType::RESTXVAL,
+    NetMsgType::SUBBLOCK,
+    NetMsgType::TAILSTORMBLOCK,
 };
 const static std::vector<std::string> allNetMessageTypesVec(allNetMessageTypes,
     allNetMessageTypes + ARRAYLEN(allNetMessageTypes));
@@ -242,7 +249,7 @@ CInv::CInv(const std::string &strType, const uint256 &hashIn)
 }
 
 bool operator<(const CInv &a, const CInv &b) { return (a.type < b.type || (a.type == b.type && a.hash < b.hash)); }
-bool CInv::IsKnownType() const { return (type >= 1 && type <= 7); }
+bool CInv::IsKnownType() const { return (type >= 1 && type <= 9); }
 const char *CInv::GetCommand() const
 {
     if (!IsKnownType())
