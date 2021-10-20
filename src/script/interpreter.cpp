@@ -498,6 +498,7 @@ bool CheckDataSignatureEncoding(const valtype &vchSig, uint32_t flags, ScriptErr
     return CheckSignatureEncodingSigHashChoice(vchSig, flags, serror, false);
 }
 
+/* Commented out to avoid "unused" compile errors but kept here in case anyone needs to uncomment
 static bool CheckTransactionECDSASignatureEncoding(const valtype &vchSig, uint32_t flags, ScriptError *serror)
 {
     // In an ECDSA-only context, 64-byte signatures + 1 sighash type bit are forbidden since they are Schnorr.
@@ -505,6 +506,7 @@ static bool CheckTransactionECDSASignatureEncoding(const valtype &vchSig, uint32
         return set_error(serror, SCRIPT_ERR_SIG_BADLENGTH);
     return CheckSignatureEncodingSigHashChoice(vchSig, flags, serror, true);
 }
+*/
 
 /**
  * Check that the signature provided to authenticate a transaction is properly
