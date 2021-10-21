@@ -12,6 +12,7 @@
 #include "protocol.h"
 #include "satoshiblock.h"
 #include "serialize.h"
+#include "subblock.h"
 #include "uint256.h"
 
 class CXThinBlock;
@@ -77,6 +78,8 @@ public:
     std::vector<unsigned char> utxoCommitment; // MUST be len 0 for now. MUST be < 128 bytes
     /** miner-specific data -- this is not a free-for all field.  It must follow documented conventions */
     std::vector<unsigned char> minerData; // MUST be len 0 for now
+    /** tailstorm subblock and number of transactions map */
+    mutable std::map<uint256, uint32_t> subblockNTxMap;
     /** mining nonce */
     // nonce length must be < 16 bytes.  This means the header hash + nonce fit in 1 sha256 round (with spare room)
     std::vector<unsigned char> nonce;
@@ -106,6 +109,7 @@ public:
         READWRITE(VARINT(feePoolAmt));
         READWRITE(utxoCommitment);
         READWRITE(minerData);
+        READWRITE(subblockNTxMap);
         READWRITE(nonce);
     }
 
@@ -115,7 +119,7 @@ public:
                 hashMerkleRoot == b.hashMerkleRoot && hashTxFilter == b.hashTxFilter && nTime == b.nTime &&
                 nBits == b.nBits && height == b.height && chainWork == b.chainWork && size == b.size &&
                 txCount == b.txCount && maxSize == b.maxSize && feePoolAmt == b.feePoolAmt && nonce == b.nonce &&
-                utxoCommitment == b.utxoCommitment && minerData == b.minerData);
+                utxoCommitment == b.utxoCommitment && minerData == b.minerData && subblockNTxMap == b.subblockNTxMap);
     }
 
     void SetNull()
@@ -132,9 +136,10 @@ public:
         txCount = 0;
         maxSize = 0;
         feePoolAmt = 0;
-        nonce.clear();
         utxoCommitment.clear();
         minerData.clear();
+        subblockNTxMap.clear();
+        nonce.clear();
     }
 
     /** Return true if this data structure is empty */
@@ -166,6 +171,9 @@ public:
 
     /** Return the miner-reported time that block was created */
     int64_t GetBlockTime() const { return (int64_t)nTime; }
+
+    /** Return block height specifed in the block header */
+    uint64_t GetHeight() const { return (uint64_t)height; }
 };
 
 /** Combine a hashed header with a nonce to get the hash value used in proof-of-work calculations */

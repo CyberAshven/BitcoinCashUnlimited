@@ -14,6 +14,7 @@
 #include "pow.h"
 #include "requestManager.h"
 #include "script/sigcache.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txorphanpool.h"
 #include "unlimited.h"

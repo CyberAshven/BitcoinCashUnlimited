@@ -171,8 +171,6 @@ tailstorm/block/merkletailblock.h
 tailstorm/block/merkletailblock.cpp
 tailstorm/block/validation.h
 tailstorm/block/validation.cpp
-tailstorm/subblock/subblock.h
-tailstorm/subblock/subblock.cpp
 tailstorm/subblock/miner.h
 tailstorm/subblock/miner.cpp
 tailstorm/subblock/merklesubblock.h
@@ -496,6 +494,8 @@ rpc/server.cpp
 rpc/server.h
 primitives/block.cpp
 primitives/block.h
+primitives/subblock.h
+primitives/subblock.cpp
 primitives/transaction.cpp
 primitives/transaction.h
 bench/base58.cpp

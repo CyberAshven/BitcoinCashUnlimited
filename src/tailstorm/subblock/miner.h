@@ -8,7 +8,7 @@
 #define BITCOIN_TAILSTORM_SUBBLOCK_MINER_H
 
 // tailstorm file includes
-#include "subblock.h"
+#include "primitives/subblock.h"
 #include "tailstorm/dag.h"
 #include "tailstorm/pow.h"
 

@@ -12,6 +12,7 @@
 #include "subblock/miner.h"
 #include "subblock/validation.h"
 
+
 /**
  * Look up a block and convert it into UniValue/JSON format
  * @param[in] blockindex CBlockIndex*

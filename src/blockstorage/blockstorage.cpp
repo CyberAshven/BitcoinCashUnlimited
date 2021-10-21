@@ -13,6 +13,7 @@
 #include "fs.h"
 #include "main.h"
 #include "sequential_files.h"
+#include "tailstorm/tailstorm.h"
 #include "ui_interface.h"
 #include "undo.h"
 #include "validation/validation.h"

@@ -35,6 +35,7 @@
 #include "script/standard.h"
 #include "stat.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
 #include "threadgroup.h"
 #include "timedata.h"
 #include "tinyformat.h"
@@ -233,6 +234,11 @@ CSemaphore *semOutboundAddNode = nullptr; // BU: separate semaphore for -addnode
 CNodeSignals g_signals;
 CAddrMan addrman;
 CDoSManager dosMan;
+
+/* tailstorm */
+CTailstormDagSet tailstormDagSet;
+CCriticalSection cs_tipDagCache;
+std::map<uint256, CDagNodeRef> tipDagCache GUARDED_BY(cs_tipDagCache);
 
 // A message queue used for priority messages such as graheneblocks or other thintype block messages
 std::atomic<bool> fPriorityRecvMsg{false};

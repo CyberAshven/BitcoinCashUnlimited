@@ -8,8 +8,20 @@
 
 // other bitcoin includes
 #include "net.h"
+#include "key.h"
+#include "uint256.h"
+#include "crypto/sha256.h"
 
-bool CheckTailstormPoW(const CTailstormBlockHeader &header, const Consensus::Params &params, uint8_t k)
+static uint256 sha256(uint256 data)
+{
+    uint256 ret;
+    CSHA256 sha;
+    sha.Write(data.begin(), 256 / 8);
+    sha.Finalize(ret.begin());
+    return ret;
+}
+
+bool CheckTailstormPoW(const CBlockHeader &header, const Consensus::Params &params, uint8_t k)
 {
     bool fNegative;
     bool fOverflow;
@@ -18,7 +30,7 @@ bool CheckTailstormPoW(const CTailstormBlockHeader &header, const Consensus::Par
     if (k == 0)
         return true;
 
-    if (header.subblockHashes.size() != k)
+    if (header.subblockNTxMap.size() != k)
         return false;
 
     bnTarget.SetCompact(header.nBits, &fNegative, &fOverflow);
@@ -35,13 +47,33 @@ bool CheckTailstormPoW(const CTailstormBlockHeader &header, const Consensus::Par
         return false;
     }
 
-    const uint256 target256 = ArithToUint256(bnTarget);
     // check that all subblock hashes are below the target
-    for (const uint256 &subhash : header.subblockHashes)
+    for (auto &iter : header.subblockNTxMap)
     {
-        if (!(subhash < target256))
+        uint256 hash = iter.first;
+        if (params.powAlgorithm == 1)
         {
-            return false;
+            // This algorithm uses the hash as a priv key to sign sha256(hash) using deterministic k.
+            // This means that any hardware optimization will need to implement signature generation.
+            // What we really want is signature validation to be implemented in hardware, so more thought needs to
+            // happen.
+            uint256 h1 = sha256(hash);
+            CKey key; // Use hash as a private key
+            key.Set(hash.begin(), hash.end(), false);
+            if (!key.IsValid())
+                return false; // If we can't POW fails
+            std::vector<uint8_t> vchSig;
+            if (!key.SignSchnorr(h1, vchSig))
+                return false; // Sign sha256(hash) with hash
+
+            // sha256 the signed data to get back to 32 bytes
+            CSHA256 sha;
+            sha.Write(&vchSig[0], vchSig.size());
+            sha.Finalize(hash.begin());
+        }
+        if (UintToArith256(hash) > bnTarget)
+        {
+                return false;
         }
     }
     return true;

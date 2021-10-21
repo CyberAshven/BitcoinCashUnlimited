@@ -23,6 +23,7 @@
 #include "requestManager.h"
 #include "sync.h"
 #include "timedata.h"
+#include "tailstorm/tailstorm.h"
 #include "txadmission.h"
 #include "txorphanpool.h"
 #include "ui_interface.h"
@@ -157,8 +158,8 @@ bool CheckBlockHeader(const Consensus::Params &consensusParams,
     }
     // Check proof of work matches claimed amount
     uint256 miningHash = block.GetMiningHash();
-    if (fCheckPOW && !CheckProofOfWork(miningHash, block.nBits, consensusParams))
-        return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
+ //   if (fCheckPOW && !CheckProofOfWork(miningHash, block.nBits, consensusParams))
+ //       return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp
     if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
@@ -191,7 +192,6 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
         return state.DoS(100, error("%s: incorrect height. Height %d, expected %d", __func__, block.height, nHeight),
             REJECT_INVALID, "bad-height");
     }
-
     if (block.feePoolAmt != 0)
     {
         return state.DoS(100, error("%s: premature fee pool use", __func__), REJECT_INVALID, "bad-fee-pool");
@@ -223,6 +223,7 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
                 block.nBits, expectedNbits),
             REJECT_INVALID, "bad-diffbits");
     }
+
     auto expectedChainWork =
         ArithToUint256((pindexPrev ? pindexPrev->chainWork() : 0) + GetWorkForDifficultyBits(expectedNbits));
     if (block.chainWork != expectedChainWork)
@@ -305,9 +306,9 @@ bool AcceptBlockHeader(const CBlockHeader &block,
                         error("%s: block %s height %d is marked invalid", __func__, hash.ToString(), pindex->height()),
                         0, "duplicate");
             }
+
             return true;
         }
-
         if (!CheckBlockHeader(chainparams.GetConsensus(), block, state))
             return false;
 
@@ -320,7 +321,6 @@ bool AcceptBlockHeader(const CBlockHeader &block,
                     hash.ToString()),
                 0, "bad-prevblk");
         }
-
         if (!ContextualCheckBlockHeader(chainparams, block, state, pindexPrev))
             return false;
 
@@ -409,7 +409,7 @@ CBlockIndex *AddToBlockIndex(const CChainParams &chainparams, const CBlockHeader
     // then we are on the wrong fork so ignore.
     if (fCheckpointsEnabled && !CheckAgainstCheckpoint(pindexNew->height(), *pindexNew->phashBlock, chainparams))
     {
-        pindexNew->nStatus |= BLOCK_FAILED_VALID; // block doesn't match checkpoints so invalid
+       pindexNew->nStatus |= BLOCK_FAILED_VALID; // block doesn't match checkpoints so invalid
         pindexNew->nStatus &= ~BLOCK_VALID_CHAIN;
     }
 
@@ -783,11 +783,15 @@ bool InitBlockIndex(const CChainParams &chainparams)
         return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
     }
 
+    if (chainActive.Genesis() != nullptr)
+        return true;
+
     return true;
 }
 
 void CheckBlockIndex(const Consensus::Params &consensusParams)
 {
+return;
     if (!fCheckBlockIndex)
     {
         return;
@@ -1416,7 +1420,6 @@ CBlockIndex *FindMostWorkChain()
             LOGA("Mark block %s invalid because it forks prior to the "
                  "finalization point %d.\n",
                 pindexNew->GetBlockHash().ToString(), pindexFinalized->height());
-
             pindexNew->nStatus |= BLOCK_FAILED_VALID;
         }
 
@@ -1731,9 +1734,9 @@ bool CheckBlock(const Consensus::Params &consensusParams,
             return error("CheckBlock(): CheckTransaction of %s failed with %s", tx->GetHash().ToString(),
                 FormatStateMessage(state));
 
-
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
+
     return true;
 }
 
@@ -1811,7 +1814,6 @@ bool AcceptBlock(const CBlock &block,
     AssertLockHeld(cs_main); // for setDirtyBlockIndex
 
     CBlockIndex *&pindex = *ppindex;
-
     if (!AcceptBlockHeader(block, state, chainparams, &pindex))
     {
         return false;
@@ -1870,6 +1872,7 @@ bool AcceptBlock(const CBlock &block,
             return false;
         }
     }
+
     int nHeight = pindex->height();
     // Write block to history file
     try
@@ -1900,6 +1903,7 @@ bool AcceptBlock(const CBlock &block,
     {
         return AbortNode(state, std::string("System error: ") + e.what());
     }
+
     if (fCheckForPruning)
     {
         FlushStateToDisk(state, FLUSH_STATE_NONE); // we just allocated more disk space for block files
@@ -2054,6 +2058,12 @@ DisconnectResult DisconnectBlock(const CBlock &block, const CBlockIndex *pindex,
     for (unsigned int i = 1; i < block.vtx.size(); i++) // i=1 to skip the coinbase, it has no inputs
     {
         const CTransaction &tx = *(block.vtx[i]);
+        if (tx.IsProofBase())
+        {
+            // skip proofbase txs since they are not real transactions
+            continue;
+        }
+
         CTxUndo &txundo = blockUndo.vtxundo[i - 1];
         if (txundo.vprevout.size() != tx.vin.size())
         {
@@ -2313,7 +2323,7 @@ bool ConnectBlockDependencyOrdering(const CBlock &block,
             if (nSigOps > GetMaxBlockSigOpsCount(block.GetBlockSize()))
                 return state.DoS(100, error("ConnectBlock(): too many sigops"), REJECT_INVALID, "bad-blk-sigops");
 
-            if (!tx.IsCoinBase())
+            if (!tx.IsCoinBase() && !tx.IsProofBase())
             {
                 // Check that transaction is BIP68 final
                 // BIP68 lock checks (as opposed to nLockTime checks) must
@@ -2509,6 +2519,9 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
         for (unsigned int i = 0; i < block.vtx.size(); i++)
         {
             const CTransaction &tx = *(block.vtx[i]);
+            if (tx.IsProofBase())
+                continue;
+
             try
             {
                 AddCoins(view, tx, pindex->height());
@@ -2550,7 +2563,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
 
             nInputs += tx.vin.size();
 
-            if (!tx.IsCoinBase())
+            if (!tx.IsCoinBase() && !tx.IsProofBase())
             {
                 // Check that transaction is BIP68 final
                 // BIP68 lock checks (as opposed to nLockTime checks) must
@@ -3086,6 +3099,16 @@ void UpdateTip(CBlockIndex *pindexNew)
 
     cvBlockChange.notify_all();
 
+    {
+        LOCK(cs_tipDagCache);
+      //  tipDagCache.clear();
+//        tipDagCache = tailstormDagSet.GetAllNodes();
+std::map<uint256, CDagNodeRef> tiptemp;
+tiptemp = tailstormDagSet.GetAllNodes();
+      tipDagCache.insert(tiptemp.begin(), tiptemp.end());
+        tailstormDagSet.Clear();
+    }
+
     LOGA("%s: new best=%s  height=%d bits=%d log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utxo)\n",
         __func__, chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(), chainActive.Tip()->tgtBits(),
         log(chainActive.Tip()->chainWork().getdouble()) / log(2.0), (unsigned long)chainActive.Tip()->nChainTx,
@@ -3465,6 +3488,7 @@ bool ActivateBestChainStep(CValidationState &state,
      *  want to pass a nullptr so that the next block is read from disk, because we will definitely not
      *  have the block.
      */
+
     bool fBlock = true;
     int nHeight = pindexFork ? pindexFork->height() : -1;
     while (fContinue && nHeight < pindexMostWork->height())
@@ -3503,6 +3527,7 @@ bool ActivateBestChainStep(CValidationState &state,
                 LOG(PARALLEL, "Returning because chain work has changed while connecting blocks\n");
                 return true;
             }
+
             if (!ConnectTip(state, chainparams, pindexConnect,
                     pindexConnect == pindexMostWork && fBlock ? pblock : nullptr, fParallel))
             {
@@ -3705,6 +3730,7 @@ bool ActivateBestChain(CValidationState &state,
                 return true;
         }
 
+
         //** PARALLEL BLOCK VALIDATION
         // Find the CBlockIndex of this block if this blocks previous hash matches the old chaintip.  In the
         // case of parallel block validation we may have two or more blocks processing at the same time however
@@ -3731,7 +3757,7 @@ bool ActivateBestChain(CValidationState &state,
                 }
             }
         }
-
+ 
         // If there is a reorg happening then we can not activate this chain *unless* it
         // has more work that the currently processing reorg chain.  In that case we must terminate the reorg
         // extend this chain instead.
@@ -3781,7 +3807,7 @@ bool ActivateBestChain(CValidationState &state,
             // to reset the result to true if we had previously set it to false.
             result = true;
         }
-
+ 
         // Check if the best chain has changed while we were processing blocks.  If so then we need to
         // continue processing the newer chain.  This satisfies a rare edge case where we have initiated
         // a reorg to another chain but before the reorg is complete we end up reorging to a different
@@ -3839,7 +3865,7 @@ bool ProcessNewBlock(CValidationState &state,
         LOCK(cs_main);
         uint256 hash = pblock->GetHash();
         bool fRequested = requester.MarkBlockAsReceived(hash, pfrom);
-        fRequested |= fForceProcessing;
+          fRequested |= fForceProcessing;
         if (!checked)
         {
             return error("%s: CheckBlock FAILED", __func__);
@@ -3852,6 +3878,7 @@ bool ProcessNewBlock(CValidationState &state,
         {
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
+
         CheckBlockIndex(chainparams.GetConsensus());
 
         CInv inv(MSG_BLOCK, hash);
@@ -3868,6 +3895,7 @@ bool ProcessNewBlock(CValidationState &state,
             requester.Received(inv, pfrom);
         }
     }
+
     if (!ActivateBestChain(state, chainparams, pblock, fParallel))
     {
         if (state.IsInvalid() || state.IsError())

@@ -6,7 +6,7 @@
 #define BITCOIN_TAILSTORM_BLOCKRELAY_GRAPHENE_H
 
 // tailstorm file includes
-#include "tailstorm/subblock/subblock.h"
+#include "primitives/subblock.h"
 
 #include "blockrelay/blockrelay_common.h"
 

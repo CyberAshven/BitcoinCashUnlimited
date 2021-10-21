@@ -42,6 +42,7 @@
 #include <thread>
 
 
+
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
@@ -88,13 +89,13 @@ uint64_t TailstormBlockAssembler::reserveBlockSize(int64_t coinbaseSize)
 
     // BU add the proper block size quantity to the actual size
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
-    assert(nHeaderSize == 80); // BU always 80 bytes
+ //  assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
 
     return nHeaderSize;
 }
 
-CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue, const std::set<CDagNode> &dag)
+CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue, const std::set<CDagNodeRef> &dag)
 {
     CMutableTransaction tx;
 
@@ -104,12 +105,12 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue
     // set the vout to be tailstorm K at least
     tx.vout.resize(TAILSTORM_K);
     CAmount valuePer = nValue / TAILSTORM_K; // TODO HANDLE rounding
-    std::set<CDagNode>::iterator iter = dag.begin();
+    std::set<CDagNodeRef>::iterator iter = dag.begin();
     CAmount total_paid = 0;
     unsigned int i = 0;
     while (i < TAILSTORM_K && iter != dag.end())
     {
-        tx.vout[i].scriptPubKey = (*iter).subblock.vtx[0]->vin[0].scriptSig;
+        tx.vout[i].scriptPubKey = (*iter)->subblock->vtx[0]->vin[0].scriptSig;
         tx.vout[i].nValue = valuePer;
         total_paid = total_paid + valuePer;
         ++i;
@@ -160,7 +161,7 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
     // The constructed block template
     std::unique_ptr<CTailstormBlockTemplate> pblocktemplate(new CTailstormBlockTemplate());
 
-    CTailstormBlock *pblock = pblocktemplate->tailstormblock.get();
+    CBlock *pblock = pblocktemplate->tailstormblock.get();
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
@@ -174,20 +175,15 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
 
     {
         // we must get the best dag before locking mempool because we can not recursively lock mempool
-        std::set<CDagNode> bestdag;
-        if (tailstormDagSet.GetBestDag(bestdag) == false)
+        std::set<CDagNodeRef> bestdag;
+        if (!tailstormDagSet.GetBestDag(bestdag))
         {
             return nullptr;
         }
         READLOCK(mempool.cs_txmempool);
         nHeight = pindexPrev->height() + 1;
-
+        pblock->height = nHeight;
         pblock->nTime = GetAdjustedTime();
-        pblock->nVersion = UnlimitedComputeBlockVersion(pindexPrev, chainparams.GetConsensus(), pblock->nTime);
-        // -regtest only: allow overriding block.nVersion with
-        // -blockversion=N to test forking scenarios
-        if (chainparams.MineBlocksOnDemand())
-            pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
 
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
         nLockTimeCutoff =
@@ -199,14 +195,11 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
             mempool._size(), nFees, nBlockSigOps);
 
         // Populate vdag with subblocks and create coinbase tx
-        for (auto &dagnode : bestdag)
+        for (auto pDagNode : bestdag)
         {
-            pblock->vdag.push_back(std::make_shared<CSubBlock>(dagnode.subblock));
-            pblock->subblockHashes.emplace(dagnode.subblock.GetHash());
-            pblock->subblockNTxMap[dagnode.subblock.GetHash()] = dagnode.subblock.vtx.size();
+            pblock->subblockNTxMap[pDagNode->subblock->GetHash()] = pDagNode->subblock->vtx.size();
         }
         pblock->vtx[0] = coinbaseTx(nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
-        pblock->UpdateTxLists();
 
         std::set<uint256> blockTxHashes;
         for (auto &tx : pblock->vtx)
@@ -261,15 +254,23 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), chainparams.GetConsensus());
         pblocktemplate->vTxSigOps[0] = 0;
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+        pblock->txCount = pblock->vtx.size();
+        pblock->size = pblock->CalculateBlockSize();
+
+        pblock->chainWork = ArithToUint256(pindexPrev->chainWork() + GetWorkForDifficultyBits(pblock->nBits));
+        pblock->feePoolAmt = 0; // to be used later
+        pblock->maxSize = 0; // to be used later
+        pblock->hashAncestor.SetNull(); // to be used later
+
     }
 
     CValidationState state;
-    if (!TestTailstormBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
+
+    if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false))
     {
         throw std::runtime_error(
             strprintf("%s: TestTailstormBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
-
     return pblocktemplate;
 }
 

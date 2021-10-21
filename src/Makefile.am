@@ -199,7 +199,6 @@ BITCOIN_CORE_H = \
   pow.h \
   protocol.h \
   random.h \
-  rank_items.h \
   reverse_iterator.h \
   reverselock.h \
   rpc/blockchain.h \
@@ -232,7 +231,6 @@ BITCOIN_CORE_H = \
   tailstorm/block/miner.h \
   tailstorm/block/merkletailblock.h \
   tailstorm/block/validation.h \
-  tailstorm/subblock/subblock.h \
   tailstorm/subblock/miner.h \
   tailstorm/subblock/merklesubblock.h \
   tailstorm/subblock/validation.h \
@@ -334,7 +332,6 @@ libbitcoin_server_a_SOURCES = \
   policy/fees.cpp \
   policy/policy.cpp \
   pow.cpp \
-  rank_items.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
   rpc/client.cpp \
@@ -353,11 +350,9 @@ libbitcoin_server_a_SOURCES = \
   script/scriptattributes.cpp \
   tailstorm/dag.cpp \
   tailstorm/pow.cpp \
-  tailstorm/block/block.cpp \
   tailstorm/block/miner.cpp \
   tailstorm/block/merkletailblock.cpp \
   tailstorm/block/validation.cpp \
-  tailstorm/subblock/subblock.cpp \
   tailstorm/subblock/miner.cpp \
   tailstorm/subblock/merklesubblock.cpp \
   tailstorm/subblock/validation.cpp \
@@ -428,6 +423,8 @@ libbitcoincash_a_SOURCES = \
   key.h \
   primitives/block.cpp \
   primitives/block.h \
+  primitives/subblock.cpp \
+  primitives/subblock.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
   pubkey.cpp \
@@ -535,10 +532,14 @@ libbitcoin_consensus_a_SOURCES = \
   prevector.h \
   primitives/block.cpp \
   primitives/block.h \
+  primitives/subblock.cpp \
+  primitives/subblock.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
   pubkey.cpp \
   pubkey.h \
+  rank_items.cpp \
+  rank_items.h \
   script/scriptattributes.cpp \
   script/bitcoinconsensus.cpp \
   script/bitfield.cpp \

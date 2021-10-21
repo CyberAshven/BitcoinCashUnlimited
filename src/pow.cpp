@@ -129,8 +129,7 @@ uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (nBlockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (nBlockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }
@@ -513,8 +512,7 @@ uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet:
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (nBlockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (nBlockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }

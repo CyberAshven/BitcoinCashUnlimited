@@ -194,8 +194,16 @@ bool CheckTransaction(const CTransactionRef tx, CValidationState &state)
     // Basic checks that don't depend on any context
     if (tx->vin.empty())
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vin-empty");
-    if (tx->vout.empty())
-        return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
+    if (tx->IsProofBase())
+    {
+       if (!tx->vout.empty())
+           return state.DoS(10, false, REJECT_INVALID, "bad-proofbase-vout-not-empty");
+    }
+    else
+    {
+        if (tx->vout.empty())
+            return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
+    }
 
     // Sigops moved to ContextualCheckTransaction because the consensus rule goes away after may2020 fork
 
@@ -221,13 +229,17 @@ bool CheckTransaction(const CTransactionRef tx, CValidationState &state)
 
     if (tx->IsCoinBase())
     {
-        // BU convert 100 to a constant so we can use it during generation
+        // Convert 100 to a constant so we can use it during generation
         if (tx->vin[0].scriptSig.size() < 2 || tx->vin[0].scriptSig.size() > MAX_COINBASE_SCRIPTSIG_SIZE)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
 
         // Coinbase tx can't have group outputs because it has no group inputs or mintable outputs
         if (IsAnyTxOutputGrouped(*tx))
             return state.DoS(100, false, REJECT_INVALID, "coinbase-has-group-outputs");
+    }
+    else if (tx->IsProofBase())
+    {
+        // Nothing to do
     }
     else
     {

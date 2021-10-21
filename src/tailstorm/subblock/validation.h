@@ -6,7 +6,7 @@
 #define BITCOIN_TAILSTORM_SUBBLOCK_VALIDATION_H
 
 // tailstorm file includes
-#include "subblock.h"
+#include "primitives/subblock.h"
 
 // other bitcoin includes
 #include "chainparams.h"

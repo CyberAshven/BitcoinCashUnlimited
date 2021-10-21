@@ -9,8 +9,8 @@
 
 #include "bloom.h"
 #include "merkleblock.h"
+#include "primitives/subblock.h"
 #include "serialize.h"
-#include "subblock.h"
 #include "uint256.h"
 
 #include <vector>

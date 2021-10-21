@@ -105,7 +105,17 @@ UniValue blockheaderToJSON(const CBlockIndex *blockindex, UniValue &result)
     result.pushKV("utxoCommitment", HexStr(blockindex->header.utxoCommitment));
     result.pushKV("minerData", HexStr(blockindex->header.minerData));
 
+    UniValue subblockHashes(UniValue::VARR);
+    {
+        for (auto &iter : blockindex->header.subblockNTxMap)
+        {
+            subblockHashes.push_back(iter.first.GetHex());
+        }
+        result.pushKV("subblockHashes", subblockHashes);
+    }
+
     if (blockindex->pprev)
+
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     result.pushKV("ancestorhash", blockindex->header.hashAncestor.GetHex());
 

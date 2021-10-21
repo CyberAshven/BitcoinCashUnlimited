@@ -6,7 +6,7 @@
 #define BITCOIN_TAILSTORM_BLOCK_BLOCK_H
 
 // tailstorm file includes
-#include "tailstorm/subblock/subblock.h"
+#include "primitives/subblock.h"
 
 // other bitcoin includes
 #include "hashwrapper.h"

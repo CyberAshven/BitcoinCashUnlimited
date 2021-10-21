@@ -25,6 +25,7 @@
 #include "merkleblock.h"
 #include "nodestate.h"
 #include "requestManager.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "validation/validation.h"
@@ -241,6 +242,32 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                             pfrom->hashContinue.SetNull();
                         }
                     }
+                }
+            }
+        }
+        else if (inv.type == MSG_SUBBLOCK)
+        {
+            // this is safe todo without a lock
+            CSubBlockRef subblock = tailstormDagSet.Find(inv.hash);
+            if (subblock)
+            {
+                LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
+                pfrom->PushMessage(NetMsgType::SUBBLOCK, *subblock);
+            }
+            else
+            {
+                std::map<uint256, CDagNodeRef>::iterator iter;
+                LOCK(cs_tipDagCache);
+                iter = tipDagCache.find(inv.hash);
+                if (iter != tipDagCache.end())
+                {
+                    LOG(REQ, "Found subblock %s in tipDagCache\n", inv.hash.GetHex());
+                    pfrom->PushMessage(NetMsgType::SUBBLOCK, *(iter->second->subblock));
+                }
+                else
+                {
+                    LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
+                    vNotFound.push_back(inv);
                 }
             }
         }
@@ -908,7 +935,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 return false;
 
             const CInv &inv = vInv[nInv];
-            if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF))
+            if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF ||
+                    inv.type == MSG_SUBBLOCK))
             {
                 LOG(NET, "message inv invalid type = %u hash %s", inv.type, inv.hash.ToString());
                 return false;
@@ -950,6 +978,15 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                         "skipping request of block %s.  already have: %d  importing: %d  reindex: %d  "
                         "isChainNearlySyncd: %d\n",
                         inv.hash.ToString(), fAlreadyHaveBlock, fImporting, fReindex, IsChainNearlySyncd());
+                }
+            }
+            else if (inv.type == MSG_SUBBLOCK)
+            {
+                if (!tailstormDagSet.Contains(inv.hash))
+                {
+                    LOCK(cs_tipDagCache);
+                    if (!tipDagCache.count(inv.hash))
+                        requester.AskFor(inv, pfrom);
                 }
             }
             else if (inv.type == MSG_TX)
@@ -1015,7 +1052,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_FILTERED_BLOCK) ||
-                    (inv.type == MSG_CMPCT_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF))
+                    (inv.type == MSG_CMPCT_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF || inv.type == MSG_SUBBLOCK ||
+                    inv.type == MSG_TAILSTORMBLOCK))
             {
                 dosMan.Misbehaving(pfrom, 20, BanReasonInvalidInventory);
                 return error("message inv invalid type = %u", inv.type);
@@ -1785,8 +1823,29 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         //       ProcessNewBlock() during HandleBlockMessage.
         PV->HandleBlockMessage(pfrom, strCommand, pblock, inv);
     }
+    else if (strCommand == NetMsgType::SUBBLOCK && !fImporting && !fReindex)
+    {
+        CSubBlock subblock;
+        vRecv >> subblock;
 
+        uint256 hash = subblock.GetHash();
 
+        // indicate block was received for timing purposes
+        requester.MarkBlockAsReceived(hash, pfrom);
+
+        // Indicate that the block was received and is about to be processed. Setting the processing flag
+        // prevents us from re-requesting the block during the time it is being processed.
+        requester.ProcessingBlock(hash, pfrom);
+
+        // We must indicate to the request manager that the subblock was received
+        // which prevents unnecessary re-requests.
+        requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
+
+        if (!ProcessNewSubBlock(subblock, pfrom))
+            LOG(BLK | REQ, "received invalid subblock %s peer=%d\n", hash.ToString(), pfrom->id);
+        else
+            LOG(BLK | REQ, "received valid subblock %s peer=%d\n", hash.ToString(), pfrom->id);
+    }
     else if (strCommand == NetMsgType::GETADDR)
     {
         // This asymmetric behavior for inbound and outbound connections was introduced

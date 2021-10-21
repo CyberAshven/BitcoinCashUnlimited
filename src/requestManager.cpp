@@ -22,6 +22,7 @@
 #include "primitives/block.h"
 #include "rpc/server.h"
 #include "stat.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "txorphanpool.h"
@@ -67,7 +68,7 @@ extern bool CanDirectFetch(const Consensus::Params &consensusParams);
 static bool IsBlockType(const CInv &obj)
 {
     return ((obj.type == MSG_BLOCK) || (obj.type == MSG_CMPCT_BLOCK) || (obj.type == MSG_XTHINBLOCK) ||
-            (obj.type == MSG_GRAPHENEBLOCK));
+            (obj.type == MSG_GRAPHENEBLOCK) || (obj.type == MSG_SUBBLOCK) || (obj.type == MSG_TAILSTORMBLOCK));
 }
 
 // Constructor for CRequestManagerNodeState struct
@@ -621,7 +622,8 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     if (!IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled())
     {
         std::vector<CInv> vToFetch;
-        inv2.type = MSG_BLOCK;
+        if (inv2.type != MSG_SUBBLOCK)
+            inv2.type = MSG_BLOCK;
         vToFetch.push_back(inv2);
 
         MarkBlockAsInFlight(pfrom->GetId(), obj.hash);

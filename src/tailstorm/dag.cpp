@@ -9,9 +9,9 @@
 #include "consensus/consensus.h"
 #include "txmempool.h"
 
-void CDagNode::AddAncestor(CDagNode *ancestor) { ancestors.emplace(ancestor); }
+void CDagNode::AddAncestor(CDagNodeRef ancestor) { ancestors.emplace(ancestor); }
 
-void CDagNode::AddDescendant(CDagNode *descendant) { descendants.emplace(descendant); }
+void CDagNode::AddDescendant(CDagNodeRef descendant) { descendants.emplace(descendant); }
 
 // there is nothing below it
 bool CDagNode::IsBase() { return ancestors.empty(); }
@@ -19,7 +19,7 @@ bool CDagNode::IsBase() { return ancestors.empty(); }
 // there is nothing above it
 bool CDagNode::IsTip() { return descendants.empty(); }
 
-bool CDagNode::IsValid() { return (subblock.IsNull() == false && dag_id >= 0); }
+bool CDagNode::IsValid() { return (subblock->IsNull() == false && dag_id >= 0); }
 
 void CTailstormDag::SetId(int16_t new_id)
 {
@@ -27,14 +27,14 @@ void CTailstormDag::SetId(int16_t new_id)
     id = new_id;
 }
 
-bool CTailstormDag::CheckForCompatibility(CDagNode *newNode)
+bool CTailstormDag::CheckForCompatibility(CDagNodeRef newNode)
 {
     // we are already incompatible with this node, no need to check its inputs
     if (incompatible_dags.count(newNode->dag_id))
     {
         return false;
     }
-    for (auto &tx : newNode->subblock.vtx)
+    for (auto &tx : newNode->subblock->vtx)
     {
         for (auto &input : tx->vin)
         {
@@ -67,10 +67,10 @@ void CTailstormDag::UpdateCompatibility(const int16_t &new_id, const std::set<in
     {
         if (incompatible_dags.count(old_id))
         {
+            // erase the old id
+            incompatible_dags.erase(old_id);
             // we can emplace multiple times, elements in a set are always unique
             incompatible_dags.emplace(new_id);
-            // we added the new id to the incompatible list, erase the old id
-            incompatible_dags.erase(old_id);
         }
     }
 }
@@ -78,10 +78,10 @@ void CTailstormDag::UpdateCompatibility(const int16_t &new_id, const std::set<in
 void CTailstormDag::UpdateDagScore()
 {
     // keep track of what has been mapNodeScore
-    std::map<CDagNode *, uint64_t> mapNodeScore;
+    std::map<CDagNodeRef, uint64_t> mapNodeScore;
     // build out the dag by level, a nodes level is determined by
     // its shortest path to a base
-    std::vector<std::set<CDagNode *> > leveled_dag;
+    std::vector<std::set<CDagNodeRef> > leveled_dag;
     // first find the bases
     leveled_dag.emplace_back();
     bool do_another_level = false;
@@ -122,14 +122,14 @@ void CTailstormDag::UpdateDagScore()
     }
     // calculate the score
     uint16_t total_score = 0;
-    std::vector<std::set<CDagNode *> >::reverse_iterator riter = leveled_dag.rbegin();
+    std::vector<std::set<CDagNodeRef > >::reverse_iterator riter = leveled_dag.rbegin();
     size_t depth = 1;
     while (riter != leveled_dag.rend())
     {
         for (auto node : *riter)
         {
             uint64_t node_score = 1;
-            for (CDagNode *desc : node->descendants)
+            for (CDagNodeRef desc : node->descendants)
             {
                 auto iter = mapNodeScore.find(desc);
                 if (iter != mapNodeScore.end())
@@ -150,10 +150,10 @@ void CTailstormDag::UpdateDagScore()
     score = total_score;
 }
 
-bool CTailstormDag::Insert(CDagNode *new_node)
+bool CTailstormDag::Insert(CDagNodeRef new_node)
 {
     std::map<COutPoint, uint256> new_spends;
-    for (auto &tx : new_node->subblock.vtx)
+    for (auto &tx : new_node->subblock->vtx)
     {
         if (tx->IsProofBase() == false)
         {
@@ -188,6 +188,7 @@ void CTailstormDagSet::SetNewIds(std::priority_queue<int16_t> &removed_ids)
 
 void CTailstormDagSet::_SetNewIds(std::priority_queue<int16_t> &removed_ids)
 {
+    AssertWriteLockHeld(cs_dagset);
     for (size_t i = 0; i < vdags.size(); ++i)
     {
         vdags[i].id = i;
@@ -198,7 +199,7 @@ void CTailstormDagSet::_SetNewIds(std::priority_queue<int16_t> &removed_ids)
     }
 }
 
-void CTailstormDagSet::_CreateNewDag(CDagNode *newNode)
+void CTailstormDagSet::_CreateNewDag(CDagNodeRef newNode)
 {
     AssertWriteLockHeld(cs_dagset);
     int16_t new_id = vdags.size();
@@ -208,7 +209,7 @@ void CTailstormDagSet::_CreateNewDag(CDagNode *newNode)
     {
         dag.CheckForCompatibility(newNode);
     }
-    for (auto &tx : newNode->subblock.vtx)
+    for (auto &tx : newNode->subblock->vtx)
     {
         mempool.UpdateTransactionDagInfo(tx->GetHash(), new_id, true);
     }
@@ -226,10 +227,10 @@ bool CTailstormDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
         {
             return false;
         }
-        for (CDagNode *node : vdags[id]._dag)
+        for (CDagNodeRef node : vdags[id]._dag)
         {
             vdags[base_dag_id].Insert(node);
-            for (auto &tx : node->subblock.vtx)
+            for (auto &tx : node->subblock->vtx)
             {
                 mempool.UpdateTransactionDagInfo(tx->GetHash(), id, false);
             }
@@ -253,9 +254,9 @@ bool CTailstormDagSet::_MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id)
     new_id = base_dag_id;
 
     // update the txs in this dag
-    for (CDagNode *node : vdags[base_dag_id]._dag)
+    for (CDagNodeRef node : vdags[base_dag_id]._dag)
     {
-        for (auto &tx : node->subblock.vtx)
+        for (auto &tx : node->subblock->vtx)
         {
             mempool.UpdateTransactionDagInfo(tx->GetHash(), base_dag_id, true);
         }
@@ -267,10 +268,6 @@ void CTailstormDagSet::Clear()
 {
     WRITELOCK(cs_dagset);
     vdags.clear();
-    for (auto entry : mapAllNodes)
-    {
-        delete entry.second;
-    }
     mapAllNodes.clear();
 }
 
@@ -280,16 +277,15 @@ size_t CTailstormDagSet::Size()
     return mapAllNodes.size();
 }
 
-bool CTailstormDagSet::Find(const uint256 &hash, CSubBlock &subblock)
+CSubBlockRef CTailstormDagSet::Find(const uint256 &hash)
 {
     READLOCK(cs_dagset);
-    std::map<uint256, CDagNode *>::iterator iter = mapAllNodes.find(hash);
+    std::map<uint256, CDagNodeRef>::iterator iter = mapAllNodes.find(hash);
     if (iter != mapAllNodes.end())
     {
-        subblock = iter->second->subblock;
-        return true;
+        return iter->second->subblock;
     }
-    return false;
+    return nullptr;
 }
 
 bool CTailstormDagSet::Contains(const uint256 &hash)
@@ -309,24 +305,25 @@ bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
     }
 
     // Create newz
-    CDagNode *newNode = new CDagNode(sub_block);
+    CDagNodeRef pDagNode = MakeDagNodeRef(CDagNode(std::make_shared<CSubBlock>(sub_block)));
     // this emplace will always succeed since we already checked for the hash above
-    mapAllNodes.emplace(newNode->hash, newNode);
+    mapAllNodes.emplace(pDagNode->hash, pDagNode);
 
     std::set<int16_t> merge_list;
     for (auto &hash : sub_block.GetAncestorHashes())
     {
-        std::map<uint256, CDagNode *>::iterator ancestor_iter = mapAllNodes.find(hash);
+        std::map<uint256, CDagNodeRef>::iterator ancestor_iter = mapAllNodes.find(hash);
+        //DbgAssert(ancestor_iter == mapAllNodes.end(), );
         if (ancestor_iter == mapAllNodes.end())
         {
             // TODO : A subblock is missing, try to re-request it or something
             continue;
         }
         // use a pointer to the node already inserted in mapAllNodes to avoid obj duplication
-        CDagNode *ancestor = ancestor_iter->second;
-        newNode->AddAncestor(ancestor);
+        CDagNodeRef ancestor = ancestor_iter->second;
+        pDagNode->AddAncestor(ancestor);
         merge_list.emplace(ancestor->dag_id);
-        ancestor->AddDescendant(newNode);
+        ancestor->AddDescendant(pDagNode);
     }
     int16_t new_id = -1;
     if (merge_list.size() > 1)
@@ -349,16 +346,16 @@ bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
     }
     else // if(merge_list.size() == 0)
     {
-        _CreateNewDag(newNode);
+        _CreateNewDag(pDagNode);
         return true;
     }
     assert(new_id != -1);
-    newNode->dag_id = new_id;
-    if (vdags[new_id].CheckForCompatibility(newNode) == false)
+    pDagNode->dag_id = new_id;
+    if (vdags[new_id].CheckForCompatibility(pDagNode) == false)
     {
         return false;
     }
-    vdags[new_id].Insert(newNode);
+    vdags[new_id].Insert(pDagNode);
     // once we have inserted the subblock into a dag, we should update the
     // mempool with information about which dag the txx went into
     for (auto &tx : sub_block.vtx)
@@ -371,13 +368,13 @@ bool CTailstormDagSet::Insert(const CSubBlock &sub_block)
     {
         if (dag.id != new_id)
         {
-            dag.CheckForCompatibility(newNode);
+            dag.CheckForCompatibility(pDagNode);
         }
     }
     return true;
 }
 
-bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
+bool CTailstormDagSet::GetBestDag(std::set<CDagNodeRef> &dag)
 {
     READLOCK(cs_dagset);
     if (vdags.empty())
@@ -393,6 +390,8 @@ bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
         {
             continue;
         }
+
+
         if (best_dag == -1)
         {
             best_dag = i;
@@ -410,11 +409,10 @@ bool CTailstormDagSet::GetBestDag(std::set<CDagNode> &dag)
     }
 
     size_t nodeCt = 0;
-    for (auto &node : vdags[best_dag]._dag)
+    for (auto pnode : vdags[best_dag]._dag)
     {
-        dag.emplace(*node);
+        dag.emplace(pnode);
         nodeCt++;
-
         // TODO: Do something more sophisticated to handle cases where there are more
         // nodes than are necessary to assemble a block
         if (nodeCt == TAILSTORM_K)
@@ -472,24 +470,24 @@ BestDagInfo CTailstormDagSet::GetBestDagInfo()
     // get the tips from all compatible dags
     for (auto &dag_index : bestdaginfo.compatible_dags)
     {
-        for (auto &node : vdags[dag_index]._dag)
+        for (auto pnode : vdags[dag_index]._dag)
         {
-            if (node->IsTip())
+            if (pnode->IsTip())
             {
-                bestdaginfo.tip_hashes.push_back(node->hash);
+                bestdaginfo.tip_hashes.push_back(pnode->hash);
             }
         }
     }
     return bestdaginfo;
 }
 
-std::map<uint256, CDagNode> CTailstormDagSet::GetAllNodes()
+std::map<uint256, CDagNodeRef> CTailstormDagSet::GetAllNodes()
 {
     READLOCK(cs_dagset);
-    std::map<uint256, CDagNode> allNodes;
+    std::map<uint256, CDagNodeRef> allNodes;
     for (auto entry : mapAllNodes)
     {
-        allNodes.emplace(entry.first, *entry.second);
+        allNodes.emplace(entry.first, entry.second);
     }
     return allNodes;
 }

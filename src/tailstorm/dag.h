@@ -6,7 +6,7 @@
 #define BITCOIN_TAILSTORM_DAG_H
 
 // tailstorm file includes
-#include "subblock/subblock.h"
+#include "primitives/subblock.h"
 
 // other bitcoin includes
 #include "sync.h"
@@ -22,32 +22,42 @@ struct BestDagInfo
     std::vector<int16_t> incompatible_dags;
 };
 
+class CDagNode;
+typedef std::shared_ptr<CDagNode> CDagNodeRef;
+//static inline CDagNodeRef MakeDagNodeRef() { return std::make_shared<CDagNode>(); }
+template <typename Node>
+static inline CDagNodeRef MakeDagNodeRef(Node &&nodeIn)
+{
+    return std::make_shared<CDagNode>(std::forward<Node>(nodeIn));
+}
+
+
 class CDagNode
 {
 public:
     uint256 hash; // the weakblock hash that is this node
     int16_t dag_id; // cannot be negative
 
-    CSubBlock subblock;
+    CSubBlockRef subblock;
 
-    std::set<CDagNode *> ancestors; // should point to the nodes of the parentHashes
-    std::set<CDagNode *> descendants; // points to the nodes of the children
+    std::set<CDagNodeRef> ancestors; // should point to the nodes of the parentHashes
+    std::set<CDagNodeRef> descendants; // points to the nodes of the children
 
 private:
     CDagNode() {} // disable default constructor
 
 public:
-    CDagNode(CSubBlock _subblock)
+    CDagNode(CSubBlockRef _subblock)
     {
-        hash = _subblock.GetHash();
+        hash = _subblock->GetHash();
         subblock = _subblock;
         dag_id = -1;
     }
 
     friend bool operator<(const CDagNode &a, const CDagNode &b) { return a.hash < b.hash; }
 
-    void AddAncestor(CDagNode *ancestor);
-    void AddDescendant(CDagNode *descendant);
+    void AddAncestor(CDagNodeRef ancestor);
+    void AddDescendant(CDagNodeRef descendant);
     bool IsBase();
     bool IsTip();
     bool IsValid();
@@ -59,7 +69,7 @@ class CTailstormDag
 
 protected:
     int16_t id; // should match the index of the vector in which this dag is in the dag set
-    std::deque<CDagNode *> _dag;
+    std::deque<CDagNodeRef> _dag;
 
 public:
     // output spent, the tx hash it was spent in
@@ -72,18 +82,18 @@ private:
 
 protected:
     void SetId(int16_t new_id);
-    bool CheckForCompatibility(CDagNode *newNode);
+    bool CheckForCompatibility(CDagNodeRef newNode);
     void UpdateCompatibility(const int16_t &new_id, const std::set<int16_t> &old_ids);
     void UpdateDagScore();
 
 public:
-    CTailstormDag(uint16_t _id, CDagNode *first_node)
+    CTailstormDag(uint16_t _id, CDagNodeRef first_node)
     {
         id = _id;
         assert(id != -1);
         Insert(first_node);
     }
-    bool Insert(CDagNode *new_node);
+    bool Insert(CDagNodeRef new_node);
 };
 
 // this class can not have any public data members, all datamembers are
@@ -92,15 +102,15 @@ class CTailstormDagSet
 {
 protected:
     CSharedCriticalSection cs_dagset;
-    std::map<uint256, CDagNode *> mapAllNodes;
-    std::vector<CTailstormDag> vdags;
+    std::map<uint256, CDagNodeRef> mapAllNodes GUARDED_BY(cs_dagset);
+    std::vector<CTailstormDag> vdags GUARDED_BY(cs_dagset);
 
 private:
     void SetNewIds(std::priority_queue<int16_t> &removed_ids);
     void _SetNewIds(std::priority_queue<int16_t> &removed_ids);
 
 protected:
-    void _CreateNewDag(CDagNode *newNode);
+    void _CreateNewDag(CDagNodeRef newNode);
     bool _MergeDags(std::set<int16_t> &tree_ids, int16_t &new_id);
 
 public:
@@ -110,16 +120,16 @@ public:
 
     size_t Size();
 
-    bool Find(const uint256 &hash, CSubBlock &subblock);
+    CSubBlockRef Find(const uint256 &hash);
     bool Contains(const uint256 &hash);
     bool Insert(const CSubBlock &sub_block);
-    bool GetBestDag(std::set<CDagNode> &dag);
+    bool GetBestDag(std::set<CDagNodeRef> &dag);
     BestDagInfo GetBestDagInfo();
-    std::map<uint256, CDagNode> GetAllNodes();
+    std::map<uint256, CDagNodeRef> GetAllNodes();
 };
 
-extern CCriticalSection cs_tipDagCache;
 extern CTailstormDagSet tailstormDagSet;
-extern std::map<uint256, CDagNode> tipDagCache;
+extern CCriticalSection cs_tipDagCache;
+extern std::map<uint256, CDagNodeRef> tipDagCache GUARDED_BY(cs_tipDagCache);
 
 #endif

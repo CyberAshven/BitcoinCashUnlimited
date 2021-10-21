@@ -137,8 +137,8 @@ CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus:
     // Check the header
     if (!CheckProofOfWork(pblock->GetMiningHash(), pblock->nBits, consensusParams))
     {
-        LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
-        return nullptr;
+   //     LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+   //     return nullptr;
     }
 
     return pblock;

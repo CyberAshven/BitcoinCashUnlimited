@@ -11,9 +11,14 @@
 #include "crypto/common.h"
 #include "hashwrapper.h"
 #include "pow.h"
+#include "rank_items.h"
 #include "streams.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
+
+#include <cmath>
+#include <numeric>
+#include <unordered_map>
 
 uint256 SatoshiBlockHeader::GetHash() const { return SerializeHash(*this); }
 
@@ -25,7 +30,7 @@ uint256 CBlockHeader::GetMiningHeaderCommitment() const
 
     CSHA256Writer extHeader;
     extHeader << hashAncestor << hashTxFilter << hashMerkleRoot << nTime << ((uint64_t)height) << chainWork << size
-              << txCount << maxSize << feePoolAmt << utxoCommitment << minerData;
+              << txCount << maxSize << feePoolAmt << utxoCommitment << minerData << subblockNTxMap;
     uint256 extHash = extHeader.GetHash();
 
     CSHA256Writer commitment;
@@ -47,7 +52,7 @@ uint256 GetMiningHash(const uint256 &headerCommitment, const std::vector<unsigne
 
 uint256 CBlockHeader::GetHash() const
 {
-    assert(size != 0); // Size must be properly calculated before we can figure out the hash
+   // assert(size != 0); // Size must be properly calculated before we can figure out the hash
 
     // The hash is calculated similarly to the mining header commitment, except that the nonce is included in the
     // extended header.  This means that a very-light client can keep a very small header for uninteresting blocks
@@ -57,7 +62,7 @@ uint256 CBlockHeader::GetHash() const
     miniHeader << hashPrevBlock << nBits;
     CSHA256Writer extHeader;
     extHeader << hashAncestor << hashTxFilter << hashMerkleRoot << nTime << ((uint64_t)height) << chainWork << size
-              << txCount << maxSize << feePoolAmt << utxoCommitment << minerData << nonce;
+              << txCount << maxSize << feePoolAmt << utxoCommitment << minerData << subblockNTxMap << nonce;
 
     CSHA256Writer commitment;
     commitment << miniHeader.GetHash() << extHeader.GetHash();
@@ -114,6 +119,12 @@ uint64_t CBlock::GetBlockSize() const
     }
     return size;
 }
+
+struct TxEncodeHashComparator
+{
+public:
+    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetHash() < b->GetHash(); }
+};
 
 
 arith_uint256 GetWorkForDifficultyBits(uint32_t nBits)

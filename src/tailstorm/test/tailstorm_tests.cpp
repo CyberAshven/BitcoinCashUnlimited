@@ -19,20 +19,20 @@ BOOST_AUTO_TEST_CASE(test_dag_score)
      */
     unsigned int anticipatedTotalScore = 18;
     // root node
-    CSubBlock subblock1;
-    CDagNode *node1 = new CDagNode(subblock1);
+    CSubBlockRef subblock1;
+    CDagNodeRef node1 = MakeDagNodeRef(subblock1);
     // two descendants, which are siblings
-    CSubBlock subblock2;
-    CDagNode *node2 = new CDagNode(subblock2);
+    CSubBlockRef subblock2;
+    CDagNodeRef node2 = MakeDagNodeRef(subblock2);
     node1->AddDescendant(node2);
     node2->AddAncestor(node1);
-    CSubBlock subblock3;
-    CDagNode *node3 = new CDagNode(subblock3);
+    CSubBlockRef subblock3;
+    CDagNodeRef node3 = MakeDagNodeRef(subblock3);
     node1->AddDescendant(node3);
     node3->AddAncestor(node1);
     // one descendant, which is child of one sibling
-    CSubBlock subblock4;
-    CDagNode *node4 = new CDagNode(subblock4);
+    CSubBlockRef subblock4;
+    CDagNodeRef node4 = MakeDagNodeRef(subblock4);
     node3->AddDescendant(node4);
     node4->AddAncestor(node3);
 
@@ -102,8 +102,8 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     // one descendant
     CSubBlockRef subref2 = std::make_shared<CSubBlock>();
     subref1->nNonce = 2;
-    CDagNode *node2 = new CDagNode(*subref2);
-    CDagNode *node1 = new CDagNode(*subref1);
+    CDagNodeRef node2 = MakeDagNodeRef(subref2);
+    CDagNodeRef node1 = MakeDagNodeRef(subref1);
     node1->AddDescendant(node2);
     node2->AddAncestor(node1);
 
@@ -136,19 +136,6 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     CTailstormBlock block;
     block.vdag.push_back(subref1);
     block.vdag.push_back(subref2);
-/*
-    block.UpdateTxLists();
-
-    BOOST_CHECK(block.vtx.size() == 5);
-
-    // validate decoded subblock tx info
-    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > subblockTxListMap =
-        block.DecodeTxLists();
-    BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[0] == tx11);
-    BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[1] == tx12);
-    BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[0] == tx21);
-    BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[1] == tx22);
-*/
 }
 
 BOOST_AUTO_TEST_SUITE_END()

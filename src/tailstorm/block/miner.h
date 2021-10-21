@@ -40,10 +40,10 @@ struct Params;
 
 struct CTailstormBlockTemplate
 {
-    CTailstormBlockRef tailstormblock;
+    CBlockRef tailstormblock;
     std::vector<CAmount> vTxFees;
     std::vector<int64_t> vTxSigOps;
-    CTailstormBlockTemplate() : tailstormblock(new CTailstormBlock()) {}
+    CTailstormBlockTemplate() : tailstormblock(new CBlock()) {}
 };
 
 class TailstormBlockAssembler
@@ -90,7 +90,7 @@ private:
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */
-    CTransactionRef coinbaseTx(int nHeight, CAmount nValue, const std::set<CDagNode> &dag);
+    CTransactionRef coinbaseTx(int nHeight, CAmount nValue, const std::set<CDagNodeRef> &dag);
 };
 
 #endif
