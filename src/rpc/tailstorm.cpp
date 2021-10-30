@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "amount.h"
+#include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "tailstorm/tailstorm.h"
 #include "chain.h"
@@ -29,7 +30,6 @@
 #include <stdint.h>
 
 #include <boost/assign/list_of.hpp>
-#include <boost/shared_ptr.hpp>
 
 extern CTailstormDagSet tailstormDagSet;
 extern std::set<CTailstormBlock> tailstormBlocks;
@@ -111,14 +111,15 @@ static UniValue getsubblock(const UniValue &params, bool fHelp)
     {
         // Grab the subblock by hash
         const uint256 hash(uint256S(param0));
+        blockcache.GetBlock(hash, subblock);
 
-        // Look to see if its an active subblock
+        // If it's not in the main cache the look in the other caches
+        if (!subblock)
         {
             LOCK(cs_tipDagCache);
             subblock = tailstormDagSet.Find(hash);
         }
-
-        if (!subblock)  // Look for a dag subblock
+        if (!subblock)
         {
             std::map<uint256, CDagNodeRef>::iterator iter;
             LOCK(cs_tipDagCache);

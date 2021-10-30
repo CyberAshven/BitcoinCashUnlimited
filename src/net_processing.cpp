@@ -15,6 +15,7 @@
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
 #include "blockrelay/thinblock.h"
+#include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "chain.h"
 #include "dosman.h"
@@ -247,27 +248,36 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
         }
         else if (inv.type == MSG_SUBBLOCK)
         {
-            // this is safe todo without a lock
-            CSubBlockRef subblock = tailstormDagSet.Find(inv.hash);
-            if (subblock)
+            // Check various caches
+            CSubBlockRef subblock;
+            if (blockcache.GetBlock(inv.hash, subblock))
             {
                 LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
                 pfrom->PushMessage(NetMsgType::SUBBLOCK, *subblock);
             }
             else
             {
-                std::map<uint256, CDagNodeRef>::iterator iter;
-                LOCK(cs_tipDagCache);
-                iter = tipDagCache.find(inv.hash);
-                if (iter != tipDagCache.end())
+                subblock = tailstormDagSet.Find(inv.hash);
+                if (subblock)
                 {
-                    LOG(REQ, "Found subblock %s in tipDagCache\n", inv.hash.GetHex());
-                    pfrom->PushMessage(NetMsgType::SUBBLOCK, *(iter->second->subblock));
+                    LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
+                    pfrom->PushMessage(NetMsgType::SUBBLOCK, *subblock);
                 }
                 else
                 {
-                    LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
-                    vNotFound.push_back(inv);
+                    std::map<uint256, CDagNodeRef>::iterator iter;
+                    LOCK(cs_tipDagCache);
+                    iter = tipDagCache.find(inv.hash);
+                    if (iter != tipDagCache.end())
+                    {
+                        LOG(REQ, "Found subblock %s in tipDagCache\n", inv.hash.GetHex());
+                        pfrom->PushMessage(NetMsgType::SUBBLOCK, *(iter->second->subblock));
+                    }
+                    else
+                    {
+                        LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
+                        vNotFound.push_back(inv);
+                    }
                 }
             }
         }

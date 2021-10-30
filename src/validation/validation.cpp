@@ -3101,11 +3101,8 @@ void UpdateTip(CBlockIndex *pindexNew)
 
     {
         LOCK(cs_tipDagCache);
-      //  tipDagCache.clear();
-//        tipDagCache = tailstormDagSet.GetAllNodes();
-std::map<uint256, CDagNodeRef> tiptemp;
-tiptemp = tailstormDagSet.GetAllNodes();
-      tipDagCache.insert(tiptemp.begin(), tiptemp.end());
+        tipDagCache.clear();
+        tipDagCache = tailstormDagSet.GetAllNodes();
         tailstormDagSet.Clear();
     }
 

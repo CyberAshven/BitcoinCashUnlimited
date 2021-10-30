@@ -48,6 +48,14 @@ std::string CSubBlock::ToString() const
     return s.str();
 }
 
+std::string CSubBlock::GetHex() const
+{
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << *this;
+    std::string strHex = HexStr(stream.begin(), stream.end());
+    return strHex;
+}
+
 std::set<uint256> CSubBlock::GetAncestorHashes() const
 {
     std::set<uint256> ancestors;

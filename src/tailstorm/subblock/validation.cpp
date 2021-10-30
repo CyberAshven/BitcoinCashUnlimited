@@ -9,6 +9,7 @@
 
 // other bitcoin includes
 #include "blockrelay/blockrelay_common.h"
+#include "blockstorage/blockcache.h"
 #include "chain.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
@@ -178,6 +179,7 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
     {
         thinrelay.ClearBlockInFlight(pfrom->id, subblock.GetHash());
     }
+
     if (CheckSubBlock(subblock, state, true, true))
     {
         auto mtp = chainActive.Tip()->GetMedianTimePast();
@@ -189,8 +191,13 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
             return true; // The subblock is fine, but we've already moved on
         }
 
+
         if (tailstormDagSet.Insert(subblock))
         {
+            // The subblock has been validated and accepted. Add to the cache
+            // and announce the subblock to other peers.
+            blockcache.AddBlock(MakeSubBlockRef(subblock), chainActive.Tip()->height());
+
             auto inv = CInv(MSG_SUBBLOCK, subblock.GetHash());
             LOG(NET, "Push inventory A %s\n", inv.ToString());
             LOCK(cs_vNodes);
@@ -201,5 +208,5 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
             return true;
         }
     }
-    return false;
+   return false;
 }

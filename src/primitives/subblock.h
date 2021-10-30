@@ -7,6 +7,7 @@
 
 #include "primitives/transaction.h"
 #include "serialize.h"
+#include "streams.h"
 #include "uint256.h"
 #include "util.h"
 
@@ -99,11 +100,20 @@ public:
 
     std::string ToString() const;
 
+    /** return the network serialization of this subblock as a hex string */
+    std::string GetHex() const;
+
     std::set<uint256> GetAncestorHashes() const;
 
     std::vector<uint256> GetTxHashes() const;
 };
 
 typedef std::shared_ptr<CSubBlock> CSubBlockRef;
+static inline CSubBlockRef MakeSubBlockRef() { return std::make_shared<CSubBlock>(); }
+template <typename SubBlk>
+static inline CSubBlockRef MakeSubBlockRef(SubBlk &&subBlkIn)
+{
+    return std::make_shared<CSubBlock>(std::forward<SubBlk>(subBlkIn));
+}
 
 #endif

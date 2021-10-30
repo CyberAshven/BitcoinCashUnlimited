@@ -25,6 +25,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
             "-use-compactblocks=0",
             "-use-grapheneblocks=0",
             "-rpcservertimeout=0",
+            "-test.enableSubblockCache=1",
             "-debug=weakblocks",
             "-blockprioritysize=6000000",
             "-blockmaxsize=6000000",
@@ -69,11 +70,12 @@ class TailstormBlocksTest(BitcoinTestFramework):
         # to assemble a block. This should succeed silently.
         logging.info("Test more subblocks than necessary")
         self.nodes[0].generatesubblocks(103)
+        print("here 1")
         ts0 = self.nodes[0].generatetailstormblocks(1)
         ts1 = self.nodes[0].getblock(ts0[0])
         s2h = self.nodes[1].generatesubblocks(2)
-     #   print(str(s2h))
-     #   print(str(self.nodes[1].getsubblock(s2h[0])))
+       # print(str(s2h))
+       # print(str(self.nodes[1].getsubblock(s2h[0])))
         # Are they available locally?
    #     waitFor(10, lambda: type(returnException(lambda: self.nodes[1].getsubblock(s2h[0]))) is type({}))
    #     waitFor(10, lambda: type(returnException(lambda: self.nodes[1].getsubblock(s2h[1]))) is type({}))
@@ -86,7 +88,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
   #      waitFor(10, lambda: self.nodes[0].getsubblock(s2h[1]))
         s1h = self.nodes[0].generatesubblocks(2)
         ts1h = self.nodes[0].generatetailstormblocks(1)
-        print(str(ts1h))
+        #print(str(ts1h))
         ts1 = self.nodes[0].getblock(ts1h[0])
         usedSubblocks = ts1["subblockHashes"]
         genSbs = s1h + s2h
