@@ -17,9 +17,13 @@ void CBlockCache::AddBlock(CBlockRef pblock, uint64_t nHeight)
 
 void CBlockCache::AddBlock(CSubBlockRef pblock, uint64_t nHeight)
 {
+    WRITELOCK(cs_blockcache);
+
+    // Always add to recent subblocks regardless of whether we have the subblock cache enabled
+    filterRecentSubBlock.insert(pblock->GetHash());
+
     if (enableSubblockCache.Value())
     {
-        WRITELOCK(cs_blockcache);
         _AddBlock(BlockType::CSUBBLOCK, pblock->GetHash(), pblock, nHeight, pblock->GetBlockSize());
     }
 }

@@ -157,9 +157,8 @@ bool CheckBlockHeader(const Consensus::Params &consensusParams,
         return state.DoS(100, error("%s: nonce too large", __func__), REJECT_INVALID, "bad-nonce");
     }
     // Check proof of work matches claimed amount
-    uint256 miningHash = block.GetMiningHash();
- //   if (fCheckPOW && !CheckProofOfWork(miningHash, block.nBits, consensusParams))
- //       return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
+    if (fCheckPOW && !CheckTailstormPoW(block, consensusParams, TAILSTORM_K))
+        return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp
     if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
@@ -2682,8 +2681,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
             }
 
             LOG(BENCH, "Number of SigChecks performed: %d\n", blockSigChecks);
-
-            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->GetNextMaxBlockSize());
+            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->pprev->GetNextMaxBlockSize());
             if (blockSigChecks > maxSigChecksAllowed)
             {
                 return state.DoS(

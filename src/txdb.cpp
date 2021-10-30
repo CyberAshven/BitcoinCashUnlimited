@@ -9,6 +9,7 @@
 #include "chainparams.h"
 #include "hashwrapper.h"
 #include "pow.h"
+#include "tailstorm/pow.h"
 #include "ui_interface.h"
 #include "uint256.h"
 #include "validation/validation.h"
@@ -452,9 +453,10 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
                 pindexNew->nNextMaxBlockSize = diskindex.nNextMaxBlockSize;
 
-         //       if (!CheckProofOfWork(pindexNew->header.GetMiningHash(), pindexNew->tgtBits(), Params().GetConsensus()))
-         //       if (!CheckTailstormProofOfWork(pindexNew->GetBlockHeader, Params().GetConsensus(), TAILSTORM_K))
-         //           return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
+                //TODO: ptschip - have to figure out what to do about the genesis
+                if (pindexNew->GetBlockHeader().height > 0)
+                    if (!CheckTailstormPoW(pindexNew->GetBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
+                        return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
                 pcursor->Next();
             }

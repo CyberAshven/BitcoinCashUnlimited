@@ -177,6 +177,13 @@ def expectException(fn, ExcType, comparison=None):
             return
     assert(0)  # an exception should have happened
 
+def returnException(lamb):
+    # Wrap a lamba in a try block, returning either the result of the lambda or the exception
+    try:
+        return lamb()
+    except Exception as e:
+        return e
+
 def enable_mocktime():
     # Set the mocktime to be after the Bitcoin Cash fork so
     # in normal tests blockchains the fork is in the past

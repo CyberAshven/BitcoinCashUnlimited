@@ -992,11 +992,9 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             }
             else if (inv.type == MSG_SUBBLOCK)
             {
-                if (!tailstormDagSet.Contains(inv.hash))
+                if (!blockcache.filterRecentSubBlock.contains(inv.hash))
                 {
-                    LOCK(cs_tipDagCache);
-                    if (!tipDagCache.count(inv.hash))
-                        requester.AskFor(inv, pfrom);
+                    requester.AskFor(inv, pfrom);
                 }
             }
             else if (inv.type == MSG_TX)

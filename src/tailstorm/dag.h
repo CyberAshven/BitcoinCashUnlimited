@@ -24,13 +24,11 @@ struct BestDagInfo
 
 class CDagNode;
 typedef std::shared_ptr<CDagNode> CDagNodeRef;
-//static inline CDagNodeRef MakeDagNodeRef() { return std::make_shared<CDagNode>(); }
 template <typename Node>
 static inline CDagNodeRef MakeDagNodeRef(Node &&nodeIn)
 {
     return std::make_shared<CDagNode>(std::forward<Node>(nodeIn));
 }
-
 
 class CDagNode
 {
@@ -49,7 +47,9 @@ private:
 public:
     CDagNode(CSubBlockRef _subblock)
     {
-        hash = _subblock->GetHash();
+        if (_subblock)
+           hash = _subblock->GetHash();
+
         subblock = _subblock;
         dag_id = -1;
     }

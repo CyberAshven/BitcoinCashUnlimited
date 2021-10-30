@@ -72,6 +72,15 @@ bool CheckSubBlock(const CSubBlock &subblock, CValidationState &state, bool fChe
     {
         return state.DoS(100, error("CheckSubBlock(): size limits failed"), REJECT_INVALID, "bad-blk-length");
     }
+    // Ensure that the blocksize is within limits according to the adaptive block size algorithm.
+    // TODO: ptschip - can we really rely on chainactive to validate size...could we not end up getting
+    //                 subblocks out of order and for several blocks forward?  perhaps we need to know where in the dag they are?
+    // TODO: ptschip - also need a more accurate way of sizing the subblock ... / TAILSTORM_K is just a quick and dirty.
+    if (::GetSerializeSize(subblock, SER_NETWORK, PROTOCOL_VERSION) > chainActive.Tip()->GetNextMaxBlockSize() / TAILSTORM_K)
+    {
+        return state.DoS(100, error("%s: announced subblock size too large", __func__), REJECT_INVALID, "bad-subblk-size");
+    }
+
     // First transaction must be proofbase, the rest must not be
     if (subblock.vtx.empty() || !subblock.vtx[0]->IsProofBase())
     {

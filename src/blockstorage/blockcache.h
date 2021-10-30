@@ -44,6 +44,9 @@ private:
     const uint64_t nIncrement = 1;
 
 public:
+    /** Keep track of recent subblocks that were valid and fully accepted */
+    CRollingFastFilter<4 * 1024 * 1024> filterRecentSubBlock;
+
     CBlockCache(){};
 
     /** Add block to the block cache */

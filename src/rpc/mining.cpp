@@ -21,6 +21,7 @@
 #include "net.h"
 #include "pow.h"
 #include "rpc/server.h"
+#include "tailstorm/tailstorm.h"
 #include "txadmission.h"
 #include "txmempool.h"
 #include "ui_interface.h"
@@ -35,6 +36,13 @@
 #include <boost/shared_ptr.hpp>
 
 #include <univalue.h>
+
+extern UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
+    int nSubGenerate=0,
+    int nGenerate=0,
+    uint64_t nMaxTries=0,
+    bool keepScript=false,
+    bool fSubBlocksOnly=false);
 
 using namespace std;
 
@@ -104,76 +112,6 @@ UniValue getnetworkhashps(const UniValue &params, bool fHelp)
         params.size() > 0 ? params[0].get_int() : 120, params.size() > 1 ? params[1].get_int() : -1);
 }
 
-UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
-    int nGenerate,
-    uint64_t nMaxTries,
-    bool keepScript)
-{
-    static const uint64_t nInnerLoopCount = 0x10000;
-    int nHeightStart = 0;
-    int nHeightEnd = 0;
-    int nHeight = 0;
-
-    nHeightStart = chainActive.Height();
-    nHeight = nHeightStart;
-    nHeightEnd = nHeightStart + nGenerate;
-
-    UniValue blockHashes(UniValue::VARR);
-    auto p = Params().GetConsensus();
-    while (nHeight < nHeightEnd)
-    {
-        std::unique_ptr<CBlockTemplate> pblocktemplate;
-        {
-            TxAdmissionPause lock; // flush any tx waiting to enter the mempool
-            pblocktemplate = BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript);
-        }
-        if (!pblocktemplate.get())
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
-
-        CBlock *pblock = &pblocktemplate->block;
-        pblock->nonce.resize(4);
-
-        auto tries = min(nInnerLoopCount, nMaxTries);
-        bool worked = MineBlock(*pblock, tries, p);
-        nMaxTries -= tries;
-
-        if (nMaxTries == 0)
-        {
-            break;
-        }
-
-        if (worked == false)
-        {
-            continue;
-        }
-        // Ok we found a block, so process it
-
-        // In we are mining our own block or not running in parallel for any reason
-        // we must terminate any block validation threads that are currently running,
-        // Unless they have more work than our own block or are processing a chain
-        // that has more work than our block.
-        PV->StopAllValidationThreads(pblock->GetBlockHeader().nBits);
-
-        CValidationState state;
-        if (!ProcessNewBlock(state, Params(), nullptr, pblock, true, nullptr, false))
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
-        ++nHeight;
-        blockHashes.push_back(pblock->GetHash().GetHex());
-
-        // mark script as important because it was used at least for one coinbase output if the script came from the
-        // wallet
-        if (keepScript)
-        {
-            coinbaseScript->KeepScript();
-        }
-    }
-
-    CValidationState state;
-    FlushStateToDisk(state, FLUSH_STATE_ALWAYS); // we made lots of blocks
-    CBlockIndex *pindexNewTip = chainActive.Tip();
-    uiInterface.NotifyBlockTip(false, pindexNewTip, false);
-    return blockHashes;
-}
 
 UniValue generate(const UniValue &params, bool fHelp)
 {
@@ -207,7 +145,7 @@ UniValue generate(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateBlocks(coinbaseScript, nGenerate, nMaxTries, true);
+    return generateTailstormBlocks( coinbaseScript, 0, nGenerate, nMaxTries, true, false);
 }
 
 UniValue generatetoaddress(const UniValue &params, bool fHelp)
@@ -241,7 +179,7 @@ UniValue generatetoaddress(const UniValue &params, bool fHelp)
     boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    return generateBlocks(coinbaseScript, nGenerate, nMaxTries, false);
+    return generateTailstormBlocks( coinbaseScript, 0, nGenerate, nMaxTries, true, false);
 }
 
 UniValue getmininginfo(const UniValue &params, bool fHelp)

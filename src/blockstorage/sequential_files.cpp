@@ -7,6 +7,7 @@
 #include "sequential_files.h"
 
 #include "blockstorage.h"
+#include "tailstorm/pow.h"
 
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
@@ -135,10 +136,10 @@ CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus:
     }
 
     // Check the header
-    if (!CheckProofOfWork(pblock->GetMiningHash(), pblock->nBits, consensusParams))
+    if (!CheckTailstormPoW(pblock->GetBlockHeader(), consensusParams, TAILSTORM_K))
     {
-   //     LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
-   //     return nullptr;
+        LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+        return nullptr;
     }
 
     return pblock;

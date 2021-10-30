@@ -369,7 +369,7 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
 
             if (fSubBlocksOnly == false)
             {
-                // Assemble tailstorm block
+                 // Assemble tailstorm block
                 std::unique_ptr<CTailstormBlockTemplate> pTailstormBlockTemplate;
 
                 TxAdmissionPause lock; // flush any tx waiting to enter the mempool

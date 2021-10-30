@@ -70,22 +70,16 @@ class TailstormBlocksTest(BitcoinTestFramework):
         # to assemble a block. This should succeed silently.
         logging.info("Test more subblocks than necessary")
         self.nodes[0].generatesubblocks(103)
-        print("here 1")
         ts0 = self.nodes[0].generatetailstormblocks(1)
         ts1 = self.nodes[0].getblock(ts0[0])
         s2h = self.nodes[1].generatesubblocks(2)
-       # print(str(s2h))
-       # print(str(self.nodes[1].getsubblock(s2h[0])))
         # Are they available locally?
-   #     waitFor(10, lambda: type(returnException(lambda: self.nodes[1].getsubblock(s2h[0]))) is type({}))
-   #     waitFor(10, lambda: type(returnException(lambda: self.nodes[1].getsubblock(s2h[1]))) is type({}))
-  #      waitFor(10, lambda: self.nodes[1].getsubblock(s2h[0]))
-  #      waitFor(10, lambda: self.nodes[1].getsubblock(s2h[1]))
-           # Are they available remote?
-#        waitFor(10, lambda: type(returnException(lambda: self.nodes[0].getsubblock(s2h[0]))) is type({}))
-#        waitFor(10, lambda: type(returnException(lambda: self.nodes[0].getsubblock(s2h[1]))) is type({}))
-  #      waitFor(10, lambda: self.nodes[0].getsubblock(s2h[0]))
-  #      waitFor(10, lambda: self.nodes[0].getsubblock(s2h[1]))
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s2h[0])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s2h[1])) is not "unknown subblock" )
+        # Are they available remote?
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[0])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[1])) is not "unknown subblock" )
+
         s1h = self.nodes[0].generatesubblocks(2)
         ts1h = self.nodes[0].generatetailstormblocks(1)
         #print(str(ts1h))

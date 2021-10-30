@@ -37,7 +37,6 @@
 #include <algorithm>
 #include <boost/thread.hpp>
 #include <boost/tuple/tuple.hpp>
-//#include <coz.h>
 #include <limits>
 #include <queue>
 #include <thread>
@@ -71,15 +70,13 @@ SubBlockAssembler::SubBlockAssembler(const CChainParams &_chainparams)
       lastFewTxs(0), blockFinished(false)
 {
     // Largest block you're willing to create:
-    nBlockMaxSize = maxGeneratedBlock;
-    // Core:
-    // nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
-    // Limit to between 1K and MAX_BLOCK_SIZE-1K for sanity:
-    // nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE-1000), nBlockMaxSize));
+    nBlockMaxSize = chainActive.Tip()->GetNextMaxBlockSize();
+    if (nBlockMaxSize > maxGeneratedBlock)
+        nBlockMaxSize = maxGeneratedBlock;
 
     // Minimum block size you want to create; block will be filled with free transactions
     // until there are no more or the block reaches this size:
-    nBlockMinSize = GetArg("-blockminsize", 0);
+    nBlockMinSize = GetArg("-blockprioritysize", DEFAULT_BLOCK_PRIORITY_SIZE);
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 }
 
@@ -87,7 +84,7 @@ void SubBlockAssembler::resetBlock(const CScript &scriptPubKeyIn, int64_t coinba
 {
     inBlock.clear();
 
-    nBlockSize = reserveBlockSize(scriptPubKeyIn, coinbaseSize); // Core: 1000
+    nBlockSize = reserveBlockSize(scriptPubKeyIn, coinbaseSize);
     nBlockSigOps = 100; // Reserve 100 sigops for miners to use in their coinbase transaction
 
     // These counters do not include coinbase tx
@@ -103,7 +100,7 @@ uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int6
     CSubBlockHeader h;
     uint64_t nHeaderSize, nCoinbaseSize, nCoinbaseReserve;
 
-    // BU add the proper block size quantity to the actual size
+    // add the proper block size quantity to the actual size
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
     assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
@@ -221,7 +218,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     CBlockIndex *pindexPrev = chainActive.Tip();
     assert(pindexPrev); // can't make a new block if we don't even have the genesis block
 
-    maxSigOpsAllowed = maxSigChecks.Value();
+    maxSigOpsAllowed = GetMaxBlockSigChecks(pindexPrev->GetNextMaxBlockSize() / TAILSTORM_K);
     {
         // we must get the tips before locking mempool because we can not recursively lock mempool
         BestDagInfo bdi = tailstormDagSet.GetBestDagInfo();
@@ -240,10 +237,12 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
             (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST) ? nMedianTimePast : pblock->GetBlockTime();
 
         std::vector<const CTxMemPoolEntry *> vtxe;
+    //    addPriorityTxs(&vtxe);  TODO: ptschip, re-enable
 
-        int64_t nStartScore = GetStopwatchMicros();
-        addPackageTxs(&vtxe, bdi);
-        tailstorm_nTotalScore += GetStopwatchMicros() - nStartScore;
+        int64_t nStartPackage = GetStopwatchMicros();
+        addPackageTxs(&vtxe, bdi, false);
+        addPackageTxs(&vtxe, bdi, true);
+        tailstorm_nTotalPackage += GetStopwatchMicros() - nStartPackage;
 
         tailstorm_nLastBlockTx = nBlockTx;
         tailstorm_nLastBlockSize = nBlockSize;
@@ -284,9 +283,6 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     {
         throw std::runtime_error(strprintf("%s: TestSubBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
-
-    // TODO : maybe add in some excessive size check, subblocks should always be small enough that
-    // this doesnt apply though
 
     return pblocktemplate;
 }
@@ -356,7 +352,88 @@ bool TxIsIncompatible(const BestDagInfo &bdi, const CTxMemPool::txiter &iter)
     }
     return false;
 }
+/*
+void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
+{
+    // How much of the block should be dedicated to high-priority transactions,
+    // included regardless of the fees they pay
+    uint64_t nBlockPrioritySize = GetArg("-blockprioritysize", DEFAULT_BLOCK_PRIORITY_SIZE);
+    nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
+    if (nBlockPrioritySize == 0)
+    {
+        return;
+    }
 
+    // This vector will be sorted into a priority queue:
+    std::vector<TxCoinAgePriority> vecPriority;
+    TxCoinAgePriorityCompare pricomparer;
+    std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash> waitPriMap;
+    typedef std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash>::iterator waitPriIter;
+    double actualPriority = -1;
+
+    vecPriority.reserve(mempool.mapTx.size());
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin(); mi != mempool.mapTx.end(); ++mi)
+    {
+        double dPriority = mi->GetPriority(nHeight);
+        CAmount dummy;
+        mempool._ApplyDeltas(mi->GetTx().GetHash(), dPriority, dummy);
+        vecPriority.push_back(TxCoinAgePriority(dPriority, mi));
+    }
+    std::make_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
+
+
+    // Try to add a txns from the priority queue to fill the blockprioritysize
+    CTxMemPool::txiter iter;
+    while (!vecPriority.empty() && !blockFinished)
+    {
+        iter = vecPriority.front().second;
+        actualPriority = vecPriority.front().first;
+        std::pop_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
+        vecPriority.pop_back();
+
+        // If tx already in block, skip
+        if (inBlock.count(iter))
+        {
+            DbgAssert(false, ); // shouldn't happen for priority txs
+            continue;
+        }
+
+        // If tx is dependent on other mempool txs which haven't yet been included
+        // then put it in the waitSet
+        if (isStillDependent(iter))
+        {
+            waitPriMap.insert(std::make_pair(iter, actualPriority));
+            continue;
+        }
+
+        // If this tx fits in the block add it, otherwise keep looping
+        if (TestForBlock(iter))
+        {
+            // If now that this txs is added we've surpassed our desired priority size
+            // or have dropped below the AllowFreeThreshold, then we're done adding priority txs
+            if (nBlockSize + iter->GetTxSize() > nBlockPrioritySize || !AllowFree(actualPriority))
+            {
+                return;
+            }
+            AddToBlock(vtxe, iter);
+
+
+            // This tx was successfully added, so
+            // add transactions that depend on this one to the priority queue to try again
+            for (CTxMemPool::txiter child : mempool.GetMemPoolChildren(iter))
+            {
+                waitPriIter wpiter = waitPriMap.find(child);
+                if (wpiter != waitPriMap.end())
+                {
+                    vecPriority.push_back(TxCoinAgePriority(wpiter->second, child));
+                    std::push_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
+                    waitPriMap.erase(wpiter);
+                }
+            }
+        }
+    }
+}
+*/
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 //
@@ -385,7 +462,7 @@ bool TxIsIncompatible(const BestDagInfo &bdi, const CTxMemPool::txiter &iter)
 // the current algo is still much better than the older method which needed to update calculations for the
 // entire descendant tree after each package was added to the block.
 
-void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi)
+void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi, bool fAllowDirtyTxns)
 {
     AssertLockHeld(mempool.cs_txmempool);
 
@@ -400,7 +477,7 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
             continue;
         }
         // Skip txns we know are in the block
-        if (inBlock.count(iter))
+        if (inBlock.count(iter) || (fAllowDirtyTxns == false && iter->IsDirty() == true))
         {
             continue;
         }
@@ -431,10 +508,21 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
                 packageSigOps += it->GetSigOpCount();
             }
         }
-        if (packageFees < ::minRelayTxFee.GetFee(packageSize) && nBlockSize >= nBlockMinSize)
+        LOGA("Consider mining TX %s priority %f, package size %d, fee %d, ancestor count %d\n",
+            iter->GetSharedTx()->GetHash().GetHex(), iter->GetPriority(nHeight), packageSize, packageFees,
+            ancestors.size());
+        if (packageFees < ::minRelayTxFee.GetFee(packageSize))
         {
-            // Everything else we might consider has a lower fee rate so no need to continue
-            return;
+            LOGA("Treating Tx %s as free because fee %d < %d \n", iter->GetSharedTx()->GetHash().GetHex(), packageFees,
+                ::minRelayTxFee.GetFee(packageSize));
+
+            if (nBlockSize >= nBlockMinSize)
+            {
+                // Everything else we might consider has a lower fee rate so no need to continue
+                LOGA("Skipping this and lower fee value tx because free space (%d) is full (current block size %d)",
+                    nBlockMinSize, nBlockSize);
+                return;
+            }
         }
 
         // Test if package fits in the block

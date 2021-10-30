@@ -365,6 +365,7 @@ public:
         if (nextMaxBlockSize.Value())
             return nextMaxBlockSize.Value();
 
+        READLOCK(cs_mapBlockIndex);
         return nNextMaxBlockSize;
     }
 };

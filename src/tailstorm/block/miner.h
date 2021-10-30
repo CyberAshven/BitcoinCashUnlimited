@@ -87,6 +87,10 @@ private:
     // incomplete, only used for delta blocks
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry);
 
+    // update stats after adding tx to the block
+    void UpdateBlockStats(CTransactionRef tx);
+
+
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */

@@ -19,23 +19,27 @@ BOOST_AUTO_TEST_CASE(test_dag_score)
      */
     unsigned int anticipatedTotalScore = 18;
     // root node
-    CSubBlockRef subblock1;
-    CDagNodeRef node1 = MakeDagNodeRef(subblock1);
+    CSubBlockRef subblock1 = MakeSubBlockRef(CSubBlock());
+    CDagNode dagnode1(subblock1);
+    CDagNodeRef node1 = MakeDagNodeRef(dagnode1);
     // two descendants, which are siblings
-    CSubBlockRef subblock2;
-    CDagNodeRef node2 = MakeDagNodeRef(subblock2);
+    CSubBlockRef subblock2 = MakeSubBlockRef(CSubBlock());
+    CDagNode dagnode2(subblock2);
+    CDagNodeRef node2 = MakeDagNodeRef(dagnode2);
     node1->AddDescendant(node2);
     node2->AddAncestor(node1);
-    CSubBlockRef subblock3;
-    CDagNodeRef node3 = MakeDagNodeRef(subblock3);
+    CSubBlockRef subblock3 = MakeSubBlockRef(CSubBlock());
+    CDagNode dagnode3(subblock3);
+    CDagNodeRef node3 = MakeDagNodeRef(dagnode3);
     node1->AddDescendant(node3);
     node3->AddAncestor(node1);
     // one descendant, which is child of one sibling
-    CSubBlockRef subblock4;
-    CDagNodeRef node4 = MakeDagNodeRef(subblock4);
+    CSubBlockRef subblock4 = MakeSubBlockRef(CSubBlock());
+    CDagNode dagnode4(subblock4);
+    CDagNodeRef node4 = MakeDagNodeRef(dagnode4);
     node3->AddDescendant(node4);
     node4->AddAncestor(node3);
-
+ 
     // create dag
     CTailstormDag dag(0, node1);
     dag.Insert(node2);
@@ -97,13 +101,15 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     /* n1 -> n2
      */
     // root node
-    CSubBlockRef subref1 = std::make_shared<CSubBlock>();
+    CSubBlockRef subref1 = MakeSubBlockRef(CSubBlock());
+    CDagNode dagnode1(subref1);
     subref1->nNonce = 1;
     // one descendant
-    CSubBlockRef subref2 = std::make_shared<CSubBlock>();
+    CSubBlockRef subref2 = MakeSubBlockRef(CSubBlock());
+    CDagNode dagnode2(subref2);
     subref1->nNonce = 2;
-    CDagNodeRef node2 = MakeDagNodeRef(subref2);
-    CDagNodeRef node1 = MakeDagNodeRef(subref1);
+    CDagNodeRef node2 = MakeDagNodeRef(dagnode2);
+    CDagNodeRef node1 = MakeDagNodeRef(dagnode1);
     node1->AddDescendant(node2);
     node2->AddAncestor(node1);
 
