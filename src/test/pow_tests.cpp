@@ -5,7 +5,7 @@
 
 #include "chain.h"
 #include "chainparams.h"
-#include "pow.h"
+#include "tailstorm/subblock/pow.h"
 #include "random.h"
 #include "test/test_bitcoin.h"
 #include "util.h"

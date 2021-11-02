@@ -35,7 +35,7 @@
 #include "script/standard.h"
 #include "stat.h"
 #include "sync.h"
-#include "tailstorm/tailstorm.h"
+#include "tailstorm/dag.h"
 #include "threadgroup.h"
 #include "timedata.h"
 #include "tinyformat.h"

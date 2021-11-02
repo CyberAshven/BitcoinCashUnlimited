@@ -20,7 +20,7 @@
 #include "miner_common.h"
 #include "net.h"
 #include "policy/policy.h"
-#include "pow.h"
+#include "tailstorm/subblock/pow.h"
 #include "primitives/transaction.h"
 #include "script/standard.h"
 #include "timedata.h"

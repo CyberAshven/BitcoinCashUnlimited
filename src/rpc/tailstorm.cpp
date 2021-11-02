@@ -16,7 +16,6 @@
 #include "init.h"
 #include "main.h"
 #include "net.h"
-#include "pow.h"
 #include "rpc/server.h"
 #include "txadmission.h"
 #include "txmempool.h"
@@ -33,7 +32,7 @@
 #include <boost/assign/list_of.hpp>
 
 extern CTailstormDagSet tailstormDagSet;
-extern std::set<CTailstormBlock> tailstormBlocks;
+extern std::set<CBlock> tailstormBlocks;
 UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns);
 
 double GetDifficulty(unsigned int nBits)
@@ -341,7 +340,9 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
             // we must terminate any block validation threads that are currently running,
             // Unless they have more work than our own block or are processing a chain
             // that has more work than our block.
-            PV->StopAllValidationThreads(pblock->GetBlockHeader().nBits);
+            // TODO: ptschip - PV is not used for subblocks yet - think about re-enabling this when
+            //                 needed.
+            //PV->StopAllValidationThreads(pblock->GetBlockHeader().nBits);
 
             if (!ProcessNewSubBlock(*pblock, nullptr))
             {
@@ -382,6 +383,10 @@ UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScrip
                     // Check if tailstorm block meets strong PoW
                     if (CheckTailstormPoW(*pTailstormBlock, Params().GetConsensus(), TAILSTORM_K))
                     {
+                        // In we are mining our own block or not running in parallel for any reason
+                        // we must terminate any block validation threads that are currently running,
+                        // Unless they have more work than our own block or are processing a chain
+                        // that has more work than our block.
                         PV->StopAllValidationThreads(pTailstormBlock->GetBlockHeader().nBits);
 
                         CValidationState state;
@@ -467,7 +472,7 @@ UniValue generatetailstormblocks(const UniValue &params, bool fHelp)
                             "\nGenerate 11 tailstormBlocks\n" +
                             HelpExampleCli("generatetailstormblocks", "11"));
 
-    int nBobGenerate = params[0].get_int();
+    int nGenerate = params[0].get_int();
     uint64_t nMaxTries = 100000000;
     if (params.size() > 1)
     {
@@ -485,7 +490,7 @@ UniValue generatetailstormblocks(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateTailstormBlocks(coinbaseScript, 0, nBobGenerate, nMaxTries, true);
+    return generateTailstormBlocks(coinbaseScript, 0, nGenerate, nMaxTries, true);
 }
 
 UniValue generatesubblockstoaddress(const UniValue &params, bool fHelp)

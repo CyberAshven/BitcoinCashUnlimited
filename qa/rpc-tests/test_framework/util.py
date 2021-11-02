@@ -1222,6 +1222,14 @@ def gen_return_txouts():
         txouts = txouts + script_pubkey
     return txouts
 
+def create_tx_from_coinbase(node, coinbase, to_address, amount):
+    inputs = [{ "txid" : coinbase, "vout" : 0}, { "txid" : coinbase, "vout" : 1}, { "txid" : coinbase, "vout" : 2}]
+    outputs = { to_address : amount }
+    rawtx = node.createrawtransaction(inputs, outputs)
+    signresult = node.signrawtransaction(rawtx)
+    assert_equal(signresult["complete"], True)
+    return signresult["hex"]
+
 def create_tx(node, coinbase, to_address, amount):
     inputs = [{ "txid" : coinbase, "vout" : 0}]
     outputs = { to_address : amount }

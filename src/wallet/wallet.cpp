@@ -917,7 +917,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx, const CBlock 
         // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our
         // SetBestChain-mechanism
         CWalletDB walletdb(strWalletFile, "r+", false);
-
+//printf("add to wallet tx: %s\n", wtx.GetHash().ToString().c_str());
         return AddToWallet(wtx, false, &walletdb);
     }
     return false;

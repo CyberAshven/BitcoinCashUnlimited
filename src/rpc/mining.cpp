@@ -19,7 +19,6 @@
 #include "miner.h"
 #include "miner_common.h"
 #include "net.h"
-#include "pow.h"
 #include "rpc/server.h"
 #include "tailstorm/tailstorm.h"
 #include "txadmission.h"

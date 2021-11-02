@@ -4,7 +4,7 @@
 
 // tailstorm file includes
 #include "pow.h"
-#include "dag.h"
+#include "tailstorm/dag.h"
 
 // other bitcoin includes
 #include "net.h"

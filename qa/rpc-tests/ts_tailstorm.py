@@ -7,8 +7,7 @@ import logging
 import test_framework.loginit
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
-
-NUM_TAILSTORM_SUBBLOCKS = 3
+from test_framework.constants import TAILSTORM_K
 
 class TailstormBlocksTest(BitcoinTestFramework):
     def __init__(self):
@@ -55,10 +54,10 @@ class TailstormBlocksTest(BitcoinTestFramework):
         assert b1a["bits"] == '207fffff'
         assert b1a["chainwork"] == '0000000000000000000000000000000000000000000000000000000000000004'
     #    assert b1a["previousblockhash"] == 'b280fc0bb8e6adbe370304cd14f5c1d6ea40c0e12db6e42e3ecccd0dc041ce01' # Genesis block
-        assert len(b1a["subblockHashes"]) == NUM_TAILSTORM_SUBBLOCKS
+        assert len(b1a["subblockHashes"]) == TAILSTORM_K
         b1full = n.getblock(1, 2, False)  # get all the tx as hex
         b1tx0 = b1full["tx"][0]
-        assert len(b1tx0["vout"]) == NUM_TAILSTORM_SUBBLOCKS
+        assert len(b1tx0["vout"]) == TAILSTORM_K
 
         sb0 = n.getsubblock(b1a["subblockHashes"][0])
         assert sb0["time"] <= now

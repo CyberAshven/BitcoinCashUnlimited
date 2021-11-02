@@ -48,11 +48,11 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         # and make sure the mempool code behaves correctly.
         b = [ self.nodes[0].getblockhash(n) for n in range(more_blocks+101, more_blocks+105) ]
         coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-        spend_101_raw = create_tx(self.nodes[0], coinbase_txids[1], node1_address, COINBASE_REWARD)
-        spend_102_raw = create_tx(self.nodes[0], coinbase_txids[2], node0_address, COINBASE_REWARD)
-        spend_103_raw = create_tx(self.nodes[0], coinbase_txids[3], node0_address, COINBASE_REWARD)
+        spend_101_raw = create_tx_from_coinbase(self.nodes[0], coinbase_txids[1], node1_address, COINBASE_REWARD)
+        spend_102_raw = create_tx_from_coinbase(self.nodes[0], coinbase_txids[2], node0_address, COINBASE_REWARD)
+        spend_103_raw = create_tx_from_coinbase(self.nodes[0], coinbase_txids[3], node0_address, COINBASE_REWARD)
         # Create a block-height-locked transaction which will be invalid after reorg
-        timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}], {node0_address: COINBASE_REWARD})
+        timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}, {"txid": coinbase_txids[0], "vout": 1}, {"txid": coinbase_txids[0], "vout": 2}], {node0_address: COINBASE_REWARD})
         # Set the time lock
         timelock_tx = timelock_tx.replace("ffffffff", "11111111", 1)
         timelock_tx = timelock_tx[:-8] + hex(self.nodes[0].getblockcount() + 2)[2:] + "000000"

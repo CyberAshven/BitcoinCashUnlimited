@@ -4,8 +4,7 @@
 
 // tailstorm file includes
 #include "validation.h"
-#include "tailstorm/dag.h"
-#include "tailstorm/pow.h"
+#include "tailstorm/tailstorm.h"
 
 // other bitcoin includes
 #include "blockrelay/blockrelay_common.h"

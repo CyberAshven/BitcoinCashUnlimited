@@ -15,6 +15,8 @@ from test_framework.util import *
 import binascii
 from test_framework.script import *
 from test_framework.nodemessages import *
+from test_framework.constants import TAILSTORM_K
+
 
 def GenerateSingleSigP2SH(btcAddress):
     redeemScript = CScript([OP_DUP, OP_HASH160, bitcoinAddress2bin(btcAddress), OP_EQUALVERIFY, OP_CHECKSIG])
@@ -79,15 +81,17 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(), 0)
 
         # Check that only first and second nodes have UTXOs
-        assert_equal(len(self.nodes[0].listunspent()), 1)
-        assert_equal(len(self.nodes[1].listunspent()), 1)
+        assert_equal(len(self.nodes[0].listunspent()), TAILSTORM_K)
+        assert_equal(len(self.nodes[1].listunspent()), TAILSTORM_K)
         assert_equal(len(self.nodes[2].listunspent()), 0)
 
-        # Send 21 BTC from 0 to 2 using sendtoaddress call.
+        # Send 9 BTC from 0 to 2 using sendtoaddress call.
         # Second transaction will be child of first, and will require a fee
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 5)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 4)
         SentAmt = 9
+        print("1balance node 0 " + str(self.nodes[0].getbalance()))
+        print("1balance node 2 " + str(self.nodes[2].getbalance()))
 
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['immature_balance'], 0)
@@ -96,7 +100,11 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
+        print(" after mine block - balance node 0 " + str(self.nodes[0].getbalance()))
+        assert_equal(self.nodes[0].getbalance(), 1)
+        print("2balance node 2 " + str(self.nodes[2].getbalance()))
         # Exercise locking of unspent outputs
+        print("unspent " + str(self.nodes[2].listunspent()))
         unspent_0 = self.nodes[2].listunspent()[0]
         unspent_0 = {"txid": unspent_0["txid"], "vout": unspent_0["vout"]}
         self.nodes[2].lockunspent(False, [unspent_0])
@@ -105,10 +113,14 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[2].lockunspent(True, [unspent_0])
         assert_equal(len(self.nodes[2].listlockunspent()), 0)
 
+        print("balance node 0 " + str(self.nodes[0].getbalance()))
+        print("balance node 2 " + str(self.nodes[2].getbalance()))
         # Have node1 generate 100 blocks (so node0 can recover the fee)
         self.nodes[1].generate(100)
         self.sync_all()
 
+        print("balance node 0 " + str(self.nodes[0].getbalance()))
+        print("balance node 2 " + str(self.nodes[2].getbalance()))
         # node0 should end up with 100 btc in block rewards plus fees, but
         # minus the 21 plus fees sent to node2
         assert_equal(self.nodes[0].getbalance(), (COINBASE_REWARD*2)-SentAmt)

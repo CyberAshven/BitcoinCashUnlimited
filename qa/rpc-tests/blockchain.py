@@ -101,7 +101,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert_equal(res['total_amount'], COINBASE_REWARD*150 + COINBASE_REWARD/2*49)
         assert_equal(res['transactions'], 200)
         assert_equal(res['height'], 200)
-        assert_equal(res['txouts'], 200)
+        assert_equal(res['txouts'], 600)
         size = res["disk_size"]
         assert (size > 6400)
         assert (size < 64000)

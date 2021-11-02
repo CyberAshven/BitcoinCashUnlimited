@@ -181,6 +181,9 @@ bool CZMQPublishRawBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
 
 bool CZMQPublishRawTransactionNotifier::NotifyTransaction(const CTransactionRef &ptx)
 {
+    if (ptx->IsProofBase())
+        return false;
+
     uint256 hash = ptx->GetHash();
     LOG(ZMQ, "zmq: Publish rawtx %s\n", hash.GetHex());
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);

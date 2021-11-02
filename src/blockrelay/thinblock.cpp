@@ -20,8 +20,8 @@
 #include "extversionkeys.h"
 #include "net.h"
 #include "policy/policy.h"
-#include "pow.h"
 #include "requestManager.h"
+#include "tailstorm/block/pow.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "txmempool.h"
@@ -460,7 +460,7 @@ bool CXRequestThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CXThinBlock::CheckBlockHeader(const CBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckProofOfWork(header.GetMiningHash(), header.nBits, Params().GetConsensus()))
+    if (!CheckTailstormPoW(header, Params().GetConsensus(), TAILSTORM_K))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp

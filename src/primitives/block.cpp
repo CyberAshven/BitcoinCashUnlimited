@@ -10,7 +10,6 @@
 #include "consensus/merkle.h"
 #include "crypto/common.h"
 #include "hashwrapper.h"
-#include "pow.h"
 #include "rank_items.h"
 #include "streams.h"
 #include "tinyformat.h"

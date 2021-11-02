@@ -5,11 +5,12 @@
 #ifndef BITCOIN_TAILSTORM_TAILSTORM_H
 #define BITCOIN_TAILSTORM_TAILSTORM_H
 
-#include "block/miner.h"
-#include "blockrelay/compactrelay.h"
-#include "blockrelay/graphenerelay.h"
-#include "subblock/miner.h"
-#include "subblock/validation.h"
+#include "tailstorm/block/miner.h"
+#include "tailstorm/block/pow.h"
+#include "tailstorm/subblock/miner.h"
+#include "tailstorm/subblock/pow.h"
+#include "tailstorm/subblock/validation.h"
+#include "tailstorm/dag.h"
 
 
 /**
@@ -29,6 +30,6 @@ UniValue TailstormBlockToJSON(const CBlockIndex *blockindex, bool txDetails, boo
  * @param[in] listTxns True list the included txs, False to include the count only
  * returns UniValue block representation
  */
-UniValue TailstormBlockToJSON(CTailstormBlockRef block, const CBlockIndex *blockindex, bool txDetails, bool listTxns);
+UniValue TailstormBlockToJSON(CBlockRef block, const CBlockIndex *blockindex, bool txDetails, bool listTxns);
 
 #endif

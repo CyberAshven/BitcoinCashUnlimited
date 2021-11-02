@@ -12,6 +12,7 @@ import time
 import test_framework.loginit
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.constants import TAILSTORM_K
 import zmq
 import struct
 
@@ -105,7 +106,7 @@ class ZMQTest (BitcoinTestFramework):
             for t in wallet:
                 inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
                 num_coins += 1
-            outputs = { self.nodes[0].getnewaddress() : num_coins * COINBASE_REWARD-Decimal("0.05") }
+            outputs = { self.nodes[0].getnewaddress() : num_coins * (COINBASE_REWARD/TAILSTORM_K) -Decimal("0.05") }
             rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
             rawtx   = self.nodes[0].signrawtransaction(rawtx)
             try:

@@ -36,7 +36,6 @@
 #include "net_processing.h"
 #include "nodestate.h"
 #include "policy/policy.h"
-#include "pow.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
 #include "requestManager.h"

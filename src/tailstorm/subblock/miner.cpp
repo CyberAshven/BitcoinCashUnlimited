@@ -70,7 +70,7 @@ SubBlockAssembler::SubBlockAssembler(const CChainParams &_chainparams)
       lastFewTxs(0), blockFinished(false)
 {
     // Largest block you're willing to create:
-    nBlockMaxSize = chainActive.Tip()->GetNextMaxBlockSize();
+    nBlockMaxSize = chainActive.Tip()->GetNextMaxBlockSize() / TAILSTORM_K;
     if (nBlockMaxSize > maxGeneratedBlock)
         nBlockMaxSize = maxGeneratedBlock;
 
@@ -237,7 +237,7 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
             (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST) ? nMedianTimePast : pblock->GetBlockTime();
 
         std::vector<const CTxMemPoolEntry *> vtxe;
-    //    addPriorityTxs(&vtxe);  TODO: ptschip, re-enable
+        addPriorityTxs(&vtxe);
 
         int64_t nStartPackage = GetStopwatchMicros();
         addPackageTxs(&vtxe, bdi, false);
@@ -319,6 +319,63 @@ bool SubBlockAssembler::TestPackageFinality(const CTxMemPool::setEntries &packag
     return true;
 }
 
+// Return true if incremental tx or txs in the block with the given size and sigop count would be
+// valid, and false otherwise.  If false, blockFinished and lastFewTxs are updated if appropriate.
+bool SubBlockAssembler::IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps)
+{
+    if (nBlockSize + nExtraSize > nBlockMaxSize)
+    {
+        // If the block is so close to full that no more txs will fit
+        // or if we've tried more than 50 times to fill remaining space
+        // then flag that the block is finished
+        if (nBlockSize > nBlockMaxSize - 100 || lastFewTxs > 50)
+        {
+            blockFinished = true;
+            return false;
+        }
+        // Once we're within 1000 bytes of a full block, only look at 50 more txs
+        // to try to fill the remaining space.
+        if (nBlockSize > nBlockMaxSize - 1000)
+        {
+            lastFewTxs++;
+        }
+        return false;
+    }
+
+    if (nBlockSigOps + nExtraSigOps > maxSigOpsAllowed)
+    {
+        // very close to the limit, so the block is finished.  So a block that is near the sigops limit
+        // might be shorter than it could be if the high sigops tx was backed out and other tx added.
+        if (nBlockSigOps > maxSigOpsAllowed - 2)
+            blockFinished = true;
+        return false;
+    }
+
+    return true;
+}
+
+bool SubBlockAssembler::TestForBlock(CTxMemPool::txiter iter)
+{
+    if (!IsIncrementallyGood(iter->GetTxSize(), iter->GetSigOpCount()))
+        return false;
+
+    // Must check that lock times are still valid
+    // This can be removed once MTP is always enforced
+    // as long as reorgs keep the mempool consistent.
+    if (!IsFinalTx(iter->GetSharedTx(), nHeight, nLockTimeCutoff))
+        return false;
+
+    // On BCH if Nov 15th 2019 has been activated make sure tx size
+    // is greater or equal than 100 bytes
+    if (IsNov2018Activated(chainparams.GetConsensus(), chainActive.Tip()))
+    {
+        if (iter->GetTxSize() < MIN_TX_SIZE)
+            return false;
+    }
+
+    return true;
+}
+
 void SubBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter)
 {
     const CTxMemPoolEntry &tmp = *iter;
@@ -352,8 +409,8 @@ bool TxIsIncompatible(const BestDagInfo &bdi, const CTxMemPool::txiter &iter)
     }
     return false;
 }
-/*
-void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
+
+void SubBlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
 {
     // How much of the block should be dedicated to high-priority transactions,
     // included regardless of the fees they pay
@@ -433,7 +490,7 @@ void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
         }
     }
 }
-*/
+
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 //

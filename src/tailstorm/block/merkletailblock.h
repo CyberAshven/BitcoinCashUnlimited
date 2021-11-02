@@ -7,7 +7,7 @@
 #ifndef BITCOIN_TAILSTORM_BLOCK_MERKLETAILBLOCK_H
 #define BITCOIN_TAILSTORM_BLOCK_MERKLETAILBLOCK_H
 
-#include "block.h"
+#include "primitives/block.h"
 #include "bloom.h"
 #include "merkleblock.h"
 #include "serialize.h"
@@ -24,7 +24,7 @@ class CMerkleTailBlock
 {
 public:
     /** Public only for unit testing */
-    CTailstormBlockHeader header;
+    CBlockHeader header;
     std::vector<CMerkleSubBlock> subblocks;
 
 public:
@@ -33,7 +33,7 @@ public:
 
     /** Create from a CBlock, matching the txids in the set
      */
-    CMerkleTailBlock(const CTailstormBlock &block, const std::set<uint256> &txids);
+    CMerkleTailBlock(const CBlock &block, const std::set<uint256> &txids);
 
     CMerkleTailBlock() {}
     ADD_SERIALIZE_METHODS;

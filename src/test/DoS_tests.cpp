@@ -11,7 +11,6 @@
 #include "main.h"
 #include "net.h"
 #include "net_processing.h"
-#include "pow.h"
 #include "script/sign.h"
 #include "serialize.h"
 #include "txorphanpool.h"

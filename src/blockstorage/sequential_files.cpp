@@ -7,7 +7,7 @@
 #include "sequential_files.h"
 
 #include "blockstorage.h"
-#include "tailstorm/pow.h"
+#include "tailstorm/block/pow.h"
 
 
 extern bool AbortNode(CValidationState &state, const std::string &strMessage, const std::string &userMessage = "");
@@ -136,10 +136,16 @@ CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus:
     }
 
     // Check the header
-    if (!CheckTailstormPoW(pblock->GetBlockHeader(), consensusParams, TAILSTORM_K))
+    //TODO: ptschip - have to figure out what to do about the genesis
+    // does this need to be here...why do we have to check block header when reading from disk...this gets
+    // checked later anyway...blocksdb does not do this, so why here?
+    if (pblock->GetBlockHeader().height > 0)
     {
-        LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
-        return nullptr;
+        if (!CheckTailstormPoW(pblock->GetBlockHeader(), consensusParams, TAILSTORM_K))
+        {
+            LOGA("ERROR: ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+            return nullptr;
+        }
     }
 
     return pblock;

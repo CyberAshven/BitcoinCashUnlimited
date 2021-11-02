@@ -11,7 +11,6 @@
 #include "chainparams.h"
 #include "dosman.h"
 #include "net.h"
-#include "pow.h"
 #include "requestManager.h"
 #include "script/sigcache.h"
 #include "tailstorm/tailstorm.h"

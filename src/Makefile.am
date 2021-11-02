@@ -196,7 +196,6 @@ BITCOIN_CORE_H = \
   policy/fees.h \
   policy/policy.h \
   policy/mempool.h \
-  pow.h \
   protocol.h \
   random.h \
   reverse_iterator.h \
@@ -225,7 +224,8 @@ BITCOIN_CORE_H = \
   support/pagelocker.h \
   sync.h \
   tailstorm/dag.h \
-  tailstorm/pow.h \
+  tailstorm/block/pow.h \
+  tailstorm/subblock/pow.h \
   tailstorm/tailstorm.h \
   tailstorm/block/block.h \
   tailstorm/block/miner.h \
@@ -330,7 +330,6 @@ libbitcoin_server_a_SOURCES = \
   noui.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
-  pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
   rpc/client.cpp \
@@ -348,7 +347,8 @@ libbitcoin_server_a_SOURCES = \
   script/ismine.cpp \
   script/scriptattributes.cpp \
   tailstorm/dag.cpp \
-  tailstorm/pow.cpp \
+  tailstorm/block/pow.cpp \
+  tailstorm/subblock/pow.cpp \
   tailstorm/block/miner.cpp \
   tailstorm/block/merkletailblock.cpp \
   tailstorm/subblock/miner.cpp \
@@ -712,9 +712,10 @@ bitcoin_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 
 # bitcoin-miner binary #
 bitcoin_miner_SOURCES = bitcoin-miner.cpp \
-  pow.cpp \
   arith_uint256.cpp \
   arith_uint256.h \
+  tailstorm/block/pow.cpp \
+  tailstorm/subblock/pow.cpp \
   validation/forks.cpp \
   validation/forks.h \
   uint256.cpp \

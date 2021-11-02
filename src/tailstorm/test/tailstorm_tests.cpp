@@ -138,10 +138,11 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     subref2->vtx.push_back(tx21);
     subref2->vtx.push_back(tx22);
 
+    // TODO - ptschip -> need this to work again.
     // form block
-    CTailstormBlock block;
-    block.vdag.push_back(subref1);
-    block.vdag.push_back(subref2);
+    // CBlock block;
+    // block.vdag.push_back(subref1);
+    // block.vdag.push_back(subref2);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

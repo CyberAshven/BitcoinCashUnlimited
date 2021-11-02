@@ -2063,7 +2063,6 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
             stats.insert(stat);
         }
     }
-
     const CBlock block = GetBlockChecked(pindex);
     const CBlockUndo blockUndo = pindex->pprev ? GetUndoChecked(pindex) : CBlockUndo();
     // This property is required in the for loop below (and ofc every tx should have undo data)
@@ -2113,7 +2112,7 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
             }
         }
 
-        if (tx->IsCoinBase())
+        if (tx->IsCoinBase() || tx->IsProofBase())
         {
             continue;
         }

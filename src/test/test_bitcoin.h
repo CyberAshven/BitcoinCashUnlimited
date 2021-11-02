@@ -12,6 +12,7 @@
 #include "pubkey.h"
 #include "random.h"
 #include "script/interpreter.h"
+#include "tailstorm/tailstorm.h"
 #include "txdb.h"
 #include "txmempool.h"
 

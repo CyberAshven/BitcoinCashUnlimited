@@ -19,10 +19,10 @@ class ParallelTest (BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = []
-        self.nodes.append(start_node(0, self.options.tmpdir, ["-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
-        self.nodes.append(start_node(1, self.options.tmpdir, ["-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
-        self.nodes.append(start_node(2, self.options.tmpdir, ["-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
-        self.nodes.append(start_node(3, self.options.tmpdir, ["-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
+        self.nodes.append(start_node(0, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
+        self.nodes.append(start_node(1, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
+        self.nodes.append(start_node(2, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
+        self.nodes.append(start_node(3, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-parallel=0", "-rpcservertimeout=0", "-use-thinblocks=0", "-blockprioritysize=6000000", "-blockmaxsize=6000000"]))
         interconnect_nodes(self.nodes)
         self.is_network_split=False
         self.sync_all()
@@ -31,10 +31,10 @@ class ParallelTest (BitcoinTestFramework):
 
         # Cleanup - start and connect the other nodes so that we have syncd chains before proceeding
         # to other tests.
-        self.nodes.append(start_node(0, self.options.tmpdir, ["-pvtest=0", "-whitelist=127.0.0.1"]))
-        self.nodes.append(start_node(1, self.options.tmpdir, ["-pvtest=0", "-whitelist=127.0.0.1"]))
-        self.nodes.append(start_node(2, self.options.tmpdir, ["-pvtest=0", "-whitelist=127.0.0.1"]))
-        self.nodes.append(start_node(3, self.options.tmpdir, ["-pvtest=0", "-whitelist=127.0.0.1"]))
+        self.nodes.append(start_node(0, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-pvtest=0", "-whitelist=127.0.0.1"]))
+        self.nodes.append(start_node(1, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-pvtest=0", "-whitelist=127.0.0.1"]))
+        self.nodes.append(start_node(2, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-pvtest=0", "-whitelist=127.0.0.1"]))
+        self.nodes.append(start_node(3, self.options.tmpdir, ["-debug=net", "-debug=graphene", "-pvtest=0", "-whitelist=127.0.0.1"]))
         self.nodes.append(start_node(4, self.options.tmpdir, ["-pvtest=0", "-whitelist=127.0.0.1"]))
         self.nodes.append(start_node(5, self.options.tmpdir, ["-pvtest=0", "-whitelist=127.0.0.1"]))
         interconnect_nodes(self.nodes)

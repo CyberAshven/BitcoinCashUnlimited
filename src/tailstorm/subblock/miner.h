@@ -10,7 +10,7 @@
 // tailstorm file includes
 #include "primitives/subblock.h"
 #include "tailstorm/dag.h"
-#include "tailstorm/pow.h"
+#include "tailstorm/subblock/pow.h"
 
 // other bitcoin includes
 #include "miner_common.h"
@@ -85,11 +85,14 @@ private:
     // utility functions
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
+
     /** Add a tx to the block */
     void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter);
 
     /** Add transactions based on tx "priority" */
- //   void addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe); TODO: ptschip, get priority working with tailstorm
+    void addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe);
+    bool TestForBlock(CTxMemPool::txiter iter);
+    bool IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps);
 
     /** Add transactions based on feerate including unconfirmed ancestors */
     void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi, bool fAllowDirtyTxns);
