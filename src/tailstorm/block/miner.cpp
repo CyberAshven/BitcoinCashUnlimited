@@ -6,7 +6,6 @@
 
 // tailstorm file includes
 #include "miner.h"
-#include "validation.h"
 
 // other bitcoin includes
 #include "amount.h"

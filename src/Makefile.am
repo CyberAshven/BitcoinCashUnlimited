@@ -230,7 +230,6 @@ BITCOIN_CORE_H = \
   tailstorm/block/block.h \
   tailstorm/block/miner.h \
   tailstorm/block/merkletailblock.h \
-  tailstorm/block/validation.h \
   tailstorm/subblock/miner.h \
   tailstorm/subblock/merklesubblock.h \
   tailstorm/subblock/validation.h \
@@ -352,7 +351,6 @@ libbitcoin_server_a_SOURCES = \
   tailstorm/pow.cpp \
   tailstorm/block/miner.cpp \
   tailstorm/block/merkletailblock.cpp \
-  tailstorm/block/validation.cpp \
   tailstorm/subblock/miner.cpp \
   tailstorm/subblock/merklesubblock.cpp \
   tailstorm/subblock/validation.cpp \

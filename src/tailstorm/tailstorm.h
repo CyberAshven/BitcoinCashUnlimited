@@ -6,7 +6,6 @@
 #define BITCOIN_TAILSTORM_TAILSTORM_H
 
 #include "block/miner.h"
-#include "block/validation.h"
 #include "blockrelay/compactrelay.h"
 #include "blockrelay/graphenerelay.h"
 #include "subblock/miner.h"

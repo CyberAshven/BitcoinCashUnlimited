@@ -25,6 +25,7 @@
 #include "utilstrencodings.h"
 #include "validationinterface.h"
 #include "validation/parallel.h"
+#include "validation/validation.h"
 
 #include <cstdlib>
 #include <stdint.h>
