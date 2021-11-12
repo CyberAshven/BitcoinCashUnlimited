@@ -3124,11 +3124,10 @@ void UpdateTip(CBlockIndex *pindexNew)
 
     cvBlockChange.notify_all();
 
+    CBlockIndex* pprev = pindexNew->pprev;
+    if (pprev && pprev->pprev)
     {
-        LOCK(cs_tipDagCache);
-        tipDagCache.clear();
-        tipDagCache = tailstormDagSet.GetAllNodes();
-        tailstormDagSet.Clear();
+        tailstormForest.ClearGrove(pprev->pprev->GetBlockHash());
     }
 
     LOGA("%s: new best=%s  height=%d bits=%d log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utxo)\n",

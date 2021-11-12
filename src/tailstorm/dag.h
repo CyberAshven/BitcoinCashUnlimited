@@ -6,7 +6,7 @@
 #define BITCOIN_TAILSTORM_DAG_H
 
 // tailstorm file includes
-#include "subblock/subblock.h"
+#include "primitives/subblock.h"
 
 // other bitcoin includes
 #include "sync.h"
@@ -14,6 +14,14 @@
 #include <deque>
 #include <queue>
 #include <set>
+
+class CTreeNode;
+typedef std::shared_ptr<CTreeNode> CTreeNodeRef;
+template <typename Node>
+static inline CTreeNodeRef MakeTreeNodeRef(Node &&nodeIn)
+{
+    return std::make_shared<CTreeNode>(std::forward<Node>(nodeIn));
+}
 
 // CTreeNode has a header only implementation
 class CTreeNode
@@ -23,33 +31,33 @@ public:
     uint16_t dag_id;
     unsigned int height;
 
-    CSubBlock subblock;
+    CSubBlockRef subblock;
 
-    CTreeNode* ancestor; // should point to the node of the parentHash
-    std::set<CTreeNode*> vDescendents; // points to the nodes of the children
+    CTreeNodeRef ancestor; // should point to the node of the parentHash
+    std::set<CTreeNodeRef> vDescendents; // points to the nodes of the children
 
 private:
     CTreeNode(){} // disable default constructor
 
 public:
-    CTreeNode(CSubBlock _subblock)
+    CTreeNode(CSubBlockRef _subblock)
     {
-        hash = _subblock.GetHash();
+        hash = _subblock->GetHash();
         subblock = _subblock;
         height = 1;
     }
 
-    friend bool operator<(const CTreeNode &a, const CTreeNode &b)
+    friend bool operator<(const CTreeNodeRef a, const CTreeNodeRef b)
     {
-        return a.hash < b.hash;
+        return a->hash < b->hash;
     }
 
-    void AddAncestor(CTreeNode* _ancestor)
+    void AddAncestor(CTreeNodeRef _ancestor)
     {
         ancestor = _ancestor;
     }
 
-    void AddDescendant(CTreeNode* _descendent)
+    void AddDescendant(CTreeNodeRef _descendent)
     {
         vDescendents.emplace(_descendent);
     }
@@ -68,7 +76,7 @@ public:
 
     bool IsValid()
     {
-        return (subblock.IsNull() == false);
+        return (subblock->IsNull() == false);
     }
 };
 
@@ -82,7 +90,7 @@ protected:
     uint16_t id;
     // pointers point to the nodes for this dag, a pointer to the same node is
     // also available in mapAllNodes at the forest level
-    std::deque<CTreeNode*> _dag;
+    std::deque<CTreeNodeRef> _dag;
     // output spent, the tx hash it was spent in
     std::map<COutPoint, uint256> spent_outputs;
 
@@ -90,16 +98,16 @@ private:
     CTailstormTree(){} // disable default constructor
 
 protected:
-    bool CheckForCompatibility(CTreeNode* newNode);
+    bool CheckForCompatibility(CTreeNodeRef newNode);
 
 public:
-    CTailstormTree(CTreeNode* first_node)
+    CTailstormTree(CTreeNodeRef first_node)
     {
         id = first_node->dag_id;
-        rootHash = first_node->subblock.hashPrevBlock;
+        rootHash = first_node->subblock->hashPrevBlock;
         Insert(first_node);
     }
-    bool Insert(CTreeNode* new_node);
+    bool Insert(CTreeNodeRef new_node);
 };
 
 // this class can not have any public data members, all datamembers are
@@ -114,12 +122,12 @@ protected:
     // rewards
     CTailstormTree _tree;
     // key is subblock hash for the node in value
-    std::map<uint256, CTreeNode*> mapAllGroveNodes;
-    std::map<uint256, CTreeNode*> mapUnusedNodes;
+    std::map<uint256, CTreeNodeRef> mapAllGroveNodes;
+    std::map<uint256, CTreeNodeRef> mapUnusedNodes;
 
 protected:
-    void _CreateNewTree(CTreeNode* newNode);
-    bool _InsertIntoTree(CTreeNode* newNode);
+    void _CreateNewTree(CTreeNodeRef newNode);
+    bool _InsertIntoTree(CTreeNodeRef newNode);
     void _CheckOrphans(const uint256 &hash);
 
     CTailstormGrove()
@@ -129,8 +137,8 @@ protected:
 
     void Clear();
 
-    bool Insert(CTreeNode* newNode);
-    bool GetBestDag(std::set<CTreeNode> &dag);
+    bool Insert(CTreeNodeRef newNode);
+    bool GetBestDag(std::set<CTreeNodeRef> &dag);
     bool GetBestTipHash(uint256 &hash);
 };
 
@@ -140,7 +148,7 @@ class CTailstormForest
 protected:
     CSharedCriticalSection cs_forest;
     // key is subblock hash for the node in value
-    std::map<uint256, CTreeNode*> mapAllNodes;
+    std::map<uint256, CTreeNodeRef> mapAllNodes;
     // key is prevBlockHash of the nodes in the Grove
     std::map<uint256, CTailstormGrove*> vGroves;
 
@@ -164,7 +172,6 @@ public:
         {
             // clearing a grove removes those nodes from mapAllNodes
             grove.second->Clear();
-            delete grove.second;
         }
         mapAllNodes.clear();
     }
@@ -176,8 +183,8 @@ public:
         if (iter != vGroves.end())
         {
             iter->second->Clear();
-            delete iter->second;
             vGroves.erase(iter);
+            delete iter->second;
         }
     }
 
@@ -192,7 +199,7 @@ public:
     {
         WRITELOCK(cs_forest);
         const uint256 sub_block_hash = sub_block.GetHash();
-        CTreeNode* newNode = nullptr;
+        CTreeNodeRef newNode;
         auto iter = mapAllNodes.find(sub_block_hash);
         if (iter != mapAllNodes.end())
         {
@@ -202,7 +209,7 @@ public:
         else
         {
             // Create new
-            newNode = new CTreeNode(sub_block);
+            newNode = MakeTreeNodeRef(MakeSubBlockRef(sub_block));
             // this emplace will always succeed since we already checked for the hash above
             mapAllNodes.emplace(newNode->hash, newNode);
         }
@@ -213,10 +220,10 @@ public:
         return res.first->second->Insert(newNode);
     }
 
-    bool Find(const uint256 &hash, CSubBlock &subblock)
+    bool Find(const uint256 &hash, CSubBlockRef &subblock)
     {
         READLOCK(cs_forest);
-        std::map<uint256, CTreeNode*>::iterator iter = mapAllNodes.find(hash);
+        std::map<uint256, CTreeNodeRef>::iterator iter = mapAllNodes.find(hash);
         if (iter != mapAllNodes.end())
         {
             subblock = iter->second->subblock;
@@ -242,7 +249,7 @@ public:
         return allNodes;
     }
 
-    bool GetBestDagFor(const uint256 &prevBlockHash, std::set<CTreeNode> &dag)
+    bool GetBestDagFor(const uint256 &prevBlockHash, std::set<CTreeNodeRef> &dag)
     {
         READLOCK(cs_forest);
         auto iter = vGroves.find(prevBlockHash);

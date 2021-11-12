@@ -256,6 +256,8 @@ testScripts = [ RpcTest(t) for t in [
     'sighashmatch',
     'getlogcategories',
     'getrawtransaction',
+    'ts_tailstorm',
+    'ts_subblocks',
     Disabled('rpc_getblockstats', "TODO: need to get mininode working with tailstorm blocks"),
     Disabled('minimaldata', "TODO: need to get mininode working with tailstorm blocks"),
     Disabled('schnorrmultisig', "TODO: need to get mininode working with tailstorm blocks"),

@@ -31,7 +31,6 @@
 
 #include <boost/assign/list_of.hpp>
 
-extern CTailstormDagSet tailstormDagSet;
 extern std::set<CBlock> tailstormBlocks;
 UniValue SubblockToJSON(const CSubBlock &block, bool txDetails, bool listTxns);
 
@@ -116,18 +115,7 @@ static UniValue getsubblock(const UniValue &params, bool fHelp)
         // If it's not in the main cache the look in the other caches
         if (!subblock)
         {
-            LOCK(cs_tipDagCache);
-            subblock = tailstormDagSet.Find(hash);
-        }
-        if (!subblock)
-        {
-            std::map<uint256, CDagNodeRef>::iterator iter;
-            LOCK(cs_tipDagCache);
-            iter = tipDagCache.find(hash);
-            if (iter != tipDagCache.end())
-            {
-                subblock = iter->second->subblock;
-            }
+            tailstormForest.Find(hash, subblock);
         }
     }
     else
@@ -578,7 +566,7 @@ UniValue getdaginfo(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("size", (int) tailstormDagSet.Size());
+    obj.pushKV("size", (int) tailstormForest.Size());
 
     return obj;
 }
@@ -599,11 +587,9 @@ UniValue getdagtips(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VARR);
-    std::vector<uint256> tip_hashes = tailstormDagSet.GetBestDagInfo().tip_hashes;
-    for (auto &hash : tip_hashes)
-    {
-        obj.push_back(hash.GetHex());
-    }
+    uint256 bestTipHash;
+    tailstormForest.GetBestTipHashFor(chainActive.Tip()->GetBlockHash(), bestTipHash);
+    obj.push_back(bestTipHash.GetHex());
     return obj;
 }
 
@@ -623,16 +609,16 @@ UniValue getbestdag(const UniValue &params, bool fHelp)
     }
 
     UniValue obj(UniValue::VARR);
-    std::set<CDagNodeRef> bestDag;
-    if (!tailstormDagSet.GetBestDag(bestDag))
+    std::set<CTreeNodeRef> bestDag;
+    if (!tailstormForest.GetBestDagFor(chainActive.Tip()->GetBlockHash(), bestDag))
     {
-        // there is no dog with at least TAILSTORM_K subblocks in it yet
+        // there is no dag with at least TAILSTORM_K subblocks in it yet
         return obj;
     }
 
-    for (auto &pDagNode : bestDag)
+    for (auto &dagNode : bestDag)
     {
-        obj.push_back(pDagNode->hash.GetHex());
+        obj.push_back(dagNode->hash.GetHex());
     }
     return obj;
 }

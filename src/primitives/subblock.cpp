@@ -56,22 +56,23 @@ std::string CSubBlock::GetHex() const
     return strHex;
 }
 
-std::set<uint256> CSubBlock::GetAncestorHashes() const
+bool CSubBlock::GetAncestorHash(uint256 &ancestor) const
 {
-    std::set<uint256> ancestors;
+    ancestor = uint256();
     if (vtx.empty())
     {
-        return ancestors;
+        return false;
     }
     if (vtx[0]->IsProofBase() == false)
     {
-        return ancestors;
+        return false;
     }
-    for (auto &input : vtx[0]->vin)
+    ancestor = vtx[0]->vin[0].prevout.hash;
+    if (ancestor == uint256())
     {
-        ancestors.emplace(input.prevout.hash);
+        return false;
     }
-    return ancestors;
+    return true;
 }
 
 std::vector<uint256> CSubBlock::GetTxHashes() const

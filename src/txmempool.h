@@ -168,6 +168,8 @@ public:
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
     unsigned int GetSigOpCountWithAncestors() const { return nSigOpCountWithAncestors; }
     bool IsDirty() const { return fDirty; }
+
+    bool IsIncludedInDag() const { return includedDags.size() != 0; }
 };
 
 struct update_ancestor_state

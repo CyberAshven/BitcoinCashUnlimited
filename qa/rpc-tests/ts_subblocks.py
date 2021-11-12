@@ -4,9 +4,10 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 
+import logging
+import test_framework.loginit
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
-
 
 class DeltaBlocksTest(BitcoinTestFramework):
     def __init__(self):
@@ -40,9 +41,9 @@ class DeltaBlocksTest(BitcoinTestFramework):
 
     def run_test(self):
         # Generate some blocks
-        self.nodes[0].generate(105)
-  #        self.nodes[0].generatetailstormblocks(105)
-        time.sleep(1)
+        logging.info("generating blocks")
+        self.nodes[0].generatetailstormblocks(105)
+        self.sync_blocks()
 
         logging.info("Send 5 transactions from node0 (to its own address)")
         addr = self.nodes[0].getnewaddress()
@@ -51,28 +52,19 @@ class DeltaBlocksTest(BitcoinTestFramework):
 
         node_count = 0
         miner_node = 0
-        previous_dag = sorted(self.nodes[0].getbestdag())
-        for i in range(30):
+        numSubBlocks = 10
+        logging.info("generating %d subblocks" % (numSubBlocks))
+        for i in range(numSubBlocks):
             new_block = self.nodes[miner_node].generatesubblocks(1)
             # TODO : fix this wait,
             # sync_blocks does not handle subblocks yet, so manually wait here for now
-            time.sleep(1)
+            time.sleep(2)
             node_count = node_count + 1
+            logging.info("generating subblock %d" % (node_count))
             # compare node 0 and node 1 to check for proper relay
-            print("i is " + str(i))
-            # TODO: dag tips are not equalling dags size?  what's up with that?
-            print("dag tips " + str(self.nodes[0].getdagtips()))
-            print("dags size " + str(self.nodes[0].getdaginfo()["size"]))
             assert_equal(sorted(self.nodes[0].getbestdag()), sorted(self.nodes[1].getbestdag()))
             assert_equal(sorted(self.nodes[0].getdagtips()), sorted(self.nodes[1].getdagtips()))
             assert_equal(self.nodes[0].getdaginfo()["size"], self.nodes[1].getdaginfo()["size"])
-            #TODO: This doesn't work...shouldn't it?  why is every subblock having it's own separate dag
-            # shouldn't they all be part of the same dag?
-           # assert_equal(self.nodes[0].getdaginfo()["size"], 1)
-           # assert_equal(self.nodes[1].getdaginfo()["size"], 1)
-            #assert_not_equal(previous_dag, sorted(self.nodes[0].getbestdag()))
-            previous_dag = sorted(self.nodes[0].getbestdag())
-            print(str(previous_dag))
 
             # alternate the mining node
             if miner_node == 0:

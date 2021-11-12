@@ -70,6 +70,7 @@ class TailstormBlocksTest(BitcoinTestFramework):
         logging.info("Test more subblocks than necessary")
         self.nodes[0].generatesubblocks(103)
         ts0 = self.nodes[0].generatetailstormblocks(1)
+        self.sync_blocks()
         ts1 = self.nodes[0].getblock(ts0[0])
         s2h = self.nodes[1].generatesubblocks(2)
         # Are they available locally?
@@ -80,8 +81,13 @@ class TailstormBlocksTest(BitcoinTestFramework):
         waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[1])) is not "unknown subblock" )
 
         s1h = self.nodes[0].generatesubblocks(2)
+        # Are they available locally?
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s1h[0])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s1h[1])) is not "unknown subblock" )
+        # Are they available remote?
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s1h[0])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s1h[1])) is not "unknown subblock" )
         ts1h = self.nodes[0].generatetailstormblocks(1)
-        #print(str(ts1h))
         ts1 = self.nodes[0].getblock(ts1h[0])
         usedSubblocks = ts1["subblockHashes"]
         genSbs = s1h + s2h
@@ -105,10 +111,11 @@ class TailstormBlocksTest(BitcoinTestFramework):
         for i in range(5):
             self.nodes[0].sendtoaddress(addr, Decimal("10"))
 
-        logging.info("Generate %d tailstorm blocks with sync" % (3*LONGER))
+        numBlocks = 1*LONGER
+        logging.info("Generate %d tailstorm blocks with sync" % (numBlocks))
         miner_node = 0
         other_node = 1
-        for i in range(3*LONGER):
+        for i in range(numBlocks):
             new_block = self.nodes[miner_node].generatetailstormblocks(1)
             logging.info("Sync %d: block %s" % (i, new_block))
             self.sync_blocks()
@@ -125,8 +132,9 @@ class TailstormBlocksTest(BitcoinTestFramework):
 
         # IBD test:  make a longer chain and then sync
         if True:
-            logging.info("generating %d blocks" % (10*LONGER))
-            self.nodes[1].generatetailstormblocks(10*LONGER)
+            numBlocks = 10*LONGER
+            logging.info("generating %d blocks" % (numBlocks))
+            self.nodes[1].generatetailstormblocks(numBlocks)
             nblocks = self.nodes[1].getblockcount()
             node2 = start_node(2, self.options.tmpdir, self.node_opts)
             self.nodes.append(node2)

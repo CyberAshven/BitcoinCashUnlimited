@@ -51,14 +51,16 @@ class MerkleBlockTest(BitcoinTestFramework):
         assert_raises(JSONRPCException, self.nodes[0].gettxoutproof, [txid1])
 
         self.nodes[0].generate(1)
-        blockhash = self.nodes[0].getblockhash(chain_height + 1)
         self.sync_all()
+        blockhash = self.nodes[0].getblockhash(chain_height + 1)
 
         txlist = []
         blocktxn = self.nodes[0].getblock(blockhash, True)["tx"]
         #skip coinbase and proofbases
-        txlist.append(blocktxn[TAILSTORM_K + 1])
-        txlist.append(blocktxn[TAILSTORM_K + 2])
+        if (txid1 in blocktxn):
+            txlist.append(txid1)
+        if (txid2 in blocktxn):
+            txlist.append(txid2)
 
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1])), [txid1])
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1, txid2])), txlist)

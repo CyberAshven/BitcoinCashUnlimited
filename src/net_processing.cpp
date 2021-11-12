@@ -257,27 +257,15 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
             }
             else
             {
-                subblock = tailstormDagSet.Find(inv.hash);
-                if (subblock)
+                if (tailstormForest.Find(inv.hash, subblock))
                 {
-                    LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
+                    LOG(REQ, "Found subblock %s in tailstormForest\n", inv.hash.GetHex());
                     pfrom->PushMessage(NetMsgType::SUBBLOCK, *subblock);
                 }
                 else
                 {
-                    std::map<uint256, CDagNodeRef>::iterator iter;
-                    LOCK(cs_tipDagCache);
-                    iter = tipDagCache.find(inv.hash);
-                    if (iter != tipDagCache.end())
-                    {
-                        LOG(REQ, "Found subblock %s in tipDagCache\n", inv.hash.GetHex());
-                        pfrom->PushMessage(NetMsgType::SUBBLOCK, *(iter->second->subblock));
-                    }
-                    else
-                    {
-                        LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
-                        vNotFound.push_back(inv);
-                    }
+                    LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
+                    vNotFound.push_back(inv);
                 }
             }
         }

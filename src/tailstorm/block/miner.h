@@ -94,7 +94,7 @@ private:
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */
-    CTransactionRef coinbaseTx(int nHeight, CAmount nValue, const std::set<CDagNodeRef> &dag);
+    CTransactionRef coinbaseTx(int nHeight, CAmount nValue, const std::set<CTreeNodeRef> &dag);
 };
 
 #endif

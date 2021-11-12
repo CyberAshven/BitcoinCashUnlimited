@@ -9,9 +9,10 @@
 #include "consensus/consensus.h"
 #include "txmempool.h"
 
-bool CTailstormTree::CheckForCompatibility(CTreeNode* newNode)
+bool CTailstormTree::CheckForCompatibility(CTreeNodeRef newNode)
 {
-    for (auto &tx : newNode->subblock.vtx)
+    // TODO:  ptschip - tailstorm tree objects have no internal lock?
+    for (auto &tx : newNode->subblock->vtx)
     {
         for (auto &input : tx->vin)
         {
@@ -27,10 +28,10 @@ bool CTailstormTree::CheckForCompatibility(CTreeNode* newNode)
     return true;
 }
 
-bool CTailstormTree::Insert(CTreeNode* new_node)
+bool CTailstormTree::Insert(CTreeNodeRef new_node)
 {
     std::map<COutPoint, uint256> new_spends;
-    for (auto &tx : new_node->subblock.vtx)
+    for (auto &tx : new_node->subblock->vtx)
     {
         if (tx->IsProofBase() == false)
         {
@@ -55,13 +56,13 @@ bool CTailstormTree::Insert(CTreeNode* new_node)
     return true;
 }
 
-void CTailstormGrove::_CreateNewTree(CTreeNode *newNode)
+void CTailstormGrove::_CreateNewTree(CTreeNodeRef newNode)
 {
     AssertWriteLockHeld(cs_grove);
     uint16_t new_id = 0;
     newNode->dag_id = new_id;
     _tree.Insert(newNode);
-    for (auto &tx : newNode->subblock.vtx)
+    for (auto &tx : newNode->subblock->vtx)
     {
         mempool.UpdateTransactionDagInfo(tx->GetHash(), new_id, true);
     }
@@ -69,7 +70,7 @@ void CTailstormGrove::_CreateNewTree(CTreeNode *newNode)
 
 void CTailstormGrove::Clear()
 {
-    // should always have cs_forest lock because this should only be called from\
+    // should always have cs_forest lock because this should only be called from
     // within a clear method at the forest level
     AssertWriteLockHeld(tailstormForest.cs_forest);
     WRITELOCK(cs_grove);
@@ -79,7 +80,6 @@ void CTailstormGrove::Clear()
     for (auto &entry : mapAllGroveNodes)
     {
         tailstormForest.mapAllNodes.erase(entry.first);
-        delete entry.second;
     }
     mapAllGroveNodes.clear();
     mapUnusedNodes.clear();
@@ -91,7 +91,7 @@ void CTailstormGrove::_CheckOrphans(const uint256 &hash)
 
     for (auto iter = mapUnusedNodes.begin(); iter != mapUnusedNodes.end();)
     {
-        if (iter->second->subblock.GetAncestorHash(ancestorHash))
+        if (iter->second->subblock->GetAncestorHash(ancestorHash))
         {
             if (ancestorHash == hash)
             {
@@ -106,15 +106,27 @@ void CTailstormGrove::_CheckOrphans(const uint256 &hash)
     }
 }
 
-bool CTailstormGrove::_InsertIntoTree(CTreeNode* newNode)
+bool CTailstormGrove::_InsertIntoTree(CTreeNodeRef newNode)
 {
+    AssertWriteLockHeld(cs_grove);
+    // First check if we already have this in tree so we don't add it again. We must
+    // not have duplicates in the tree or else we will end up add two of the same subblock
+    // to the tailstorm coinbase.
+    //
+    // Return true if we already have it so that any orphans can be erased.
+    for (auto &node : _tree._dag)
+    {
+        if (node->subblock->GetHash() == newNode->subblock->GetHash())
+            return true;
+    }
+
     mapAllGroveNodes.emplace(newNode->hash, newNode);
     bool AddToTree = true;
     uint256 ancestorHash = uint256();
     if (_tree._dag.size() == 0)
     {
         // minimum of 1 hash, which is null if no ancestors
-        if (newNode->subblock.GetAncestorHash(ancestorHash))
+        if (newNode->subblock->GetAncestorHash(ancestorHash))
         {
             LOGA("%s(): ERROR, subblock %s has ancestor hashes but there are no nodes in the tree\n",
                 __func__, newNode->hash.GetHex().c_str());
@@ -125,10 +137,10 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNode* newNode)
         return true;
     }
     // check that we have all ancestor treenodes and that they are in the tree
-    CTreeNode* ancestor = nullptr;
-    if (newNode->subblock.GetAncestorHash(ancestorHash))
+    CTreeNodeRef ancestor = nullptr;
+    if (newNode->subblock->GetAncestorHash(ancestorHash))
     {
-        std::map<uint256, CTreeNode*>::iterator ancestor_iter = mapAllGroveNodes.find(ancestorHash);
+        std::map<uint256, CTreeNodeRef>::iterator ancestor_iter = mapAllGroveNodes.find(ancestorHash);
         if (ancestor_iter == mapAllGroveNodes.end())
         {
             // TODO : A subblock is missing, try to re-request it or something
@@ -137,12 +149,12 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNode* newNode)
             return false;
         }
         bool found = false;
-        for (const auto &node : _tree._dag)
+        for (const auto node : _tree._dag)
         {
             if (node->hash == ancestorHash)
             {
                 // use a pointer to the node already inserted in mapAllGroveNodes to avoid obj duplication
-                // CTreeNode* ancestor = ancestor_iter->second;
+                // CTreeNodeRef ancestor = ancestor_iter->second;
                 ancestor = ancestor_iter->second;
                 found = true;
                 break;
@@ -179,19 +191,19 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNode* newNode)
     if (!_tree.Insert(newNode))
     {
         LOGA("%s(): failed to add subblock %s to tree %s \n", __func__,
-            newNode->hash.GetHex().c_str(), newNode->subblock.hashPrevBlock.GetHex().c_str());
+            newNode->hash.GetHex().c_str(), newNode->subblock->hashPrevBlock.GetHex().c_str());
         return false;
     }
     // once we have inserted the subblock into a dag, we should update the
     // mempool with information about which dag the txx went into
-    for (auto &tx : newNode->subblock.vtx)
+    for (auto &tx : newNode->subblock->vtx)
     {
         mempool.UpdateTransactionDagInfo(tx->GetHash(), newNode->dag_id, true);
     }
     return true;
 }
 
-bool CTailstormGrove::Insert(CTreeNode *newNode)
+bool CTailstormGrove::Insert(CTreeNodeRef newNode)
 {
     WRITELOCK(cs_grove);
     bool ret = _InsertIntoTree(newNode);
@@ -202,7 +214,7 @@ bool CTailstormGrove::Insert(CTreeNode *newNode)
     return ret;
 }
 
-bool CTailstormGrove::GetBestDag(std::set<CTreeNode> &dag)
+bool CTailstormGrove::GetBestDag(std::set<CTreeNodeRef> &dag)
 {
     READLOCK(cs_grove);
     if (_tree._dag.size() < TAILSTORM_K)
@@ -212,13 +224,21 @@ bool CTailstormGrove::GetBestDag(std::set<CTreeNode> &dag)
     size_t nodeCt = 0;
     for (auto& node : _tree._dag)
     {
-        dag.emplace(*node);
+        dag.emplace(node);
         nodeCt++;
         //TODO: Do something more sophisticated to handle cases where there are more
         // nodes than are necessary to assemble a block
         if (nodeCt == TAILSTORM_K)
             break;
     }
+    if (dag.size() < TAILSTORM_K)
+    {
+        for (auto& node : _tree._dag)
+           printf("subblocks in failed dag %s\n", node->subblock->GetHash().ToString().c_str());
+
+
+    }
+
     return true;
 }
 

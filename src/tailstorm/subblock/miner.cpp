@@ -25,6 +25,7 @@
 #include "primitives/transaction.h"
 #include "respend/respenddetector.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txmempool.h"
 #include "unlimited.h"
@@ -48,7 +49,6 @@ std::atomic<int64_t> tailstorm_nTotalScore{0};
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
-extern CTailstormDagSet tailstormDagSet;
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -105,10 +105,11 @@ uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int6
     assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
 
-    BestDagInfo bdi = tailstormDagSet.GetBestDagInfo();
+    uint256 bestTipHash;
+    tailstormForest.GetBestTipHashFor(chainActive.Tip()->GetBlockHash(), bestTipHash);
     // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
     // signed integer taking up 4 bytes for heights 32768-8388607 (around the year 2167) after which it will use 5
-    nCoinbaseSize = ::GetSerializeSize(proofbaseTx(scriptPubKeyIn, 400000, bdi), SER_NETWORK, PROTOCOL_VERSION);
+    nCoinbaseSize = ::GetSerializeSize(proofbaseTx(scriptPubKeyIn, 400000, bestTipHash), SER_NETWORK, PROTOCOL_VERSION);
 
     if (coinbaseSize >= 0) // Explicit size of coinbase has been requested
     {
@@ -127,7 +128,7 @@ uint64_t SubBlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int6
     return nHeaderSize + nCoinbaseSize;
 }
 
-CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, int _nHeight, const BestDagInfo &bdi)
+CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, int _nHeight, const uint256 &bestTipHash)
 {
     CMutableTransaction tx;
     tx.vin.resize(1);
@@ -135,7 +136,7 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
     tx.vin[0].scriptSig = scriptPubKeyIn;
     // subblocks have their ancestors in ctxins inside the proofbase
     // there must be at a minimum 2 ctxins, if we have no ancestor hashes, the second one is null
-    if (bdi.tip_hashes.empty())
+    if (bestTipHash == uint256())
     {
         COutPoint outpoint;
         outpoint.SetNull();
@@ -146,13 +147,10 @@ CTransactionRef SubBlockAssembler::proofbaseTx(const CScript &scriptPubKeyIn, in
     }
     else
     {
-        for (auto &ancestor : bdi.tip_hashes)
-        {
-            COutPoint outpoint;
-            outpoint.hash = ancestor;
-            outpoint.n = rand() % std::numeric_limits<uint32_t>::max();
-            tx.vin.emplace_back(CTxIn(outpoint));
-        }
+        COutPoint outpoint;
+        outpoint.hash = bestTipHash;
+        outpoint.n = rand() % std::numeric_limits<uint32_t>::max();
+        tx.vin.emplace_back(CTxIn(outpoint));
     }
 
     /* GAS remove, overwriting the scriptpubkeyin which was put in the scriptSig
@@ -221,7 +219,8 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
     maxSigOpsAllowed = GetMaxBlockSigChecks(pindexPrev->GetNextMaxBlockSize() / TAILSTORM_K);
     {
         // we must get the tips before locking mempool because we can not recursively lock mempool
-        BestDagInfo bdi = tailstormDagSet.GetBestDagInfo();
+        uint256 bestTipHash;
+        tailstormForest.GetBestTipHashFor(pindexPrev->GetBlockHash(), bestTipHash);
         READLOCK(mempool.cs_txmempool);
         nHeight = pindexPrev->height() + 1;
 
@@ -240,8 +239,8 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         addPriorityTxs(&vtxe);
 
         int64_t nStartPackage = GetStopwatchMicros();
-        addPackageTxs(&vtxe, bdi, false);
-        addPackageTxs(&vtxe, bdi, true);
+        addPackageTxs(&vtxe, false);
+        addPackageTxs(&vtxe, true);
         tailstorm_nTotalPackage += GetStopwatchMicros() - nStartPackage;
 
         tailstorm_nLastBlockTx = nBlockTx;
@@ -261,8 +260,9 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         }
 
         // Create proofbase transaction.
-        pblock->vtx[0] = proofbaseTx(scriptPubKeyIn, nHeight, bdi);
+        pblock->vtx[0] = proofbaseTx(scriptPubKeyIn, nHeight, bestTipHash);
         pblocktemplate->vTxFees[0] = -nFees;
+//printf("proofbase hash %s\n", pblock->vtx[0]->GetHash().ToString().c_str());
 
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
@@ -398,18 +398,6 @@ void SubBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, C
     }
 }
 
-bool TxIsIncompatible(const BestDagInfo &bdi, const CTxMemPool::txiter &iter)
-{
-    for (auto &incompatible_dag : bdi.incompatible_dags)
-    {
-        if (iter->IsInDag(incompatible_dag))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 void SubBlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
 {
     // How much of the block should be dedicated to high-priority transactions,
@@ -519,7 +507,7 @@ void SubBlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtx
 // the current algo is still much better than the older method which needed to update calculations for the
 // entire descendant tree after each package was added to the block.
 
-void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi, bool fAllowDirtyTxns)
+void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe,  bool fAllowDirtyTxns)
 {
     AssertLockHeld(mempool.cs_txmempool);
 
@@ -528,8 +516,7 @@ void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe
     for (auto mi = mempool.mapTx.get<ancestor_score>().begin(); mi != mempool.mapTx.get<ancestor_score>().end(); mi++)
     {
         iter = mempool.mapTx.project<0>(mi);
-
-        if (TxIsIncompatible(bdi, iter))
+        if (iter->IsIncludedInDag())
         {
             continue;
         }

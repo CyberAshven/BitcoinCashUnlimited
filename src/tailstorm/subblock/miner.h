@@ -95,7 +95,7 @@ private:
     bool IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps);
 
     /** Add transactions based on feerate including unconfirmed ancestors */
-    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, const BestDagInfo &bdi, bool fAllowDirtyTxns);
+    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe,  bool fAllowDirtyTxns);
 
     /** Test if tx still has unconfirmed parents not yet in block */
     bool isStillDependent(CTxMemPool::txiter iter);
@@ -103,7 +103,7 @@ private:
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
     /** Constructs a coinbase transaction */
-    CTransactionRef proofbaseTx(const CScript &scriptPubKeyIn, int nHeight, const BestDagInfo &bdi);
+    CTransactionRef proofbaseTx(const CScript &scriptPubKeyIn, int _nHeight, const uint256 &bestTipHash);
 
     // helper functions for addPackageTxs()
     /** Test whether a package, if added to the block, would make the block exceed the sigops limits */

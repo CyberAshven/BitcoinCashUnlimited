@@ -236,9 +236,7 @@ CAddrMan addrman;
 CDoSManager dosMan;
 
 /* tailstorm */
-CTailstormDagSet tailstormDagSet;
-CCriticalSection cs_tipDagCache;
-std::map<uint256, CDagNodeRef> tipDagCache GUARDED_BY(cs_tipDagCache);
+CTailstormForest tailstormForest;
 
 // A message queue used for priority messages such as graheneblocks or other thintype block messages
 std::atomic<bool> fPriorityRecvMsg{false};

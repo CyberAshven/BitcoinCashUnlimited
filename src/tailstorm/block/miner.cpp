@@ -24,6 +24,7 @@
 #include "primitives/transaction.h"
 #include "respend/respenddetector.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txmempool.h"
 #include "unlimited.h"
@@ -45,7 +46,6 @@
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
-extern CTailstormDagSet tailstormDagSet;
 
 struct TxEncodeHashComparator
 {
@@ -115,17 +115,17 @@ uint64_t TailstormBlockAssembler::reserveBlockSize(int64_t coinbaseSize)
     return nHeaderSize;
 }
 
-CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue, const std::set<CDagNodeRef> &dag)
+CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue, const std::set<CTreeNodeRef> &dag)
 {
     CMutableTransaction tx;
-
     tx.vin.resize(1);
     tx.vin[0].prevout.SetNull();
     tx.vin[0].scriptSig = CScript() << _nHeight << OP_0;
     // set the vout to be tailstorm K at least
+    assert(dag.size() >= TAILSTORM_K);
     tx.vout.resize(TAILSTORM_K);
-    CAmount valuePer = nValue / TAILSTORM_K; // TODO HANDLE rounding
-    std::set<CDagNodeRef>::iterator iter = dag.begin();
+    CAmount valuePer = nValue / TAILSTORM_K;
+    std::set<CTreeNodeRef>::iterator iter = dag.begin();
     CAmount total_paid = 0;
     unsigned int i = 0;
     while (i < TAILSTORM_K && iter != dag.end())
@@ -195,8 +195,8 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
     maxSigOpsAllowed = GetMaxBlockSigChecks(pindexPrev->GetNextMaxBlockSize());
     {
         // we must get the best dag before locking mempool because we can not recursively lock mempool
-        std::set<CDagNodeRef> bestdag;
-        if (!tailstormDagSet.GetBestDag(bestdag))
+        std::set<CTreeNodeRef> bestdag;
+        if (tailstormForest.GetBestDagFor(pindexPrev->GetBlockHash(), bestdag) == false)
         {
             return nullptr;
         }

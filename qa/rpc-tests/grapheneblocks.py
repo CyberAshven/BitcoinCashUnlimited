@@ -38,6 +38,7 @@ class GrapheneBlockTest(BitcoinTestFramework):
         node_opts = [
             "-rpcservertimeout=0",
             "-debug=graphene",
+            "-debug=net",
             "-use-grapheneblocks=1",
             "-use-thinblocks=0",
             "-blockprioritysize=6000000",
@@ -88,7 +89,7 @@ class GrapheneBlockTest(BitcoinTestFramework):
         # Node 1 generates and propagates a graphene block.
         send_to = {}
         self.nodes[0].keypoolrefill(2)
-        for i in range(10):
+        for i in range(20):
             send_to[self.nodes[1].getnewaddress()] = Decimal("0.01")
         self.nodes[0].sendmany("", send_to)
         self.sync_all()
@@ -103,7 +104,7 @@ class GrapheneBlockTest(BitcoinTestFramework):
         # Node 2 generates and propagates a graphene block.
         send_to = {}
         self.nodes[0].keypoolrefill(2)
-        for i in range(10):
+        for i in range(20):
             send_to[self.nodes[2].getnewaddress()] = Decimal("0.01")
         self.nodes[0].sendmany("", send_to)
         self.sync_all()

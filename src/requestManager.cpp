@@ -547,6 +547,8 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
     CInv inv2(obj);
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
 
+    if (inv2.type != MSG_SUBBLOCK)
+    {
     if (IsChainNearlySyncd() &&
         (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
     {
@@ -617,9 +619,10 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
             }
         }
     }
-
+    }
     // Request a full block if the BlockRelayTimer has expired.
-    if (!IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled())
+    if (inv2.type == MSG_SUBBLOCK || !IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) ||
+        !thinrelay.IsBlockRelayTimerEnabled())
     {
         std::vector<CInv> vToFetch;
         if (inv2.type != MSG_SUBBLOCK)

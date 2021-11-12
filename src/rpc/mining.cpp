@@ -144,7 +144,7 @@ UniValue generate(const UniValue &params, bool fHelp)
     if (coinbaseScript->reserveScript.empty())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
 
-    return generateTailstormBlocks( coinbaseScript, 0, nGenerate, nMaxTries, true, false);
+    return generateTailstormBlocks(coinbaseScript, 0, nGenerate, nMaxTries, true, false);
 }
 
 UniValue generatetoaddress(const UniValue &params, bool fHelp)

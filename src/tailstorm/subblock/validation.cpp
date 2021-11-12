@@ -187,34 +187,48 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
     {
         thinrelay.ClearBlockInFlight(pfrom->id, subblock.GetHash());
     }
-
-    if (CheckSubBlock(subblock, state, true, true))
+    if (!CheckSubBlock(subblock, state, true, true))
     {
-        auto mtp = chainActive.Tip()->GetMedianTimePast();
-
-        if (subblock.GetBlockTime() < mtp)
-        {
-            LOG(NET, "Subblock %s is retired (time %d < %d)\n", subblock.GetHash().GetHex(), subblock.GetBlockTime(),
-                mtp);
-            return true; // The subblock is fine, but we've already moved on
-        }
-
-
-        if (tailstormDagSet.Insert(subblock))
-        {
-            // The subblock has been validated and accepted. Add to the cache
-            // and announce the subblock to other peers.
-            blockcache.AddBlock(MakeSubBlockRef(subblock), chainActive.Tip()->height());
-
-            auto inv = CInv(MSG_SUBBLOCK, subblock.GetHash());
-            LOG(NET, "Push inventory A %s\n", inv.ToString());
-            LOCK(cs_vNodes);
-            for (CNode *pnode : vNodes)
-            {
-                pnode->PushInventory(inv);
-            }
-            return true;
-        }
+        LOGA("CheckSubBlock failed: %s", FormatStateMessage(state).c_str());
+        return false;
     }
-   return false;
+    CBlockIndex* pindexPrev = nullptr;
+    {
+        READLOCK(cs_mapBlockIndex);
+        auto iter = mapBlockIndex.find(subblock.hashPrevBlock);
+        if (iter == mapBlockIndex.end())
+        {
+            // TODO: ptschip - we may receive subblocks before the previous
+            //                 tailstorm block - they could come out of order
+            //                 or tailstorblock processing could be slow so 
+            //                 don't we need some kind of mapSubblocksUnlinked
+            //                 like we do for blocks?
+            LOGA("missing subblock prev block \n");
+            return false;
+        }
+        pindexPrev = iter->second;
+    }
+    if (!ContextualCheckSubBlock(subblock, state, pindexPrev))
+    {
+        LOGA("ContextualCheckSubBlock failed: %s", FormatStateMessage(state).c_str());
+        return false;
+    }
+    if (tailstormForest.Insert(subblock))
+    {
+        // The subblock has been validated and accepted. Add to the cache
+        // and announce the subblock to other peers.
+        blockcache.AddBlock(MakeSubBlockRef(subblock), chainActive.Tip()->height());
+
+        LOGA("ProcessNewSubBlock: added subblock %s to forest", subblock.GetHash().ToString());
+        auto inv = CInv(MSG_SUBBLOCK, subblock.GetHash());
+        LOG(NET, "Push inventory A %s\n", inv.ToString());
+        LOCK(cs_vNodes);
+        for (CNode *pnode : vNodes)
+        {
+            pnode->PushInventory(inv);
+        }
+        return true;
+    }
+
+    return error("ProcessNewSubBlock: could not add subblock %s to dag forest", subblock.GetHash().ToString());
 }
