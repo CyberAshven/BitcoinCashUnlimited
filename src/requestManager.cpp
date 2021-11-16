@@ -549,76 +549,77 @@ bool CRequestManager::RequestBlock(CNode *pfrom, CInv obj)
 
     if (inv2.type != MSG_SUBBLOCK)
     {
-    if (IsChainNearlySyncd() &&
-        (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
-    {
-        // Ask for Graphene blocks
-        // Must download a graphene block from a graphene enabled peer.
-        if (IsGrapheneBlockEnabled() && pfrom->GrapheneCapable() && IsGrapheneVersionSupported(pfrom))
+        if (IsChainNearlySyncd() &&
+            (!thinrelay.HasBlockRelayTimerExpired(obj.hash) || !thinrelay.IsBlockRelayTimerEnabled()))
         {
-            if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::GRAPHENEBLOCK))
+            // Ask for Graphene blocks
+            // Must download a graphene block from a graphene enabled peer.
+            if (IsGrapheneBlockEnabled() && pfrom->GrapheneCapable() && IsGrapheneVersionSupported(pfrom))
             {
-                MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
-
-                // Instead of building a bloom filter here as we would for an xthin, we actually
-                // just need to fill in CMempoolInfo
-                inv2.type = MSG_GRAPHENEBLOCK;
-                CMemPoolInfo receiverMemPoolInfo = GetGrapheneMempoolInfo();
-                ss << inv2;
-                ss << receiverMemPoolInfo;
-                graphenedata.UpdateOutBoundMemPoolInfo(
-                    ::GetSerializeSize(receiverMemPoolInfo, SER_NETWORK, PROTOCOL_VERSION));
-
-                pfrom->PushMessage(NetMsgType::GET_GRAPHENE, ss);
-                LOG(GRAPHENE, "Requesting graphene block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
-                return true;
-            }
-        }
-
-
-        // Ask for an xthin if Graphene is not possible.
-        // Must download an xthinblock from a xthin peer.
-        if (IsThinBlocksEnabled() && pfrom->ThinBlockCapable())
-        {
-            if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::XTHINBLOCK))
-            {
-                MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
-
-                CBloomFilter filterMemPool;
-                inv2.type = MSG_XTHINBLOCK;
-                std::vector<uint256> vOrphanHashes;
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::GRAPHENEBLOCK))
                 {
-                    READLOCK(orphanpool.cs_orphanpool);
-                    for (auto &mi : orphanpool.mapOrphanTransactions)
-                        vOrphanHashes.emplace_back(mi.first);
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    // Instead of building a bloom filter here as we would for an xthin, we actually
+                    // just need to fill in CMempoolInfo
+                    inv2.type = MSG_GRAPHENEBLOCK;
+                    CMemPoolInfo receiverMemPoolInfo = GetGrapheneMempoolInfo();
+                    ss << inv2;
+                    ss << receiverMemPoolInfo;
+                    graphenedata.UpdateOutBoundMemPoolInfo(
+                        ::GetSerializeSize(receiverMemPoolInfo, SER_NETWORK, PROTOCOL_VERSION));
+
+                    pfrom->PushMessage(NetMsgType::GET_GRAPHENE, ss);
+                    LOG(GRAPHENE, "Requesting graphene block %s from peer %s\n", inv2.hash.ToString(),
+                        pfrom->GetLogName());
+                    return true;
                 }
-                BuildSeededBloomFilter(filterMemPool, vOrphanHashes, inv2.hash, pfrom);
-                ss << inv2;
-                ss << filterMemPool;
-
-                pfrom->PushMessage(NetMsgType::GET_XTHIN, ss);
-                LOG(THIN, "Requesting xthinblock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
-                return true;
             }
-        }
 
-        // Ask for a compact block if Graphene or xthin is not possible.
-        // Must download an xthinblock from a xthin peer.
-        if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
-        {
-            if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::CMPCTBLOCK))
+
+            // Ask for an xthin if Graphene is not possible.
+            // Must download an xthinblock from a xthin peer.
+            if (IsThinBlocksEnabled() && pfrom->ThinBlockCapable())
             {
-                MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::XTHINBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
 
-                std::vector<CInv> vGetData;
-                inv2.type = MSG_CMPCT_BLOCK;
-                vGetData.push_back(inv2);
-                pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
-                LOG(CMPCT, "Requesting compact block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
-                return true;
+                    CBloomFilter filterMemPool;
+                    inv2.type = MSG_XTHINBLOCK;
+                    std::vector<uint256> vOrphanHashes;
+                    {
+                        READLOCK(orphanpool.cs_orphanpool);
+                        for (auto &mi : orphanpool.mapOrphanTransactions)
+                            vOrphanHashes.emplace_back(mi.first);
+                    }
+                    BuildSeededBloomFilter(filterMemPool, vOrphanHashes, inv2.hash, pfrom);
+                    ss << inv2;
+                    ss << filterMemPool;
+
+                    pfrom->PushMessage(NetMsgType::GET_XTHIN, ss);
+                    LOG(THIN, "Requesting xthinblock %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
+                    return true;
+                }
+            }
+
+            // Ask for a compact block if Graphene or xthin is not possible.
+            // Must download an xthinblock from a xthin peer.
+            if (IsCompactBlocksEnabled() && pfrom->CompactBlockCapable())
+            {
+                if (thinrelay.AddBlockInFlight(pfrom, inv2.hash, NetMsgType::CMPCTBLOCK))
+                {
+                    MarkBlockAsInFlight(pfrom->GetId(), obj.hash);
+
+                    std::vector<CInv> vGetData;
+                    inv2.type = MSG_CMPCT_BLOCK;
+                    vGetData.push_back(inv2);
+                    pfrom->PushMessage(NetMsgType::GETDATA, vGetData);
+                    LOG(CMPCT, "Requesting compact block %s from peer %s\n", inv2.hash.ToString(), pfrom->GetLogName());
+                    return true;
+                }
             }
         }
-    }
     }
     // Request a full block if the BlockRelayTimer has expired.
     if (inv2.type == MSG_SUBBLOCK || !IsChainNearlySyncd() || thinrelay.HasBlockRelayTimerExpired(obj.hash) ||
