@@ -2109,6 +2109,11 @@ DisconnectResult DisconnectBlock(const CBlock &block, const CBlockIndex *pindex,
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
+    // Remove any subblocks from the tailstorm forest that relate to this block
+    // TODO: ptschip - is this really the right/accurate action or should we rather be directly
+    //                 targeting the subblocks withing the block for removal
+    tailstormForest.ClearGrove(pindex->pprev->GetBlockHash());
+
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
@@ -3912,8 +3917,23 @@ bool ProcessNewBlock(CValidationState &state,
         else
         {
             // We must indicate to the request manager that the block was received only after it has
-            // been stored to disk (or been shown to be invalid). Doing so prevents unnecessary re-requests.
+            // been stored to disk. Doing so prevents unnecessary re-requests.
             requester.Received(inv, pfrom);
+
+            // For tailstorm we must also mark the subblocks within this fully validated block
+            // as received. This prevents any possible timeouts from previous subblock requests
+            // which would then cause a disconnect.
+            for (auto &mi : pblock->subblockNTxMap)
+            {
+                // TODO: ptschip - there is some potential confusion here between MarkBlockAsReceived
+                //                 and Received.  This should be cleared up at some point
+                //                 MarkBlockAsReceived() is specific to timing and disconnects, whereas Received()
+                //                 could be any object that the request manager is tracking for
+                //                 re-request purposes.
+                requester.MarkBlockAsReceived(mi.first, pfrom);
+                CInv subinv(MSG_SUBBLOCK, mi.first);
+                requester.Received(subinv, pfrom);
+            }
         }
     }
 

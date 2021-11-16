@@ -1571,6 +1571,9 @@ void ListTransactions(const CWalletTx &wtx,
                 MaybePushAddress(entry, r.destination);
                 if (wtx.IsCoinBase())
                 {
+static int i = 1;
+
+printf("got here to check coinbase %d\n", i++ );
                     if (wtx.GetDepthInMainChain() < 1)
                         entry.pushKV("category", "orphan");
                     else if (wtx.GetBlocksToMaturity() > 0)
@@ -1874,6 +1877,7 @@ UniValue listtransactionsfrom(const UniValue &params, bool fHelp)
     UniValue ret(UniValue::VARR);
 
     const CWallet::TxItems &txOrdered = pwalletMain->wtxOrdered;
+printf("txordered size %d nFrom %d\n", txOrdered.size(), nFrom);
     if (txOrdered.size() < (unsigned int)nFrom)
         return ret;
     CWallet::TxItems::const_iterator it = txOrdered.begin();

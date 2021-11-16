@@ -39,9 +39,9 @@ class BlockchainTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = []
-        self.nodes.append(start_node(0, self.options.tmpdir, ["-debug=net"]))
-        self.nodes.append(start_node(1, self.options.tmpdir, ["-debug=net"]))
-        self.nodes.append(start_node(2, self.options.tmpdir, ["-debug=net", "-prune=1550"]))
+        self.nodes.append(start_node(0, self.options.tmpdir, ["-debug=net", "-rpcservertimeout=0"]))
+        self.nodes.append(start_node(1, self.options.tmpdir, ["-debug=net", "-rpcservertimeout=0"]))
+        self.nodes.append(start_node(2, self.options.tmpdir, ["-debug=net", "-rpcservertimeout=0", "-prune=1550"]))
         connect_nodes_bi(self.nodes, 0, 1)
         self.is_network_split = False
         self.sync_all()

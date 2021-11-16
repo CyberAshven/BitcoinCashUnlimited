@@ -50,6 +50,7 @@ class MerkleBlockTest(BitcoinTestFramework):
         txid2 = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransaction(tx2)["hex"])
         assert_raises(JSONRPCException, self.nodes[0].gettxoutproof, [txid1])
 
+        self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
         blockhash = self.nodes[0].getblockhash(chain_height + 1)
@@ -57,10 +58,11 @@ class MerkleBlockTest(BitcoinTestFramework):
         txlist = []
         blocktxn = self.nodes[0].getblock(blockhash, True)["tx"]
         #skip coinbase and proofbases
-        if (txid1 in blocktxn):
-            txlist.append(txid1)
-        if (txid2 in blocktxn):
-            txlist.append(txid2)
+        assert(txid1 in blocktxn)
+        assert(txid2 in blocktxn)
+        for txn in blocktxn:
+            if txn in [txid1, txid2]:
+                txlist.append(txn)
 
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1])), [txid1])
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1, txid2])), txlist)

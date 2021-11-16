@@ -93,7 +93,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
             self.nodes[0].generate(1)
 
         # High fee transaction should not have been mined, but other high fee rate
-        # transactions should have been.
+        # transactions should.
         mempool = self.nodes[0].getrawmempool()
         logging.info("Assert that de-prioritised transaction is still in mempool")
         assert(high_fee_tx in mempool)
