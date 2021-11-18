@@ -313,7 +313,7 @@ static int GetSpendHeight(const CCoinsViewCache &inputs)
     throw std::runtime_error("GetSpendHeight(): best block does not exist");
 }
 
-bool Consensus::CheckTxInputs(const CTransactionRef tx, CValidationState &state, const CCoinsViewCache &inputs)
+bool Consensus::CheckTxInputs(const CTransactionRef tx, CValidationState &state, const CCoinsViewCache &inputs, CAmount *nTxnFees)
 {
     // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
     // for an attacker to attempt to split the network.
@@ -376,6 +376,11 @@ bool Consensus::CheckTxInputs(const CTransactionRef tx, CValidationState &state,
     nFees += nTxFee;
     if (!MoneyRange(nFees))
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+
+    // return the fees if required
+    if (nTxnFees)
+        *nTxnFees = nFees;
+
     return true;
 }
 

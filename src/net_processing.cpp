@@ -1048,8 +1048,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_FILTERED_BLOCK) ||
-                    (inv.type == MSG_CMPCT_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF || inv.type == MSG_SUBBLOCK ||
-                    inv.type == MSG_TAILSTORMBLOCK))
+                    (inv.type == MSG_CMPCT_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF || inv.type == MSG_SUBBLOCK))
             {
                 dosMan.Misbehaving(pfrom, 20, BanReasonInvalidInventory);
                 return error("message inv invalid type = %u", inv.type);

@@ -41,12 +41,6 @@
 #include <queue>
 #include <thread>
 
-
-
-/** Maximum number of failed attempts to insert a package into a block */
-static const unsigned int MAX_PACKAGE_FAILURES = 5;
-extern CTweak<unsigned int> xvalTweak;
-
 struct TxEncodeHashComparator
 {
 public:
@@ -56,8 +50,7 @@ public:
 /*CTailstormBlockAssembler*/
 
 TailstormBlockAssembler::TailstormBlockAssembler(const CChainParams &_chainparams)
-    : chainparams(_chainparams), nBlockSize(0), nBlockTx(0), nBlockSigOps(0), nFees(0), nHeight(0), nLockTimeCutoff(0),
-      lastFewTxs(0), blockFinished(false)
+    : chainparams(_chainparams), nBlockSize(0), nBlockTx(0), nBlockSigOps(0), nFees(0), nHeight(0), nLockTimeCutoff(0)
 {
     // Largest block you're willing to create:
     nBlockMaxSize = chainActive.Tip()->GetNextMaxBlockSize();
@@ -67,17 +60,12 @@ TailstormBlockAssembler::TailstormBlockAssembler(const CChainParams &_chainparam
 
 void TailstormBlockAssembler::resetBlock(int64_t coinbaseSize)
 {
-    inBlock.clear();
-
     nBlockSize = reserveBlockSize(coinbaseSize); // Core: 1000
     nBlockSigOps = 100; // Reserve 100 sigops for miners to use in their coinbase transaction
 
     // These counters do not include coinbase tx
     nBlockTx = 0;
     nFees = 0;
-
-    lastFewTxs = 0;
-    blockFinished = false;
 }
 
 uint64_t TailstormBlockAssembler::reserveBlockSize(int64_t coinbaseSize)
@@ -87,7 +75,7 @@ uint64_t TailstormBlockAssembler::reserveBlockSize(int64_t coinbaseSize)
 
     // BU add the proper block size quantity to the actual size
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
- //  assert(nHeaderSize == 80); // BU always 80 bytes
+    //  assert(nHeaderSize == 80); // BU always 80 bytes
     nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs  - TODO: ptschip is this correct
                                                                                                           // or do we need to account for the ntx map?
 /*  TODO: ptschip - this was left missing in the tailstorm file, should we add it again?
@@ -144,6 +132,7 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue
         // for the following assert
         total_paid = total_paid + remainder;
     }
+
     // sanity check, this should never fail
     assert(total_paid == nValue);
 
@@ -177,6 +166,7 @@ CTransactionRef TailstormBlockAssembler::coinbaseTx(int _nHeight, CAmount nValue
 std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTailstormBlock(int64_t coinbaseSize)
 {
     resetBlock(coinbaseSize);
+    CCoinsViewCache cache(pcoinsTip);
 
     // The constructed block template
     std::unique_ptr<CTailstormBlockTemplate> pblocktemplate(new CTailstormBlockTemplate());
@@ -185,8 +175,6 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
-    pblocktemplate->vTxFees.push_back(-1); // updated at end
-    pblocktemplate->vTxSigOps.push_back(-1); // updated at end
 
     LOCK(cs_main);
     CBlockIndex *pindexPrev = chainActive.Tip();
@@ -225,40 +213,36 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
                 allTxRefs[txRef->GetHash()] = txRef;
             }
         }
-        pblock->vtx[0] = coinbaseTx(nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
-        UpdateBlockStats(pblock->vtx[0]);
 
-        // insert unique txs (first index reserved for coinbase)  // TODO:  add this in the loop above
+        // Have to add coins to cache first since transactions are not necessarily in dependancy order
+        for (auto &mi : allTxRefs)
+        {
+            const CTransaction &tx = *(mi.second);
+            if (tx.IsProofBase())
+                continue;
+
+            try
+            {
+                AddCoins(cache, tx, nHeight);
+            }
+            catch (std::logic_error &e)
+            {
+                 throw std::runtime_error(strprintf("repeated-tx: %s", tx.GetHash().ToString()));
+            }
+        }
+
+        // insert unique txs (first index reserved for coinbase)  // TODO:  ptschip - add this in the loop above
         pblock->vtx.resize(allTxRefs.size() + 1);
         uint64_t idx = 1;
         for (auto &pair : allTxRefs)
         {
             pblock->vtx[idx] = pair.second;
-            UpdateBlockStats(pair.second);
-            idx++;
+            UpdateBlockStats(pair.second, cache);
+              idx++;
         }
+        pblock->vtx[0] = coinbaseTx(nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
+        UpdateBlockStats(pblock->vtx[0], cache);
         std::sort(pblock->vtx.begin() + 1, pblock->vtx.end(), TxEncodeHashComparator());
-
-/*
-        for (auto &tx : pblock->vtx)
-        {
-            if (tx->IsCoinBase())
-            {
-                continue;
-            }
-            else if (tx->IsProofBase())
-            {
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOps.push_back(0);
-            }
-            else
-            {
-                pblocktemplate->vTxFees.push_back(vtxeMap[tx->GetHash()]->GetFee());
-                pblocktemplate->vTxSigOps.push_back(vtxeMap[tx->GetHash()]->GetSigOpCount());
-            }
-        }
-*/
-        pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();
@@ -270,7 +254,6 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
             pblock->nTime = nNewTime;
         }
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->GetBlockTime(), chainparams.GetConsensus());
-        pblocktemplate->vTxSigOps[0] = 0;
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
         pblock->txCount = pblock->vtx.size();
         pblock->size = pblock->CalculateBlockSize();
@@ -279,7 +262,6 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
         pblock->feePoolAmt = 0; // to be used later
         pblock->maxSize = 0; // to be used later
         pblock->hashAncestor.SetNull(); // to be used later
-
     }
 
     CValidationState state;
@@ -292,46 +274,16 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
     return pblocktemplate;
 }
 
-void TailstormBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter)
-{
-    const CTxMemPoolEntry &tmp = *iter;
-    vtxe->push_back(&tmp);
-    nBlockSize += iter->GetTxSize();
-    ++nBlockTx;
-    nBlockSigOps += iter->GetSigOpCount();
-    nFees += iter->GetFee();
-    inBlock.insert(iter);
-
-    bool fPrintPriority = GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
-    if (fPrintPriority)
-    {
-        double dPriority = iter->GetPriority(nHeight);
-        CAmount dummy;
-        mempool._ApplyDeltas(iter->GetTx().GetHash(), dPriority, dummy);
-        LOGA("priority %.1f fee %s txid %s\n", dPriority,
-            CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString().c_str(),
-            iter->GetTx().GetHash().ToString().c_str());
-    }
-}
-
-void TailstormBlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry)
-{
-    vtxe->push_back(entry);
-    nBlockSize += entry->GetTxSize();
-    ++nBlockTx;
-    nBlockSigOps += entry->GetSigOpCount();
-    nFees += entry->GetFee();
-    CTxMemPool::txiter txiter = mempool.mapTx.find(entry->GetSharedTx()->GetHash());
-    inBlock.insert((CTxMemPool::txiter)(txiter));
-}
-
-void TailstormBlockAssembler::UpdateBlockStats(CTransactionRef tx)
+void TailstormBlockAssembler::UpdateBlockStats(CTransactionRef tx, CCoinsViewCache &cache)
 {
     nBlockSize += tx->GetTxSize();
     ++nBlockTx;
-   // TODO: ptschip - there doesn't seem to be any need to track fees or sigops either 
-   // in tailstorm blocks or subblocks?
-   // nBlockSigOps += GetLegacySigOpCount(tx, STANDARD_SCRIPT_VERIFY_FLAGS);
-   // nFees = 0;
-   // nFees += tx->GetFee();
+    // nBlockSigOps += GetLegacySigOpCount(tx, STANDARD_SCRIPT_VERIFY_FLAGS);
+    // TODO: ptschip - looks like all fees are just dumped into one big fee pool and shared
+    //                 among subblocks...is that really the intent of tailstorm?
+    CAmount nTxnFees = 0;
+    CValidationState state;
+    if (!tx->IsCoinBase())
+        Consensus::CheckTxInputs(tx, state, cache, &nTxnFees);
+    nFees += nTxnFees;
 }

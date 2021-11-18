@@ -35,7 +35,6 @@ class ListTransactionsTest(BitcoinTestFramework):
         # Simple send, 0 to 1:
         self.sync_all()
         tmp = self.nodes[2].listtransactionsfrom("*", 10000, 0)
-        print("curpos " + str(len(tmp)))
         curpos = len(tmp)
         txid = self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), 0.1)
         self.sync_all()
@@ -44,10 +43,8 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         # Basic positive test
         tmp2 = self.nodes[2].listtransactionsfrom("*", 0, curpos)
-        print("len2 " + str(len(tmp2)))
 
         tmp = self.nodes[2].listtransactionsfrom("*", 1, curpos)
-        print("len " + str(len(tmp)))
         assert len(tmp) == 1
         assert tmp[0]["txid"] == txid
 

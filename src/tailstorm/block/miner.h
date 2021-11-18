@@ -41,8 +41,6 @@ struct Params;
 struct CTailstormBlockTemplate
 {
     CBlockRef tailstormblock;
-    std::vector<CAmount> vTxFees;
-    std::vector<int64_t> vTxSigOps;
     CTailstormBlockTemplate() : tailstormblock(new CBlock()) {}
 };
 
@@ -59,15 +57,10 @@ private:
     uint64_t nBlockTx;
     unsigned int nBlockSigOps;
     CAmount nFees;
-    CTxMemPool::setEntries inBlock;
 
     // Chain context for the block
     int nHeight;
     int64_t nLockTimeCutoff;
-
-    // Variables used for addScoreTxs and addPriorityTxs
-    int lastFewTxs;
-    bool blockFinished;
 
     uint64_t maxSigOpsAllowed = 0;
 
@@ -81,14 +74,9 @@ private:
     // utility functions
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock(int64_t coinbaseSize = -1);
-    /** Add a tx to the block */
-    void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter);
-
-    // incomplete, only used for delta blocks
-    void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPoolEntry *entry);
 
     // update stats after adding tx to the block
-    void UpdateBlockStats(CTransactionRef tx);
+    void UpdateBlockStats(CTransactionRef tx, CCoinsViewCache &cache);
 
 
     /** Bytes to reserve for coinbase and block header */

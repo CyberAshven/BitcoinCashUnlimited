@@ -262,7 +262,6 @@ std::unique_ptr<CSubBlockTemplate> SubBlockAssembler::CreateNewSubBlock(const CS
         // Create proofbase transaction.
         pblock->vtx[0] = proofbaseTx(scriptPubKeyIn, nHeight, bestTipHash);
         pblocktemplate->vTxFees[0] = -nFees;
-//printf("proofbase hash %s\n", pblock->vtx[0]->GetHash().ToString().c_str());
 
         // Fill in header
         pblock->hashPrevBlock = pindexPrev->GetBlockHash();

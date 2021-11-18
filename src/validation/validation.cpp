@@ -2194,36 +2194,15 @@ bool ConnectBlockPrevalidations(const CBlock &block,
 
         if (fEnforceBIP30)
         {
-   
             for (const auto &tx : block.vtx)
             {
                 if (tx->IsProofBase())
-{
-                //    printf("proofbase %s\n", tx->GetHash().ToString().c_str());
                     continue;
-}
-             //   if (tx->IsCoinBase())
-              //      printf("coinbase %s\n", tx->GetHash().ToString().c_str());
 
                 for (size_t o = 0; o < tx->vout.size(); o++)
                 {
                     if (view.HaveCoin(COutPoint(tx->GetHash(), o)))
                     {
-/*
-                        printf("block vtx size %d\n", block.vtx.size());
-                        printf("first txn is %s vin size %d\n", block.vtx[0]->GetHash().ToString().c_str(), block.vtx[0]->vin.size());
-
-            printf("printing out tx hashes for block %s\n", block.GetHash().ToString().c_str());
-            for (const auto &t : block.vtx)
-            {
-                   printf("tx: %s\n", t->GetHash().ToString().c_str());
-                for (size_t j = 0; j < t->vout.size(); j++)
-                {
-                          printf("   tx out %s : %d\n", tx->vout[j].GetHash().ToString().c_str(), j);
-                }
-            }
-                   MilliSleep(50000);
-*/
                         return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"), REJECT_INVALID,
                             "bad-txns-BIP30");
                     }
@@ -2610,8 +2589,6 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
                         }
                         prevheights[j] = coin->height();
                         nFees = nFees + coin->out.nValue;
-//printf("nfees2 %d tx: %s vin:%d\n", nFees, tx.GetHash().ToString().c_str(), j);
-
                     }
                     if (abort)
                     {
@@ -2630,7 +2607,6 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
                     }
                 }
                 nFees = nFees - tx.GetValueOut();
-//printf("tx: %s nfees %d\n",  tx.GetHash().ToString().c_str(), nFees);
 
                 if (!SequenceLocks(txref, nLockTimeFlags, &prevheights, *pindex))
                 {
