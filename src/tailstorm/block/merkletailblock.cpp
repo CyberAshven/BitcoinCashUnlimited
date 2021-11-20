@@ -21,11 +21,11 @@ CMerkleTailBlock::CMerkleTailBlock(const CBlock &block, const std::set<uint256> 
     vMatch.reserve(block.vtx.size());
     vHashes.reserve(block.vtx.size());
 
-  // TODO: ptschip -> clearly we need to be able to decode the subblocks
-  //                  from the blocks. We'll have to re-instate that feature
-  //                  once we get testing to work better.
-  //  for (const auto subblock : block.vdag)
-  //   {
-  //      subblocks.push_back(CMerkleSubBlock(*subblock, txids));
-  //   }
+    // TODO: ptschip -> clearly we need to be able to decode the subblocks
+    //                  from the blocks. We'll have to re-instate that feature
+    //                  once we get testing to work better.
+    //  for (const auto subblock : block.vdag)
+    //   {
+    //      subblocks.push_back(CMerkleSubBlock(*subblock, txids));
+    //   }
 }

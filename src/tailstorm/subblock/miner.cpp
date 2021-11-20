@@ -506,7 +506,7 @@ void SubBlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtx
 // the current algo is still much better than the older method which needed to update calculations for the
 // entire descendant tree after each package was added to the block.
 
-void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe,  bool fAllowDirtyTxns)
+void SubBlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, bool fAllowDirtyTxns)
 {
     AssertLockHeld(mempool.cs_txmempool);
 

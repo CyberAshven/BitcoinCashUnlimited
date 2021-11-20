@@ -8,8 +8,8 @@
 #define BITCOIN_TAILSTORM_BLOCK_MINER_H
 
 // tailstorm file includes
-#include "tailstorm/tailstorm.h"
 #include "tailstorm/dag.h"
+#include "tailstorm/tailstorm.h"
 
 // other bitcoin includes
 #include "miner_common.h"

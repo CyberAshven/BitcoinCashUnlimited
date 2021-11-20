@@ -95,7 +95,7 @@ private:
     bool IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps);
 
     /** Add transactions based on feerate including unconfirmed ancestors */
-    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe,  bool fAllowDirtyTxns);
+    void addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, bool fAllowDirtyTxns);
 
     /** Test if tx still has unconfirmed parents not yet in block */
     bool isStillDependent(CTxMemPool::txiter iter);

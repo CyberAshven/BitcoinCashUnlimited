@@ -76,28 +76,29 @@ uint64_t TailstormBlockAssembler::reserveBlockSize(int64_t coinbaseSize)
     // BU add the proper block size quantity to the actual size
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
     //  assert(nHeaderSize == 80); // BU always 80 bytes
-    nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs  - TODO: ptschip is this correct
-                                                                                                          // or do we need to account for the ntx map?
-/*  TODO: ptschip - this was left missing in the tailstorm file, should we add it again?
-    // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
-    // signed integer taking up 4 bytes for heights 32768-8388607 (around the year 2167) after which it will use 5
-    nCoinbaseSize = ::GetSerializeSize(coinbaseTx(scriptPubKeyIn, 400000, 0), SER_NETWORK, PROTOCOL_VERSION);
+    // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs  - TODO: ptschip is this correct
+    nHeaderSize += 5;
+    // or do we need to account for the ntx map?
+    /*  TODO: ptschip - this was left missing in the tailstorm file, should we add it again?
+        // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
+        // signed integer taking up 4 bytes for heights 32768-8388607 (around the year 2167) after which it will use 5
+        nCoinbaseSize = ::GetSerializeSize(coinbaseTx(scriptPubKeyIn, 400000, 0), SER_NETWORK, PROTOCOL_VERSION);
 
-    if (coinbaseSize >= 0) // Explicit size of coinbase has been requested
-    {
-        nCoinbaseReserve = (uint64_t)coinbaseSize;
-    }
-    else
-    {
-        nCoinbaseReserve = coinbaseReserve.Value();
-    }
+        if (coinbaseSize >= 0) // Explicit size of coinbase has been requested
+        {
+            nCoinbaseReserve = (uint64_t)coinbaseSize;
+        }
+        else
+        {
+            nCoinbaseReserve = coinbaseReserve.Value();
+        }
 
-    // BU Miners take the block we give them, wipe away our coinbase and add their own.
-    // So if their reserve choice is bigger then our coinbase then use that.
-    nCoinbaseSize = std::max(nCoinbaseSize, nCoinbaseReserve);
+        // BU Miners take the block we give them, wipe away our coinbase and add their own.
+        // So if their reserve choice is bigger then our coinbase then use that.
+        nCoinbaseSize = std::max(nCoinbaseSize, nCoinbaseReserve);
 
-    return nHeaderSize + nCoinbaseSize;
-*/
+        return nHeaderSize + nCoinbaseSize;
+    */
 
 
     return nHeaderSize;
@@ -227,7 +228,7 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
             }
             catch (std::logic_error &e)
             {
-                 throw std::runtime_error(strprintf("repeated-tx: %s", tx.GetHash().ToString()));
+                throw std::runtime_error(strprintf("repeated-tx: %s", tx.GetHash().ToString()));
             }
         }
 
@@ -238,7 +239,7 @@ std::unique_ptr<CTailstormBlockTemplate> TailstormBlockAssembler::CreateNewTails
         {
             pblock->vtx[idx] = pair.second;
             UpdateBlockStats(pair.second, cache);
-              idx++;
+            idx++;
         }
         pblock->vtx[0] = coinbaseTx(nHeight, nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus()), bestdag);
         UpdateBlockStats(pblock->vtx[0], cache);

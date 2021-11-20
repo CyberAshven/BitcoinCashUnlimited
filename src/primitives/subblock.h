@@ -103,7 +103,7 @@ public:
     /** return the network serialization of this subblock as a hex string */
     std::string GetHex() const;
 
-    bool GetAncestorHash(uint256& ancestor) const;
+    bool GetAncestorHash(uint256 &ancestor) const;
 
     std::vector<uint256> GetTxHashes() const;
 };

@@ -73,11 +73,14 @@ bool CheckSubBlock(const CSubBlock &subblock, CValidationState &state, bool fChe
     }
     // Ensure that the blocksize is within limits according to the adaptive block size algorithm.
     // TODO: ptschip - can we really rely on chainactive to validate size...could we not end up getting
-    //                 subblocks out of order and for several blocks forward?  perhaps we need to know where in the dag they are?
+    //                 subblocks out of order and for several blocks forward?  perhaps we need to know where in the dag
+    //                 they are?
     // TODO: ptschip - also need a more accurate way of sizing the subblock ... / TAILSTORM_K is just a quick and dirty.
-    if (::GetSerializeSize(subblock, SER_NETWORK, PROTOCOL_VERSION) > chainActive.Tip()->GetNextMaxBlockSize() / TAILSTORM_K)
+    if (::GetSerializeSize(subblock, SER_NETWORK, PROTOCOL_VERSION) >
+        chainActive.Tip()->GetNextMaxBlockSize() / TAILSTORM_K)
     {
-        return state.DoS(100, error("%s: announced subblock size too large", __func__), REJECT_INVALID, "bad-subblk-size");
+        return state.DoS(
+            100, error("%s: announced subblock size too large", __func__), REJECT_INVALID, "bad-subblk-size");
     }
 
     // First transaction must be proofbase, the rest must not be
@@ -192,7 +195,7 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
         LOGA("CheckSubBlock failed: %s", FormatStateMessage(state).c_str());
         return false;
     }
-    CBlockIndex* pindexPrev = nullptr;
+    CBlockIndex *pindexPrev = nullptr;
     {
         READLOCK(cs_mapBlockIndex);
         auto iter = mapBlockIndex.find(subblock.hashPrevBlock);
@@ -200,7 +203,7 @@ bool ProcessNewSubBlock(const CSubBlock &subblock, CNode *pfrom)
         {
             // TODO: ptschip - we may receive subblocks before the previous
             //                 tailstorm block - they could come out of order
-            //                 or tailstorblock processing could be slow so 
+            //                 or tailstorblock processing could be slow so
             //                 don't we need some kind of mapSubblocksUnlinked
             //                 like we do for blocks?
             LOGA("missing subblock prev block \n");

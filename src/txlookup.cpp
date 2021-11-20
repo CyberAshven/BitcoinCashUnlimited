@@ -36,7 +36,7 @@ static int64_t ctor_pos_lookup(const CBlock &block, const uint256 &hash)
     if (it == end(block.vtx))
     {
         return TX_NOT_FOUND;
-    }   
+    }
     return std::distance(begin(block.vtx), it);
 }
 

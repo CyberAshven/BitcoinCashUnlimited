@@ -52,7 +52,7 @@ bool CTailstormTree::Insert(CTreeNodeRef new_node)
     // change to merge in c++17
     spent_outputs.insert(new_spends.begin(), new_spends.end());
     _dag.emplace_back(new_node);
-    //UpdateDagScore();
+    // UpdateDagScore();
     return true;
 }
 
@@ -128,8 +128,8 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNodeRef newNode)
         // minimum of 1 hash, which is null if no ancestors
         if (newNode->subblock->GetAncestorHash(ancestorHash))
         {
-            LOGA("%s(): ERROR, subblock %s has ancestor hashes but there are no nodes in the tree\n",
-                __func__, newNode->hash.GetHex().c_str());
+            LOGA("%s(): ERROR, subblock %s has ancestor hashes but there are no nodes in the tree\n", __func__,
+                newNode->hash.GetHex().c_str());
             return false;
         }
         // newNode id is set inside _CreateNewTree
@@ -144,8 +144,8 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNodeRef newNode)
         if (ancestor_iter == mapAllGroveNodes.end())
         {
             // TODO : A subblock is missing, try to re-request it or something
-            LOGA("%s(): ERROR, subblock %s references missing ancestor subblock %s\n",
-                __func__, newNode->hash.GetHex().c_str(), ancestorHash.GetHex().c_str());
+            LOGA("%s(): ERROR, subblock %s references missing ancestor subblock %s\n", __func__,
+                newNode->hash.GetHex().c_str(), ancestorHash.GetHex().c_str());
             return false;
         }
         bool found = false;
@@ -162,8 +162,8 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNodeRef newNode)
         }
         if (found == false)
         {
-            LOGA("%s(): WARNING, subblock %s references ancestor subblock %s that is not in tree\n",
-                __func__, newNode->hash.GetHex().c_str(), ancestorHash.GetHex().c_str());
+            LOGA("%s(): WARNING, subblock %s references ancestor subblock %s that is not in tree\n", __func__,
+                newNode->hash.GetHex().c_str(), ancestorHash.GetHex().c_str());
             AddToTree = false;
         }
     }
@@ -190,8 +190,8 @@ bool CTailstormGrove::_InsertIntoTree(CTreeNodeRef newNode)
     newNode->dag_id = 0;
     if (!_tree.Insert(newNode))
     {
-        LOGA("%s(): failed to add subblock %s to tree %s \n", __func__,
-            newNode->hash.GetHex().c_str(), newNode->subblock->hashPrevBlock.GetHex().c_str());
+        LOGA("%s(): failed to add subblock %s to tree %s \n", __func__, newNode->hash.GetHex().c_str(),
+            newNode->subblock->hashPrevBlock.GetHex().c_str());
         return false;
     }
     // once we have inserted the subblock into a dag, we should update the
@@ -222,27 +222,25 @@ bool CTailstormGrove::GetBestDag(std::set<CTreeNodeRef> &dag)
         return false;
     }
     size_t nodeCt = 0;
-    for (auto& node : _tree._dag)
+    for (auto &node : _tree._dag)
     {
         dag.emplace(node);
         nodeCt++;
-        //TODO: Do something more sophisticated to handle cases where there are more
+        // TODO: Do something more sophisticated to handle cases where there are more
         // nodes than are necessary to assemble a block
         if (nodeCt == TAILSTORM_K)
             break;
     }
     if (dag.size() < TAILSTORM_K)
     {
-        for (auto& node : _tree._dag)
-           printf("subblocks in failed dag %s\n", node->subblock->GetHash().ToString().c_str());
-
-
+        for (auto &node : _tree._dag)
+            printf("subblocks in failed dag %s\n", node->subblock->GetHash().ToString().c_str());
     }
 
     return true;
 }
 
-bool CTailstormGrove::GetBestTipHash(uint256& hash)
+bool CTailstormGrove::GetBestTipHash(uint256 &hash)
 {
     READLOCK(cs_grove);
     unsigned int bestHeight = 0;

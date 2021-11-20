@@ -136,7 +136,7 @@ CBlockRef ReadBlockFromDiskSequential(const CDiskBlockPos &pos, const Consensus:
     }
 
     // Check the header
-    //TODO: ptschip - have to figure out what to do about the genesis
+    // TODO: ptschip - have to figure out what to do about the genesis
     // does this need to be here...why do we have to check block header when reading from disk...this gets
     // checked later anyway...blocksdb does not do this, so why here?
     if (pblock->GetBlockHeader().height > 0)

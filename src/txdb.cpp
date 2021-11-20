@@ -452,7 +452,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
                 pindexNew->nNextMaxBlockSize = diskindex.nNextMaxBlockSize;
 
-                //TODO: ptschip - have to figure out what to do about the genesis
+                // TODO: ptschip - have to figure out what to do about the genesis
                 if (pindexNew->GetBlockHeader().height > 0)
                     if (!CheckTailstormPoW(pindexNew->GetBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
                         return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());

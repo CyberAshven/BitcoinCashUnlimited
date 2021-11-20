@@ -37,7 +37,7 @@ public:
     std::set<CTreeNodeRef> vDescendents; // points to the nodes of the children
 
 private:
-    CTreeNode(){} // disable default constructor
+    CTreeNode() {} // disable default constructor
 
 public:
     CTreeNode(CSubBlockRef _subblock)
@@ -47,42 +47,25 @@ public:
         height = 1;
     }
 
-    friend bool operator<(const CTreeNodeRef a, const CTreeNodeRef b)
-    {
-        return a->hash < b->hash;
-    }
+    friend bool operator<(const CTreeNodeRef a, const CTreeNodeRef b) { return a->hash < b->hash; }
 
-    void AddAncestor(CTreeNodeRef _ancestor)
-    {
-        ancestor = _ancestor;
-    }
+    void AddAncestor(CTreeNodeRef _ancestor) { ancestor = _ancestor; }
 
-    void AddDescendant(CTreeNodeRef _descendent)
-    {
-        vDescendents.emplace(_descendent);
-    }
+    void AddDescendant(CTreeNodeRef _descendent) { vDescendents.emplace(_descendent); }
 
     // there is nothing below it
-    bool IsBase()
-    {
-        return (ancestor == nullptr);
-    }
+    bool IsBase() { return (ancestor == nullptr); }
 
     // there is nothing above it
-    bool IsTip()
-    {
-        return vDescendents.empty();
-    }
+    bool IsTip() { return vDescendents.empty(); }
 
-    bool IsValid()
-    {
-        return (subblock->IsNull() == false);
-    }
+    bool IsValid() { return (subblock->IsNull() == false); }
 };
 
 class CTailstormTree
 {
     friend class CTailstormGrove;
+
 protected:
     // TODO rootHash should be const
     uint256 rootHash;
@@ -95,7 +78,7 @@ protected:
     std::map<COutPoint, uint256> spent_outputs;
 
 private:
-    CTailstormTree(){} // disable default constructor
+    CTailstormTree() {} // disable default constructor
 
 protected:
     bool CheckForCompatibility(CTreeNodeRef newNode);
@@ -115,6 +98,7 @@ public:
 class CTailstormGrove
 {
     friend class CTailstormForest;
+
 protected:
     CSharedCriticalSection cs_grove;
     // TODO will need a shadow tree(s) to keep track of subblock heights if
@@ -130,10 +114,7 @@ protected:
     bool _InsertIntoTree(CTreeNodeRef newNode);
     void _CheckOrphans(const uint256 &hash);
 
-    CTailstormGrove()
-    {
-        Clear();
-    }
+    CTailstormGrove() { Clear(); }
 
     void Clear();
 
@@ -145,12 +126,13 @@ protected:
 class CTailstormForest
 {
     friend class CTailstormGrove;
+
 protected:
     CSharedCriticalSection cs_forest;
     // key is subblock hash for the node in value
     std::map<uint256, CTreeNodeRef> mapAllNodes;
     // key is prevBlockHash of the nodes in the Grove
-    std::map<uint256, CTailstormGrove*> vGroves;
+    std::map<uint256, CTailstormGrove *> vGroves;
 
 public:
     CTailstormForest()
@@ -160,10 +142,7 @@ public:
         mapAllNodes.clear();
     }
 
-    ~CTailstormForest()
-    {
-        Clear();
-    }
+    ~CTailstormForest() { Clear(); }
 
     void Clear()
     {
@@ -176,7 +155,7 @@ public:
         mapAllNodes.clear();
     }
 
-    void ClearGrove(const uint256& hash)
+    void ClearGrove(const uint256 &hash)
     {
         WRITELOCK(cs_forest);
         auto iter = vGroves.find(hash);
@@ -216,7 +195,8 @@ public:
         // emplace returns iterator to new element or return iterator to existing element
         // use this to always get an element back that we want to insert in to
         auto res = vGroves.emplace(sub_block.hashPrevBlock, new CTailstormGrove());
-        LOGA("added subblock %s to Grove %s \n", sub_block_hash.GetHex().c_str(), sub_block.hashPrevBlock.GetHex().c_str());
+        LOGA("added subblock %s to Grove %s \n", sub_block_hash.GetHex().c_str(),
+            sub_block.hashPrevBlock.GetHex().c_str());
         return res.first->second->Insert(newNode);
     }
 
@@ -264,7 +244,7 @@ public:
         return true;
     }
 
-    bool GetBestTipHashFor(const uint256 &prevBlockHash, uint256& hash)
+    bool GetBestTipHashFor(const uint256 &prevBlockHash, uint256 &hash)
     {
         READLOCK(cs_forest);
         auto iter = vGroves.find(prevBlockHash);
@@ -278,7 +258,6 @@ public:
         }
         return true;
     }
-
 };
 
 extern CTailstormForest tailstormForest;

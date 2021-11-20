@@ -22,8 +22,8 @@
 #include "init.h"
 #include "requestManager.h"
 #include "sync.h"
-#include "timedata.h"
 #include "tailstorm/tailstorm.h"
+#include "timedata.h"
 #include "txadmission.h"
 #include "txorphanpool.h"
 #include "ui_interface.h"
@@ -408,7 +408,7 @@ CBlockIndex *AddToBlockIndex(const CChainParams &chainparams, const CBlockHeader
     // then we are on the wrong fork so ignore.
     if (fCheckpointsEnabled && !CheckAgainstCheckpoint(pindexNew->height(), *pindexNew->phashBlock, chainparams))
     {
-       pindexNew->nStatus |= BLOCK_FAILED_VALID; // block doesn't match checkpoints so invalid
+        pindexNew->nStatus |= BLOCK_FAILED_VALID; // block doesn't match checkpoints so invalid
         pindexNew->nStatus &= ~BLOCK_VALID_CHAIN;
     }
 
@@ -790,7 +790,7 @@ bool InitBlockIndex(const CChainParams &chainparams)
 
 void CheckBlockIndex(const Consensus::Params &consensusParams)
 {
-return;
+    return;
     if (!fCheckBlockIndex)
     {
         return;
@@ -3105,7 +3105,7 @@ void UpdateTip(CBlockIndex *pindexNew)
 
     cvBlockChange.notify_all();
 
-    CBlockIndex* pprev = pindexNew->pprev;
+    CBlockIndex *pprev = pindexNew->pprev;
     if (pprev && pprev->pprev)
     {
         tailstormForest.ClearGrove(pprev->pprev->GetBlockHash());
@@ -3759,7 +3759,7 @@ bool ActivateBestChain(CValidationState &state,
                 }
             }
         }
- 
+
         // If there is a reorg happening then we can not activate this chain *unless* it
         // has more work that the currently processing reorg chain.  In that case we must terminate the reorg
         // extend this chain instead.
@@ -3809,7 +3809,7 @@ bool ActivateBestChain(CValidationState &state,
             // to reset the result to true if we had previously set it to false.
             result = true;
         }
- 
+
         // Check if the best chain has changed while we were processing blocks.  If so then we need to
         // continue processing the newer chain.  This satisfies a rare edge case where we have initiated
         // a reorg to another chain but before the reorg is complete we end up reorging to a different
@@ -3867,7 +3867,7 @@ bool ProcessNewBlock(CValidationState &state,
         LOCK(cs_main);
         uint256 hash = pblock->GetHash();
         bool fRequested = requester.MarkBlockAsReceived(hash, pfrom);
-          fRequested |= fForceProcessing;
+        fRequested |= fForceProcessing;
         if (!checked)
         {
             return error("%s: CheckBlock FAILED", __func__);

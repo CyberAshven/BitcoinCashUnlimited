@@ -37,11 +37,11 @@
 #include <univalue.h>
 
 extern UniValue generateTailstormBlocks(boost::shared_ptr<CReserveScript> coinbaseScript,
-    int nSubGenerate=0,
-    int nGenerate=0,
-    uint64_t nMaxTries=0,
-    bool keepScript=false,
-    bool fSubBlocksOnly=false);
+    int nSubGenerate = 0,
+    int nGenerate = 0,
+    uint64_t nMaxTries = 0,
+    bool keepScript = false,
+    bool fSubBlocksOnly = false);
 
 using namespace std;
 
@@ -178,7 +178,7 @@ UniValue generatetoaddress(const UniValue &params, bool fHelp)
     boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
     coinbaseScript->reserveScript = GetScriptForDestination(destination);
 
-    return generateTailstormBlocks( coinbaseScript, 0, nGenerate, nMaxTries, true, false);
+    return generateTailstormBlocks(coinbaseScript, 0, nGenerate, nMaxTries, true, false);
 }
 
 UniValue getmininginfo(const UniValue &params, bool fHelp)

@@ -20,9 +20,9 @@
 #include "rpc/client.h"
 #include "rpc/protocol.h"
 #include "streams.h"
+#include "sync.h"
 #include "tailstorm/block/pow.h"
 #include "tailstorm/subblock/pow.h"
-#include "sync.h"
 #include "util.h"
 #include "utilstrencodings.h"
 

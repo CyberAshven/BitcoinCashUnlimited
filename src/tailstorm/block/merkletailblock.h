@@ -7,9 +7,9 @@
 #ifndef BITCOIN_TAILSTORM_BLOCK_MERKLETAILBLOCK_H
 #define BITCOIN_TAILSTORM_BLOCK_MERKLETAILBLOCK_H
 
-#include "primitives/block.h"
 #include "bloom.h"
 #include "merkleblock.h"
+#include "primitives/block.h"
 #include "serialize.h"
 #include "tailstorm/subblock/merklesubblock.h"
 #include "uint256.h"

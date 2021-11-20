@@ -7,10 +7,10 @@
 #include "tailstorm/dag.h"
 
 // other bitcoin includes
-#include "net.h"
-#include "key.h"
-#include "uint256.h"
 #include "crypto/sha256.h"
+#include "key.h"
+#include "net.h"
+#include "uint256.h"
 
 static uint256 sha256(uint256 data)
 {
@@ -73,7 +73,7 @@ bool CheckTailstormPoW(const CBlockHeader &header, const Consensus::Params &para
         }
         if (UintToArith256(hash) > bnTarget)
         {
-                return false;
+            return false;
         }
     }
     return true;

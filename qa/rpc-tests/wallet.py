@@ -103,9 +103,7 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         walletinfo = self.nodes[0].getwalletinfo()
-        #print("total after mine block " + str(walletfinfo('
         print(" after mine block - balance node 0 " + str(self.nodes[0].getbalance()))
-        #assert_equal(self.nodes[0].getbalance(), 1)
         print("2balance node 2 " + str(self.nodes[2].getbalance()))
         # Exercise locking of unspent outputs
         print("unspent " + str(self.nodes[2].listunspent()))

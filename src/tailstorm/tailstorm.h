@@ -7,10 +7,10 @@
 
 #include "tailstorm/block/miner.h"
 #include "tailstorm/block/pow.h"
+#include "tailstorm/dag.h"
 #include "tailstorm/subblock/miner.h"
 #include "tailstorm/subblock/pow.h"
 #include "tailstorm/subblock/validation.h"
-#include "tailstorm/dag.h"
 
 
 /**

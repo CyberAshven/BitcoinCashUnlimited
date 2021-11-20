@@ -39,15 +39,15 @@ BOOST_AUTO_TEST_CASE(test_dag_score)
     CTreeNodeRef node4 = MakeTreeNodeRef(dagnode4);
     node3->AddDescendant(node4);
     node4->AddAncestor(node3);
- 
+
     // create dag
     CTailstormTree dag(node1);
     dag.Insert(node2);
     dag.Insert(node3);
     dag.Insert(node4);
 
-    //TODO: ptschip - is there a score anymore?
-    //BOOST_CHECK(dag.score == anticipatedTotalScore);
+    // TODO: ptschip - is there a score anymore?
+    // BOOST_CHECK(dag.score == anticipatedTotalScore);
 }
 
 BOOST_AUTO_TEST_CASE(arith_uint256_sanity)
@@ -149,12 +149,11 @@ BOOST_AUTO_TEST_CASE(test_update_tx_lists)
     // BOOST_CHECK(block.vtx.size() == 5);
 
     // validate decoded subblock tx info
-    //std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > subblockTxListMap = block.DecodeTxLists();
-    //BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[0] == tx11);
-    //BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[1] == tx12);
-    //BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[0] == tx21);
-    //BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[1] == tx22);
-
+    // std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > subblockTxListMap =
+    // block.DecodeTxLists(); BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[0] == tx11);
+    // BOOST_CHECK(subblockTxListMap[subref1->GetHash()].second[1] == tx12);
+    // BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[0] == tx21);
+    // BOOST_CHECK(subblockTxListMap[subref2->GetHash()].second[1] == tx22);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

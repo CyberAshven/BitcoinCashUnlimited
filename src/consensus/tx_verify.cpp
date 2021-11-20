@@ -196,8 +196,8 @@ bool CheckTransaction(const CTransactionRef tx, CValidationState &state)
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vin-empty");
     if (tx->IsProofBase())
     {
-       if (!tx->vout.empty())
-           return state.DoS(10, false, REJECT_INVALID, "bad-proofbase-vout-not-empty");
+        if (!tx->vout.empty())
+            return state.DoS(10, false, REJECT_INVALID, "bad-proofbase-vout-not-empty");
     }
     else
     {
@@ -313,7 +313,10 @@ static int GetSpendHeight(const CCoinsViewCache &inputs)
     throw std::runtime_error("GetSpendHeight(): best block does not exist");
 }
 
-bool Consensus::CheckTxInputs(const CTransactionRef tx, CValidationState &state, const CCoinsViewCache &inputs, CAmount *nTxnFees)
+bool Consensus::CheckTxInputs(const CTransactionRef tx,
+    CValidationState &state,
+    const CCoinsViewCache &inputs,
+    CAmount *nTxnFees)
 {
     // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
     // for an attacker to attempt to split the network.
