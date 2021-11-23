@@ -144,8 +144,15 @@ static isminetype IsMine(const CKeyStore &keystore,
         // them) enable spend-out-from-under-you attacks, especially
         // in shared-wallet situations.
         vector<valtype> keys(vSolutions.begin() + 1, vSolutions.begin() + vSolutions.size() - 1);
-        if (HaveKeys(keys, keystore) == keys.size())
+        uint32_t nOwnedKeys = HaveKeys(keys, keystore);
+        if (nOwnedKeys == keys.size())
+        {
             return ISMINE_SPENDABLE;
+        }
+        else if (nOwnedKeys > 0 && nOwnedKeys < keys.size())
+        {
+            return ISMINE_PARTIAL;
+        }
         break;
     }
     case TX_CLTV:
