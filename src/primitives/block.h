@@ -78,6 +78,8 @@ public:
     std::vector<unsigned char> utxoCommitment; // MUST be len 0 for now. MUST be < 128 bytes
     /** miner-specific data -- this is not a free-for all field.  It must follow documented conventions */
     std::vector<unsigned char> minerData; // MUST be len 0 for now
+    /** needed to encode order of subblock **/
+    std::set<uint256> subblockHashes;
     /** tailstorm subblock and number of transactions map */
     mutable std::map<uint256, uint32_t> subblockNTxMap;
     /** mining nonce */
@@ -182,6 +184,10 @@ uint256 GetMiningHash(const uint256 &headerCommitment, const std::vector<unsigne
 
 class CBlock : public CBlockHeader
 {
+private:
+    // memory only
+    mutable uint64_t nBlockSize = 0; // Serialized block size in bytes
+
 public:
     // Xpress Validation: (memory only)
     //! Orphans, or Missing transactions that have been re-requested, are stored here.
@@ -194,10 +200,13 @@ public:
 public:
     // network and disk
     std::vector<CTransactionRef> vtx;
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<uint8_t> > > dagEncodingMap;
 
     // memory only
     // 0.11: mutable std::vector<uint256> vMerkleTree;
     mutable bool fChecked;
+    mutable std::vector<std::shared_ptr<CSubBlock> > vdag;
+    mutable std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > decodedMap;
 
     CBlock() { SetNull(); }
     CBlock(const CBlockHeader &header)
@@ -213,6 +222,12 @@ public:
     {
         READWRITE(*(CBlockHeader *)this);
         READWRITE(vtx);
+        READWRITE(dagEncodingMap);
+        if (!ser_action.ForRead())
+        {
+            // Force block size recalculation since block is being overwritten
+            nBlockSize = 0;
+        }
     }
 
     /** Returns the block's height as specified in its header */
@@ -221,6 +236,8 @@ public:
     /** Clear all fields in this object */
     void SetNull()
     {
+        vdag.clear();
+        dagEncodingMap.clear();
         CBlockHeader::SetNull();
         vtx.clear();
         fChecked = false;
@@ -248,6 +265,58 @@ public:
 
     /** Update the header based on changes to the block's contents (i.e. tx added, size changed) */
     void UpdateHeader();
+
+    bool PopulateVdag() const
+    {
+        bool success = true;
+        vdag.clear();
+        vdag.resize(subblockHashes.size());
+        int i = 0;
+        for (auto &hash : subblockHashes)
+        {
+            if (hash == uint256())
+            {
+                return false;
+            }
+            CSubBlockRef subblock = std::make_shared<CSubBlock>();
+            success &= GetSubBlock(hash, *subblock);
+            vdag[i] = subblock;
+            i++;
+        }
+        return success;
+    }
+
+    bool GetSubBlock(const uint256 &hash, CSubBlock &subblock) const
+    {
+        subblock.SetNull();
+        if (decodedMap.empty())
+        {
+            decodedMap = DecodeTxLists();
+        }
+        if (subblockHashes.count(hash) != 0)
+        {
+            for (const auto &entry : decodedMap)
+            {
+                if (entry.first == hash)
+                {
+                    subblock.nVersion = entry.second.first.nVersion;
+                    subblock.hashPrevBlock = entry.second.first.hashPrevBlock;
+                    subblock.hashMerkleRoot = entry.second.first.hashMerkleRoot;
+                    subblock.nTime = entry.second.first.nTime;
+                    subblock.nBits = entry.second.first.nBits;
+                    subblock.nNonce = entry.second.first.nNonce;
+                    subblock.vtx = entry.second.second;
+                    return true;
+                }
+            }
+            DbgAssert(false, return false); // its in hashes so must be in decodedMap
+            return false;
+        }
+        return false;
+    }
+
+    void UpdateTxLists();
+    std::map<uint256, std::pair<CSubBlockHeader, std::vector<CTransactionRef> > > DecodeTxLists() const;
 };
 
 /**

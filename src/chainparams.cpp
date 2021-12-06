@@ -432,8 +432,8 @@ public:
             printf("regtest GB nonce changed! hash %s\n", consensus.hashGenesisBlock.GetHex().c_str());
             printf("regtest soln %d hex:%s\n", worked, HexStr(genesis.nonce).c_str());
         }
-        assert(consensus.hashGenesisBlock ==
-               uint256S("0x44337152749c03fa0d5572dfa41b11f7a982b52a2f5f4444befd166d1aef06ce"));
+        assert(
+            consensus.hashGenesisBlock == uint256S("760559541ac0ee1e8d2df5bba8f4f22f4012ce7acdf90ad528b790710f7f09f5"));
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
         vSeeds.clear(); //! Regtest mode doesn't have any DNS seeds.

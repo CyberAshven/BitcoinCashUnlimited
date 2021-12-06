@@ -1244,6 +1244,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             vRecv >> headers[n];
             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
+            ReadCompactSize(vRecv); // ignore dagEncodingMap
         }
 
         // Nothing interesting. Stop asking this peers for more headers.

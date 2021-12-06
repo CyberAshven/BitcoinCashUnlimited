@@ -74,19 +74,19 @@ class TailstormBlocksTest(BitcoinTestFramework):
         ts1 = self.nodes[0].getblock(ts0[0])
         s2h = self.nodes[1].generatesubblocks(2)
         # Are they available locally?
-        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s2h[0])) is not "unknown subblock" )
-        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s2h[1])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s2h[0])) != "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s2h[1])) != "unknown subblock" )
         # Are they available remote?
-        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[0])) is not "unknown subblock" )
-        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[1])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[0])) != "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s2h[1])) != "unknown subblock" )
 
         s1h = self.nodes[0].generatesubblocks(2)
         # Are they available locally?
-        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s1h[0])) is not "unknown subblock" )
-        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s1h[1])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s1h[0])) != "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[1].getsubblock(s1h[1])) != "unknown subblock" )
         # Are they available remote?
-        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s1h[0])) is not "unknown subblock" )
-        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s1h[1])) is not "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s1h[0])) != "unknown subblock" )
+        waitFor(10, lambda: returnException(lambda: self.nodes[0].getsubblock(s1h[1])) != "unknown subblock" )
         ts1h = self.nodes[0].generatetailstormblocks(1)
         ts1 = self.nodes[0].getblock(ts1h[0])
         usedSubblocks = ts1["subblockHashes"]
