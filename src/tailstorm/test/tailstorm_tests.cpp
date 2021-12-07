@@ -6,6 +6,23 @@
 
 BOOST_FIXTURE_TEST_SUITE(tailstorm_tests, BasicTestingSetup)
 
+class CTailstormTreeTest : public CTailstormTree
+{
+public:
+    CTailstormTreeTest(CTreeNodeRef first_node) : CTailstormTree(first_node) {}
+
+    bool Insert(CTreeNodeRef new_node)
+    {
+        std::map<COutPoint, uint256> new_spends;
+        if (!CTailstormTree::CheckForCompatibility(new_node, new_spends))
+        {
+            return false;
+        }
+        CTailstormTree::Insert(new_node, new_spends);
+        return true;
+    }
+};
+
 BOOST_AUTO_TEST_CASE(test_dag_score)
 {
     /* n1 -> n2
@@ -41,7 +58,7 @@ BOOST_AUTO_TEST_CASE(test_dag_score)
     node4->AddAncestor(node3);
 
     // create dag
-    CTailstormTree dag(node1);
+    CTailstormTreeTest dag(node1);
     dag.Insert(node2);
     dag.Insert(node3);
     dag.Insert(node4);

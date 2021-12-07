@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Bitcoin Unlimited developers
+// Copyright (c) 2020-2021 The Bitcoin Unlimited developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -27,8 +27,7 @@ static inline CTreeNodeRef MakeTreeNodeRef(Node &&nodeIn)
 class CTreeNode
 {
 public:
-    uint256 hash; // the weakblock hash that is this node
-    uint16_t dag_id;
+    uint256 hash; // the subblock hash that is this node
     unsigned int height;
 
     CSubBlockRef subblock;
@@ -67,10 +66,6 @@ class CTailstormTree
     friend class CTailstormGrove;
 
 protected:
-    // TODO rootHash should be const
-    uint256 rootHash;
-    // id should be 0
-    uint16_t id;
     // pointers point to the nodes for this dag, a pointer to the same node is
     // also available in mapAllNodes at the forest level
     std::deque<CTreeNodeRef> _dag;
@@ -81,16 +76,15 @@ private:
     CTailstormTree() {} // disable default constructor
 
 protected:
-    bool CheckForCompatibility(CTreeNodeRef newNode);
+    bool CheckForCompatibility(CTreeNodeRef newNode, std::map<COutPoint, uint256> &new_spends);
 
-public:
     CTailstormTree(CTreeNodeRef first_node)
     {
-        id = first_node->dag_id;
-        rootHash = first_node->subblock->hashPrevBlock;
-        Insert(first_node);
+        std::map<COutPoint, uint256> new_spends;
+        CheckForCompatibility(first_node, new_spends);
+        Insert(first_node, new_spends);
     }
-    bool Insert(CTreeNodeRef new_node);
+    void Insert(CTreeNodeRef new_node, std::map<COutPoint, uint256> &new_spends);
 };
 
 // this class can not have any public data members, all datamembers are
@@ -130,6 +124,10 @@ class CTailstormForest
 protected:
     CSharedCriticalSection cs_forest;
     // key is subblock hash for the node in value
+    // mapAllNodes contains all nodes in the entire forest. The grove contains two
+    // maps that are a subsets of this map. They are only used to speed up grove
+    // specific node searching and for faster cleanup of nodes being removed
+    // from the forest
     std::map<uint256, CTreeNodeRef> mapAllNodes;
     // key is prevBlockHash of the nodes in the Grove
     std::map<uint256, CTailstormGrove *> vGroves;
@@ -151,6 +149,7 @@ public:
         {
             // clearing a grove removes those nodes from mapAllNodes
             grove.second->Clear();
+            delete grove.second;
         }
         mapAllNodes.clear();
     }
@@ -162,8 +161,8 @@ public:
         if (iter != vGroves.end())
         {
             iter->second->Clear();
-            vGroves.erase(iter);
             delete iter->second;
+            vGroves.erase(iter);
         }
     }
 
@@ -174,29 +173,22 @@ public:
     }
 
     // Insert should only be called by ProcessNewSubBlock except for in tests
-    bool Insert(const CSubBlock &sub_block)
+    bool Insert(const CSubBlock &subblock)
     {
         WRITELOCK(cs_forest);
-        const uint256 sub_block_hash = sub_block.GetHash();
-        CTreeNodeRef newNode;
-        auto iter = mapAllNodes.find(sub_block_hash);
-        if (iter != mapAllNodes.end())
+        // Create new node
+        CTreeNodeRef newNode = MakeTreeNodeRef(MakeSubBlockRef(subblock));
+        // emplace the new node into the map
+        if (!mapAllNodes.emplace(newNode->hash, newNode).second)
         {
-            // we already have this subblock in a da
-            newNode = iter->second;
-        }
-        else
-        {
-            // Create new
-            newNode = MakeTreeNodeRef(MakeSubBlockRef(sub_block));
-            // this emplace will always succeed since we already checked for the hash above
-            mapAllNodes.emplace(newNode->hash, newNode);
+            // There already exists a node for this subblock
+            return true;
         }
         // emplace returns iterator to new element or return iterator to existing element
         // use this to always get an element back that we want to insert in to
-        auto res = vGroves.emplace(sub_block.hashPrevBlock, new CTailstormGrove());
-        LOGA("added subblock %s to Grove %s \n", sub_block_hash.GetHex().c_str(),
-            sub_block.hashPrevBlock.GetHex().c_str());
+        auto res = vGroves.emplace(subblock.hashPrevBlock, new CTailstormGrove());
+        LOGA("added subblock %s to Grove %s \n", subblock.GetHash().GetHex().c_str(),
+            subblock.hashPrevBlock.GetHex().c_str());
         return res.first->second->Insert(newNode);
     }
 
