@@ -110,7 +110,7 @@ static const CBlockIndex *GetASERTAnchorBlock(const CBlockIndex *const pindex, c
  * double or halve the difficulty.
  */
 uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t nBlockTime,
     const Consensus::Params &params,
     const CBlockIndex *pindexAnchorBlock) noexcept
 {
@@ -129,8 +129,7 @@ uint32_t GetNextASERTWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (nBlockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }
@@ -256,7 +255,7 @@ arith_uint256 CalculateASERT(const arith_uint256 &refTarget,
 #include "crypto/sha256.h"
 #include "key.h"
 
-uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *pblock, const Consensus::Params &params)
+uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const int64_t nBlockTime, const Consensus::Params &params)
 {
     // Genesis block
     if (pindexPrev == nullptr)
@@ -273,10 +272,10 @@ uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *
     if (IsNov2020Activated(params, pindexPrev))
     {
         const CBlockIndex *panchorBlock = GetASERTAnchorBlock(pindexPrev, params);
-        return GetNextASERTWorkRequired(pindexPrev, pblock, params, panchorBlock);
+        return GetNextASERTWorkRequired(pindexPrev, nBlockTime, params, panchorBlock);
     }
 
-    return GetNextCashWorkRequired(pindexPrev, pblock, params);
+    return GetNextCashWorkRequired(pindexPrev, nBlockTime, params);
 }
 
 uint32_t CalculateNextWorkRequired(const CBlockIndex *pindexLast,
@@ -504,7 +503,7 @@ static const CBlockIndex *GetSuitableBlock(const CBlockIndex *pindex)
  * input, this ensures the algorithm is more resistant to malicious inputs.
  */
 uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
-    const CBlockHeader *pblock,
+    const int64_t nBlockTime,
     const Consensus::Params &params)
 {
     // This cannot handle the genesis block and early blocks in general.
@@ -513,8 +512,7 @@ uint32_t GetNextCashWorkRequired(const CBlockIndex *pindexPrev,
     // Special difficulty rule for testnet:
     // If the new block's timestamp is more than 2* 10 minutes then allow
     // mining of a min-difficulty block.
-    if (params.fPowAllowMinDifficultyBlocks &&
-        (pblock->GetBlockTime() > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
+    if (params.fPowAllowMinDifficultyBlocks && (nBlockTime > pindexPrev->GetBlockTime() + 2 * params.nPowTargetSpacing))
     {
         return UintToArith256(params.powLimit).GetCompact();
     }

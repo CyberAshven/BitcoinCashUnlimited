@@ -9,11 +9,11 @@
 #include <algorithm>
 
 
-static int64_t slow_pos_lookup(const CBlock &block, const uint256 &tx)
+static int64_t slow_pos_lookup(const CBlock &block, const uint256 &hash)
 {
     for (size_t i = 0; i < block.vtx.size(); ++i)
     {
-        if (block.vtx[i]->GetHash() == tx)
+        if (block.vtx[i]->GetHash() == hash)
         {
             return i;
         }
@@ -21,17 +21,17 @@ static int64_t slow_pos_lookup(const CBlock &block, const uint256 &tx)
     return TX_NOT_FOUND;
 }
 
-static int64_t ctor_pos_lookup(const CBlock &block, const uint256 &tx)
+static int64_t ctor_pos_lookup(const CBlock &block, const uint256 &hash)
 {
     // Coinbase is not sorted and thus needs special treatment
-    if (block.vtx[0]->GetHash() == tx)
+    if (block.vtx[0]->GetHash() == hash)
     {
         return 0;
     }
 
     auto compare = [](auto &blocktx, const uint256 &lookuptx) { return blocktx->GetHash() < lookuptx; };
 
-    auto it = std::lower_bound(begin(block.vtx) + 1, end(block.vtx), tx, compare);
+    auto it = std::lower_bound(begin(block.vtx) + 1, end(block.vtx), hash, compare);
 
     if (it == end(block.vtx))
     {
@@ -51,5 +51,8 @@ int64_t FindTxPosition(const CBlock &block, const uint256 &txhash, bool ctor_opt
         // invalid block
         return TX_NOT_FOUND;
     }
-    return ctor_optimized ? ctor_pos_lookup(block, txhash) : slow_pos_lookup(block, txhash);
+    // TODO: ptship - research as to why ctor_pos_lookup is sometimes failing.
+    //                Temporariliy call only slow_pos_lookup until this can be fixed.
+    //                This bug gets triggered in rawtransaction.py
+    return ctor_optimized ? slow_pos_lookup(block, txhash) : slow_pos_lookup(block, txhash);
 }

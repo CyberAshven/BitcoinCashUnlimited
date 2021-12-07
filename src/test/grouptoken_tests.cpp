@@ -6,6 +6,7 @@
 #include "consensus/merkle.h"
 #include "main.h"
 #include "miner.h"
+#include "miner_common.h"
 #include "test/test_bitcoin.h"
 #include "txadmission.h"
 #include "utilstrencodings.h"

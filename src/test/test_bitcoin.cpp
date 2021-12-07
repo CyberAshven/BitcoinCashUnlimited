@@ -15,6 +15,7 @@
 #include "key.h"
 #include "main.h"
 #include "miner.h"
+#include "miner_common.h"
 #include "pubkey.h"
 #include "random.h"
 #include "rpc/register.h"

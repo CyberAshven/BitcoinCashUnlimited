@@ -10,6 +10,7 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.constants import TAILSTORM_K
 
 class MerkleBlockTest(BitcoinTestFramework):
 
@@ -43,27 +44,32 @@ class MerkleBlockTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(), 0)
 
         node0utxos = self.nodes[0].listunspent(1)
-        tx1 = self.nodes[0].createrawtransaction([node0utxos.pop()], {self.nodes[1].getnewaddress(): COINBASE_REWARD})
+        tx1 = self.nodes[0].createrawtransaction([node0utxos.pop()], {self.nodes[1].getnewaddress(): 1})
         txid1 = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransaction(tx1)["hex"])
-        tx2 = self.nodes[0].createrawtransaction([node0utxos.pop()], {self.nodes[1].getnewaddress(): COINBASE_REWARD})
+        tx2 = self.nodes[0].createrawtransaction([node0utxos.pop()], {self.nodes[1].getnewaddress(): 1})
         txid2 = self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransaction(tx2)["hex"])
         assert_raises(JSONRPCException, self.nodes[0].gettxoutproof, [txid1])
 
-        self.nodes[0].generate(1)
-        blockhash = self.nodes[0].getblockhash(chain_height + 1)
         self.sync_all()
+        self.nodes[0].generate(1)
+        self.sync_all()
+        blockhash = self.nodes[0].getblockhash(chain_height + 1)
 
         txlist = []
         blocktxn = self.nodes[0].getblock(blockhash, True)["tx"]
-        txlist.append(blocktxn[1])
-        txlist.append(blocktxn[2])
+        #skip coinbase and proofbases
+        assert(txid1 in blocktxn)
+        assert(txid2 in blocktxn)
+        for txn in blocktxn:
+            if txn in [txid1, txid2]:
+                txlist.append(txn)
 
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1])), [txid1])
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1, txid2])), txlist)
         assert_equal(self.nodes[2].verifytxoutproof(self.nodes[2].gettxoutproof([txid1, txid2], blockhash)), txlist)
 
         txin_spent = self.nodes[1].listunspent(1).pop()
-        tx3 = self.nodes[1].createrawtransaction([txin_spent], {self.nodes[0].getnewaddress(): COINBASE_REWARD})
+        tx3 = self.nodes[1].createrawtransaction([txin_spent], {self.nodes[0].getnewaddress(): 1})
         self.nodes[0].sendrawtransaction(self.nodes[1].signrawtransaction(tx3)["hex"])
         self.nodes[0].generate(1)
         self.sync_all()

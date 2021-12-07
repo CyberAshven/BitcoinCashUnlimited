@@ -380,6 +380,7 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
         int nChangePosRet = -1;
         CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
         vecSend.push_back(recipient);
+
         if (!pwalletMain->CreateTransaction(vecSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError))
         {
             if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
@@ -388,6 +389,7 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
                     FormatMoney(nFeeRequired));
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
+
         if (!pwalletMain->CommitTransaction(wtxNew, reservekey))
             throw JSONRPCError(RPC_WALLET_ERROR,
                 "Error: The transaction was rejected! This might happen if some of the "
@@ -452,7 +454,6 @@ UniValue sendtoaddress(const UniValue &params, bool fHelp)
     bool fSubtractFeeFromAmount = false;
     if (params.size() > 4)
         fSubtractFeeFromAmount = params[4].get_bool();
-
     EnsureWalletIsUnlocked();
 
     SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx);
@@ -1874,16 +1875,30 @@ UniValue listtransactionsfrom(const UniValue &params, bool fHelp)
     UniValue ret(UniValue::VARR);
 
     const CWallet::TxItems &txOrdered = pwalletMain->wtxOrdered;
-    if (txOrdered.size() < (unsigned int)nFrom)
-        return ret;
     CWallet::TxItems::const_iterator it = txOrdered.begin();
-    std::advance(it, nFrom);
 
-    for (int cnt = 0; (it != txOrdered.end()) && (cnt < nCount); ++it, ++cnt)
+    int skip = 0;
+    for (int cnt = 0; it != txOrdered.end(); ++it, ++cnt)
     {
         CWalletTx *const pwtx = (*it).second.first;
+
+        // First advance forward by skipping transactions. As in the case of coinbase
+        // transactions there may be multiple outputs into our wallet, each of which is
+        // shown as a separate wallet transaction in the wallets list of transactions.
+        if (skip < nFrom)
+        {
+            if (pwtx != 0)
+            {
+                UniValue skipList(UniValue::VARR);
+                ListTransactions(*pwtx, strAccount, 0, true, skipList, filter);
+                skip += skipList.size();
+            }
+            continue;
+        }
+
         if (pwtx != 0)
             ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+
         CAccountingEntry *const pacentry = (*it).second.second;
         if (pacentry != 0)
             AcentryToJSON(*pacentry, strAccount, ret);

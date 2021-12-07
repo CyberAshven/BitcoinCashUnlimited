@@ -12,8 +12,8 @@
 #include "extversionkeys.h"
 #include "net.h"
 #include "policy/policy.h"
-#include "pow.h"
 #include "requestManager.h"
+#include "tailstorm/block/pow.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "txmempool.h"
@@ -52,7 +52,7 @@ CGrapheneBlock::CGrapheneBlock(const CBlockRef pblock,
     {
         blockHashes.push_back(tx->GetHash());
 
-        if (tx->IsCoinBase())
+        if (tx->IsCoinBase() || tx->IsProofBase())
             vAdditionalTxs.push_back(tx);
     }
 
@@ -374,7 +374,7 @@ bool CRequestGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 bool CGrapheneBlock::CheckBlockHeader(const CBlockHeader &block, CValidationState &state)
 {
     // Check proof of work matches claimed amount
-    if (!CheckProofOfWork(header.GetMiningHash(), header.nBits, Params().GetConsensus()))
+    if (!CheckTailstormPoW(header, Params().GetConsensus(), TAILSTORM_K))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp

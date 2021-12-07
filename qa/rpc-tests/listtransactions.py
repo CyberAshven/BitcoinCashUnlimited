@@ -9,6 +9,7 @@ import pdb
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 from test_framework.mininode import CTransaction, COIN
+from test_framework.constants import TAILSTORM_K
 from io import BytesIO
 
 
@@ -20,7 +21,11 @@ class ListTransactionsTest(BitcoinTestFramework):
 
     def setup_nodes(self):
         enable_mocktime()
-        return start_nodes(4, self.options.tmpdir)
+        self.node_args = [['-debug=net'],
+                          ['-debug=net'],
+                          ['-debug=net'],
+                          ['-debug=net']]
+        return start_nodes(4, self.options.tmpdir, self.node_args)
 
     def run_test(self):
         self.test_listtransactionsfrom()
@@ -37,6 +42,8 @@ class ListTransactionsTest(BitcoinTestFramework):
         self.sync_blocks()
 
         # Basic positive test
+        tmp2 = self.nodes[2].listtransactionsfrom("*", 0, curpos)
+
         tmp = self.nodes[2].listtransactionsfrom("*", 1, curpos)
         assert len(tmp) == 1
         assert tmp[0]["txid"] == txid

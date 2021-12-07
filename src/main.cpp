@@ -36,7 +36,6 @@
 #include "net_processing.h"
 #include "nodestate.h"
 #include "policy/policy.h"
-#include "pow.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
 #include "requestManager.h"
@@ -44,6 +43,7 @@
 #include "script/script.h"
 #include "script/sigcache.h"
 #include "script/standard.h"
+#include "tailstorm/tailstorm.h"
 #include "tinyformat.h"
 #include "txadmission.h"
 #include "txdb.h"
@@ -91,9 +91,8 @@ uint64_t nPruneTarget = 0;
 uint64_t nDBUsedSpace = 0;
 uint32_t nXthinBloomFilterSize = SMALLEST_MAX_BLOOM_FILTER_SIZE;
 
-// BU: Move global objects to a single file
-extern CTxMemPool mempool;
 
+// Move global objects to a single file
 extern CTweak<unsigned int> blockDownloadWindow;
 extern CTweak<uint64_t> reindexTypicalBlockSize;
 

@@ -8,7 +8,6 @@
 #define BITCOIN_CHAIN_H
 
 #include "arith_uint256.h"
-#include "pow.h"
 #include "primitives/block.h"
 #include "sync.h"
 #include "tinyformat.h"
@@ -365,6 +364,7 @@ public:
         if (nextMaxBlockSize.Value())
             return nextMaxBlockSize.Value();
 
+        READLOCK(cs_mapBlockIndex);
         return nNextMaxBlockSize;
     }
 };

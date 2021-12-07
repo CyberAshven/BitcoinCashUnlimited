@@ -917,7 +917,6 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef &ptx, const CBlock 
         // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our
         // SetBestChain-mechanism
         CWalletDB walletdb(strWalletFile, "r+", false);
-
         return AddToWallet(wtx, false, &walletdb);
     }
     return false;
@@ -2985,7 +2984,6 @@ bool CWallet::CommitTransaction(CWalletTx &wtxNew, CReserveKey &reservekey)
         return false;
     }
     */
-
     if (fBroadcastTransactions)
     {
         auto txref = MakeTransactionRef(wtxNew);
@@ -3037,7 +3035,6 @@ bool CWallet::CommitTransaction(CWalletTx &wtxNew, CReserveKey &reservekey)
             return false;
         }
     }
-
     {
         LOCK(cs_wallet);
         // This is only to keep the database open to defeat the auto-flush for the
@@ -3073,7 +3070,6 @@ bool CWallet::CommitTransaction(CWalletTx &wtxNew, CReserveKey &reservekey)
             wtxNew.RelayWalletTransaction();
         }
     }
-
 
     if (fBroadcastTransactions)
     {

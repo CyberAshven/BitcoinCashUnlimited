@@ -15,6 +15,7 @@
 #include "blockrelay/graphene.h"
 #include "blockrelay/mempool_sync.h"
 #include "blockrelay/thinblock.h"
+#include "blockstorage/blockcache.h"
 #include "blockstorage/blockstorage.h"
 #include "chain.h"
 #include "dosman.h"
@@ -25,6 +26,7 @@
 #include "merkleblock.h"
 #include "nodestate.h"
 #include "requestManager.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "validation/validation.h"
@@ -241,6 +243,29 @@ void static ProcessGetData(CNode *pfrom, const Consensus::Params &consensusParam
                             pfrom->hashContinue.SetNull();
                         }
                     }
+                }
+            }
+        }
+        else if (inv.type == MSG_SUBBLOCK)
+        {
+            // Check various caches
+            CSubBlockRef subblock;
+            if (blockcache.GetBlock(inv.hash, subblock))
+            {
+                LOG(REQ, "Found subblock %s in tailstormDagSet\n", inv.hash.GetHex());
+                pfrom->PushMessage(NetMsgType::SUBBLOCK, *subblock);
+            }
+            else
+            {
+                if (tailstormForest.Find(inv.hash, subblock))
+                {
+                    LOG(REQ, "Found subblock %s in tailstormForest\n", inv.hash.GetHex());
+                    pfrom->PushMessage(NetMsgType::SUBBLOCK, *subblock);
+                }
+                else
+                {
+                    LOG(REQ, "Did not find subblock %s\n", inv.hash.GetHex());
+                    vNotFound.push_back(inv);
                 }
             }
         }
@@ -908,7 +933,8 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                 return false;
 
             const CInv &inv = vInv[nInv];
-            if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF))
+            if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF ||
+                    inv.type == MSG_SUBBLOCK))
             {
                 LOG(NET, "message inv invalid type = %u hash %s", inv.type, inv.hash.ToString());
                 return false;
@@ -950,6 +976,13 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                         "skipping request of block %s.  already have: %d  importing: %d  reindex: %d  "
                         "isChainNearlySyncd: %d\n",
                         inv.hash.ToString(), fAlreadyHaveBlock, fImporting, fReindex, IsChainNearlySyncd());
+                }
+            }
+            else if (inv.type == MSG_SUBBLOCK)
+            {
+                if (!blockcache.filterRecentSubBlock.contains(inv.hash))
+                {
+                    requester.AskFor(inv, pfrom);
                 }
             }
             else if (inv.type == MSG_TX)
@@ -1015,7 +1048,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             const CInv &inv = vInv[nInv];
             if (!((inv.type == MSG_TX) || (inv.type == MSG_BLOCK) || (inv.type == MSG_FILTERED_BLOCK) ||
-                    (inv.type == MSG_CMPCT_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF))
+                    (inv.type == MSG_CMPCT_BLOCK) || inv.type == MSG_DOUBLESPENDPROOF || inv.type == MSG_SUBBLOCK))
             {
                 dosMan.Misbehaving(pfrom, 20, BanReasonInvalidInventory);
                 return error("message inv invalid type = %u", inv.type);
@@ -1211,6 +1244,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         {
             vRecv >> headers[n];
             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
+            ReadCompactSize(vRecv); // ignore dagEncodingMap
         }
 
         // Nothing interesting. Stop asking this peers for more headers.
@@ -1662,7 +1696,6 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         return CGrapheneBlock::HandleMessage(vRecv, pfrom, strCommand, 0);
     }
 
-
     else if (strCommand == NetMsgType::GET_GRAPHENETX && !fImporting && !fReindex && !IsInitialBlockDownload() &&
              IsGrapheneBlockEnabled() && grapheneVersionCompatible)
     {
@@ -1785,8 +1818,29 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         //       ProcessNewBlock() during HandleBlockMessage.
         PV->HandleBlockMessage(pfrom, strCommand, pblock, inv);
     }
+    else if (strCommand == NetMsgType::SUBBLOCK && !fImporting && !fReindex)
+    {
+        CSubBlock subblock;
+        vRecv >> subblock;
 
+        uint256 hash = subblock.GetHash();
 
+        // indicate block was received for timing purposes
+        requester.MarkBlockAsReceived(hash, pfrom);
+
+        // Indicate that the block was received and is about to be processed. Setting the processing flag
+        // prevents us from re-requesting the block during the time it is being processed.
+        requester.ProcessingBlock(hash, pfrom);
+
+        // We must indicate to the request manager that the subblock was received
+        // which prevents unnecessary re-requests.
+        requester.Received(CInv(MSG_SUBBLOCK, hash), pfrom);
+
+        if (!ProcessNewSubBlock(subblock, pfrom))
+            LOG(BLK | REQ, "received invalid subblock %s peer=%d\n", hash.ToString(), pfrom->id);
+        else
+            LOG(BLK | REQ, "received valid subblock %s peer=%d\n", hash.ToString(), pfrom->id);
+    }
     else if (strCommand == NetMsgType::GETADDR)
     {
         // This asymmetric behavior for inbound and outbound connections was introduced

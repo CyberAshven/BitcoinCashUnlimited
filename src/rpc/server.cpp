@@ -72,6 +72,14 @@ static const CRPCConvertParam vRPCConvertParams[] =
     {"setgenerate", 1},
     {"generate", 0},
     {"generate", 1},
+//    {"generatetailstormblocks", 0},
+//    {"generatetailstormblocks", 1},
+//    {"generatetailstormblockstoaddress", 0},
+//    {"generatetailstormblockstoaddress", 2},
+    {"generatesubblocks", 0},
+    {"generatesubblocks", 1},
+    {"generatesubblockstoaddress", 0},
+    {"generatesubblockstoaddress", 2},
     {"generatetoaddress", 0},
     {"generatetoaddress", 2},
     {"getnetworkhashps", 0},
@@ -121,7 +129,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     {"getblock", 1},
     {"getblock", 2},
     {"getblockheader", 1},
-    { "getchaintxstats", 0},
+    {"getchaintxstats", 0},
     {"gettransaction", 1},
     {"getrawtransaction", 1},
     {"createrawtransaction", 0},
@@ -160,6 +168,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     {"getmempooldescendants", 1},
     {"getrawtransactionssince", 1},
     {"getblockstats", 1}
+  //  {"deltainfo", 1},
+ //   {"deltatips", 1}
 };
 /* clang-format on */
 

@@ -7,9 +7,34 @@
 #include "main.h"
 #include "requestManager.h"
 
+extern CTweak<bool> enableSubblockCache;
+
 void CBlockCache::AddBlock(CBlockRef pblock, uint64_t nHeight)
 {
     WRITELOCK(cs_blockcache);
+    _AddBlock(BlockType::CBLOCK, pblock->GetHash(), pblock, nHeight, pblock->GetBlockSize());
+}
+
+void CBlockCache::AddBlock(CSubBlockRef pblock, uint64_t nHeight)
+{
+    WRITELOCK(cs_blockcache);
+
+    // Always add to recent subblocks regardless of whether we have the subblock cache enabled
+    filterRecentSubBlock.insert(pblock->GetHash());
+
+    if (enableSubblockCache.Value())
+    {
+        _AddBlock(BlockType::CSUBBLOCK, pblock->GetHash(), pblock, nHeight, pblock->GetBlockSize());
+    }
+}
+
+void CBlockCache::_AddBlock(const BlockType blockType,
+    const uint256 &hash,
+    const std::shared_ptr<void> pblock,
+    const uint64_t nHeight,
+    const uint64_t blockSize)
+{
+    AssertWriteLockHeld(cs_blockcache);
 
     // Only add a new cache block if the cache size is large enough. Always limit the newer blocks
     // instead of trimming the older ones then we will never end up using any of the cache for processing blocks
@@ -20,14 +45,13 @@ void CBlockCache::AddBlock(CBlockRef pblock, uint64_t nHeight)
     {
         nMaxSizeCache = nMaxMempool;
     }
-    uint64_t blockSize = pblock->GetBlockSize();
 
     // Add the block to the cache if there is room.
     _CalculateDownloadWindow(blockSize);
     if ((nBytesCache + (int64_t)blockSize < nMaxSizeCache) &&
         (cache.size() + 1 < requester.BLOCK_DOWNLOAD_WINDOW.load()))
     {
-        auto ret = cache.insert({pblock->GetHash(), {GetTimeMillis(), nHeight, BlockType::CBLOCK, blockSize, pblock}});
+        auto ret = cache.insert({hash, {GetTimeMillis(), nHeight, blockType, blockSize, pblock}});
         if (ret.second == true)
         {
             nBytesCache += blockSize;
@@ -57,6 +81,24 @@ bool CBlockCache::GetBlock(const uint256 &hash, CBlockRef &pblock) const
     return false;
 }
 
+bool CBlockCache::GetBlock(const uint256 &hash, CSubBlockRef &pblock) const
+{
+    pblock = nullptr;
+    {
+        READLOCK(cs_blockcache);
+        auto iter = cache.find(hash);
+        if (iter != cache.end())
+        {
+            if (iter->second.blockType == BlockType::CSUBBLOCK)
+            {
+                pblock = std::static_pointer_cast<CSubBlock>(iter->second.pblock);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void CBlockCache::EraseBlock(const uint256 &hash)
 {
     WRITELOCK(cs_blockcache);
@@ -75,8 +117,12 @@ void CBlockCache::_TrimCache()
 
     // If the chain is fully synced then we only allow, at most, the last
     // few blocks in the chain to be saved.
+    //
+    // If subblock caching is turned on then we don't trim by default blocks from tip.
+    // We could do something more complex here but since subblock caching is only
+    // intended to be used during testing then this funtionality should be good enough.
     uint64_t nHeightToKeep = DEFAULT_BLOCKS_FROM_TIP;
-    if (IsChainNearlySyncd() && cache.size() > nHeightToKeep)
+    if (IsChainNearlySyncd() && cache.size() > nHeightToKeep && !enableSubblockCache.Value())
     {
         uint64_t nMinHeight = chainActive.Height() - nHeightToKeep;
         auto mi = cache.begin();

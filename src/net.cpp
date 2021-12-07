@@ -82,7 +82,6 @@ extern CTweak<bool> ignoreNetTimeouts;
 
 extern std::atomic<bool> fRescan;
 extern bool fReindex;
-extern CTxMemPool mempool;
 extern CTweak<uint64_t> grapheneMinVersionSupported;
 extern CTweak<uint64_t> grapheneMaxVersionSupported;
 

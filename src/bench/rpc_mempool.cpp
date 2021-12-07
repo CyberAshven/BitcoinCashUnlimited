@@ -12,7 +12,6 @@
 #include <list>
 #include <vector>
 
-extern CTxMemPool mempool;
 
 static void AddTx(const CTransactionRef &tx, const CAmount &nFee)
 {

@@ -65,5 +65,8 @@ void UnregisterAllValidationInterfaces()
 
 void SyncWithWallets(const CTransactionRef &ptx, const CBlock *pblock, int txIdx)
 {
+    if (ptx->IsProofBase())
+        return;
+
     g_signals.SyncTransaction(ptx, pblock, txIdx);
 }

@@ -18,7 +18,7 @@ private:
     enum BlockType
     {
         CBLOCK,
-        CTAILSTORMBLOCK,
+        CSUBBLOCK,
     };
 
     struct CCacheEntry
@@ -44,13 +44,28 @@ private:
     const uint64_t nIncrement = 1;
 
 public:
+    /** Keep track of recent subblocks that were valid and fully accepted */
+    CRollingFastFilter<4 * 1024 * 1024> filterRecentSubBlock;
+
     CBlockCache(){};
 
-    /** Add a block to the block cache */
+    /** Add block to the block cache */
     void AddBlock(CBlockRef pblock, uint64_t nHeight);
+    /** Add subblock to the block cache */
+    void AddBlock(CSubBlockRef pblock, uint64_t nHeight);
+
+    /** Add any block to the block cache */
+    void _AddBlock(const BlockType BlockType,
+        const uint256 &hash,
+        const std::shared_ptr<void> pblock,
+        const uint64_t nHeight,
+        const uint64_t blockSize);
 
     /** Find and return a block from the block cache */
     bool GetBlock(const uint256 &hash, CBlockRef &pblock) const;
+
+    /** Find and return a subblock from the block cache */
+    bool GetBlock(const uint256 &hash, CSubBlockRef &pblock) const;
 
     /** Remove a block from the block cache */
     void EraseBlock(const uint256 &hash);

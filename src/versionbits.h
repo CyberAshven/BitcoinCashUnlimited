@@ -8,6 +8,7 @@
 #define BITCOIN_VERSIONBITS
 
 #include "chain.h"
+#include "consensus/params.h"
 #include <map>
 
 /** What block version to use for new blocks (pre versionbits) */

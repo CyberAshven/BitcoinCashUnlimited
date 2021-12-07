@@ -15,6 +15,7 @@ import decimal
 from test_framework.blocktools import create_coinbase
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.constants import TAILSTORM_K
 
 
 class CTORMiningTest(BitcoinTestFramework):
@@ -46,8 +47,7 @@ class CTORMiningTest(BitcoinTestFramework):
             mining_node.generate(1)
 
         unspent = mining_node.listunspent()
-
-        assert len(unspent) == 100
+        assert len(unspent) == 100 * TAILSTORM_K
 
         transactions = {}
 
@@ -60,7 +60,7 @@ class CTORMiningTest(BitcoinTestFramework):
 
                 inputs.append({
                     'txid': txin['txid'],
-                    'vout': 0,  # This is a coinbase
+                    'vout': txin['vout'],  # This is a coinbase
 
                     # keep track of coinbase value in extra field that should
                     # otherwise be ignored

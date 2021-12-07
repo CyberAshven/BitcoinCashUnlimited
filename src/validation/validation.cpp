@@ -22,6 +22,7 @@
 #include "init.h"
 #include "requestManager.h"
 #include "sync.h"
+#include "tailstorm/tailstorm.h"
 #include "timedata.h"
 #include "txadmission.h"
 #include "txorphanpool.h"
@@ -156,8 +157,7 @@ bool CheckBlockHeader(const Consensus::Params &consensusParams,
         return state.DoS(100, error("%s: nonce too large", __func__), REJECT_INVALID, "bad-nonce");
     }
     // Check proof of work matches claimed amount
-    uint256 miningHash = block.GetMiningHash();
-    if (fCheckPOW && !CheckProofOfWork(miningHash, block.nBits, consensusParams))
+    if (fCheckPOW && !CheckTailstormPoW(block, consensusParams, TAILSTORM_K))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"), REJECT_INVALID, "high-hash");
 
     // Check timestamp
@@ -191,7 +191,6 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
         return state.DoS(100, error("%s: incorrect height. Height %d, expected %d", __func__, block.height, nHeight),
             REJECT_INVALID, "bad-height");
     }
-
     if (block.feePoolAmt != 0)
     {
         return state.DoS(100, error("%s: premature fee pool use", __func__), REJECT_INVALID, "bad-fee-pool");
@@ -215,7 +214,7 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
     }
 
     // Check proof of work
-    uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, &block, consensusParams);
+    uint32_t expectedNbits = GetNextWorkRequired(pindexPrev, block.GetBlockTime(), consensusParams);
     if (block.nBits != expectedNbits)
     {
         return state.DoS(100,
@@ -223,6 +222,7 @@ bool ContextualCheckBlockHeader(const CChainParams &chainparams,
                 block.nBits, expectedNbits),
             REJECT_INVALID, "bad-diffbits");
     }
+
     auto expectedChainWork =
         ArithToUint256((pindexPrev ? pindexPrev->chainWork() : 0) + GetWorkForDifficultyBits(expectedNbits));
     if (block.chainWork != expectedChainWork)
@@ -305,9 +305,9 @@ bool AcceptBlockHeader(const CBlockHeader &block,
                         error("%s: block %s height %d is marked invalid", __func__, hash.ToString(), pindex->height()),
                         0, "duplicate");
             }
+
             return true;
         }
-
         if (!CheckBlockHeader(chainparams.GetConsensus(), block, state))
             return false;
 
@@ -320,7 +320,6 @@ bool AcceptBlockHeader(const CBlockHeader &block,
                     hash.ToString()),
                 0, "bad-prevblk");
         }
-
         if (!ContextualCheckBlockHeader(chainparams, block, state, pindexPrev))
             return false;
 
@@ -783,11 +782,15 @@ bool InitBlockIndex(const CChainParams &chainparams)
         return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
     }
 
+    if (chainActive.Genesis() != nullptr)
+        return true;
+
     return true;
 }
 
 void CheckBlockIndex(const Consensus::Params &consensusParams)
 {
+    return;
     if (!fCheckBlockIndex)
     {
         return;
@@ -1416,7 +1419,6 @@ CBlockIndex *FindMostWorkChain()
             LOGA("Mark block %s invalid because it forks prior to the "
                  "finalization point %d.\n",
                 pindexNew->GetBlockHash().ToString(), pindexFinalized->height());
-
             pindexNew->nStatus |= BLOCK_FAILED_VALID;
         }
 
@@ -1731,9 +1733,9 @@ bool CheckBlock(const Consensus::Params &consensusParams,
             return error("CheckBlock(): CheckTransaction of %s failed with %s", tx->GetHash().ToString(),
                 FormatStateMessage(state));
 
-
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
+
     return true;
 }
 
@@ -1811,7 +1813,6 @@ bool AcceptBlock(const CBlock &block,
     AssertLockHeld(cs_main); // for setDirtyBlockIndex
 
     CBlockIndex *&pindex = *ppindex;
-
     if (!AcceptBlockHeader(block, state, chainparams, &pindex))
     {
         return false;
@@ -1870,6 +1871,7 @@ bool AcceptBlock(const CBlock &block,
             return false;
         }
     }
+
     int nHeight = pindex->height();
     // Write block to history file
     try
@@ -1900,6 +1902,7 @@ bool AcceptBlock(const CBlock &block,
     {
         return AbortNode(state, std::string("System error: ") + e.what());
     }
+
     if (fCheckForPruning)
     {
         FlushStateToDisk(state, FLUSH_STATE_NONE); // we just allocated more disk space for block files
@@ -2054,6 +2057,12 @@ DisconnectResult DisconnectBlock(const CBlock &block, const CBlockIndex *pindex,
     for (unsigned int i = 1; i < block.vtx.size(); i++) // i=1 to skip the coinbase, it has no inputs
     {
         const CTransaction &tx = *(block.vtx[i]);
+        if (tx.IsProofBase())
+        {
+            // skip proofbase txs since they are not real transactions
+            continue;
+        }
+
         CTxUndo &txundo = blockUndo.vtxundo[i - 1];
         if (txundo.vprevout.size() != tx.vin.size())
         {
@@ -2099,6 +2108,11 @@ DisconnectResult DisconnectBlock(const CBlock &block, const CBlockIndex *pindex,
 
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
+
+    // Remove any subblocks from the tailstorm forest that relate to this block
+    // TODO: ptschip - is this really the right/accurate action or should we rather be directly
+    //                 targeting the subblocks withing the block for removal
+    tailstormForest.ClearGrove(pindex->pprev->GetBlockHash());
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -2182,6 +2196,9 @@ bool ConnectBlockPrevalidations(const CBlock &block,
         {
             for (const auto &tx : block.vtx)
             {
+                if (tx->IsProofBase())
+                    continue;
+
                 for (size_t o = 0; o < tx->vout.size(); o++)
                 {
                     if (view.HaveCoin(COutPoint(tx->GetHash(), o)))
@@ -2313,7 +2330,7 @@ bool ConnectBlockDependencyOrdering(const CBlock &block,
             if (nSigOps > GetMaxBlockSigOpsCount(block.GetBlockSize()))
                 return state.DoS(100, error("ConnectBlock(): too many sigops"), REJECT_INVALID, "bad-blk-sigops");
 
-            if (!tx.IsCoinBase())
+            if (!tx.IsCoinBase() && !tx.IsProofBase())
             {
                 // Check that transaction is BIP68 final
                 // BIP68 lock checks (as opposed to nLockTime checks) must
@@ -2509,6 +2526,9 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
         for (unsigned int i = 0; i < block.vtx.size(); i++)
         {
             const CTransaction &tx = *(block.vtx[i]);
+            if (tx.IsProofBase())
+                continue;
+
             try
             {
                 AddCoins(view, tx, pindex->height());
@@ -2550,7 +2570,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
 
             nInputs += tx.vin.size();
 
-            if (!tx.IsCoinBase())
+            if (!tx.IsCoinBase() && !tx.IsProofBase())
             {
                 // Check that transaction is BIP68 final
                 // BIP68 lock checks (as opposed to nLockTime checks) must
@@ -2669,8 +2689,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
             }
 
             LOG(BENCH, "Number of SigChecks performed: %d\n", blockSigChecks);
-
-            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->GetNextMaxBlockSize());
+            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->pprev->GetNextMaxBlockSize());
             if (blockSigChecks > maxSigChecksAllowed)
             {
                 return state.DoS(
@@ -3086,6 +3105,12 @@ void UpdateTip(CBlockIndex *pindexNew)
 
     cvBlockChange.notify_all();
 
+    CBlockIndex *pprev = pindexNew->pprev;
+    if (pprev && pprev->pprev)
+    {
+        tailstormForest.ClearGrove(pprev->pprev->GetBlockHash());
+    }
+
     LOGA("%s: new best=%s  height=%d bits=%d log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utxo)\n",
         __func__, chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(), chainActive.Tip()->tgtBits(),
         log(chainActive.Tip()->chainWork().getdouble()) / log(2.0), (unsigned long)chainActive.Tip()->nChainTx,
@@ -3133,7 +3158,7 @@ static void ResubmitTransactions(CBlockRef pblock = nullptr)
             // Resubmit the block first
             for (const auto &ptx : pblock->vtx)
             {
-                if (!ptx->IsCoinBase())
+                if (!ptx->IsCoinBase() && !ptx->IsProofBase())
                 {
                     CTxInputData txd;
                     txd.tx = ptx;
@@ -3465,6 +3490,7 @@ bool ActivateBestChainStep(CValidationState &state,
      *  want to pass a nullptr so that the next block is read from disk, because we will definitely not
      *  have the block.
      */
+
     bool fBlock = true;
     int nHeight = pindexFork ? pindexFork->height() : -1;
     while (fContinue && nHeight < pindexMostWork->height())
@@ -3503,6 +3529,7 @@ bool ActivateBestChainStep(CValidationState &state,
                 LOG(PARALLEL, "Returning because chain work has changed while connecting blocks\n");
                 return true;
             }
+
             if (!ConnectTip(state, chainparams, pindexConnect,
                     pindexConnect == pindexMostWork && fBlock ? pblock : nullptr, fParallel))
             {
@@ -3705,6 +3732,7 @@ bool ActivateBestChain(CValidationState &state,
                 return true;
         }
 
+
         //** PARALLEL BLOCK VALIDATION
         // Find the CBlockIndex of this block if this blocks previous hash matches the old chaintip.  In the
         // case of parallel block validation we may have two or more blocks processing at the same time however
@@ -3852,6 +3880,7 @@ bool ProcessNewBlock(CValidationState &state,
         {
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
+
         CheckBlockIndex(chainparams.GetConsensus());
 
         CInv inv(MSG_BLOCK, hash);
@@ -3864,10 +3893,26 @@ bool ProcessNewBlock(CValidationState &state,
         else
         {
             // We must indicate to the request manager that the block was received only after it has
-            // been stored to disk (or been shown to be invalid). Doing so prevents unnecessary re-requests.
+            // been stored to disk. Doing so prevents unnecessary re-requests.
             requester.Received(inv, pfrom);
+
+            // For tailstorm we must also mark the subblocks within this fully validated block
+            // as received. This prevents any possible timeouts from previous subblock requests
+            // which would then cause a disconnect.
+            for (auto &mi : pblock->subblockNTxMap)
+            {
+                // TODO: ptschip - there is some potential confusion here between MarkBlockAsReceived
+                //                 and Received.  This should be cleared up at some point
+                //                 MarkBlockAsReceived() is specific to timing and disconnects, whereas Received()
+                //                 could be any object that the request manager is tracking for
+                //                 re-request purposes.
+                requester.MarkBlockAsReceived(mi.first, pfrom);
+                CInv subinv(MSG_SUBBLOCK, mi.first);
+                requester.Received(subinv, pfrom);
+            }
         }
     }
+
     if (!ActivateBestChain(state, chainparams, pblock, fParallel))
     {
         if (state.IsInvalid() || state.IsError())

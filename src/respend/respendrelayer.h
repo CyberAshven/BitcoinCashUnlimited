@@ -8,7 +8,6 @@
 #include "respend/respendaction.h"
 #include "txmempool.h"
 
-extern CTxMemPool mempool;
 
 namespace respend
 {

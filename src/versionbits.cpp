@@ -6,8 +6,6 @@
 
 #include "versionbits.h"
 
-#include "consensus/params.h"
-
 // bip135 begin fill out entire table
 struct ForkDeploymentInfo VersionBitsDeploymentInfo[Consensus::MAX_VERSION_BITS_DEPLOYMENTS] = {
     {/*.name =*/(char *)"", // unallocated bit 0

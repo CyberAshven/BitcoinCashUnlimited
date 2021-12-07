@@ -36,6 +36,8 @@ static bool CalculateMedianSize(CBlockIndex *pindex, uint64_t nBlockSize, uint64
 
 uint64_t CalculateNextMaxBlockSize(CBlockIndex *pindexPrev, uint64_t nBlockSize)
 {
+    AssertLockHeld(cs_mapBlockIndex);
+
     uint64_t nBlockSizeMultiplier = Params().GetConsensus().nBlockSizeMultiplier;
     uint64_t nNextMaxBlockSize = DEFAULT_NEXT_MAX_BLOCK_SIZE;
 

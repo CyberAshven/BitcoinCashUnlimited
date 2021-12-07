@@ -105,7 +105,17 @@ UniValue blockheaderToJSON(const CBlockIndex *blockindex, UniValue &result)
     result.pushKV("utxoCommitment", HexStr(blockindex->header.utxoCommitment));
     result.pushKV("minerData", HexStr(blockindex->header.minerData));
 
+    UniValue subblockHashes(UniValue::VARR);
+    {
+        for (auto &iter : blockindex->header.subblockNTxMap)
+        {
+            subblockHashes.push_back(iter.first.GetHex());
+        }
+        result.pushKV("subblockHashes", subblockHashes);
+    }
+
     if (blockindex->pprev)
+
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     result.pushKV("ancestorhash", blockindex->header.hashAncestor.GetHex());
 
@@ -2053,7 +2063,6 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
             stats.insert(stat);
         }
     }
-
     const CBlock block = GetBlockChecked(pindex);
     const CBlockUndo blockUndo = pindex->pprev ? GetUndoChecked(pindex) : CBlockUndo();
     // This property is required in the for loop below (and ofc every tx should have undo data)
@@ -2103,7 +2112,7 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
             }
         }
 
-        if (tx->IsCoinBase())
+        if (tx->IsCoinBase() || tx->IsProofBase())
         {
             continue;
         }

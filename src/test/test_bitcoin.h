@@ -12,6 +12,7 @@
 #include "pubkey.h"
 #include "random.h"
 #include "script/interpreter.h"
+#include "tailstorm/tailstorm.h"
 #include "txdb.h"
 #include "txmempool.h"
 
@@ -37,13 +38,6 @@ static inline uint64_t InsecureRandBits(int bits) { return insecure_rand_ctx.ran
 static inline uint64_t InsecureRandRange(uint64_t range) { return insecure_rand_ctx.randrange(range); }
 static inline bool InsecureRandBool() { return insecure_rand_ctx.randbool(); }
 static inline std::vector<unsigned char> InsecureRandBytes(size_t len) { return insecure_rand_ctx.randbytes(len); }
-
-// Used when sorting transactions for placement in a block
-struct NumericallyLessTxHashComparator
-{
-public:
-    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetHash() < b->GetHash(); }
-};
 
 /** Basic testing setup.
  * This just configures logging and chain parameters.

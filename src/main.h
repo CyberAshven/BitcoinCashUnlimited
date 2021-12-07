@@ -19,6 +19,7 @@
 #include "fs.h"
 #include "net.h"
 #include "policy/policy.h"
+#include "primitives/subblock.h"
 #include "script/script_error.h"
 #include "sync.h"
 #include "txdb.h"
@@ -126,7 +127,6 @@ struct BlockHasher
 };
 
 extern CCriticalSection cs_main;
-extern CTxMemPool mempool;
 typedef std::unordered_map<uint256, CBlockIndex *, BlockHasher> BlockMap;
 extern CSharedCriticalSection cs_mapBlockIndex;
 extern BlockMap mapBlockIndex;
@@ -281,7 +281,6 @@ bool AcceptBlock(CBlock &block, CValidationState &state, CBlockIndex **pindex, b
 
 /** Find the last common block between the parameter chain and a locator. */
 CBlockIndex *FindForkInGlobalIndex(const CChain &chain, const CBlockLocator &locator);
-
 
 /** The currently-connected chain of blocks (protected internally). */
 extern CChain chainActive;

@@ -8,7 +8,7 @@
 #include "blockstorage/blockstorage.h"
 #include "chainparams.h"
 #include "hashwrapper.h"
-#include "pow.h"
+#include "tailstorm/block/pow.h"
 #include "ui_interface.h"
 #include "uint256.h"
 #include "validation/validation.h"
@@ -445,15 +445,17 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nFile = diskindex.nFile;
                 pindexNew->nDataPos = diskindex.nDataPos;
                 pindexNew->nUndoPos = diskindex.nUndoPos;
-                // TODO add new fields
+
                 pindexNew->header = diskindex.header;
                 pindexNew->nStatus = diskindex.nStatus;
                 pindexNew->nSequenceId = diskindex.nSequenceId;
                 pindexNew->nTimeReceived = diskindex.nTimeReceived;
                 pindexNew->nNextMaxBlockSize = diskindex.nNextMaxBlockSize;
 
-                if (!CheckProofOfWork(pindexNew->header.GetMiningHash(), pindexNew->tgtBits(), Params().GetConsensus()))
-                    return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
+                // TODO: ptschip - have to figure out what to do about the genesis
+                if (pindexNew->GetBlockHeader().height > 0)
+                    if (!CheckTailstormPoW(pindexNew->GetBlockHeader(), Params().GetConsensus(), TAILSTORM_K))
+                        return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
                 pcursor->Next();
             }
