@@ -2165,10 +2165,7 @@ bool BaseSignatureChecker::VerifySignature(const std::vector<uint8_t> &vchSig,
     {
         return pubkey.VerifySchnorr(sighash, vchSig);
     }
-    else
-    {
-        return pubkey.VerifyECDSA(sighash, vchSig);
-    }
+    return false;
 }
 
 bool TransactionSignatureChecker::CheckSig(const vector<unsigned char> &vchSigIn,
