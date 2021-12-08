@@ -1644,7 +1644,7 @@ void CWallet::ReacceptWalletTransactions()
     for (std::pair<const int64_t, CTransactionRef> &item : mapSorted)
     {
         CValidationState state;
-        AcceptToMemoryPool(mempool, state, item.second, false, nullptr, true, TransactionClass::DEFAULT);
+        AcceptToMemoryPool(mempool, state, item.second, AreFreeTxnsAllowed(), nullptr, true, TransactionClass::DEFAULT);
         SyncWithWallets(item.second, nullptr, -1);
     }
     CommitTxToMempool();
@@ -2977,15 +2977,6 @@ bool CWallet::CommitTransaction(CWalletTx &wtxNew, CReserveKey &reservekey)
     EnqueueTxForAdmission(d);
     */
 
-    /*
-    if (!wtxNew.AcceptToMemoryPool(AreFreeTxnsDisallowed()))
-    {
-        // This must not fail. The transaction has already been signed and recorded.
-        LOGA("CommitTransaction(): Error: Transaction not valid\n");
-        return false;
-    }
-    */
-
     if (fBroadcastTransactions)
     {
         auto txref = MakeTransactionRef(wtxNew);
@@ -2997,8 +2988,8 @@ bool CWallet::CommitTransaction(CWalletTx &wtxNew, CReserveKey &reservekey)
         const bool rejectAbsurdFee = true;
         // Since this is our own wallet, we can use nonstandard
         // TODO: limit nonstandard to a tweak because unless you are a miner it won't be mined
-        ParallelAcceptToMemoryPool(txHandlerSnap, mempool, state, txref, false, &fMissingInputs, rejectAbsurdFee,
-            TransactionClass::NONSTANDARD, vCoinsToUncache, &isRespend, &debugger);
+        ParallelAcceptToMemoryPool(txHandlerSnap, mempool, state, txref, AreFreeTxnsAllowed(), &fMissingInputs,
+            rejectAbsurdFee, TransactionClass::NONSTANDARD, vCoinsToUncache, &isRespend, &debugger);
         if (debugger.IsValid())
         {
             CTxInputData d;
