@@ -1541,7 +1541,7 @@ static bool tryMempool(const CTransaction &tx, CValidationState &state)
 {
     LOCK(cs_main);
     bool inputsMissing = false;
-    return AcceptToMemoryPool(mempool, state, MakeTransactionRef(tx), false, &inputsMissing, false);
+    return AcceptToMemoryPool(mempool, state, MakeTransactionRef(tx), true, &inputsMissing, false);
 }
 
 
