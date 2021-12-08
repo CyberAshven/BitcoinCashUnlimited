@@ -54,7 +54,6 @@ class GetblockstatsTest(BitcoinTestFramework):
         stats = [ ]
         for i in range(self.max_stat_pos + 1):
             stats.append(self.nodes[0].getblockstats(self.start_height + i))
-
         return stats
 
     def generate_test_data(self, filename):
