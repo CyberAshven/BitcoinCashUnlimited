@@ -29,6 +29,27 @@ class AdaptiveBlockSizeTest(BitcoinTestFramework):
 
         self.relayfee = self.nodes[0].getnetworkinfo()['relayfee']
 
+    def create_tx_with_many_inputs(self, node, utxos, fee, num):
+        addr = node.getnewaddress()
+        txids = []
+        send_value = 0
+
+        inputs = []
+        for i in range(num):
+            t = utxos.pop()
+            inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
+            send_value += t['amount']
+        send_value = send_value - fee
+
+        outputs = {}
+        outputs[addr] = send_value
+        rawtx = node.createrawtransaction(inputs, outputs)
+
+        signedtxn = node.signrawtransaction(rawtx)
+        assert_equal(signedtxn["complete"], True)
+        node.sendrawtransaction(signedtxn["hex"])
+        return signedtxn["hex"]
+
     def generateTx(self, node, txBytes, addrs, data=None):
         wallet = node.listunspent()
         wallet.sort(key=lambda x: x["amount"], reverse=False)
@@ -82,6 +103,7 @@ class AdaptiveBlockSizeTest(BitcoinTestFramework):
         utxos = create_confirmed_utxos(self.relayfee, self.nodes[0], 1200)
         assert_equal(self.nodes[0].getblockcount(), 149)
         assert_equal(self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["nextmaxblocksize"], 100000)
+
         self.MineBlock(self.nodes[0], 10000, 1, 11000)
         assert_greater_than(11800, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"])
         assert_greater_than(self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"], 11700)
@@ -236,6 +258,101 @@ class AdaptiveBlockSizeTest(BitcoinTestFramework):
         assert_equal (tips1[1]['branchlen'], 2)
         assert_equal (tips1[1]['height'], 632)
         assert_equal (tips1[1]['status'], 'valid-fork')
+
+
+        # Create blocks that test the sigop mining limit.  The first block will add transactions to the block
+        # that reach the sigop limit. The second block will contain transactions that will not hit the sig op
+        # limit perfectly but will rather have to choose transactions that add up to slightly less than the sig
+        # op limit.
+        logging.info("Test sigop limits")
+
+        coinbase_sigop_padding = 100 # This is reserved in mining blocks for the coinbase txn
+        BLOCK_SIGCHECKS_RATIO = 141 # how many block bytes per sigop
+
+        self.sync_all()
+        blockcount_start = self.nodes[0].getblockcount();
+
+        # Create the first block.
+        # Result: sigops should be at the max allowed whereas blocksize should be less than the max allowed.
+        utxos_sigops = create_confirmed_utxos(self.relayfee, self.nodes[0], 1200)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 109)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops, self.relayfee, 100)
+
+        nextmaxblocksize = self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["nextmaxblocksize"]
+        max_block_sigops = int(nextmaxblocksize / BLOCK_SIGCHECKS_RATIO)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        assert_equal(max_block_sigops - coinbase_sigop_padding, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["ins"])
+        assert_greater_than(nextblocksize, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"])
+
+        # create a set of txns with sigops such that when they are mined will not fill the block perfectly and will
+        # result in a sigops total that are less than the maximum allowed. This proves that the miner is not able to
+        # mine a block which is over the sigop limit.
+        # Result:  both block size and sigops should be less than the max allowed.
+        utxos_sigops2 = create_confirmed_utxos(self.relayfee, self.nodes[0], 1200)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 110)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 100)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops2, self.relayfee, 100)
+
+        nextmaxblocksize = self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["nextmaxblocksize"]
+        max_block_sigops = int(nextmaxblocksize / BLOCK_SIGCHECKS_RATIO)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        assert_greater_than(max_block_sigops - coinbase_sigop_padding, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["ins"])
+        assert_greater_than(nextblocksize, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"])
+
+        # Clear out the mempool by mining several blocks
+        self.nodes[0].generate(5)
+        assert_equal(0, self.nodes[0].getmempoolinfo()['size'])
+        self.sync_all()
+
+        # Test that we can not bypass the mining code by submitting a block to a node which is beyond the sigop limit.
+        # 1) Disconnect the two nodes
+        # 2) Raise the nextmaxblocksize on one node0 which will not exceed the nextmaxblocksize on node1 but will exceed
+        #    the sigop limit on node1.
+        # 3) create transactions and mine a block on node0
+        # 3) reconnect the peers which will propagate the block from node0 to node1.
+        # Result:  node1 will reject the block.
+        #
+        # NOTE: it's not all that easy to create a block with > max sigops. In the following we have to manually
+        #       adjust the nextmax block size in order to get condition just right to make such a block.
+        disconnect_all(self.nodes[0])
+        disconnect_all(self.nodes[1])
+
+        self.nodes[0].set("test.nextMaxBlockSize=160000")
+        self.nodes[1].set("test.nextMaxBlockSize=140000")
+
+        utxos_sigops3 = create_confirmed_utxos(self.relayfee, self.nodes[0], 1200)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops3, self.relayfee, 500)
+        self.create_tx_with_many_inputs(self.nodes[0], utxos_sigops3, self.relayfee, 493)
+        self.nodes[0].generate(1)
+        assert_greater_than(self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["ins"], max_block_sigops - coinbase_sigop_padding)
+        node0_nextmax = self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["nextmaxblocksize"]
+        assert_greater_than(node0_nextmax, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"])
+        node1_nextmax = self.nodes[0].getblockstats(self.nodes[1].getbestblockhash())["nextmaxblocksize"]
+        assert_greater_than(node1_nextmax, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"])
+
+        interconnect_nodes(self.nodes)
+        waitFor(5, lambda: self.nodes[1].getchaintips()[0]['status'] == 'invalid')
+
+        # chaintips will show that the last block in the chain was invalidated since it has too many sigops.
+        tips = self.nodes[1].getchaintips()
+        assert_equal (tips[0]['branchlen'], 1)
+        assert_equal (tips[0]['status'], 'invalid')
+        assert_equal (tips[0]['height'], 643)
+        assert_equal (tips[1]['branchlen'], 0)
+        assert_equal (tips[1]['status'], 'active')
+        assert_equal (tips[1]['height'], 642)
+ 
 
         print("Success")
 

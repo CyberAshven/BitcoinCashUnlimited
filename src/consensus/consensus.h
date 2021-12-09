@@ -70,6 +70,8 @@ static const uint32_t MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH |
                                                       SCRIPT_ENABLE_SCHNORR_MULTISIG;
 /* clang-format on */
 
+/** Number of sigops to reserve for coinbase transaction */
+static const uint16_t COINBASE_RESERVED_SIGOPS = 100;
 
 /**
  * The ratio between the maximum allowable block size and the maximum allowable

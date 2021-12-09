@@ -80,24 +80,24 @@ private:
     const CChainParams &chainparams;
 
     // Configuration parameters for the block size
-    uint64_t nBlockMaxSize, nBlockMinSize;
+    uint64_t nBlockMaxSize = 0;
+    uint64_t nBlockMinSize = 0;
 
     // Information on the current status of the block
-    uint64_t nBlockSize;
-    uint64_t nBlockTx;
-    unsigned int nBlockSigOps;
-    CAmount nFees;
+    uint64_t nBlockSize = 0;
+    uint64_t nBlockTx = 0;
+    unsigned int nBlockSigOps = 0;
+    CAmount nFees = 0;
     CTxMemPool::setEntries inBlock;
 
     // Chain context for the block
-    int nHeight;
-    int64_t nLockTimeCutoff;
+    int nHeight = 0;
+    int64_t nLockTimeCutoff = 0;
 
     // Variables used for addPriorityTxs
-    int lastFewTxs;
-    bool blockFinished;
+    int lastFewTxs = 0;
+    bool blockFinished = false;
 
-    bool may2020Enabled = false;
     uint64_t maxSigOpsAllowed = 0;
 
 public:
