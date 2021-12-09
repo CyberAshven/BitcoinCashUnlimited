@@ -2669,8 +2669,7 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
             }
 
             LOG(BENCH, "Number of SigChecks performed: %d\n", blockSigChecks);
-
-            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->GetNextMaxBlockSize());
+            uint64_t maxSigChecksAllowed = GetMaxBlockSigChecks(pindex->pprev->GetNextMaxBlockSize());
             if (blockSigChecks > maxSigChecksAllowed)
             {
                 return state.DoS(
