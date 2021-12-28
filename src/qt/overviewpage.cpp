@@ -152,7 +152,10 @@ void OverviewPage::setBalance(const CAmount &balance,
     const CAmount &immatureBalance,
     const CAmount &watchOnlyBalance,
     const CAmount &watchUnconfBalance,
-    const CAmount &watchImmatureBalance)
+    const CAmount &watchImmatureBalance,
+    const CAmount &partialMultisigBalance,
+    const CAmount &partialMultisigUnconfBalance,
+    const CAmount &partialMultisigImmatureBalance)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     currentBalance = balance;
@@ -161,6 +164,9 @@ void OverviewPage::setBalance(const CAmount &balance,
     currentWatchOnlyBalance = watchOnlyBalance;
     currentWatchUnconfBalance = watchUnconfBalance;
     currentWatchImmatureBalance = watchImmatureBalance;
+    currentPartialMultisigBalance = partialMultisigBalance;
+    currentPartialMultisigUnconfBalance = partialMultisigUnconfBalance;
+    currentPartialMultisigImmatureBalance = partialMultisigImmatureBalance;;
     ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways));
     ui->labelUnconfirmed->setText(
         BitcoinUnits::formatWithUnit(unit, unconfirmedBalance, false, BitcoinUnits::separatorAlways));
@@ -168,6 +174,7 @@ void OverviewPage::setBalance(const CAmount &balance,
         BitcoinUnits::formatWithUnit(unit, immatureBalance, false, BitcoinUnits::separatorAlways));
     ui->labelTotal->setText(BitcoinUnits::formatWithUnit(
         unit, balance + unconfirmedBalance + immatureBalance, false, BitcoinUnits::separatorAlways));
+
     ui->labelWatchAvailable->setText(
         BitcoinUnits::formatWithUnit(unit, watchOnlyBalance, false, BitcoinUnits::separatorAlways));
     ui->labelWatchPending->setText(
@@ -177,15 +184,26 @@ void OverviewPage::setBalance(const CAmount &balance,
     ui->labelWatchTotal->setText(BitcoinUnits::formatWithUnit(
         unit, watchOnlyBalance + watchUnconfBalance + watchImmatureBalance, false, BitcoinUnits::separatorAlways));
 
+    ui->labelPartialMultisigAvailable->setText(
+        BitcoinUnits::formatWithUnit(unit, partialMultisigBalance, false, BitcoinUnits::separatorAlways));
+    ui->labelPartialMultisigPending->setText(
+        BitcoinUnits::formatWithUnit(unit, partialMultisigUnconfBalance, false, BitcoinUnits::separatorAlways));
+    ui->labelPartialMultisigImmature->setText(
+        BitcoinUnits::formatWithUnit(unit, partialMultisigImmatureBalance, false, BitcoinUnits::separatorAlways));
+    ui->labelPartialMultisigTotal->setText(BitcoinUnits::formatWithUnit(
+        unit, partialMultisigBalance + partialMultisigUnconfBalance + partialMultisigImmatureBalance, false, BitcoinUnits::separatorAlways));
+
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users
     bool showImmature = immatureBalance != 0;
     bool showWatchOnlyImmature = watchImmatureBalance != 0;
+    bool showPartialMultisigImmature = partialMultisigImmatureBalance != 0;
 
     // for symmetry reasons also show immature label when the watch-only one is shown
-    ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature);
-    ui->labelImmatureText->setVisible(showImmature || showWatchOnlyImmature);
+    ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature || showPartialMultisigImmature);
+    ui->labelImmatureText->setVisible(showImmature || showWatchOnlyImmature || showPartialMultisigImmature);
     ui->labelWatchImmature->setVisible(showWatchOnlyImmature); // show watch-only immature balance
+    ui->labelPartialMultisigImmature->setVisible(showPartialMultisigImmature);
 }
 
 // show/hide watch-only labels
@@ -200,6 +218,22 @@ void OverviewPage::updateWatchOnlyLabels(bool showWatchOnly)
 
     if (!showWatchOnly)
         ui->labelWatchImmature->hide();
+}
+
+// show/hide partial multisig labels
+void OverviewPage::updatePartialMultisigLabels(bool showPartialMultisig)
+{
+    ui->labelSpendable->setVisible(showPartialMultisig);
+    ui->labelPartialMultisig->setVisible(showPartialMultisig);
+    ui->linePartialMultisigBalance->setVisible(showPartialMultisig);
+    ui->labelPartialMultisigAvailable->setVisible(showPartialMultisig);
+    ui->labelPartialMultisigPending->setVisible(showPartialMultisig);
+    ui->labelPartialMultisigTotal->setVisible(showPartialMultisig);
+
+    if (!showPartialMultisig)
+    {
+        ui->labelPartialMultisigImmature->hide();
+    }
 }
 
 void OverviewPage::setClientModel(ClientModel *model)
@@ -232,14 +266,17 @@ void OverviewPage::setWalletModel(WalletModel *model)
 
         // Keep up to date with wallet
         setBalance(model->getBalance(), model->getUnconfirmedBalance(), model->getImmatureBalance(),
-            model->getWatchBalance(), model->getWatchUnconfirmedBalance(), model->getWatchImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(CAmount, CAmount, CAmount, CAmount, CAmount, CAmount)), this,
-            SLOT(setBalance(CAmount, CAmount, CAmount, CAmount, CAmount, CAmount)));
+            model->getWatchBalance(), model->getWatchUnconfirmedBalance(), model->getWatchImmatureBalance(),
+            model->getPartialMultisigBalance(), model->getPartialMultisigUnconfirmedBalance(), model->getPartialMultisigImmatureBalance());
+        connect(model, SIGNAL(balanceChanged(CAmount, CAmount, CAmount, CAmount, CAmount, CAmount, CAmount, CAmount, CAmount)), this,
+            SLOT(setBalance(CAmount, CAmount, CAmount, CAmount, CAmount, CAmount, CAmount, CAmount, CAmount)));
 
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
 
         updateWatchOnlyLabels(model->haveWatchOnly());
+        updatePartialMultisigLabels(model->havePartialMultisig());
         connect(model, SIGNAL(notifyWatchonlyChanged(bool)), this, SLOT(updateWatchOnlyLabels(bool)));
+        connect(model, SIGNAL(notifyPartialMultisigChanged(bool)), this, SLOT(updatePartialMultisigLabels(bool)));
     }
 
     // update the display unit, to not use the default ("BCH")
@@ -251,8 +288,10 @@ void OverviewPage::updateDisplayUnit()
     if (walletModel && walletModel->getOptionsModel())
     {
         if (currentBalance != -1)
+        {
             setBalance(currentBalance, currentUnconfirmedBalance, currentImmatureBalance, currentWatchOnlyBalance,
-                currentWatchUnconfBalance, currentWatchImmatureBalance);
+                currentWatchUnconfBalance, currentWatchImmatureBalance, currentPartialMultisigBalance, currentPartialMultisigUnconfBalance, currentPartialMultisigImmatureBalance);
+        }
 
         // Update txdelegate->unit with the current unit
         txdelegate->unit = walletModel->getOptionsModel()->getDisplayUnit();
