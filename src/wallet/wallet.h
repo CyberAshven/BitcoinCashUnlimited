@@ -254,6 +254,8 @@ public:
     mutable bool fWatchCreditCached;
     mutable bool fImmatureWatchCreditCached;
     mutable bool fAvailableWatchCreditCached;
+    mutable bool fImmaturePartialMultisigCreditCached;
+    mutable bool fAvailablePartialMultisigCreditCached;
     mutable bool fChangeCached;
     mutable CAmount nDebitCached;
     mutable CAmount nCreditCached;
@@ -263,6 +265,8 @@ public:
     mutable CAmount nWatchCreditCached;
     mutable CAmount nImmatureWatchCreditCached;
     mutable CAmount nAvailableWatchCreditCached;
+    mutable CAmount nImmaturePartialMultisigCreditCached;
+    mutable CAmount nAvailablePartialMultisigCreditCached;
     mutable CAmount nChangeCached;
     mutable bool fDoubleSpent;
 
@@ -288,6 +292,8 @@ public:
         fWatchCreditCached = false;
         fImmatureWatchCreditCached = false;
         fAvailableWatchCreditCached = false;
+        fImmaturePartialMultisigCreditCached = false;
+        fAvailablePartialMultisigCreditCached = false;
         fChangeCached = false;
         nDebitCached = 0;
         nCreditCached = 0;
@@ -295,8 +301,10 @@ public:
         nAvailableCreditCached = 0;
         nWatchDebitCached = 0;
         nWatchCreditCached = 0;
-        nAvailableWatchCreditCached = 0;
         nImmatureWatchCreditCached = 0;
+        nAvailableWatchCreditCached = 0;
+        nImmaturePartialMultisigCreditCached = 0;
+        nAvailablePartialMultisigCreditCached = 0;
         nChangeCached = 0;
         nOrderPos = -1;
         fDoubleSpent = false;
@@ -356,6 +364,8 @@ public:
         fWatchCreditCached = false;
         fAvailableWatchCreditCached = false;
         fImmatureWatchCreditCached = false;
+        fImmaturePartialMultisigCreditCached = false;
+        fAvailablePartialMultisigCreditCached = false;
         fDebitCached = false;
         fChangeCached = false;
     }
@@ -373,6 +383,8 @@ public:
     CAmount GetAvailableCredit(bool fUseCache = true) const;
     CAmount GetImmatureWatchOnlyCredit(const bool &fUseCache = true) const;
     CAmount GetAvailableWatchOnlyCredit(const bool &fUseCache = true) const;
+    CAmount GetImmaturePartialMultisigCredit(const bool &fUseCache = true) const;
+    CAmount GetAvailablePartialMultisigCredit(const bool &fUseCache = true) const;
     CAmount GetChange() const;
 
     void GetAmounts(std::list<COutputEntry> &listReceived,
@@ -834,6 +846,9 @@ public:
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetImmatureWatchOnlyBalance() const;
+    CAmount GetPartialMultisigBalance() const;
+    CAmount GetUnconfirmedPartialMultisigBalance() const;
+    CAmount GetImmaturePartialMultisigBalance() const;
 
     /**
      * Insert additional inputs into the transaction by
@@ -987,6 +1002,8 @@ public:
 
     /** Watch-only address added */
     boost::signals2::signal<void(bool fHaveWatchOnly)> NotifyWatchonlyChanged;
+
+    boost::signals2::signal<void(bool fHavePartialMultisig)> NotifyPartialMultisigChanged;
 
     /** Inquire whether this wallet broadcasts transactions. */
     bool GetBroadcastTransactions() const { return fBroadcastTransactions; }

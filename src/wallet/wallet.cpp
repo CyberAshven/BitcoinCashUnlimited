@@ -236,6 +236,7 @@ bool CWallet::AddCScript(const CScript &redeemScript)
 {
     if (!CCryptoKeyStore::AddCScript(redeemScript))
         return false;
+    NotifyPartialMultisigChanged(true);
     if (!fFileBacked)
         return true;
     return CWalletDB(strWalletFile).WriteCScript(Hash160(redeemScript), redeemScript);
@@ -1693,12 +1694,63 @@ CAmount CWalletTx::GetAvailableWatchOnlyCredit(const bool &fUseCache) const
             const CTxOut &txout = vout[i];
             nCredit += pwallet->GetCredit(txout, ISMINE_WATCH_ONLY);
             if (!MoneyRange(nCredit))
+            {
                 throw std::runtime_error("CWalletTx::GetAvailableCredit(false) : value out of range");
+            }
         }
     }
 
     nAvailableWatchCreditCached = nCredit;
     fAvailableWatchCreditCached = true;
+    return nCredit;
+}
+
+CAmount CWalletTx::GetImmaturePartialMultisigCredit(const bool &fUseCache) const
+{
+    if (IsCoinBase() && GetBlocksToMaturity() > 0 && IsInMainChain())
+    {
+        if (fUseCache && fImmaturePartialMultisigCreditCached)
+        {
+            return nImmaturePartialMultisigCreditCached;
+        }
+        nImmaturePartialMultisigCreditCached = pwallet->GetCredit(*this, ISMINE_PARTIAL);
+        fImmaturePartialMultisigCreditCached = true;
+        return nImmaturePartialMultisigCreditCached;
+    }
+    return 0;
+}
+
+CAmount CWalletTx::GetAvailablePartialMultisigCredit(const bool &fUseCache) const
+{
+    if (pwallet == nullptr)
+    {
+        return 0;
+    }
+    // Must wait until coinbase is safely deep enough in the chain before valuing it
+    if (IsCoinBase() && GetBlocksToMaturity() > 0)
+    {
+        return 0;
+    }
+    if (fUseCache && fAvailablePartialMultisigCreditCached)
+    {
+        return nAvailablePartialMultisigCreditCached;
+    }
+    CAmount nCredit = 0;
+    for (unsigned int i = 0; i < vout.size(); i++)
+    {
+        if (!pwallet->IsSpent(GetHash(), i))
+        {
+            const CTxOut &txout = vout[i];
+            nCredit += pwallet->GetCredit(txout, ISMINE_PARTIAL);
+            if (!MoneyRange(nCredit))
+            {
+                throw std::runtime_error("CWalletTx::GetAvailableCredit(false) : value out of range");
+            }
+        }
+    }
+
+    nAvailablePartialMultisigCreditCached = nCredit;
+    fAvailablePartialMultisigCreditCached = true;
     return nCredit;
 }
 
@@ -1894,6 +1946,56 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
         {
             const CWalletTx *pcoin = &(*it).second;
             nTotal += pcoin->GetImmatureWatchOnlyCredit(false);
+        }
+    }
+    return nTotal;
+}
+
+
+CAmount CWallet::GetPartialMultisigBalance() const
+{
+    CAmount nTotal = 0;
+    {
+        LOCK(cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx *pcoin = &(*it).second;
+            if (pcoin->IsTrusted())
+            {
+                nTotal += pcoin->GetAvailablePartialMultisigCredit(false);
+            }
+        }
+    }
+
+    return nTotal;
+}
+
+CAmount CWallet::GetUnconfirmedPartialMultisigBalance() const
+{
+    CAmount nTotal = 0;
+    {
+        LOCK(cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx *pcoin = &(*it).second;
+            if (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0 && pcoin->InMempool())
+            {
+                nTotal += pcoin->GetAvailablePartialMultisigCredit(false);
+            }
+        }
+    }
+    return nTotal;
+}
+
+CAmount CWallet::GetImmaturePartialMultisigBalance() const
+{
+    CAmount nTotal = 0;
+    {
+        LOCK(cs_wallet);
+        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletTx *pcoin = &(*it).second;
+            nTotal += pcoin->GetImmaturePartialMultisigCredit(false);
         }
     }
     return nTotal;
