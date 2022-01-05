@@ -559,7 +559,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
     // Note was MAIN, but takes too long to generate mainnet block for a test.  Need to pre-generate them.
     // Reducing MAIN powLimit breaks ASERT pow tests
-    const CChainParams &chainparams = Params(CBaseChainParams::NEXTCHAIN);
+    const CChainParams &chainparams = Params(CBaseChainParams::REGTEST);
     {
         LOCK(cs_main);
         UnloadBlockIndex();
@@ -609,9 +609,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         pblock->nTime = tip->GetMedianTimePast() + 1000;
         pblock->hashPrevBlock = tip->GetBlockHash();
         CMutableTransaction txCoinbase(*pblock->vtx[0]);
-        txCoinbase.nVersion = 1;
-        txCoinbase.vin[0].scriptSig = CScript() << i;
-        txCoinbase.vin[0].scriptSig.push_back(tip->height() + 1);
+        txCoinbase.nVersion = 2;
+        txCoinbase.vin[0].scriptSig = CScript() << (tip->height() + 1) << OP_0;
         txCoinbase.vout[0].scriptPubKey = CScript();
         pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
         if (txFirst.size() == 0)
@@ -691,6 +690,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vout[0].nValue = chainparams.GetConsensus().initialSubsidy;
+
     for (unsigned int i = 0; i < 1001; ++i)
     {
         tx.vout[0].nValue -= 1000000 / 5;
@@ -698,7 +698,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         bool spendsCoinbase = (i == 0) ? true : false; // only first tx spends coinbase
         // If we do set the # of sig ops in the CTxMemPoolEntry, template creation passes
         mempool.addUnchecked(
-            hash, entry.Fee(1000000 / 5).Time(GetTime()).SpendsCoinbase(spendsCoinbase).SigOps(20).FromTx(tx));
+            hash, entry.Fee(1000000 / 5).Time(GetTime()).SpendsCoinbase(spendsCoinbase).SigOps(0).FromTx(tx));
         tx.vin[0].prevout.hash = hash;
     }
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
@@ -707,15 +707,17 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // 65k bytes of tx in it so this code will test both saturated and unsaturated blocks.
     for (unsigned int i = 2000; i <= 80000; i += 2000)
     {
-        maxGeneratedBlock = i;
+        nextMaxBlockSize.Set(i);
+        maxGeneratedBlock = nextMaxBlockSize.Value();
 
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
-        unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION);
+        unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION) -
+                                 ::GetSerializeSize(pblocktemplate->block.nonce, SER_NETWORK, PROTOCOL_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
-        // printf("%lu %lu <= %lu\n", (long unsigned int) blockSize, (long unsigned int)
-        // pblocktemplate->block.GetBlockSize(), (long unsigned int) maxGeneratedBlock);
+        // printf("%lu %lu <= %lu\n", (long unsigned int)blockSize,
+        //    (long unsigned int)pblocktemplate->block.GetBlockSize(), (long unsigned int)maxGeneratedBlock);
     }
 
     BOOST_CHECK(chainActive.Tip()->height() == 110);
@@ -728,22 +730,36 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // Now generate lots of full size blocks and verify that none exceed the maxGeneratedBlock value
     for (unsigned int i = 2000; i <= 30000; i += 67)
     {
-        maxGeneratedBlock = i;
+        nextMaxBlockSize.Set(i);
+        maxGeneratedBlock = nextMaxBlockSize.Value();
 
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
-        unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION);
+        unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION) -
+                                 ::GetSerializeSize(pblocktemplate->block.nonce, SER_NETWORK, PROTOCOL_VERSION);
+
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
 
-        minRoom = std::min(minRoom, maxGeneratedBlock - blockSize);
-        // printf("%lu %lu <= %lu\n", (long unsigned int) blockSize, (long unsigned int)
-        // pblocktemplate->block.GetBlockSize(), (long unsigned int) maxGeneratedBlock);
+        // In the following caculation we have to remove the "used" portion of the padding above the 1 byte that
+        // is already included in  initial empty serialized header.
+        minRoom = std::min(minRoom,
+            maxGeneratedBlock - blockSize -
+                (TXCOUNT_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.txCount), SER_NETWORK, PROTOCOL_VERSION) - 1)) -
+                (HEIGHT_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.height), SER_NETWORK, PROTOCOL_VERSION) - 1)) -
+                (MAXSIZE_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.maxSize), SER_NETWORK, PROTOCOL_VERSION) - 1)) -
+                (FEEPOOL_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.feePoolAmt), SER_NETWORK, PROTOCOL_VERSION) - 1)));
+        // printf("%lu %lu <= %lu (%lu)\n", (long unsigned int)blockSize,
+        //    (long unsigned int)pblocktemplate->block.GetBlockSize(), (long unsigned int)maxGeneratedBlock, minRoom);
     }
 
     // Assert we went right up to the limit.  We reserved 4 bytes for height but only use 2 as height is 110.
     // We also reserved 5 bytes for tx count but only use 3 as we don't have > 65535 txs in a block
-    BOOST_CHECK(minRoom >= 0);
+    BOOST_CHECK(minRoom == 0);
 
     minRoom = 1000;
     std::string testMinerComment("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvw"
@@ -752,25 +768,36 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // printf("test mining with different sized miner comments");
     for (unsigned int i = 2000; i <= 40000; i += 89)
     {
-        maxGeneratedBlock = i;
+        nextMaxBlockSize.Set(i);
+        maxGeneratedBlock = nextMaxBlockSize.Value();
         if ((i % 100) > 0)
             minerComment = testMinerComment.substr(0, i % 100);
         else
             minerComment = "";
-        // minerComment = testMinerComment.substr(0,i%100);
         pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
         BOOST_CHECK(pblocktemplate);
         BOOST_CHECK(pblocktemplate->block.GetBlockSize() <= maxGeneratedBlock);
-        unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION);
+        unsigned int blockSize = ::GetSerializeSize(pblocktemplate->block, SER_NETWORK, PROTOCOL_VERSION) -
+                                 ::GetSerializeSize(pblocktemplate->block.nonce, SER_NETWORK, PROTOCOL_VERSION);
         BOOST_CHECK(blockSize <= maxGeneratedBlock);
 
-        minRoom = std::min(minRoom, maxGeneratedBlock - blockSize);
-        // printf("%lu %lu (miner comment is %d) <= %lu\n", (long unsigned int) blockSize, (long unsigned int)
-        // pblocktemplate->block.GetBlockSize(), i%100, (long unsigned int) maxGeneratedBlock);
+        // In the following caculation we have to remove the "used" portion of the padding above the 1 byte that
+        // is already included in  initial empty serialized header.
+        minRoom = std::min(minRoom,
+            maxGeneratedBlock - blockSize -
+                (TXCOUNT_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.txCount), SER_NETWORK, PROTOCOL_VERSION) - 1)) -
+                (HEIGHT_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.height), SER_NETWORK, PROTOCOL_VERSION) - 1)) -
+                (MAXSIZE_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.maxSize), SER_NETWORK, PROTOCOL_VERSION) - 1)) -
+                (FEEPOOL_VARINT_PADDING -
+                    (::GetSerializeSize(VARINT(pblocktemplate->block.feePoolAmt), SER_NETWORK, PROTOCOL_VERSION) - 1)));
+        // printf("%lu %lu (miner comment is %d) <= %lu (%lu)\n", (long unsigned int)blockSize,
+        //    (long unsigned int)pblocktemplate->block.GetBlockSize(), i % 100, (long unsigned int)maxGeneratedBlock,
+        //    minRoom);
     }
-
-
-    BOOST_CHECK(minRoom >= 0);
+    BOOST_CHECK(minRoom == 0);
     mempool.clear();
 
     // block size > limit
@@ -782,6 +809,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].scriptSig << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vout[0].nValue = chainparams.GetConsensus().initialSubsidy;
+
     for (unsigned int i = 0; i < 128; ++i)
     {
         tx.vout[0].nValue -= 1000000;

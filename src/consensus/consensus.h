@@ -15,6 +15,7 @@
 extern CChain chainActive;
 extern CTweak<uint64_t> maxSigChecks;
 extern CTweak<uint64_t> maxAllowedNetMessage;
+extern CTweak<uint64_t> nextMaxBlockSize;
 
 static const unsigned int ONE_MEGABYTE = 1000000;
 
@@ -96,10 +97,14 @@ inline uint64_t GetMaxBlockSigOpsCount(uint64_t nBlockSize)
  */
 inline uint64_t GetMaxBlockSigChecks(uint64_t nBlockSize)
 {
+    static_assert(DEFAULT_NEXT_MAX_BLOCK_SIZE / BLOCK_SIGCHECKS_RATIO >= COINBASE_RESERVED_SIGOPS);
+
     if (maxSigChecks.Value() > 0)
         return maxSigChecks.Value();
-    else
-        return nBlockSize / BLOCK_SIGCHECKS_RATIO;
+    if (!nextMaxBlockSize.Value())
+        assert(nBlockSize >= DEFAULT_NEXT_MAX_BLOCK_SIZE);
+
+    return nBlockSize / BLOCK_SIGCHECKS_RATIO;
 }
 
 /** Flags for nSequence and nLockTime locks */

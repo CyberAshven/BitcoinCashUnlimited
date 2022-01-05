@@ -74,8 +74,8 @@ def serialize_script_num(value):
 def create_coinbase(height, pubkey = None, scriptPubKey = None):
     assert not (pubkey and scriptPubKey), "cannot both have pubkey and custom scriptPubKey"
     coinbase = CTransaction()
-    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
-                ser_string(serialize_script_num(height)), 0xffffffff))
+    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff)))
+    coinbase.vin[0].scriptSig = CScript([height, 0x51])
     coinbaseoutput = CTxOut()
     coinbaseoutput.nValue = int(COINBASE_REWARD) * COIN
     halvings = int(height/150) # regtest

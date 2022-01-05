@@ -219,12 +219,6 @@ public:
         strNetworkID = "main"; // Do not use the const string because of ctor execution order issues
         consensus.nSubsidyHalvingInterval = 210000;
         // 00000000000000ce80a7e057163a4db1d5ad7b20fb6f598c9597b9665c8fb0d4 - April 1, 2012
-        consensus.BIP16Height = 173805;
-        consensus.BIP34Height = 227931;
-        consensus.BIP34Hash = uint256S("0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8");
-        consensus.BIP65Height = 388381; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
-        consensus.BIP66Height = 363725; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.BIP68Height = 419328; // BIP68, 112, 113 has activated
 
         uint32_t tgtBits = 0x1e0fffff;
         bool fNegative;
@@ -357,12 +351,6 @@ public:
     {
         strNetworkID = "regtest"; // Do not use the const string because of ctor execution order issues
         consensus.nSubsidyHalvingInterval = 150;
-        consensus.BIP16Height = 0; // always enforce P2SH BIP16 on regtest
-        consensus.BIP34Height = 1000; // BIP34 has activated on regtest (Used in rpc activation tests)
-        consensus.BIP34Hash = uint256();
-        consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
-        consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in rpc activation tests)
-        consensus.BIP68Height = 576; // BIP68, 112, 113 has activated
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60;
@@ -462,10 +450,6 @@ public:
         strNetworkID = "test"; // Do not use the const string because of ctor execution order issues
 
         consensus.nSubsidyHalvingInterval = 210000 * 5; // 2 minute blocks rather than 10 min -> * 5
-        consensus.BIP16Height = 0;
-        consensus.BIP65Height = 0;
-        consensus.BIP66Height = 0;
-        consensus.BIP68Height = 0;
         uint32_t tgtBits = 0x200fffff;
         bool fNegative;
         bool fOverflow;
@@ -498,9 +482,6 @@ public:
             printf("testnet nonce changed:  hex:%s\n", HexStr(genesis.nonce).c_str());
             printf("testnet GB hash %s\n", consensus.hashGenesisBlock.GetHex().c_str());
         }
-
-        consensus.BIP34Height = 0;
-        consensus.BIP34Hash = consensus.hashGenesisBlock;
 
         // TODO confirm GB hash
         // assert(
@@ -581,10 +562,6 @@ public:
         strNetworkID = "nex"; // Do not use the const string because of ctor execution order issues
 
         consensus.nSubsidyHalvingInterval = 210000 * 5; // 2 minute blocks rather than 10 min -> * 5
-        consensus.BIP16Height = 0;
-        consensus.BIP65Height = 0;
-        consensus.BIP66Height = 0;
-        consensus.BIP68Height = 0;
         uint32_t tgtBits = 0x1e0fffff; // largest powLimit to provide enough bits for ASERT
         bool fNegative;
         bool fOverflow;
@@ -619,9 +596,6 @@ public:
             printf("nextchain soln %d hex:%s\n", worked, HexStr(genesis.nonce).c_str());
             printf("nextchain GB hash %s\n", consensus.hashGenesisBlock.GetHex().c_str());
         }
-
-        consensus.BIP34Height = 0;
-        consensus.BIP34Hash = consensus.hashGenesisBlock;
 
         // TODO confirm GB hash
         // assert(

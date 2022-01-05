@@ -342,7 +342,7 @@ class AdaptiveBlockSizeTest(BitcoinTestFramework):
         assert_greater_than(node1_nextmax, self.nodes[0].getblockstats(self.nodes[0].getbestblockhash())["blocksize"])
 
         interconnect_nodes(self.nodes)
-        waitFor(5, lambda: self.nodes[1].getchaintips()[0]['status'] == 'invalid')
+        waitFor(30, lambda: self.nodes[1].getchaintips()[0]['status'] == 'invalid')
 
         # chaintips will show that the last block in the chain was invalidated since it has too many sigops.
         tips = self.nodes[1].getchaintips()
