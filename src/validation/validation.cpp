@@ -1609,12 +1609,9 @@ bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIn
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->height() + 1;
     const Consensus::Params &consensusParams = Params().GetConsensus();
 
-    // Start enforcing BIP113 (Median Time Past)
+    // Enforce BIP113 (Median Time Past)
     int nLockTimeFlags = 0;
-    if (nHeight >= consensusParams.BIP68Height)
-    {
-        nLockTimeFlags |= LOCKTIME_MEDIAN_TIME_PAST;
-    }
+    nLockTimeFlags |= LOCKTIME_MEDIAN_TIME_PAST;
 
     int64_t nLockTimeCutoff;
     if (pindexPrev == nullptr)
@@ -1635,27 +1632,22 @@ bool ContextualCheckBlock(const CBlock &block, CValidationState &state, CBlockIn
             return false;
     }
 
-    // Enforce block nVersion=2 rule that the coinbase starts with serialized block height
-    if (nHeight >= consensusParams.BIP34Height)
+    // BIP34 specifies minimal CScript encoding only
+    // see: https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki#specification
+    const CScript expect = CScript() << nHeight;
+    const CScript &scriptSig = block.vtx[0]->vin[0].scriptSig;
+    if (scriptSig.size() < expect.size() || !std::equal(expect.begin(), expect.end(), scriptSig.begin()))
     {
-        // BIP34 specifies minimal CScript encoding only
-        // see: https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki#specification
-        const CScript expect = CScript() << nHeight;
-        const CScript &scriptSig = block.vtx[0]->vin[0].scriptSig;
-        if (scriptSig.size() < expect.size() || !std::equal(expect.begin(), expect.end(), scriptSig.begin()))
-        {
-            const std::string hashpHex = block.hashPrevBlock.ToString(), hashHex = block.GetHash().ToString(),
-                              expectHex = HexStr(expect),
-                              scriptSigHex = HexStr(
-                                  scriptSig.begin(), scriptSig.begin() + std::min(expect.size(), scriptSig.size()));
-
-            return state.DoS(100,
-                error("%s: block height not correctly encoded in coinbase, expected minimally-encoded"
-                      " height %d (script hex: %s), instead got hex: %s, block is %s, parent block is"
-                      " %s, pprev is %s",
-                    __func__, nHeight, expectHex, scriptSigHex, hashHex, hashpHex, pindexPrev->phashBlock->ToString()),
-                REJECT_INVALID, "bad-cb-height");
-        }
+        const std::string hashpHex = block.hashPrevBlock.ToString(), hashHex = block.GetHash().ToString(),
+                          expectHex = HexStr(expect),
+                          scriptSigHex =
+                              HexStr(scriptSig.begin(), scriptSig.begin() + std::min(expect.size(), scriptSig.size()));
+        return state.DoS(100,
+            error("%s: block height not correctly encoded in coinbase, expected minimally-encoded"
+                  " height %d (script hex: %s), instead got hex: %s, block is %s, parent block is"
+                  " %s, pprev is %s",
+                __func__, nHeight, expectHex, scriptSigHex, hashHex, hashpHex, pindexPrev->phashBlock->ToString()),
+            REJECT_INVALID, "bad-cb-height");
     }
 
     CBlockIndex indexDummy(block);
@@ -1911,31 +1903,8 @@ uint32_t GetBlockScriptFlags(const CBlockIndex *pindex, const Consensus::Params 
 {
     AssertLockHeld(cs_main);
 
-    uint32_t flags = SCRIPT_VERIFY_NONE;
-
-    // Start enforcing P2SH (Bip16)
-    if (pindex->height() >= consensusparams.BIP16Height)
-    {
-        flags |= SCRIPT_VERIFY_P2SH;
-    }
-
-    // Start enforcing the DERSIG (BIP66) rule
-    if (pindex->height() >= consensusparams.BIP66Height)
-    {
-        flags |= SCRIPT_VERIFY_DERSIG;
-    }
-
-    // Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-    if (pindex->height() >= consensusparams.BIP65Height)
-    {
-        flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
-    }
-
-    // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY).
-    if (pindex->height() >= consensusparams.BIP68Height)
-    {
-        flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
-    }
+    uint32_t flags = SCRIPT_VERIFY_NONE | SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY |
+                     SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
 
     // Start enforcing the UAHF fork
     if (UAHFforkActivated(pindex->height()))
@@ -2153,47 +2122,6 @@ bool ConnectBlockPrevalidations(const CBlock &block,
     nTimeCheck += nTime1 - nTimeStart;
     LOG(BENCH, "    - Sanity checks: %.2fms [%.2fs]\n", 0.001 * (nTime1 - nTimeStart), nTimeCheck * 0.000001);
 
-    // Do not allow blocks that contain transactions which 'overwrite' older transactions,
-    // unless those are already completely spent.
-    // If such overwrites are allowed, coinbases and transactions depending upon those
-    // can be duplicated to remove the ability to spend the first instance -- even after
-    // being sent to another address.
-    // See BIP30 and http://r6.ca/blog/20120206T005236Z.html for more information.
-    bool fEnforceBIP30 = true;
-
-    // Once BIP34 activated it was not possible to create new duplicate coinbases and thus other than starting
-    // with the 2 existing duplicate coinbase pairs, not possible to create overwriting txs.  But by the
-    // time BIP34 activated, in each of the existing pairs the duplicate coinbase had overwritten the first
-    // before the first had been spent.  Since those coinbases are sufficiently buried its no longer possible to create
-    // further
-    // duplicate transactions descending from the known pairs either.
-    // If we're on the known chain at height greater than where BIP34 activated, we can save the db accesses needed for
-    // the BIP30 check.
-    if (pindex->pprev) // If this isn't the genesis block
-    {
-        CBlockIndex *pindexBIP34height = pindex->pprev->GetAncestor(chainparams.GetConsensus().BIP34Height);
-        // Only continue to enforce if we're below BIP34 activation height or the block hash at that height doesn't
-        // correspond.
-        fEnforceBIP30 =
-            fEnforceBIP30 &&
-            (!pindexBIP34height || !(pindexBIP34height->GetBlockHash() == chainparams.GetConsensus().BIP34Hash));
-
-        if (fEnforceBIP30)
-        {
-            for (const auto &tx : block.vtx)
-            {
-                for (size_t o = 0; o < tx->vout.size(); o++)
-                {
-                    if (view.HaveCoin(COutPoint(tx->GetHash(), o)))
-                    {
-                        return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"), REJECT_INVALID,
-                            "bad-txns-BIP30");
-                    }
-                }
-            }
-        }
-    }
-
     int64_t nTime2 = GetStopwatchMicros();
     nTimeForks += nTime2 - nTime1;
     LOG(BENCH, "    - Fork checks: %.2fms [%.2fs]\n", 0.001 * (nTime2 - nTime1), nTimeForks * 0.000001);
@@ -2245,12 +2173,10 @@ bool ConnectBlockDependencyOrdering(const CBlock &block,
     int64_t nTime2 = GetStopwatchMicros();
     LOG(BLK, "Dependency ordering for %s MTP: %d\n", block.GetHash().ToString(), pindex->GetMedianTimePast());
 
-    // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY)
+    // Enforce BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY)
     int nLockTimeFlags = 0;
-    if (pindex->height() >= chainparams.GetConsensus().BIP68Height)
-    {
-        nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
-    }
+    nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
+
 
     // Get the script flags for this block
     uint32_t flags = GetBlockScriptFlags(pindex, chainparams.GetConsensus());
@@ -2452,12 +2378,9 @@ bool ConnectBlockCanonicalOrdering(const CBlock &block,
     int64_t nTime2 = GetStopwatchMicros();
     LOG(BLK, "Canonical ordering for %s MTP: %d\n", block.GetHash().ToString(), pindex->GetMedianTimePast());
 
-    // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY)
+    // Enforce BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY)
     int nLockTimeFlags = 0;
-    if (pindex->height() >= chainparams.GetConsensus().BIP68Height)
-    {
-        nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
-    }
+    nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
 
     // Get the script flags for this block
     uint32_t flags = GetBlockScriptFlags(pindex, chainparams.GetConsensus());

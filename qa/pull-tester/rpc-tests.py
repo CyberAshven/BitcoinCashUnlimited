@@ -278,7 +278,6 @@ testScripts = [ RpcTest(t) for t in [
 
 testScriptsExt = [ RpcTest(t) for t in [
     'walletbackup',
-    'bip68-112-113-p2p',
     'limits',
     'weirdtx',
     'txPerf',

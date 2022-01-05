@@ -100,11 +100,17 @@ uint64_t BlockAssembler::reserveBlockSize(const CScript &scriptPubKeyIn, int64_t
     CBlockHeader h;
     uint64_t nHeaderSize, nCoinbaseSize, nCoinbaseReserve;
 
-    // BU add the proper block size quantity to the actual size
+    // Add the proper block size quantity to the actual size
     // TODO make this a constant when header size stabilizes
     nHeaderSize = ::GetSerializeSize(h, SER_NETWORK, PROTOCOL_VERSION);
-    // assert(nHeaderSize == 80); // BU always 80 bytes
-    nHeaderSize += 5; // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
+    // assert(nHeaderSize == 80);
+    // tx count varint - 5 bytes is enough for 4 billion txs; 3 bytes for 65535 txs
+    nHeaderSize += TXCOUNT_VARINT_PADDING;
+    // height varint - 5 bytes is enough for 4 billion blocks
+    nHeaderSize += HEIGHT_VARINT_PADDING;
+    // maxSize and feePoolAmt varints
+    nHeaderSize += MAXSIZE_VARINT_PADDING;
+    nHeaderSize += FEEPOOL_VARINT_PADDING;
 
 
     // This serializes with output value, a fixed-length 8 byte field, of zero and height, a serialized CScript
