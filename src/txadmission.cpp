@@ -634,7 +634,6 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
     CValidationDebugger *debugger)
 {
     const CChainParams &chainparams = Params();
-    bool may2020Enabled = IsMay2020Activated(chainparams.GetConsensus(), chainActive.Tip());
     bool may2021Enabled = IsMay2021Enabled(chainparams.GetConsensus(), chainActive.Tip());
 
     if (isRespend)
@@ -708,11 +707,7 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
     }
 
     uint32_t featureFlags = 0;
-    if (may2020Enabled)
-    {
-        featureFlags |= SCRIPT_ENABLE_OP_REVERSEBYTES | SCRIPT_VERIFY_INPUT_SIGCHECKS;
-    }
-
+    featureFlags |= SCRIPT_ENABLE_OP_REVERSEBYTES | SCRIPT_VERIFY_INPUT_SIGCHECKS;
     uint32_t flags = STANDARD_SCRIPT_VERIFY_FLAGS | featureFlags;
 
     // Disable DISALLOW_SEGWIT in case we accept non standard transactions.
@@ -737,8 +732,7 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
         }
     }
 
-    // Make sure tx size is acceptable after Nov 15, 2018 fork
-    if (IsNov2018Activated(chainparams.GetConsensus(), chainActive.Tip()))
+    // Make sure tx size is acceptable
     {
         if (tx->GetTxSize() < MIN_TX_SIZE)
         {
@@ -887,7 +881,7 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
         }
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (fRequireStandard && !AreInputsStandard(tx, view, may2020Enabled))
+        if (fRequireStandard && !AreInputsStandard(tx, view))
         {
             if (debugger)
             {
@@ -944,10 +938,9 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
         }
 
         // Check that the transaction doesn't have an excessive number of sigops, making it impossible to mine.
-        if (may2020Enabled) // Enforce May 2020 consensus sigchecks rule
         {
             nSigOps = resourceTracker.GetConsensusSigChecks();
-            if (nSigOps > MAY2020_MAX_TX_SIGCHECK_COUNT)
+            if (nSigOps > MAX_TX_SIGCHECK_COUNT)
             {
                 if (debugger)
                 {
@@ -962,26 +955,6 @@ bool ParallelAcceptToMemoryPool(Snapshot &ss,
             }
             // Place sigchecks into the mempool sigops field, since these are not cotemporaneous
             LOG(MEMPOOL, "Mempool is tracking sigchecks.  Tx %s has %d\n", hash.ToString(), nSigOps);
-        }
-        else // Old sigop counting
-        {
-            nSigOps = GetLegacySigOpCount(tx, STANDARD_SCRIPT_VERIFY_FLAGS);
-            nSigOps += GetP2SHSigOpCount(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
-            LOG(MEMPOOL, "Mempool is tracking sigops.  Tx %s has %d\n", hash.ToString(), nSigOps);
-
-            if (nSigOps > MAX_TX_SIGOPS_COUNT)
-            {
-                if (debugger)
-                {
-                    debugger->AddInvalidReason("bad-txns-too-many-sigops");
-                    debugger->mineable = false;
-                }
-                else
-                {
-                    return state.DoS(
-                        0, false, REJECT_NONSTANDARD, "bad-txns-too-many-sigops", false, strprintf("%d", nSigOps));
-                }
-            }
         }
 
         // Create a commit data entry

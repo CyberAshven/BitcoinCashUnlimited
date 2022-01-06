@@ -231,43 +231,6 @@ BOOST_AUTO_TEST_CASE(test_consensus_sigops_limit)
     BOOST_CHECK_EQUAL(GetMaxBlockSigChecks(1000001), 7092);
 }
 
-BOOST_AUTO_TEST_CASE(test_max_sigops_per_tx)
-{
-    CMutableTransaction tx;
-    tx.nVersion = 1;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = COutPoint(InsecureRand256(), 0);
-    tx.vin[0].scriptSig = CScript();
-    tx.vout.resize(1);
-    tx.vout[0].nValue = CAmount(1);
-    tx.vout[0].scriptPubKey = CScript();
-
-    {
-        CValidationState state;
-        BOOST_CHECK(CheckTransaction(MakeTransactionRef(CTransaction(tx)), state));
-    }
-
-    // Get just before the limit.
-    for (size_t i = 0; i < MAX_TX_SIGOPS_COUNT; i++)
-    {
-        tx.vout[0].scriptPubKey << OP_CHECKSIG;
-    }
-
-    {
-        CValidationState state;
-        BOOST_CHECK(CheckTransaction(MakeTransactionRef(CTransaction(tx)), state));
-    }
-
-    // And go over.
-    tx.vout[0].scriptPubKey << OP_CHECKSIG;
-
-    {
-        CValidationState state;
-        BOOST_CHECK(!ContextualCheckTransaction(MakeTransactionRef(CTransaction(tx)), state, nullptr, Params()));
-        BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-too-many-sigops");
-    }
-}
-
 
 class AlwaysGoodSignatureChecker : public BaseSignatureChecker
 {

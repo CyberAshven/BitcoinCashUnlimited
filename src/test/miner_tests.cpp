@@ -27,6 +27,7 @@
 #include <boost/test/unit_test.hpp>
 
 extern CTweak<bool> xvalTweak;
+extern CTweak<bool> enforceMinTxSize;
 
 BOOST_FIXTURE_TEST_SUITE(miner_tests, TestingSetup)
 
@@ -278,7 +279,6 @@ void TestPackageSelection(const CChainParams &chainparams, CScript scriptPubKey,
     SetArg("-blockprioritysize", std::to_string(0));
     dMinLimiterTxFee.Set(1.0);
     dMaxLimiterTxFee.Set(1.0);
-    fCanonicalTxsOrder = false;
 
     // Test that a medium fee transaction will be selected after a higher fee
     // rate package with a low fee rate parent.
@@ -402,9 +402,6 @@ void TestPackageSelection(const CChainParams &chainparams, CScript scriptPubKey,
     BOOST_CHECK(TxIn(hashHighFeeTx2, pblocktemplate->block.vtx));
     BOOST_CHECK(TxIn(hashFreeTx3, pblocktemplate->block.vtx));
     BOOST_CHECK(TxIn(hashLowFeeTx2, pblocktemplate->block.vtx));
-
-    // reset back to ctor
-    fCanonicalTxsOrder = true;
 }
 
 void GenerateBlocks(const CChainParams &chainparams,
@@ -557,6 +554,8 @@ void PerformanceTest_PackageSelection(const CChainParams &chainparams,
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
+    enforceMinTxSize.Set(false);
+
     // Note was MAIN, but takes too long to generate mainnet block for a test.  Need to pre-generate them.
     // Reducing MAIN powLimit breaks ASERT pow tests
     const CChainParams &chainparams = Params(CBaseChainParams::REGTEST);
@@ -1061,6 +1060,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // PerformanceTest_PackageSelection(chainparams, scriptPubKey, txFirst);
 
     fCheckpointsEnabled = true;
+
+    enforceMinTxSize.Set(true);
 }
 
 BOOST_AUTO_TEST_CASE(AdaptiveBlockSize)

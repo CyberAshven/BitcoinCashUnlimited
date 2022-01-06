@@ -13,6 +13,7 @@
 #include "serialize.h"
 #include "streams.h"
 #include "test/test_bitcoin.h"
+#include "tweak.h"
 #include "util.h"
 #include "utilstrencodings.h"
 #include "version.h"
@@ -23,6 +24,7 @@
 
 #include <univalue.h>
 
+extern CTweak<bool> enforceMinTxSize;
 extern UniValue read_json(const std::string &jsondata);
 
 // Old script.cpp SignatureHash function
@@ -181,8 +183,9 @@ BOOST_AUTO_TEST_CASE(sighash_test)
 // Goal: check that SignatureHash generates correct hash
 BOOST_AUTO_TEST_CASE(sighash_from_data)
 {
-    UniValue tests = read_json(std::string(json_tests::sighash, json_tests::sighash + sizeof(json_tests::sighash)));
+    enforceMinTxSize.Set(false);
 
+    UniValue tests = read_json(std::string(json_tests::sighash, json_tests::sighash + sizeof(json_tests::sighash)));
     for (unsigned int idx = 0; idx < tests.size(); idx++)
     {
         UniValue test = tests[idx];
@@ -230,6 +233,8 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
         assert(sh != SIGNATURE_HASH_ERROR);
         BOOST_CHECK_MESSAGE(sh.GetHex() == sigHashHex, strTest);
     }
+
+    enforceMinTxSize.Set(true);
 }
 
 BOOST_AUTO_TEST_CASE(sighash_test_fail)

@@ -221,24 +221,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
         nLockTimeCutoff =
             (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST) ? nMedianTimePast : pblock->GetBlockTime();
 
-        bool canonical = fCanonicalTxsOrder;
-        if (chainparams.NetworkIDString() == "regtest")
-        {
-            canonical = true;
-        }
-        else
-        {
-            // Always allow overwite of fCanonicalTxsOrder but for regtest on BCH
-            if (IsNov2018Activated(chainparams.GetConsensus(), chainActive.Tip()))
-            {
-                canonical = true;
-            }
-            else
-            {
-                canonical = false;
-            }
-        }
-
         std::vector<const CTxMemPoolEntry *> vtxe;
         addPriorityTxs(&vtxe);
 
@@ -248,8 +230,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
         // of the block. Then a second quick pass is made to see if any dirty transactions
         // would be able to fill the rest of the block.
         int64_t nStartPackage = GetStopwatchMicros();
-        addPackageTxs(&vtxe, canonical, false);
-        addPackageTxs(&vtxe, canonical, true);
+        addPackageTxs(&vtxe, false);
+        addPackageTxs(&vtxe, true);
         nTotalPackage += GetStopwatchMicros() - nStartPackage;
 
         nLastBlockTx = nBlockTx;
@@ -259,10 +241,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
 
 
         // sort tx if there are any and the feature is enabled
-        if (canonical)
-        {
-            std::sort(vtxe.begin(), vtxe.end(), NumericallyLessTxHashComparator());
-        }
+        std::sort(vtxe.begin(), vtxe.end(), NumericallyLessTxHashComparator());
 
         for (auto &txe : vtxe)
         {
@@ -374,20 +353,6 @@ bool BlockAssembler::TestForBlock(CTxMemPool::txiter iter)
     if (!IsIncrementallyGood(iter->GetTxSize(), iter->GetSigOpCount()))
         return false;
 
-    // Must check that lock times are still valid
-    // This can be removed once MTP is always enforced
-    // as long as reorgs keep the mempool consistent.
-    if (!IsFinalTx(iter->GetSharedTx(), nHeight, nLockTimeCutoff))
-        return false;
-
-    // On BCH if Nov 15th 2019 has been activated make sure tx size
-    // is greater or equal than 100 bytes
-    if (IsNov2018Activated(chainparams.GetConsensus(), chainActive.Tip()))
-    {
-        if (iter->GetTxSize() < MIN_TX_SIZE)
-            return false;
-    }
-
     return true;
 }
 
@@ -452,7 +417,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries &package, std::ve
 // the current algo is still much better than the older method which needed to update calculations for the
 // entire descendant tree after each package was added to the block.
 
-void BlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, bool fCanonical, bool fAllowDirtyTxns)
+void BlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, bool fAllowDirtyTxns)
 {
     AssertLockHeld(mempool.cs_txmempool);
 
@@ -540,22 +505,9 @@ void BlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, b
         }
 
         // The Package can now be added to the block.
-        if (fCanonical)
+        for (auto &it : ancestors)
         {
-            for (auto &it : ancestors)
-            {
-                AddToBlock(vtxe, it);
-            }
-        }
-        else
-        {
-            // Sort the entries in a valid order if we are not doing CTOR
-            vector<CTxMemPool::txiter> sortedEntries;
-            SortForBlock(ancestors, sortedEntries);
-            for (size_t i = 0; i < sortedEntries.size(); ++i)
-            {
-                AddToBlock(vtxe, sortedEntries[i]);
-            }
+            AddToBlock(vtxe, it);
         }
     }
 }
@@ -668,9 +620,9 @@ void IncrementExtraNonce(CBlock *pblock, unsigned int &nExtraNonce)
     txCoinbase.vin[0].scriptSig = script + cbFlags;
     assert(txCoinbase.vin[0].scriptSig.size() <= MAX_COINBASE_SCRIPTSIG_SIZE);
 
-    // On BCH if Nov15th 2018 has been activated make sure the coinbase is big enough
+    // make sure the coinbase is big enough
     uint64_t nCoinbaseSize = ::GetSerializeSize(txCoinbase, SER_NETWORK, PROTOCOL_VERSION);
-    if (nCoinbaseSize < MIN_TX_SIZE && IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
+    if (nCoinbaseSize < MIN_TX_SIZE)
     {
         txCoinbase.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
     }

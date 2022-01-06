@@ -1494,23 +1494,6 @@ bool AppInit2(Config &config)
         mempool.ReadFeeEstimates(est_filein);
     fFeeEstimatesInitialized = true;
 
-    // Set fCanonicalTxsOrder for the BCH early in the bootstrap phase
-    if (IsNov2018Activated(Params().GetConsensus(), chainActive.Tip()))
-    {
-        if (chainparams.NetworkIDString() != "regtest")
-        {
-            fCanonicalTxsOrder = true;
-        }
-    }
-    else
-    {
-        if (chainparams.NetworkIDString() != "regtest")
-        {
-            fCanonicalTxsOrder = false;
-        }
-    }
-
-
     // ********************************************************* Step 7: load wallet
 
 #ifdef ENABLE_WALLET

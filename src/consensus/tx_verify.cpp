@@ -10,6 +10,7 @@
 #include "main.h"
 #include "primitives/transaction.h"
 #include "script/interpreter.h"
+#include "tweak.h"
 #include "unlimited.h"
 #include "validation.h"
 
@@ -20,6 +21,7 @@
 
 #include <boost/scope_exit.hpp>
 
+extern CTweak<bool> enforceMinTxSize;
 
 bool IsFinalTx(const CTransactionRef tx, int nBlockHeight, int64_t nBlockTime)
 {
@@ -164,27 +166,9 @@ bool ContextualCheckTransaction(const CTransactionRef tx,
     CBlockIndex *const pindexPrev,
     const CChainParams &params)
 {
-    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->height() + 1;
-    auto consensusParams = params.GetConsensus();
-
-    if (IsMay2020Activated(consensusParams, nHeight) == false)
-    {
-        // Check that the transaction doesn't have too many sigops
-        unsigned int nSigOps = GetLegacySigOpCount(tx, STANDARD_SCRIPT_VERIFY_FLAGS);
-        if (nSigOps > MAX_TX_SIGOPS_COUNT)
-            return state.DoS(10, false, REJECT_INVALID, "bad-txns-too-many-sigops");
-    }
-
-    // Make sure tx size is equal or higher to 100 bytes if we are on the BCH chain and Nov 15th 2018 activated
-    if (IsNov2018Activated(consensusParams, nHeight))
-    {
-        if (tx->GetTxSize() < MIN_TX_SIZE)
-        {
-            return state.DoS(
-                10, error("%s: contains transactions that are too small", __func__), REJECT_INVALID, "txn-undersize");
-        }
-    }
-
+    // Commented out until needed again.
+    // const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->height() + 1;
+    // auto consensusParams = params.GetConsensus();
 
     return true;
 }
@@ -197,14 +181,18 @@ bool CheckTransaction(const CTransactionRef tx, CValidationState &state)
     if (tx->vout.empty())
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
 
-    // Sigops moved to ContextualCheckTransaction because the consensus rule goes away after may2020 fork
-
     // Size limit
     if (tx->GetTxSize() > DEFAULT_LARGEST_TRANSACTION)
     {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
     }
 
+    // Make sure tx size is equal to or above the minimum allowed
+    if ((tx->GetTxSize() < MIN_TX_SIZE) && enforceMinTxSize.Value())
+    {
+        return state.DoS(
+            10, error("%s: contains transactions that are too small", __func__), REJECT_INVALID, "txn-undersize");
+    }
 
     // Check for negative or overflow output values
     CAmount nValueOut = 0;

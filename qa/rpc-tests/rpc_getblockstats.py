@@ -48,7 +48,7 @@ class GetblockstatsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-debug=rpc', '-consensus.enableCanonicalTxOrder=0']]
+        self.extra_args = [['-debug=rpc']]
 
     def get_stats(self):
         stats = [ ]
