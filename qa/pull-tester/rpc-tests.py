@@ -201,8 +201,6 @@ testScripts = [ RpcTest(t) for t in [
     'command_line_args',
     'finalizeblock',
     'txindex',
-    Disabled('schnorr-activation', 'Need to be updated to work with BU'),
-    'schnorrsig',
     Disabled('segwit_recovery', 'not needed in nextchain'),
     Disabled('bip135basic', 'bip135 uses removed nVersion field'),
     Disabled('ctor', "ctor always on in regtest"),
@@ -214,8 +212,6 @@ testScripts = [ RpcTest(t) for t in [
     'cashlibtest',
     'tweak',
     'notify',
-    Disabled('may152018_forkactivation_1','May 2018 already activated, use it as template to test future upgrade activation'),
-    Disabled('may152018_forkactivation_2','May 2018 already activated, use it as template to test future upgrade activation'),
     'validateblocktemplate',
     'parallel',
     'wallet',
@@ -272,8 +268,7 @@ testScripts = [ RpcTest(t) for t in [
     'rpc_getblockstats',
     'minimaldata',
     'schnorrmultisig',
-    'uptime',
-    Disabled('op_reversebytes', "reversebytes activated from genesis on nextchain")
+    'uptime'
 ] ]
 
 testScriptsExt = [ RpcTest(t) for t in [

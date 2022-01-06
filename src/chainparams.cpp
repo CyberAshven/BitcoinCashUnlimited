@@ -244,24 +244,6 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].windowsize = 2016;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].threshold = 1916; // 95% of 2016
 
-        // Aug, 1 2017 hard fork
-        consensus.uahfHeight = 478559;
-        // Nov, 13 2017 hard fork
-        consensus.daaHeight = 0;
-        // May, 15 2018 hard fork
-        consensus.may2018Height = 530359;
-        // Nov, 15 2018 hard fork
-        consensus.nov2018Height = 556766;
-        // Noc, 15 2019 hard fork
-        consensus.nov2019Height = 609135;
-        // May, 15 2020 hard fork
-        consensus.may2020Height = 635258;
-        // Nov 15, 2020 12:00:00 UTC protocol upgrade
-        // we need to let this one around because scalenet is still used for asert activation
-        consensus.nov2020ActivationTime = NOV2020_ACTIVATION_TIME;
-        // Nov 15, 2020 hard fork
-        consensus.nov2020Height = 661647;
-
         // May 15, 2021 12:00:00 UTC protocol upgrade
         consensus.may2021ActivationTime = MAY2021_ACTIVATION_TIME;
 
@@ -367,26 +349,6 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 999999999999LL;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].windowsize = 144;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].threshold = 108; // 75% of 144
-
-        // Hard fork is always enabled on regtest.
-        consensus.uahfHeight = 0;
-        // Nov, 13 hard fork is always on on regtest.
-        consensus.daaHeight = 0;
-        // May, 15 2018 hard fork is always active on regtest
-        consensus.may2018Height = 0;
-        // Nov, 15 2018 hard fork is always active on regtest
-        consensus.nov2018Height = 0;
-        // May, 15 2019 hard fork
-        consensus.may2019Height = 0;
-        // Nov, 15 2019 hard fork is always active on regtest
-        consensus.nov2019Height = 0;
-        // May, 15 2020 hard fork
-        consensus.may2020Height = 0;
-        // Nov 15, 2020 12:00:00 UTC protocol upgrade¶
-        // we need to let this one around because scalenet is still used for asert activation
-        consensus.nov2020ActivationTime = NOV2020_ACTIVATION_TIME;
-        // Nov 15, 2020 upgrade
-        // FIXME regtest ASERT activation by time?
 
         // May 15, 2021 12:00:00 UTC protocol upgrade
         consensus.may2021ActivationTime = MAY2021_ACTIVATION_TIME;
@@ -510,23 +472,6 @@ public:
         consensus.nLongBlockWindow = LONG_BLOCK_WINDOW;
         consensus.nBlockSizeMultiplier = BLOCK_SIZE_MULTIPLIER;
 
-        // Aug, 1 2017 hard fork
-        consensus.uahfHeight = 0;
-        // Nov, 13 hard fork
-        consensus.daaHeight = 0;
-        // May, 15 2018 hard fork
-        consensus.may2018Height = 0;
-        // Nov, 15 2018 hard fork
-        consensus.nov2018Height = 0;
-        // May, 15 2019 hard fork
-        consensus.may2019Height = 0;
-        // Nov, 2010 12:00:00 UTC protocol upgrade
-        consensus.nov2019Height = 0;
-        // May 15, 2020 actication height
-        consensus.may2020Height = 0;
-        // Nov, 15 2019 12:00:00 UTC fork is always activated.
-        consensus.nov2020ActivationTime = 0;
-
         vFixedSeeds.clear();
         vSeeds.clear();
         // TODO testnet seeder: vSeeds.push_back(CDNSSeedData("nextchain.cash", "seed.nextchain.cash", true));
@@ -622,23 +567,6 @@ public:
         consensus.nShortBlockWindow = SHORT_BLOCK_WINDOW;
         consensus.nLongBlockWindow = LONG_BLOCK_WINDOW;
         consensus.nBlockSizeMultiplier = BLOCK_SIZE_MULTIPLIER;
-
-        // Aug, 1 2017 hard fork
-        consensus.uahfHeight = 0;
-        // Nov, 13 hard fork
-        consensus.daaHeight = consensus.DifficultyAdjustmentInterval();
-        // May, 15 2018 hard fork
-        consensus.may2018Height = 0;
-        // Nov, 15 2018 hard fork
-        consensus.nov2018Height = 0;
-        // May, 15 2019 hard fork
-        consensus.may2019Height = 0;
-        // Nov, 2010 12:00:00 UTC protocol upgrade
-        consensus.nov2019Height = 0;
-        // May 15, 2020 actication height
-        consensus.may2020Height = 0;
-        // Nov, 15 2019 12:00:00 UTC fork is always activated.
-        consensus.nov2020ActivationTime = 0;
 
         vFixedSeeds.clear();
         vSeeds.clear();

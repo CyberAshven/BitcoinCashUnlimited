@@ -9,18 +9,6 @@
 #include <algorithm>
 
 
-static int64_t slow_pos_lookup(const CBlock &block, const uint256 &tx)
-{
-    for (size_t i = 0; i < block.vtx.size(); ++i)
-    {
-        if (block.vtx[i]->GetHash() == tx)
-        {
-            return i;
-        }
-    }
-    return TX_NOT_FOUND;
-}
-
 static int64_t ctor_pos_lookup(const CBlock &block, const uint256 &tx)
 {
     // Coinbase is not sorted and thus needs special treatment
@@ -42,14 +30,13 @@ static int64_t ctor_pos_lookup(const CBlock &block, const uint256 &tx)
 
 
 /// Finds the position of a transaction in a block.
-/// \param ctor Optimized lookup if it's known that block has CTOR ordering
 /// \return
-int64_t FindTxPosition(const CBlock &block, const uint256 &txhash, bool ctor_optimized)
+int64_t FindTxPosition(const CBlock &block, const uint256 &txhash)
 {
     if (block.vtx.size() == 0)
     {
         // invalid block
         return TX_NOT_FOUND;
     }
-    return ctor_optimized ? ctor_pos_lookup(block, txhash) : slow_pos_lookup(block, txhash);
+    return ctor_pos_lookup(block, txhash);
 }

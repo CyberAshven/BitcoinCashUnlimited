@@ -45,119 +45,23 @@ bool IsTxUAHFOnly(const CTxMemPoolEntry &txentry)
 }
 
 // return true for every block from fork block and forward [consensusParams.uahfHeight,+inf)
-bool UAHFforkActivated(int height)
-{
-    const Consensus::Params &consensusParams = Params().GetConsensus();
-    if (height >= consensusParams.uahfHeight)
-    {
-        return true;
-    }
-    return false;
-}
-
-// This will check if the Fork will be enabled at the next block
-// i.e. we are at block x - 1, [consensusParams.uahfHeight-1, +inf]
-// state fork: enabled or activated
-bool IsUAHFforkActiveOnNextBlock(int height)
-{
-    const Consensus::Params &consensusParams = Params().GetConsensus();
-    if (height >= (consensusParams.uahfHeight - 1))
-        return true;
-    return false;
-}
-
-// For pindexTip use the current chainActive.Tip().
-
-bool IsDAAEnabled(const Consensus::Params &consensusparams, int nHeight)
-{
-    return nHeight >= consensusparams.daaHeight;
-}
-
-bool IsDAAEnabled(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
-{
-    if (pindexTip == nullptr)
-    {
-        return false;
-    }
-    return IsDAAEnabled(consensusparams, pindexTip->height());
-}
-
-bool IsNov2018Activated(const Consensus::Params &consensusparams, const int32_t nHeight)
-{
-    return nHeight >= consensusparams.nov2018Height;
-}
-
-bool IsNov2018Activated(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
-{
-    if (pindexTip == nullptr)
-    {
-        return false;
-    }
-    return IsNov2018Activated(consensusparams, pindexTip->height());
-}
-
-bool IsNov2019Activated(const Consensus::Params &consensusparams, const int32_t nHeight)
-{
-    return nHeight >= consensusparams.nov2019Height;
-}
-
-bool IsNov2019Activated(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
-{
-    if (pindexTip == nullptr)
-    {
-        return false;
-    }
-    return IsNov2019Activated(consensusparams, pindexTip->height());
-}
-
-bool IsMay2020Activated(const Consensus::Params &consensusparams, const int32_t nHeight)
-{
-    return nHeight >= consensusparams.may2020Height;
-}
-
-bool IsMay2020Activated(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
-{
-    if (pindexTip == nullptr)
-    {
-        return false;
-    }
-    return IsMay2020Activated(consensusparams, pindexTip->height());
-}
-
-bool IsNov2020Activated(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
-{
-    if (pindexTip == nullptr)
-    {
-        return false;
-    }
-    if (consensusparams.nov2020Height)
-    {
-        return pindexTip->height() >= consensusparams.nov2020Height;
-    }
-    else
-    {
-        return pindexTip->IsforkActiveOnNextBlock(NOV2020_ACTIVATION_TIME);
-    }
-}
-
 bool IsMay2021Enabled(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
 {
     if (pindexTip == nullptr)
     {
         return false;
     }
-    if (consensusparams.nov2020ActivationTime == 0)
-        return true; // For nextchain activate it from GB
     return pindexTip->IsforkActiveOnNextBlock(nMiningForkTime);
 }
 
+// This will check if the Fork will be enabled at the next block
+// i.e. we are at block x - 1, [consensusParams.uahfHeight-1, +inf]
+// state fork: enabled or activated
 bool IsMay2021Next(const Consensus::Params &consensusparams, const CBlockIndex *pindexTip)
 {
     if (pindexTip == nullptr)
     {
         return false;
     }
-    if (consensusparams.nov2020ActivationTime == 0)
-        return false; // For nextchain active since GB
     return pindexTip->forkAtNextBlock(nMiningForkTime);
 }

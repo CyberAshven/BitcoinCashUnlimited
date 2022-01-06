@@ -351,8 +351,7 @@ bool GetTransaction(const uint256 &hash,
         CBlockRef pblock = ReadBlockFromDisk(pindexSlow, consensusParams);
         if (pblock)
         {
-            bool ctor_enabled = pindexSlow->height() >= ((int64_t)consensusParams.nov2018Height);
-            int64_t pos = FindTxPosition(*pblock, hash, ctor_enabled);
+            int64_t pos = FindTxPosition(*pblock, hash);
             if (pos == TX_NOT_FOUND)
             {
                 return false;

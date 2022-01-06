@@ -146,24 +146,6 @@ struct Params
     int64_t nASERTHalfLife;
 
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
-    /** UAHF Aug 1st 2017 block height */
-    int uahfHeight;
-    /** Block height at which the new DAA becomes active */
-    int daaHeight;
-    /** May 15, 2018 block height at which the fork activated */
-    int may2018Height;
-    /** Nov 15, 2018 activation height */
-    int nov2018Height;
-    /** May 15, 2019 actication height */
-    int may2019Height;
-    /** Nov 15, 2019 actication height */
-    int nov2019Height;
-    /** May 15, 2020 actication height */
-    int may2020Height;
-    /** Nov 15, 2020 MTP activation time will be 12:00:00 UTC */
-    uint64_t nov2020ActivationTime;
-    /** Nov 15, 2020 actication height */
-    boost::optional<int64_t> nov2020Height;
     /** May 15, 2021 MTP activation time will be 12:00:00 UTC */
     uint64_t may2021ActivationTime;
 

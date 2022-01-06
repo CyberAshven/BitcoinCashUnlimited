@@ -52,42 +52,17 @@ static const CBlockIndex *GetASERTAnchorBlock(const CBlockIndex *const pindex, c
     {
         return lastCached;
     }
-    // Slow path: walk back until we find the first ancestor for which IsNov2020Activated() == true.
+    // Slow path: walk back to genesis, and then use it as our anchor block.
     const CBlockIndex *anchor = pindex;
-
-    if (params.powAlgorithm == 1) // NextChain, skip back to the genesis block
-    {
-        while (anchor->pprev)
-        {
-            if (anchor->pskip != nullptr)
-            {
-                anchor = anchor->pskip;
-                continue;
-            }
-            anchor = anchor->pprev;
-        }
-
-        // Return rather than else so the while is not indented, simplifying NextChain merges.
-        cachedAnchor = anchor; // Anchor is nextchain genesis block
-        return anchor;
-    }
-
     while (anchor->pprev)
     {
-        // first, skip backwards testing IsNov2020Activated
+        // first, skip backwards
         // The below code leverages CBlockIndex::pskip to walk back efficiently.
-        if ((anchor->pskip != nullptr) && IsNov2020Activated(params, anchor->pskip))
+        if ((anchor->pskip != nullptr))
         {
             // skip backward
             anchor = anchor->pskip;
             continue; // continue skipping
-        }
-        // cannot skip here, walk back by 1
-        if (!IsNov2020Activated(params, anchor->pprev))
-        {
-            // found it -- highest block where Axion is not enabled is anchor->pprev, and
-            // anchor points to the first block for which IsNov2020Activated() == true
-            break;
         }
         anchor = anchor->pprev;
     }
@@ -270,13 +245,8 @@ uint32_t GetNextWorkRequired(const CBlockIndex *pindexPrev, const CBlockHeader *
         return pindexPrev->tgtBits();
     }
 
-    if (IsNov2020Activated(params, pindexPrev))
-    {
-        const CBlockIndex *panchorBlock = GetASERTAnchorBlock(pindexPrev, params);
-        return GetNextASERTWorkRequired(pindexPrev, pblock, params, panchorBlock);
-    }
-
-    return GetNextCashWorkRequired(pindexPrev, pblock, params);
+    const CBlockIndex *panchorBlock = GetASERTAnchorBlock(pindexPrev, params);
+    return GetNextASERTWorkRequired(pindexPrev, pblock, params, panchorBlock);
 }
 
 uint32_t CalculateNextWorkRequired(const CBlockIndex *pindexLast,

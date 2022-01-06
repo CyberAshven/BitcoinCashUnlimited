@@ -191,7 +191,6 @@ set<CNetAddr> setservAddNodeAddresses;
 
 uint64_t maxGeneratedBlock = 0;
 int nMaxOutConnections = DEFAULT_MAX_OUTBOUND_CONNECTIONS;
-bool fCanonicalTxsOrder = true;
 uint32_t blockVersion = 0; // Overrides the mined block version if non-zero
 uint64_t max_blockfile_size = MAX_BLOCKFILE_SIZE;
 
@@ -402,19 +401,16 @@ CTweakRef<std::string> subverOverrideTweak("net.subversionOverride",
     &subverOverride,
     &SubverValidator);
 
-CTweakRef<bool> enableCanonicalTxOrder("consensus.enableCanonicalTxOrder",
-    strprintf(
-        "True if canonical transaction ordering is enabled.  Reflects the actual state so may be switched on or off by"
-        " fork time flags and blockchain reorganizations (true/false - default: %d)",
-        fCanonicalTxsOrder),
-    &fCanonicalTxsOrder);
-
 CTweak<unsigned int> numMsgHandlerThreads("net.msgHandlerThreads",
     "Max message handler threads. Auto detection is zero (default: 0).",
     0);
 CTweak<unsigned int> numTxAdmissionThreads("net.txAdmissionThreads",
     "Max transaction mempool admission threads Auto detection is zero (default: 0).",
     0);
+
+CTweak<bool> enforceMinTxSize("test.enforceMinTxSize",
+    "Whether we will enforce the min tx size limit of 100 bytes or not (default: true)",
+    true);
 
 CTweak<bool> allowp2pTxVal("net.allowp2pTxVal",
     strprintf(

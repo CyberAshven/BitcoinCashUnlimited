@@ -38,7 +38,7 @@ static const unsigned int DEFAULT_MAX_BLOCK_SIZE_SCALENET = 256 * ONE_MEGABYTE;
  * per (MB rounded up) in blocks > 1MB. */
 static const unsigned int MAX_BLOCK_SIGOPS_PER_MB = 20000;
 static const unsigned int MAX_TX_SIGOPS_COUNT = 20000;
-static const unsigned int MAY2020_MAX_TX_SIGCHECK_COUNT = 3000;
+static const unsigned int MAX_TX_SIGCHECK_COUNT = 3000;
 /** The maximum suggested length of a transaction */
 static const unsigned int DEFAULT_LARGEST_TRANSACTION = ONE_MEGABYTE;
 /** The minimum allowed size for a transaction, in bytes */

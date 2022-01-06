@@ -83,6 +83,6 @@ bool IsStandardTx(const CTransactionRef tx, std::string &reason, bool allowMulti
  * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
  * @return True if all inputs (scriptSigs) use only standard transaction forms
  */
-bool AreInputsStandard(const CTransactionRef tx, const CCoinsViewCache &mapInputs, bool isMay2020Enabled);
+bool AreInputsStandard(const CTransactionRef tx, const CCoinsViewCache &mapInputs);
 
 #endif // BITCOIN_POLICY_POLICY_H

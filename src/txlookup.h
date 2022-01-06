@@ -12,8 +12,7 @@ class CBlock;
 class uint256;
 
 /// Finds the position of a transaction in a block.
-/// \param ctor Optimized lookup if it's known that block has CTOR ordering
 /// \return position in block, or negative value on error
-int64_t FindTxPosition(const CBlock &block, const uint256 &txhash, bool ctor_optimized);
+int64_t FindTxPosition(const CBlock &block, const uint256 &txhash);
 
 #endif

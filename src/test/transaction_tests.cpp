@@ -18,6 +18,7 @@
 #include "script/script.h"
 #include "script/script_error.h"
 #include "test/scriptflags.h"
+#include "tweak.h"
 #include "utilstrencodings.h"
 
 #include <map>
@@ -29,6 +30,8 @@
 
 #include <univalue.h>
 
+extern CTweak<bool> enforceMinTxSize;
+
 using namespace std;
 
 // In script_tests.cpp
@@ -38,6 +41,8 @@ BOOST_FIXTURE_TEST_SUITE(transaction_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(tx_valid)
 {
+    enforceMinTxSize.Set(false);
+
     // Read tests from test/data/tx_valid.json
     // Format is an array of arrays
     // Inner arrays are either [ "comment" ]
@@ -129,6 +134,8 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             }
         }
     }
+
+    enforceMinTxSize.Set(true);
 }
 
 BOOST_AUTO_TEST_CASE(tx_invalid)
@@ -315,8 +322,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vout[0].nValue = 90 * CENT;
     t1.vout[0].scriptPubKey << OP_1;
 
-    BOOST_CHECK(AreInputsStandard(MakeTransactionRef(CTransaction(t1)), coins, false));
-    BOOST_CHECK(AreInputsStandard(MakeTransactionRef(CTransaction(t1)), coins, true));
+    BOOST_CHECK(AreInputsStandard(MakeTransactionRef(CTransaction(t1)), coins));
     BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50 + 21 + 22) * CENT);
 }
 
