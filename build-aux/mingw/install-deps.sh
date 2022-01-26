@@ -116,21 +116,21 @@ make $MAKE_CORES
 # Berkeley DB (Download, unpack, and build)
 cd "$DEPS_ROOT"
 # don't download if already downloaded
-if [ ! -e db-4.8.30.NC.tar.gz ]
+if [ ! -e db-5.3.28.tar.gz ]
 then
-	wget http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz -O "$DEPS_ROOT/db-4.8.30.NC.tar.gz"
+	wget http://download.oracle.com/berkeley-db/db-5.3.28.tar.gz -O "$DEPS_ROOT/db-5.3.28.tar.gz"
 	# Verify downloaded file's hash (from depends packages)
-	# v4.8.30 sha256=12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef
-	check_hash 12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef "$DEPS_ROOT/db-4.8.30.NC.tar.gz"
+	# v5.3.28 sha256=E0A992D740709892E81F9D93F06DAF305CF73FB81B545AFE72478043172C3628
+	check_hash E0A992D740709892E81F9D93F06DAF305CF73FB81B545AFE72478043172C3628 "$DEPS_ROOT/db-5.3.28.tar.gz"
 fi
 # don't extract if already extracted
 cd "$PATH_DEPS"
-if [ ! -d db-4.8.30.NC ]
+if [ ! -d db-5.3.28 ]
 then
 	cd "$DEPS_ROOT"
-	tar xvfz db-4.8.30.NC.tar.gz -C "$PATH_DEPS"
+	tar xvfz db-5.3.28tar.gz -C "$PATH_DEPS"
 fi
-cd "$PATH_DEPS/db-4.8.30.NC/build_unix"
+cd "$PATH_DEPS/db-5.3.28/build_unix"
 ../dist/configure --enable-mingw --enable-cxx --disable-shared --disable-replication
 make $MAKE_CORES
 #pause for debugging purposes

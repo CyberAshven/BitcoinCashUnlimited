@@ -117,7 +117,7 @@ if [ -z "$SKIP_CONFIGURE" ]; then
 	# Uncomment below to build debug
 	#ENABLE_DEBUG="--enable-debug"
 
-	CPPFLAGS="-I$PATH_DEPS/db-4.8.30.NC/build_unix \
+	CPPFLAGS="-I$PATH_DEPS/db-5.3.28/build_unix \
 	-I$PATH_DEPS/openssl-1.0.2o/include \
 	-I$PATH_DEPS/libevent-2.0.22/include \
 	-I$PATH_DEPS \
@@ -125,7 +125,7 @@ if [ -z "$SKIP_CONFIGURE" ]; then
 	-I$PATH_DEPS/libpng-1.6.36 \
 	-I$PATH_DEPS/qrencode-4.0.2 \
 	-I$PATH_DEPS/gmp-6.2.0+dfsg" \
-	LDFLAGS="-L$PATH_DEPS/db-4.8.30.NC/build_unix \
+	LDFLAGS="-L$PATH_DEPS/db-5.3.28/build_unix \
 	-L$PATH_DEPS/openssl-1.0.2o \
 	-L$PATH_DEPS/libevent-2.0.22/.libs \
 	-L$PATH_DEPS/miniupnpc \
