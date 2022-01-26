@@ -27,6 +27,7 @@
 #include "hashwrapper.h"
 #include "iblt.h"
 #include "policy/policy.h"
+#include "primitives/block.h"
 #include "primitives/transaction.h"
 #include "requestManager.h"
 #include "ui_interface.h"
@@ -672,8 +673,11 @@ void CNode::LookAhead()
         strCommand == NetMsgType::CMPCTBLOCK || strCommand == NetMsgType::XTHINBLOCK ||
         strCommand == NetMsgType::THINBLOCK)
     {
-        /* TODO Header is not a constant size */
-        /*
+        /* padding of 8 bytes for each of four VARINTs found in the header */
+        static const uint32_t padding = 4 * 8;
+        /* The expected size of a serialized block header plus padding for various VARINTs plus nonce padding */
+        static const uint32_t SERIALIZED_HEADER_SIZE =
+            ::GetSerializeSize(CBlockHeader(), SER_NETWORK, PROTOCOL_VERSION) + padding + CBlockHeader::MAX_NONCE_SIZE;
         if (msg.nDataPos >= SERIALIZED_HEADER_SIZE)
         {
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
@@ -685,7 +689,6 @@ void CNode::LookAhead()
 
             fDownloading.store(true);
         }
-        */
     }
 }
 
