@@ -453,7 +453,8 @@ build-osx-depends:
         - ccache --show-stats
     artifacts:
         paths:
-            - depends
+            - depends/x86_64-apple-darwin11
+            - depends/SDKs
 
 build-osx:
     stage: build
