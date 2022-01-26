@@ -52,7 +52,7 @@ You will find the `bitcoind` binary in the `src/` folder.
 
 ### To build with wallet
 
-To stay backwards compatible with old walletfiles we specifically need BerkeleyDB 4.8.
+To stay backwards compatible with old walletfiles we specifically need BerkeleyDB 5.3.
 You cannot use the BerkeleyDB library from ports.
 
 
@@ -60,7 +60,7 @@ You cannot use the BerkeleyDB library from ports.
 
 BerkeleyDB is only necessary for the wallet functionality. To skip this, pass `--disable-wallet` to `./configure`. See above.
 
-To build Berkeley DB 4.8:
+To build Berkeley DB 5.3:
 
 ```bash
 # Pick some path to install BDB to, here we create a directory within the bitcoin directory
@@ -68,13 +68,13 @@ BDB_PREFIX=$(pwd)/db4
 mkdir -p $BDB_PREFIX
 
 # Fetch the source and verify that it is not tampered with
-curl 'https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz' -o db-4.8.30.NC.tar.gz
-echo '12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef  db-4.8.30.NC.tar.gz' | shasum -c
-# MUST output: db-4.8.30.NC.tar.gz: OK
-tar -xzf db-4.8.30.NC.tar.gz
+curl 'https://download.oracle.com/berkeley-db/db-5.3.28.NC.tar.gz' -o db-5.3.28.NC.tar.gz
+echo '76a25560d9e52a198d37a31440fd07632b5f1f8f9f2b6d5438f4bc3e7c9013ef'  db-5.3.28.NC.tar.gz' | shasum -c
+# MUST output: db-5.3.28.NC.tar.gz: OK
+tar -xzf db-5.3.28.NC.tar.gz
 
 # Fetch, verify that it is not tampered with and apply clang related patch
-cd db-4.8.30.NC/
+cd db-5.3.28.NC/
 curl 'https://gist.githubusercontent.com/LnL7/5153b251fd525fe15de69b67e63a6075/raw/7778e9364679093a32dec2908656738e16b6bdcb/clang.patch' -o clang.patch
 echo '7a9a47b03fd5fb93a16ef42235fa9512db9b0829cfc3bdf90edd3ec1f44d637c  clang.patch' | shasum -c
 # MUST output: clang.patch: OK
