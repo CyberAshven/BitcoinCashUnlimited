@@ -61,25 +61,10 @@ sudo apt-get install libzmq3-dev # provides ZMQ API 4.x
 
 BerkeleyDB is required for the wallet. If you don't need wallet support, but just want a node, you don't need this.
 
-db4.8 packages are available [here](https://launchpad.net/~bitcoin-unlimited/+archive/ubuntu/bucash).
-
-You can add the repository and install using the following commands:
-
-```bash
-sudo add-apt-repository ppa:bitcoin-unlimited/bucash
-sudo apt-get update
-sudo apt-get install libdb4.8-dev libdb4.8++-dev
-```
-
-Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, but these will install
-BerkeleyDB 5.1 or later, which break binary wallet compatibility with the distributed executables which
-are based on BerkeleyDB 4.8. If you do not care about wallet compatibility,
-pass `--with-incompatible-bdb` to configure.
+Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, these will install
+BerkeleyDB 5.3 or later.
 
 See the section "Disable-wallet mode" to build Bitcoin Unlimited without wallet.
-
-You can also build BDB4.8 your self. See [below](#berkeley-db)
-
 
 ## Installing dependencies for the GUI
 
@@ -170,47 +155,6 @@ make install # optional
 ```
 
 You will find the `bitcoind` binary in the `src/` folder. This will build `bitcoin-qt` as well (in `src/qt`), if the dependencies are met.
-
-
-
-### Berkeley DB
-
-If you want to build BDB4.8 yourself and then build Bitcoin Unlimited, do as follows from the Bitcoin Unlimited directory:
-
-```bash
-BITCOIN_ROOT=$(pwd)
-
-# Pick some path to install BDB to, here we create a directory within the bitcoin directory
-BDB_PREFIX="${BITCOIN_ROOT}/db4"
-mkdir -p $BDB_PREFIX
-
-# Fetch the source and verify that it is not tampered with
-wget 'https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz'
-echo '12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef  db-4.8.30.NC.tar.gz' | sha256sum -c
-# MUST output: db-4.8.30.NC.tar.gz: OK
-tar -xzvf db-4.8.30.NC.tar.gz
-
-# Fetch, verify that it is not tampered with and apply clang related patch
-cd db-4.8.30.NC
-wget 'https://gist.githubusercontent.com/LnL7/5153b251fd525fe15de69b67e63a6075/raw/7778e9364679093a32dec2908656738e16b6bdcb/clang.patch'
-echo '7a9a47b03fd5fb93a16ef42235fa9512db9b0829cfc3bdf90edd3ec1f44d637c clang.patch' | sha256sum -c
-# MUTST output: clang.patch: OK
-
-# Build the library and install to our prefix
-cd build_unix/
-#  Note: Do a static build so that it can be embedded into the executable, instead of having to find a .so at runtime
-../dist/configure --enable-cxx --disable-shared --with-pic --prefix=$BDB_PREFIX
-make install
-
-# Build Bitcoin Unlimited with the BDB you just compiled.
-cd $BITCOIN_ROOT
-./autogen.sh
-./configure LDFLAGS="-L${BDB_PREFIX}/lib/" CPPFLAGS="-I${BDB_PREFIX}/include/" # (other args...)
-make
-make install # optional
-```
-
-**Note**: You only need Berkeley DB if the wallet is enabled.
 
 
 # Notes
