@@ -4,8 +4,8 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 import test_framework.loginit
-
 import time
+import pprint
 import sys
 if sys.version_info[0] < 3:
     raise "Use Python 3"
@@ -15,6 +15,8 @@ from test_framework.util import *
 import binascii
 from test_framework.script import *
 from test_framework.nodemessages import *
+
+pp = pprint.PrettyPrinter(indent=4)
 
 def GenerateSingleSigP2SH(btcAddress):
     redeemScript = CScript([OP_DUP, OP_HASH160, bitcoinAddress2bin(btcAddress), OP_EQUALVERIFY, OP_CHECKSIG])
@@ -425,11 +427,16 @@ class WalletTest (BitcoinTestFramework):
                             {"label": ""})
 
         #check if wallet or blochchain maintenance changes the balance
-        self.sync_all()
+        self.sync_blocks()
         blocks = self.nodes[0].generate(2)
-        self.sync_all()
-        balance_nodes = [self.nodes[i].getbalance() for i in range(3)]
+        self.sync_blocks()
         block_count = self.nodes[0].getblockcount()
+        for i in range(3):
+            waitFor(30, lambda: block_count == self.nodes[i].getwalletinfo()['syncheight'])
+        balance_nodes = [self.nodes[i].getbalance() for i in range(3)]
+        unspent_nodes = [self.nodes[i].listunspent() for i in range(3)]
+        activeAddresses = [self.nodes[i].listactiveaddresses() for i in range(3)]
+        wi_nodes = [self.nodes[i].getwalletinfo() for i in range(3)]
 
         # Check modes:
         #   - True: unicode escaped as \u....
@@ -452,6 +459,7 @@ class WalletTest (BitcoinTestFramework):
             '-zapwallettxes=2',
             '-salvagewallet',
         ]
+
         for m in maintenance:
             logging.info("check " + m)
             stop_nodes(self.nodes)
@@ -459,9 +467,31 @@ class WalletTest (BitcoinTestFramework):
             self.node_args = [['-usehd=0', m], ['-usehd=0', m], ['-usehd=0', m]]
             self.nodes = start_nodes(3, self.options.tmpdir, self.node_args)
             # wait for blockchain to catch up
-            waitFor(120, lambda : [block_count] * 3 == [self.nodes[i].getblockcount() for i in range(3)])
+            waitFor(60, lambda : [block_count] * 3 == [self.nodes[i].getblockcount() for i in range(3)])
             # wait for wallet to catch up to blockchain
-            waitFor(120, lambda : balance_nodes == [self.nodes[i].getbalance() for i in range(3)], lambda: print("balances: " + str([self.nodes[i].getbalance() for i in range(3)]) + " expecting: " + str(balance_nodes)))
+            try:
+                waitFor(60, lambda : balance_nodes == [self.nodes[i].getbalance() for i in range(3)], lambda: print("balances: " + str([self.nodes[i].getbalance() for i in range(3)]) + " expecting: " + str(balance_nodes)))
+            except:
+                print("Balance mismatch")
+                unspent_nodes = [self.nodes[i].listunspent() for i in range(3)]
+                for i in range(3):
+                    if balance_nodes[i] != self.nodes[i].getbalance():
+                        print("Node %d Balance: %s %s" % (i, str(self.nodes[i].getbalance()), str(self.nodes[i].getbalance("*"))))
+                        print("Wallet Info Before: ", str(wi_nodes[i]))
+                        print("Wallet Info Now   : ", str(self.nodes[i].getwalletinfo()))
+                        print("Unspent Before:")
+                        pp.pprint(unspent_nodes[i])
+                        print("Unspent Now:")
+                        pp.pprint(self.nodes[i].listunspent())
+                        print("Active addresses before:")
+                        pp.pprint(activeAddresses[i])
+                        print("Active addresses now:")
+                        laa = self.nodes[i].listactiveaddresses()
+                        pp.pprint(laa)
+                        print("active address diff:")
+                        dff = dict(filter(lambda e: e[0] not in laa, activeAddresses[i].items()))
+                        pp.pprint(dff)
+                raise
 
         # Exercise listsinceblock with the last two blocks
         coinbase_tx_1 = self.nodes[0].listsinceblock(blocks[0])
@@ -479,7 +509,7 @@ def Test():
     t = WalletTest()
     t.drop_to_pdb = True
     bitcoinConf = {
-        "debug": ["selectcoins", "rpc","net", "blk", "thin", "mempool", "req", "bench", "evict"]
+        "debug": ["dbase", "selectcoins", "rpc","net", "blk", "thin", "mempool", "req", "bench", "evict"]
     }
 
     flags = standardFlags()

@@ -141,7 +141,7 @@ inline void ReadOrderPos(int64_t &nOrderPos, mapValue_t &mapValue)
 {
     if (!mapValue.count("n"))
     {
-        assert(0); // All post-genesis block wallets contain an order, or the wallet is corrupt
+        throw std::ios_base::failure("order does not exist");
     }
     nOrderPos = atoi64(mapValue["n"].c_str());
     assert(nOrderPos != -1);

@@ -380,8 +380,6 @@ CBlockIndex *AddToBlockIndex(const CChainParams &chainparams, const CBlockHeader
     // competitive advantage.
     pindexNew->nSequenceId = 0;
     pindexNew->nTimeReceived = GetTime();
-    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
-    pindexNew->phashBlock = &((*mi).first);
     BlockMap::iterator miPrev = mapBlockIndex.find(block.hashPrevBlock);
     if (miPrev != mapBlockIndex.end())
     {
@@ -399,9 +397,18 @@ CBlockIndex *AddToBlockIndex(const CChainParams &chainparams, const CBlockHeader
     if (pindexNew->header.chainWork != expectedWork)
     {
         pindexNew->nStatus |= BLOCK_FAILED_VALID; // block doesn't match checkpoints so invalid
+        delete pindexNew;
+        return nullptr; // Do not insert a block that does not meet work -- its a memory DOS attack.
     }
-    else
-        pindexNew->RaiseValidity(BLOCK_VALID_TREE);
+    // We do not create any blocks whose parents are TREE/HEADER invalid, so correct work in this block implies
+    // the TREE validity level.
+    else // Don't use raisevalidity, because it refuses to raise if BLOCK_FAILED_CHILD is set.
+        pindexNew->nStatus = (pindexNew->nStatus & ~BLOCK_VALID_MASK) | BLOCK_VALID_TREE;
+
+    assert((pindexNew->nStatus & BLOCK_VALID_MASK) >= BLOCK_VALID_TREE);
+    // Insert the record in the map
+    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
+    pindexNew->phashBlock = &((*mi).first);
 
     // If the block belongs to the set of check-pointed blocks but it has a mismatched hash,
     // then we are on the wrong fork so ignore.

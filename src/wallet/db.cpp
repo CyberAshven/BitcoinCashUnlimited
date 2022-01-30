@@ -159,7 +159,7 @@ CDBEnv::VerifyResult CDBEnv::Verify(const std::string &strFile,
 bool CDBEnv::Salvage(const std::string &strFile, bool fAggressive, std::vector<CDBEnv::KeyValPair> &vResult)
 {
     LOCK(cs_db);
-    assert(mapFileUseCount.count(strFile) == 0);
+    assert((mapFileUseCount.count(strFile) == 0) || (mapFileUseCount[strFile] == 0));
 
     u_int32_t flags = DB_SALVAGE;
     if (fAggressive)

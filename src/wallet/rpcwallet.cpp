@@ -516,6 +516,33 @@ UniValue listaddressgroupings(const UniValue &params, bool fHelp)
     return jsonGroupings;
 }
 
+UniValue listactiveaddresses(const UniValue &params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp)
+        throw runtime_error("listactiveaddresses\n"
+                            "\nLists addresses \n"
+                            "made public by common use as inputs or as the resulting change\n"
+                            "\nResult:\n"
+                            "[\n"
+                            "]\n"
+                            "\nExamples:\n" +
+                            HelpExampleCli("listaddressgroupings", "") + HelpExampleRpc("listaddressgroupings", ""));
+
+    LOCK(pwalletMain->cs_wallet);
+
+    UniValue ret(UniValue::VOBJ);
+    std::map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
+    for (const auto &b : balances)
+    {
+        ret.pushKV(EncodeDestination(b.first), ValueFromAmount(b.second));
+    }
+    return ret;
+}
+
+
 UniValue signmessage(const UniValue &params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3023,6 +3050,7 @@ static const CRPCCommand commands[] = {
     {"wallet",                "keypoolrefill",            &keypoolrefill,            true},
     {"wallet",                "listaccounts",             &listaccounts,             false},
     {"wallet",                "listaddressgroupings",     &listaddressgroupings,     false},
+    {"wallet",                "listactiveaddresses",      &listactiveaddresses,      false},
     {"wallet",                "listlockunspent",          &listlockunspent,          false},
     {"wallet",                "listreceivedbyaccount",    &listreceivedbyaccount,    false},
     {"wallet",                "listreceivedbyaddress",    &listreceivedbyaddress,    false},

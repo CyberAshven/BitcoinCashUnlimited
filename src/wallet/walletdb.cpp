@@ -410,12 +410,12 @@ bool ReadKeyValue(CWallet *pwallet,
 
                 fSkipCheck = true;
             }
-
             if (!key.Load(pkey, vchPubKey, fSkipCheck))
             {
                 strErr = "Error reading wallet database: CPrivKey corrupt";
                 return false;
             }
+
             if (!pwallet->LoadKey(key, vchPubKey))
             {
                 strErr = "Error reading wallet database: LoadKey failed";
@@ -817,12 +817,12 @@ void ThreadFlushWalletDB(const string &strFile)
     int64_t nLastWalletUpdate = GetTime();
     while (true)
     {
-        MilliSleep(500);
-
         if (shutdown_threads.load() == true)
         {
             break;
         }
+
+        MilliSleep(500);
 
         if (nLastSeen != nWalletDBUpdated)
         {
@@ -846,10 +846,6 @@ void ThreadFlushWalletDB(const string &strFile)
 
                 if (nRefCount == 0)
                 {
-                    if (shutdown_threads.load() == true)
-                    {
-                        break;
-                    }
                     map<string, int>::iterator mi2 = bitdb.mapFileUseCount.find(strFile);
                     if (mi2 != bitdb.mapFileUseCount.end())
                     {
@@ -866,10 +862,6 @@ void ThreadFlushWalletDB(const string &strFile)
                     }
                 }
             }
-        }
-        if (shutdown_threads.load() == true)
-        {
-            break;
         }
     }
 }
@@ -948,6 +940,7 @@ bool CWalletDB::Recover(CDBEnv &dbenv, const std::string &filename, bool fOnlyKe
 {
     // Recovery procedure:
     // move wallet.dat to wallet.timestamp.bak
+    // Open the wallet normally and read out as many records as possible.
     // Call Salvage with fAggressive=true to
     // get as much data as possible.
     // Rewrite salvaged data to wallet.dat
@@ -963,6 +956,38 @@ bool CWalletDB::Recover(CDBEnv &dbenv, const std::string &filename, bool fOnlyKe
     {
         LOGA("Failed to rename %s to %s\n", filename, newFilename);
         return false;
+    }
+
+    std::map<std::vector<unsigned char>, std::vector<unsigned char> > readData;
+    {
+        CWallet dummyWallet;
+        CWalletScanState wss;
+        {
+            CDB cdb(newFilename);
+            Dbc *cur = cdb.GetCursor();
+            int count = 0;
+            while (true)
+            {
+                string strType, strErr;
+                CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+                CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+                int ret = cdb.ReadAtCursor(cur, ssKey, ssValue);
+                if (ret == DB_NOTFOUND)
+                    break;
+                count++;
+                LOCK(dummyWallet.cs_wallet);
+                std::vector<unsigned char> keycopy(ssKey.begin(), ssKey.end());
+                std::vector<unsigned char> valcopy(ssValue.begin(), ssValue.end());
+                bool readok = ReadKeyValue(&dummyWallet, ssKey, ssValue, wss, strType, strErr);
+                if (readok && IsKeyType(strType))
+                {
+                    readData[keycopy] = valcopy;
+                }
+            }
+            LOGA("Recover, read %d records", count);
+            cdb.Close();
+        }
+        bitdb.CloseDb(newFilename);
     }
 
     std::vector<CDBEnv::KeyValPair> salvagedData;
@@ -1017,6 +1042,19 @@ bool CWalletDB::Recover(CDBEnv &dbenv, const std::string &filename, bool fOnlyKe
         if (ret2 > 0)
             fSuccess = false;
     }
+
+    // Write any data we got from opening the database normally.  If we got any, this is more likely to be correct
+
+    int nrec = 0;
+    for (auto &i : readData)
+    {
+        Dbt datKey((void *)&i.first[0], i.first.size());
+        Dbt datValue((void *)&i.second[0], i.second.size());
+        int putresult = pdbCopy->put(ptxn, &datKey, &datValue, DB_OVERWRITE_DUP);
+        assert(putresult == 0);
+        nrec++;
+    }
+
     ptxn->commit(0);
     pdbCopy->close(0);
 
