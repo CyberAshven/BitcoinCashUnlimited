@@ -30,7 +30,7 @@ CMerkleBlock::CMerkleBlock(const CBlock &block, CBloomFilter &filter)
 
     for (size_t i = 0; i < block.vtx.size(); i++)
     {
-        const uint256 &hash = block.vtx[i]->GetHash();
+        const uint256 &hash = block.vtx[i]->GetId();
         if (!vMatch[i])
         {
             vMatch[i] = filter.MatchInputs(block.vtx[i]);
@@ -59,7 +59,7 @@ CMerkleBlock::CMerkleBlock(const CBlock &block, const std::set<uint256> &txids)
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
-        const uint256 &hash = block.vtx[i]->GetHash();
+        const uint256 &hash = block.vtx[i]->GetId();
         if (txids.count(hash))
             vMatch.push_back(true);
         else

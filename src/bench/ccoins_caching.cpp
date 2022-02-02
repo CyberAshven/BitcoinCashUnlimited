@@ -65,14 +65,11 @@ static void CCoinsCaching(benchmark::State &state)
 
     CMutableTransaction t1;
     t1.vin.resize(3);
-    t1.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t1.vin[0].prevout.n = 1;
+    t1.vin[0].prevout = dummyTransactions[0].OutpointAt(1);
     t1.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
-    t1.vin[1].prevout.hash = dummyTransactions[1].GetHash();
-    t1.vin[1].prevout.n = 0;
+    t1.vin[1].prevout = dummyTransactions[1].OutpointAt(0);
     t1.vin[1].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
-    t1.vin[2].prevout.hash = dummyTransactions[1].GetHash();
-    t1.vin[2].prevout.n = 1;
+    t1.vin[2].prevout = dummyTransactions[1].OutpointAt(1);
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
     t1.vout.resize(2);
     t1.vout[0].nValue = 90 * CENT;

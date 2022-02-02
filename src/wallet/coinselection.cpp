@@ -37,7 +37,7 @@ TxoGroup makeGroup(SpendableTxos::iterator i, const TxoGroup *prev = nullptr)
     COutput outp = i->second;
     // verify that the output value is consistent -- TODO: Check pcoin and make sure it doesn't get deleted -- located
     // in mapWallet
-    assert(outp.tx->vout[outp.i].nValue == i->first);
+    assert(outp.GetValue() == i->first);
     ret.second.insert(i); // add this txo to the set
     return ret;
 }
@@ -124,7 +124,7 @@ bool validate(const TxoGroup &grp, const CAmount targetValue)
     for (TxoItVec::iterator i = grp.second.begin(); i != grp.second.end(); ++i, ++count)
     {
         COutput &tmp = (*i)->second;
-        txIn[count] = CTxIn(tmp.tx->GetHash(), tmp.i);
+        txIn[count] = CTxIn(tmp.GetOutPoint(), tmp.GetValue());
     }
 
     return true;

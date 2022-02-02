@@ -1170,7 +1170,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
 
             // Indicate that the tx was received and is about to be processed. Setting the processing flag
             // prevents us from re-requesting the txn during the time of processing and before mempool acceptance.
-            requester.ProcessingTxn(txd.tx->GetHash(), pfrom);
+            requester.ProcessingTxn(txd.tx->GetId(), pfrom);
 
             // Processing begins here where we enqueue the transaction.
             txd.nodeId = pfrom->id;
@@ -1178,7 +1178,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             txd.whitelisted = pfrom->fWhitelisted;
             EnqueueTxForAdmission(txd);
 
-            CInv inv(MSG_TX, txd.tx->GetHash());
+            CInv inv(MSG_TX, txd.tx->GetId());
             pfrom->AddInventoryKnown(inv);
             requester.UpdateTxnResponseTime(inv, pfrom);
         }
@@ -1238,7 +1238,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             hashLastBlock.SetNull();
             for (const CBlockHeader &header : headers)
             {
-                // LOG(NET, "Received header %s from %s\n", header.GetHash().ToString(), pfrom->GetLogName());
+                // LOG(NET, "Received header %s from %s\n", header.GetId().ToString(), pfrom->GetLogName());
                 // check that the first header has a previous block in the blockindex.
                 if (hashLastBlock.IsNull())
                 {
@@ -1826,7 +1826,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
             return true;
         }
         std::vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
+        mempool.queryIds(vtxid);
         std::vector<CInv> vInv;
 
         // Because we have to take cs_filter after mempool.cs, in order to maintain locking order, we
@@ -2015,8 +2015,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
                         CTxMemPool::setEntries setDescendants;
                         {
                             READLOCK(mempool.cs_txmempool);
-                            CTxMemPool::indexed_transaction_set::const_iterator iter =
-                                mempool.mapTx.find(ptx->GetHash());
+                            CTxMemPool::indexed_transaction_set::const_iterator iter = mempool.mapTx.find(ptx->GetId());
                             if (iter == mempool.mapTx.end())
                             {
                                 break;
@@ -2064,7 +2063,7 @@ bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, in
         vRecv >> nonce;
         vRecv >> tx;
         CTransactionRef ptx(MakeTransactionRef(std::move(tx)));
-        const uint256 &hashTx = ptx->GetHash();
+        const uint256 &hashTx = ptx->GetId();
 
         bool fOverrideFees = false;
         TransactionClass txClass = TransactionClass::DEFAULT;

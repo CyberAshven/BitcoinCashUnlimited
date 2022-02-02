@@ -56,7 +56,7 @@ def createConflictingTx(dests, source, count, fee=1):
         w = source
         if 1:
             tx = CTransaction()
-            tx.vin.append(CTxIn(COutPoint(w["txid"], w["vout"]), b"", 0xffffffff))
+            tx.vin.append(CTxIn(COutPoint().fromIdemAndIdx(w["txid"], w["vout"]), w["amount"], b"", 0xffffffff))
 
             amt = int(w["satoshi"] / len(dests)) - (fee + c)  # really total fee ends up fee*dest
 
@@ -114,7 +114,7 @@ def createTx(dests, sources, node, maxx=None, fee=1, nextWallet=None, generatedT
             w["pubkey"] = pubkey
 
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(w["txid"], w["vout"]), b"", 0xffffffff))
+        tx.vin.append(CTxIn(COutPoint().fromIdemAndIdx(w["txidem"], w["vout"]), w["satoshi"], b"", 0xffffffff))
 
         amt = int(w["satoshi"] / len(dests)) - fee  # really fee ends up fee*dest
 
@@ -154,7 +154,7 @@ def createTx(dests, sources, node, maxx=None, fee=1, nextWallet=None, generatedT
 
         for out in nextOuts:
             tx.rehash()
-            out["txid"] = tx.hash
+            out["txidem"] = tx.GetIdem()
             # I've already filled nextOuts with all the other needed fields
 
         if type(nextWallet) is list:
@@ -310,6 +310,7 @@ if __name__ == '__main__':
 # Create a convenient function for an interactive python debugging session
 def Test():
     t = MyTest(True)
+    t.drop_to_pdb = True
     bitcoinConf = {
         "debug": ["blk", "mempool", "net", "req"],
         "blockprioritysize": 2000000,  # we don't want any transactions rejected due to insufficient fees...

@@ -177,6 +177,7 @@ UniValue importprivkey(const UniValue &params, bool fHelp)
         {
             pwalletMain->ScanForWalletTransactions(chainActive.Genesis(), true);
         }
+        pwalletMain->RedetermineIfMine();
     }
 
     return NullUniValue;
@@ -259,6 +260,7 @@ UniValue importprivatekeys(const UniValue &params, bool fHelp)
     {
         StartWalletRescanThread();
     }
+    pwalletMain->RedetermineIfMine();
 
     return NullUniValue;
 }
@@ -468,8 +470,8 @@ UniValue importprunedfunds(const UniValue &params, bool fHelp)
     CTransaction tx;
     if (!DecodeHexTx(tx, params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-    uint256 hashTx = tx.GetHash();
-    CWalletTx wtx(pwalletMain, tx);
+    uint256 hashTx = tx.GetId();
+    CWalletTxRef wtx = std::make_shared<CWalletTx>(pwalletMain, tx);
 
     CDataStream ssMB(ParseHexV(params[1], "proof"), SER_NETWORK, PROTOCOL_VERSION);
     CMerkleBlock merkleBlock;
@@ -503,8 +505,8 @@ UniValue importprunedfunds(const UniValue &params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Something wrong with merkleblock");
     }
 
-    wtx.nIndex = txnIndex;
-    wtx.hashBlock = merkleBlock.header.GetHash();
+    wtx->nIndex = txnIndex;
+    wtx->hashBlock = merkleBlock.header.GetHash();
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -518,6 +520,7 @@ UniValue importprunedfunds(const UniValue &params, bool fHelp)
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No addresses in wallet correspond to included transaction");
 }
 
+
 UniValue removeprunedfunds(const UniValue &params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -525,11 +528,11 @@ UniValue removeprunedfunds(const UniValue &params, bool fHelp)
 
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "removeprunedfunds \"txid\"\n"
+            "removeprunedfunds \"txidem\"\n"
             "\nDeletes the specified transaction from the wallet. Meant for use with pruned wallets and as a companion "
             "to importprunedfunds. This will effect wallet balances.\n"
             "\nArguments:\n"
-            "1. \"txid\"           (string, required) The hex-encoded id of the transaction you are deleting\n"
+            "1. \"txidem\"           (string, required) The hex-encoded idem of the transaction you are deleting\n"
             "\nExamples:\n" +
             HelpExampleCli(
                 "removeprunedfunds", "\"a8d0c0184dde994a09ec054286f1ce581bebf46446a512166eae7628734ea0a5\"") +
@@ -556,6 +559,7 @@ UniValue removeprunedfunds(const UniValue &params, bool fHelp)
 
     return NullUniValue;
 }
+
 
 UniValue importpubkey(const UniValue &params, bool fHelp)
 {

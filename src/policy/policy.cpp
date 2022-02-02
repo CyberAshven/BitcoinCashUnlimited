@@ -65,7 +65,7 @@ bool IsStandard(const CScript &scriptPubKey, txnouttype &whichType)
 
 bool IsStandardTx(const CTransactionRef tx, std::string &reason, bool allowMultipleOpReturn)
 {
-    if (tx->nVersion > CTransaction::MAX_STANDARD_VERSION || tx->nVersion < 1)
+    if (tx->nVersion > CTransaction::MAX_STANDARD_VERSION)
     {
         reason = "version";
         return false;

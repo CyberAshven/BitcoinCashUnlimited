@@ -184,7 +184,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         # dont know yet: assert_equal(gbstats['blockhash'], 'genesis block hash here')
         assert_equal(gbstats['txs'], 1)
         assert_equal(gbstats['utxo_increase'], 1)
-        assert_equal(gbstats['utxo_size_inc'], 51)
+        assert_equal(gbstats['utxo_size_inc'], 48)
 
 
 if __name__ == '__main__':

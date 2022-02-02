@@ -30,17 +30,13 @@ struct CCoinsStats
 {
     int nHeight;
     uint256 hashBlock;
-    uint64_t nTransactions;
     uint64_t nTransactionOutputs;
     uint64_t nSerializedSize;
     uint256 hashSerialized;
     uint64_t nDiskSize;
     CAmount nTotalAmount;
 
-    CCoinsStats()
-        : nHeight(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), nDiskSize(0), nTotalAmount(0)
-    {
-    }
+    CCoinsStats() : nHeight(0), nTransactionOutputs(0), nSerializedSize(0), nDiskSize(0), nTotalAmount(0) {}
 };
 
 /**
@@ -104,6 +100,15 @@ public:
 
     bool IsSpent() const { return out.IsNull(); }
     size_t DynamicMemoryUsage() const { return memusage::DynamicUsage(out.scriptPubKey); }
+
+    // These APIs mirror those in CInPoint (mempool) and COutput (wallet) which provide the same utxo
+    // info from different underlying data.  TODO: make an abstract base class
+    /** returns the value of this output in satoshis */
+    CAmount GetValue() const { return out.nValue; }
+    /** returns the constraint script */
+    CScript GetConstraintScript() const { return out.scriptPubKey; }
+    /** returns the full txout */
+    const CTxOut &GetTxOut() const { return out; }
 };
 
 class SaltedOutpointHasher
@@ -115,7 +120,7 @@ private:
 public:
     SaltedOutpointHasher();
 
-    uint64_t operator()(const COutPoint &id) const { return SipHashUint256Extra(k0, k1, id.hash, id.n); }
+    uint64_t operator()(const COutPoint &id) const { return SipHashUint256Extra(k0, k1, id.hash, 0); }
 };
 
 struct CCoinsCacheEntry
@@ -257,7 +262,7 @@ public:
     const Coin &operator*() { return *coin; }
     CoinAccessor(const CCoinsViewCache &cacheObj, const COutPoint &output);
     // finds the first unspent output in this tx (slow)
-    CoinAccessor(const CCoinsViewCache &cacheObj, const uint256 &txid);
+    // CoinAccessor(const CCoinsViewCache &cacheObj, const uint256 &txid);
     ~CoinAccessor();
     friend class CCoinsViewCache;
 };

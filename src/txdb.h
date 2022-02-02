@@ -222,10 +222,17 @@ public:
 
     /// Read the disk location of the transaction data with the given hash. Returns false if the
     /// transaction hash is not indexed.
-    bool ReadTxPos(const uint256 &txid, CDiskTxPos &pos) const;
+    bool ReadTxIdPos(const uint256 &txid, CDiskTxPos &pos) const;
+    bool ReadTxIdemPos(const uint256 &txidem, CDiskTxPos &pos) const;
+
+    ///  Read the disk location of the transaction that created the passed outpoint
+    ///  NOTE: This does not return the outpoint position itself, but that of the containing transaction
+    bool ReadOutpointPos(const uint256 &outputid, CDiskTxPos &pos) const;
 
     /// Write a batch of transaction positions to the DB.
-    bool WriteTxs(const std::vector<std::pair<uint256, CDiskTxPos> > &v_pos);
+    bool WriteTxs(const std::vector<std::pair<uint256, CDiskTxPos> > &v_pos,
+        const std::vector<std::pair<uint256, CDiskTxPos> > &idem_pos,
+        const std::vector<std::pair<uint256, CDiskTxPos> > &prevout_pos);
 
     /// Read block locator of the chain that the txindex is in sync with.
     bool ReadBestBlock(CBlockLocator &locator) const;

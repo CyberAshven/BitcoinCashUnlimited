@@ -11,11 +11,12 @@
 #include "test/test_bitcoin.h"
 #include "validation/validation.h"
 #include "versionbits.h"
-
-#if 0 // Version bits removed
-
 #include <boost/test/unit_test.hpp>
 
+BOOST_FIXTURE_TEST_SUITE(versionbits_tests, TestingSetup)
+#if 1 // Version bits removed
+BOOST_AUTO_TEST_CASE(versionbits_test) { BOOST_CHECK(true); }
+#else
 /* Define a virtual block time, one block per 10 minutes after Nov 14 2014, 0:55:36am */
 int32_t TestTime(int nHeight) { return 1415926536 + 600 * nHeight; }
 static const Consensus::Params paramsDummy = Consensus::Params();
@@ -169,8 +170,6 @@ public:
 
     CBlockIndex *Tip() { return vpblock.size() ? vpblock.back() : nullptr; }
 };
-
-BOOST_FIXTURE_TEST_SUITE(versionbits_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(versionbits_test)
 {
@@ -421,6 +420,5 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
     // BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) & VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
 }
 
-
-BOOST_AUTO_TEST_SUITE_END()
 #endif
+BOOST_AUTO_TEST_SUITE_END()

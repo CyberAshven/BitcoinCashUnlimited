@@ -42,7 +42,7 @@ static inline std::vector<unsigned char> InsecureRandBytes(size_t len) { return 
 struct NumericallyLessTxHashComparator
 {
 public:
-    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetHash() < b->GetHash(); }
+    bool operator()(const CTransactionRef &a, const CTransactionRef &b) const { return a->GetId() < b->GetId(); }
 };
 
 /** Basic testing setup.
@@ -87,6 +87,7 @@ struct TestChain100Setup : public TestingSetup
 
     ~TestChain100Setup();
 
+public:
     std::vector<CTransaction> coinbaseTxns; // For convenience, coinbase transactions
     CKey coinbaseKey; // private/public key needed to spend coinbase transactions
 };
@@ -105,6 +106,7 @@ struct TestMemPoolEntryHelper
     bool spendsCoinbase;
     unsigned int sigOpCount;
     LockPoints lp;
+    std::string dbgName;
 
     TestMemPoolEntryHelper()
         : nFee(0), nTime(0), dPriority(0.0), nHeight(1), hadNoDependencies(false), spendsCoinbase(false), sigOpCount(1)
@@ -115,6 +117,11 @@ struct TestMemPoolEntryHelper
     CTxMemPoolEntry FromTx(const CTransaction &tx, CTxMemPool *pool = nullptr);
 
     // Change the default value
+    TestMemPoolEntryHelper &Name(const std::string &_name)
+    {
+        dbgName = _name;
+        return *this;
+    }
     TestMemPoolEntryHelper &Fee(CAmount _fee)
     {
         nFee = _fee;
@@ -162,7 +169,7 @@ class FalseScriptImportedState : public ScriptImportedState
 {
 public:
     BaseSignatureChecker checker;
-    FalseScriptImportedState() : ScriptImportedState(&checker, CTransactionRef(), 0, 0) {}
+    FalseScriptImportedState() : ScriptImportedState(&checker, CTransactionRef(), (unsigned int)-1, 0) {}
 };
 
 extern FalseScriptImportedState fsis;

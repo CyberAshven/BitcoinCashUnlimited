@@ -202,7 +202,7 @@ void URITests::uriTestScheme() {
         config.SetChainParams(CBaseChainParams::MAIN);
         QVERIFY("bitcoincash" == GUIUtil::bitcoinURIScheme(config));
         config.SetChainParams(CBaseChainParams::TESTNET);
-        QVERIFY("bchtest" == GUIUtil::bitcoinURIScheme(config));
+        QVERIFY("test" == GUIUtil::bitcoinURIScheme(config));
         config.SetChainParams(CBaseChainParams::REGTEST);
         QVERIFY("bchreg" == GUIUtil::bitcoinURIScheme(config));
     }

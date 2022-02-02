@@ -141,17 +141,19 @@ inline void ReadOrderPos(int64_t &nOrderPos, mapValue_t &mapValue)
 {
     if (!mapValue.count("n"))
     {
-        nOrderPos = -1; // TODO: calculate elsewhere
-        return;
+        assert(0); // All post-genesis block wallets contain an order, or the wallet is corrupt
     }
     nOrderPos = atoi64(mapValue["n"].c_str());
+    assert(nOrderPos != -1);
 }
 
 
 inline void WriteOrderPos(const int64_t &nOrderPos, mapValue_t &mapValue)
 {
     if (nOrderPos == -1)
-        return;
+    {
+        assert(0); // Disallow the code from ever refusing to order the object
+    }
     mapValue["n"] = i64tostr(nOrderPos);
 }
 
@@ -198,12 +200,16 @@ public:
      */
     int nIndex;
 
+    /** RAM only */
+    mutable int mainChainHeightCached = -1;
+
     CMerkleTx() { Init(); }
     CMerkleTx(const CTransaction &txIn) : CTransaction(txIn) { Init(); }
     void Init()
     {
         hashBlock = uint256();
         nIndex = -1;
+        mainChainHeightCached = -1;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -229,8 +235,17 @@ public:
     int GetDepthInMainChain(const CBlockIndex *&pindexRet) const;
     int GetDepthInMainChain() const
     {
+        if (mainChainHeightCached != -1)
+            return ((nIndex == -1) ? (-1) : 1) * (chainActive.Height() - mainChainHeightCached + 1);
         const CBlockIndex *pindexRet;
         return GetDepthInMainChain(pindexRet);
+    }
+    bool IsConflictConfirmed() const { return ((nIndex == -1) && !hashBlock.IsNull()); }
+    bool IsValid() const
+    {
+        // If an index in a block is set (a quick check) or a block hash is set then we know this object is
+        // really set to something, not just inited.
+        return ((nIndex != -1) || (!hashBlock.IsNull()));
     }
     bool IsInMainChain() const
     {
@@ -238,8 +253,6 @@ public:
         return GetDepthInMainChain(pindexRet) > 0;
     }
     int GetBlocksToMaturity() const;
-    /** Pass this transaction to the mempool. Fails if absolute fee exceeds maxTxFee. */
-    bool AcceptToMemoryPool(bool fLimitFree = true, bool fRejectAbsurdFee = true);
     bool hashUnset() const { return (hashBlock.IsNull() || hashBlock == ABANDON_HASH); }
     bool isAbandoned() const { return (hashBlock == ABANDON_HASH); }
     void setAbandoned() { hashBlock = ABANDON_HASH; }
@@ -289,6 +302,10 @@ public:
     CWalletTx(const CWallet *pwalletIn) { Init(pwalletIn); }
     CWalletTx(const CWallet *pwalletIn, const CMerkleTx &txIn) : CMerkleTx(txIn) { Init(pwalletIn); }
     CWalletTx(const CWallet *pwalletIn, const CTransaction &txIn) : CMerkleTx(txIn) { Init(pwalletIn); }
+    CWalletTx(const CWallet *pwalletIn, const CMutableTransaction &txIn) : CMerkleTx(CTransaction(txIn))
+    {
+        Init(pwalletIn);
+    }
     void Init(const CWallet *pwalletIn)
     {
         pwallet = pwalletIn;
@@ -434,41 +451,75 @@ public:
 
     bool RelayWalletTransaction();
 
+    // Given 2 wallet transaction objects that are the same transaction, updates this one with the latest info from
+    // the passed one.  Returns true if any fields changed.
+    bool Update(const CWalletTx &wtxIn);
+
     std::set<uint256> GetConflicts() const;
 };
 
 
+typedef std::shared_ptr<CWalletTx> CWalletTxRef;
+static inline CWalletTxRef MakeWalletTxRef() { return std::make_shared<CWalletTx>(); }
+
+template <typename Tx>
+static inline CWalletTxRef MakeWalletTxRef(const CWallet &wallet, Tx &&txIn)
+{
+    return std::make_shared<CWalletTx>(&wallet, std::forward<Tx>(txIn));
+}
+
+static inline CWalletTxRef MakeWalletTxRef(CWalletTx &txIn) { return std::make_shared<CWalletTx>(txIn); }
+
+
+static inline CWalletTxRef dup(CWalletTxRef wtx) { return std::make_shared<CWalletTx>(*wtx); }
+
 class COutput
 {
 public:
-    const CWalletTx *tx; //*< transaction
-    int i; //*< index of this output in transaction's vout
+    uint256 txid; // debugging do not use
+public:
+    CWalletTxRef tx; //*< transaction
+    int i = -1; //*< index of this output in transaction's vout
+    isminetype mine = isminetype::ISMINE_NO;
 
-    /** output of GetDepthInMainChain().  That is, how many blocks from the tip did this output get created in.  0 means
-     * not in blockchain (unconfirmed)
-     */
-    int nDepth;
-    bool fSpendable;
+    COutput() { tx = nullptr; }
 
-    COutput(const CWalletTx *txIn, int iIn, int nDepthIn, bool fSpendableIn)
+    COutput(CWalletTxRef txIn, int iIn, isminetype mineIn)
     {
         tx = txIn;
         i = iIn;
-        nDepth = nDepthIn;
-        fSpendable = fSpendableIn;
+        mine = mineIn;
+        txid = tx->GetId();
     }
 
     std::string ToString() const;
 
+    // Returns true if this COutput doesn't reference anything
+    bool isNull() const { return (tx) ? false : true; }
+
+    // Return true if this COutput refers to the entire tx, not to a specific output
+    bool txOnly() const { return ((tx) && (i == -1)); }
+
+    bool spendable() const { return ((mine & ISMINE_SPENDABLE) != ISMINE_NO); }
+
+    int GetDepthInMainChain() const { return tx->GetDepthInMainChain(); }
+
     /** returns the outpoint associated with this object */
-    COutPoint GetOutPoint() const { return COutPoint(tx->GetHash(), i); }
+    COutPoint GetOutPoint() const { return COutPoint(tx->GetIdem(), i); }
     /** returns the value of this output in satoshis */
     CAmount GetValue() const { return tx->vout[i].nValue; }
     /** returns the constraint script */
     CScript GetScriptPubKey() const { return tx->vout[i].scriptPubKey; }
+    const CTxOut &GetTxOut() const
+    {
+        assert(i >= 0);
+        assert(i < (int)tx->vout.size());
+        return tx->vout[i];
+    }
     inline int cmp(const COutput &rhs) const
     {
-        if (tx->GetHash() == rhs.tx->GetHash())
+        // An output is considered the same if it can be spent by the same input, so use GetIdem in this comparison
+        if (tx->GetIdem() == rhs.tx->GetIdem())
         {
             if (i < rhs.i)
                 return -1;
@@ -476,7 +527,7 @@ public:
                 return 1;
             return 0;
         }
-        if (tx->GetHash() < rhs.tx->GetHash())
+        if (tx->GetIdem() < rhs.tx->GetIdem())
             return -1;
         return 1;
     }
@@ -625,6 +676,8 @@ private:
 };
 
 
+typedef std::map<COutPoint, COutput> MapWallet;
+
 /**
  * A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
@@ -640,7 +693,7 @@ private:
     bool SelectCoins(const CAmount &nTargetValue,
         CFeeRate fee,
         unsigned int changeLen,
-        std::set<std::pair<const CWalletTx *, unsigned int> > &setCoinsRet,
+        std::set<COutput> &setCoinsRet,
         CAmount &nValueRet,
         const CCoinControl *coinControl = nullptr);
 
@@ -661,11 +714,18 @@ private:
      * Used to keep track of spent outpoints, and
      * detect and report conflicts (double-spends or
      * mutated transactions where the mutant gets mined).
+     * 2nd parameter is TxId
      */
     typedef std::multimap<COutPoint, uint256> TxSpends;
     TxSpends mapTxSpends;
     void AddToSpends(const COutPoint &outpoint, const uint256 &wtxid);
-    void AddToSpends(const uint256 &wtxid);
+    void AddToSpends(const CWalletTxRef wtx);
+
+    // If tx is abandoned these APIs clean it out of the wallet.
+    // An "abandoned" (user tells us to abandon) tx is the only type that we want to completely forget about
+    // even a conflicted tx where the other one is committed is tracked as conflicted
+    void RemoveFromSpends(const COutPoint &outpoint, const uint256 &wtxid);
+    void RemoveFromSpends(const CWalletTxRef wtx);
 
 public:
     /** Mark a wallet transaction as double spent */
@@ -732,14 +792,17 @@ public:
         fBroadcastTransactions = false;
     }
 
-    std::map<uint256, CWalletTx> mapWallet;
+    // Maps outpoints to transactions (and vout index)
+    // Also stores the transaction by its id and idem in separate entries
+    MapWallet mapWallet;
+
     std::list<CAccountingEntry> laccentries;
 
-    typedef std::pair<CWalletTx *, CAccountingEntry *> TxPair;
+    typedef std::pair<CWalletTxRef, CAccountingEntry *> TxPair;
     typedef std::multimap<int64_t, TxPair> TxItems;
-    TxItems wtxOrdered;
+    TxItems wtxOrdered; // Orders transactions based on when they were created
 
-    int64_t nOrderPosNext;
+    int64_t nOrderPosNext; // The next ordering number to use
     std::map<uint256, int> mapRequestCount;
 
     std::map<CTxDestination, CAddressBookData> mapAddressBook;
@@ -750,9 +813,13 @@ public:
 
     int64_t nTimeFirstKey;
 
-    const CWalletTx *GetWalletTx(const uint256 &hash) const;
+    const CWalletTxRef GetWalletTx(const uint256 &hash) const;
 
-    bool IsTxSpendable(const CWalletTx *) const;
+    // This needs to make a copy of COutput because it does not require that cs_wallet lock is held.
+    // (it grabs and releases internally).
+    const COutput GetWalletCoin(const COutPoint &prevout) const;
+
+    bool IsTxSpendable(const CWalletTxRef) const;
     void FillAvailableCoins(const CCoinControl *coinControl); // populate available COutputs.
 
     //! check whether we are allowed to upgrade (or already support) to the named feature
@@ -769,13 +836,16 @@ public:
         bool fOnlyConfirmed = true,
         const CCoinControl *coinControl = nullptr,
         bool fIncludeZeroValue = false) const;
+    void AvailableCoins(SpendableTxos &coins,
+        bool fOnlyConfirmed = true,
+        const CCoinControl *coinControl = nullptr,
+        bool fIncludeZeroValue = false) const;
 
     /**
      * populate vCoins with vector of available COutputs, filtered by the passed lambda function.
        Returns the number of matches.
      */
-    unsigned int FilterCoins(std::vector<COutput> &vCoins,
-        std::function<bool(const CWalletTx *, const CTxOut *)>) const;
+    unsigned int FilterCoins(std::vector<COutput> &vCoins, std::function<bool(const COutput &)>) const;
 
     /**
      * Shuffle and select coins until nTargetValue is reached while avoiding
@@ -787,14 +857,14 @@ public:
         int nConfMine,
         int nConfTheirs,
         std::vector<COutput> vCoins,
-        std::set<std::pair<const CWalletTx *, unsigned int> > &setCoinsRet,
+        std::set<COutput> &setCoinsRet,
         CAmount &nValueRet) const;
 
-    bool IsSpent(const uint256 &hash, unsigned int n) const;
+    bool IsSpent(const COutPoint &outpoint) const;
 
-    bool IsLockedCoin(uint256 hash, unsigned int n) const;
-    void LockCoin(COutPoint &output);
-    void UnlockCoin(COutPoint &output);
+    bool IsLockedCoin(const COutPoint &outpoint) const;
+    void LockCoin(const COutPoint &output);
+    void UnlockCoin(const COutPoint &output);
     void UnlockAllCoins();
     void ListLockedCoins(std::vector<COutPoint> &vOutpts);
 
@@ -855,7 +925,10 @@ public:
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = nullptr);
 
     void MarkDirty();
-    bool AddToWallet(const CWalletTx &wtxIn, bool fFromLoadWallet, CWalletDB *pwalletdb);
+    /**
+     * Adds transaction to the wallet.  Does NOT make a copy
+     */
+    bool AddToWallet(CWalletTxRef wtxIn, bool fFromLoadWallet, CWalletDB *pwalletdb);
     void SyncTransaction(const CTransactionRef &ptx, const CBlock *pblock, int txIndex = -1);
 
     /**
@@ -876,6 +949,7 @@ public:
 
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime);
+    // Returns a vector of transaction Idems for all transactions that were resent (which is passed to the user via RPC)
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
     CAmount GetBalance() const;
     CAmount GetUnconfirmedBalance() const;
@@ -958,14 +1032,14 @@ public:
     void SetBestChain(const CBlockLocator &loc);
 
     DBErrors LoadWallet(bool &fFirstRunRet);
-    DBErrors ZapWalletTx(std::vector<CWalletTx> &vWtx);
+    DBErrors ZapWalletTx(std::vector<CWalletTxRef> &vWtx);
     DBErrors ZapSelectTx(std::vector<uint256> &vHashIn, std::vector<uint256> &vHashOut);
 
     bool SetAddressBook(const CTxDestination &address, const std::string &strName, const std::string &purpose);
 
     bool DelAddressBook(const CTxDestination &address);
 
-    void UpdatedTransaction(const uint256 &hashTx);
+    void UpdatedTransaction(const COutPoint &outpt);
 
     void Inventory(const uint256 &hash)
     {
@@ -1069,6 +1143,15 @@ public:
 
     /* Set the current HD master key (will reset the chain child index counters) */
     bool SetHDMasterKey(const CPubKey &key);
+
+    // Goes through all outpoints, rediscovering if they are spendable by me (used when privkey imported).
+    void RedetermineIfMine();
+
+    // called from walletdb Zap to clean the wallet's map
+    void EraseFromRam(CWalletTxRef);
+
+    // Check internal things about the wallet
+    void Check();
 };
 
 /** A key allocated from the key pool. */

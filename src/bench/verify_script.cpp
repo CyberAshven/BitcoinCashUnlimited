@@ -23,6 +23,7 @@ static CMutableTransaction BuildCreditingTransaction(const CScript &scriptPubKey
     txCredit.vin.resize(1);
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
+    txCredit.vin[0].amount = 1;
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
     txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = scriptPubKey;
@@ -39,8 +40,8 @@ static CMutableTransaction BuildSpendingTransaction(const CScript &scriptSig, co
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
     txSpend.vout.resize(1);
-    txSpend.vin[0].prevout.hash = txCredit.GetHash();
-    txSpend.vin[0].prevout.n = 0;
+    txSpend.vin[0].prevout = txCredit.OutpointAt(0);
+    txSpend.vin[0].amount = txCredit.vout[0].nValue;
     txSpend.vin[0].scriptSig = scriptSig;
     txSpend.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
     txSpend.vout[0].scriptPubKey = CScript();

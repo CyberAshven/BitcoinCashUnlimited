@@ -252,6 +252,10 @@ extern CCriticalSection cs_blockvalidationthread;
 void InterruptBlockValidationThreads();
 
 
+/** Convert a string to lowercase (in place) */
+void makeLowercase(std::string &input);
+
+
 // Fork configuration
 /** This specifies the MTP time of the next fork */
 extern CTweakRef<uint64_t> miningForkTime;

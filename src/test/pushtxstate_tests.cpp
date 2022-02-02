@@ -60,14 +60,16 @@ BOOST_AUTO_TEST_CASE(pushtxstate)
 {
     CScript s;
     CMutableTransaction tx;
-    tx.nVersion = 1234;
-    s = CScript() << PushTxStateSpecifier::TX_VERSION << OP_PUSH_TX_STATE << 1234 << OP_EQUAL;
+    tx.nVersion = 12;
+    s = CScript() << PushTxStateSpecifier::TX_VERSION << OP_PUSH_TX_STATE << 12 << OP_EQUAL;
     testScript(s, &tx);
-    s = CScript() << PushTxStateSpecifier::TX_VERSION << OP_PUSH_TX_STATE << 1235 << OP_EQUAL;
+    s = CScript() << PushTxStateSpecifier::TX_VERSION << OP_PUSH_TX_STATE << 13 << OP_EQUAL;
     testScript(s, &tx, 0, 0, false);
 
     // impossible if s is the constraint script because s changes the hash which changes dependent tx input.
-    s = CScript() << PushTxStateSpecifier::TX_ID << OP_PUSH_TX_STATE << tx.GetHash() << OP_EQUAL;
+    s = CScript() << PushTxStateSpecifier::TX_ID << OP_PUSH_TX_STATE << tx.GetId() << OP_EQUAL;
+    testScript(s, &tx);
+    s = CScript() << PushTxStateSpecifier::TX_IDEM << OP_PUSH_TX_STATE << tx.GetIdem() << OP_EQUAL;
     testScript(s, &tx);
 
     // Try a double specifier

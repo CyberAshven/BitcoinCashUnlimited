@@ -184,6 +184,8 @@ public:
     virtual bool CheckLockTime(const CScriptNum &nLockTime) const { return false; }
     virtual bool CheckSequence(const CScriptNum &nSequence) const { return false; }
     virtual ~BaseSignatureChecker() {}
+
+    unsigned int flags() const { return nFlags; }
 };
 
 class TransactionSignatureChecker : public BaseSignatureChecker
@@ -191,7 +193,6 @@ class TransactionSignatureChecker : public BaseSignatureChecker
 protected:
     const CTransaction *txTo = nullptr;
     unsigned int nIn = 0;
-    CAmount amount = 0;
     mutable size_t nBytesHashed = 0;
     mutable size_t nSigops = 0;
 
@@ -200,7 +201,7 @@ public:
         unsigned int nInIn,
         const CAmount &amountIn,
         unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID)
-        : txTo(txToIn), nIn(nInIn), amount(amountIn), nBytesHashed(0), nSigops(0)
+        : txTo(txToIn), nIn(nInIn), nBytesHashed(0), nSigops(0)
     {
         nFlags = flags;
     }
@@ -212,7 +213,6 @@ public:
     {
         txTo = txToIn;
         nIn = nInIn;
-        amount = amountIn;
         nFlags = flags;
         nBytesHashed = 0;
         nSigops = 0;
@@ -237,8 +237,9 @@ public:
         unsigned int nInIn,
         const CAmount &amountIn,
         unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID)
-        : TransactionSignatureChecker(&txTo, nInIn, amountIn, flags), txTo(*txToIn)
+        : TransactionSignatureChecker(), txTo(*txToIn)
     {
+        Init(&txTo, nInIn, amountIn, flags);
     }
 };
 
@@ -252,15 +253,10 @@ class ScriptImportedState
 public:
     const BaseSignatureChecker *checker = nullptr;
     CTransactionRef tx = nullptr;
-    // CScript scriptCode;
-    unsigned int nIn = 0;
-    CAmount amount = 0;
+    unsigned int nIn = (unsigned int)-1;
 
-    ScriptImportedState(const BaseSignatureChecker *c,
-        CTransactionRef t,
-        unsigned int inputIdx,
-        unsigned int inputAmount)
-        : checker(c), tx(t), nIn(inputIdx), amount(inputAmount)
+    ScriptImportedState(const BaseSignatureChecker *c, CTransactionRef t, unsigned int inputIdx, CAmount amountObsolete)
+        : checker(c), tx(t), nIn(inputIdx)
     {
     }
     ScriptImportedState() {}
@@ -273,35 +269,32 @@ public:
 
     ScriptImportedStateSig(const CMutableTransaction *txToIn,
         unsigned int inIndex,
-        const CAmount &amountIn,
+        const CAmount &amountObsolete,
         unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID)
     {
         tx = MakeTransactionRef(*txToIn);
         nIn = inIndex;
-        amount = amountIn;
-        tsc.Init(&(*tx), nIn, amount, flags);
+        tsc.Init(&(*tx), nIn, tx->vin[nIn].amount, flags);
         checker = &tsc;
     }
     ScriptImportedStateSig(const CTransaction *txToIn,
         unsigned int inIndex,
-        const CAmount &amountIn,
+        const CAmount &amountObsolete,
         unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID)
     {
         tx = MakeTransactionRef(*txToIn);
         nIn = inIndex;
-        amount = amountIn;
-        tsc.Init(&(*tx), nIn, amount, flags);
+        tsc.Init(&(*tx), nIn, tx->vin[nIn].amount, flags);
         checker = &tsc;
     }
     ScriptImportedStateSig(const CTransactionRef txToIn,
         unsigned int inIndex,
-        const CAmount &amountIn,
+        const CAmount &amountObsolete,
         unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID)
     {
         tx = txToIn;
         nIn = inIndex;
-        amount = amountIn;
-        tsc.Init(&(*tx), nIn, amount, flags);
+        tsc.Init(&(*tx), nIn, tx->vin[nIn].amount, flags);
         checker = &tsc;
     }
 };

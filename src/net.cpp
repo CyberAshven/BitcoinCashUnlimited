@@ -2961,7 +2961,7 @@ void NetCleanup()
 
 void RelayTransaction(const CTransactionRef ptx)
 {
-    CInv inv(MSG_TX, ptx->GetHash());
+    CInv inv(MSG_TX, ptx->GetId());
     {
         LOCK(cs_mapRelay);
         // Expire old relay messages

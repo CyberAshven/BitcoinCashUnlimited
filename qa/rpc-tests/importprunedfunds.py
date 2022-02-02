@@ -140,3 +140,17 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     ImportPrunedFundsTest ().main ()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = ImportPrunedFundsTest()
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    #import signal, pdb
+    #signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

@@ -1172,7 +1172,7 @@ std::string toString(uint64_t value, const std::map<uint64_t, std::string> bitma
 #include <sys/syscall.h>
 #include <sys/types.h>
 #endif
-
+bool pauseOnDbgAssert = true;
 std::mutex dbgPauseMutex;
 std::condition_variable dbgPauseCond;
 void DbgPause()

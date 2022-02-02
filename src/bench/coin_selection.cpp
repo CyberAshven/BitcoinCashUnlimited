@@ -19,10 +19,10 @@ static void addCoin(const CAmount &nValue, const CWallet &wallet, vector<COutput
     tx.nLockTime = nextLockTime++; // so all transactions get different hashes
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    CWalletTx *wtx = new CWalletTx(&wallet, tx);
+    CWalletTxRef wtx = MakeWalletTxRef(wallet, tx);
+    wtx->mainChainHeightCached = 10; // the transaction isn't in the blockchain so we have to fake this part
 
-    int nAge = 6 * 24;
-    COutput output(wtx, nInput, nAge, true);
+    COutput output(wtx, nInput, isminetype::ISMINE_SPENDABLE);
     vCoins.push_back(output);
 }
 
@@ -46,7 +46,7 @@ static void CoinSelectionBench(benchmark::State &state)
             addCoin(1000 * COIN, wallet, vCoins);
         addCoin(3 * COIN, wallet, vCoins);
 
-        set<pair<const CWalletTx *, unsigned int> > setCoinsRet;
+        set<COutput> setCoinsRet;
         CAmount nValueRet;
         bool success = wallet.SelectCoinsMinConf(1003 * COIN, 1, 6, vCoins, setCoinsRet, nValueRet);
         assert(success);
@@ -54,10 +54,7 @@ static void CoinSelectionBench(benchmark::State &state)
         assert(setCoinsRet.size() == 2);
 
         // Empty wallet.
-        for (COutput output : vCoins)
-        {
-            delete output.tx;
-        }
+        // tx shared pointer is automatically cleaned up
         vCoins.clear();
     }
 }

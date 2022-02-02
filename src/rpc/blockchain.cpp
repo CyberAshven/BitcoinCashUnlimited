@@ -131,6 +131,7 @@ UniValue blockToJSON(const CBlock &block,
     blockheaderToJSON(blockindex, result);
 
     UniValue txs(UniValue::VARR);
+    UniValue txidems(UniValue::VARR);
     if (listTxns)
     {
         int64_t txTime = -1; // Don't display the time in the tx because its in the block data.
@@ -144,10 +145,19 @@ UniValue blockToJSON(const CBlock &block,
             }
             else
             {
-                txs.push_back(tx->GetHash().GetHex());
+                txs.push_back(tx->GetId().GetHex());
+                txidems.push_back(tx->GetIdem().GetHex());
             }
         }
-        result.pushKV("tx", txs);
+        if (txDetails) // Details contains both id an idem
+        {
+            result.pushKV("tx", txs);
+        }
+        else
+        {
+            result.pushKV("txid", txs);
+            result.pushKV("txidem", txidems);
+        }
     }
     else
     {
@@ -228,16 +238,16 @@ std::string EntryDescriptionString()
            "GMT\n"
            "    \"height\" : n,           (numeric) block height when transaction entered pool\n"
            "    \"startingpriority\" : n, (numeric) priority when transaction entered pool\n"
-           "    \"currentpriority\" : n,  (numeric) transaction priority now\n"
+           "    \"currentpriority\" : n,  (numeric) transaction priority now (including manual adjustments)\n"
            "    \"ancestorcount\" : n,    (numeric) number of in-mempool ancestor transactions (including this one)\n"
            "    \"ancestorsize\" : n,     (numeric) size of in-mempool ancestors (including this one)\n"
            "    \"ancestorfees\" : n,     (numeric) modified fees (see above) of in-mempool ancestors (including this "
            "one)\n"
            "    \"depends\" : [           (array) unconfirmed transactions used as inputs for this transaction\n"
-           "        \"transactionid\",    (string) parent transaction id\n"
+           "        \"transactionid\",    (string) parent transaction idem\n"
            "       ... ]\n"
            "    \"spentby\" : [           (array) unconfirmed transactions spending outputs from this transaction\n"
-           "        \"transactionid\",    (string) child transaction id\n"
+           "        \"transactionidem\",    (string) child transaction idem\n"
            "       ... ]\n";
 }
 
@@ -252,16 +262,22 @@ void entryToJSON(UniValue &info, const CTxMemPoolEntry &e)
     info.pushKV("height", (int)e.GetHeight());
     info.pushKV("doublespent", (e.dsproof == 1 ? true : false));
     info.pushKV("startingpriority", e.GetPriority(e.GetHeight()));
-    info.pushKV("currentpriority", e.GetPriority(chainActive.Height()));
+
+    double priority = e.GetPriority(chainActive.Height());
+    CAmount dummy = 0;
+    // Adjust the priority by any CLI changes
+    mempool._ApplyDeltas(e.GetTx().GetId(), priority, dummy);
+    mempool._ApplyDeltas(e.GetTx().GetIdem(), priority, dummy);
+    info.pushKV("currentpriority", priority);
     info.pushKV("ancestorcount", e.GetCountWithAncestors());
     info.pushKV("ancestorsize", e.GetSizeWithAncestors());
     info.pushKV("ancestorfees", e.GetModFeesWithAncestors());
     const CTransaction &tx = e.GetTx();
     set<string> setDepends;
-    for (const CTxIn &txin : tx.vin)
+    const CTxMemPool::setEntries &parents = mempool.GetMemPoolParents(tx);
+    for (const auto &p : parents)
     {
-        if (mempool._exists(txin.prevout.hash))
-            setDepends.insert(txin.prevout.hash.ToString());
+        setDepends.insert(p->GetTx().GetIdem().GetHex());
     }
 
     UniValue depends(UniValue::VARR);
@@ -272,16 +288,16 @@ void entryToJSON(UniValue &info, const CTxMemPoolEntry &e)
     info.pushKV("depends", depends);
 
     UniValue spent(UniValue::VARR);
-    const CTxMemPool::txiter &it = mempool.mapTx.find(tx.GetHash());
+    const CTxMemPool::TxIdIter &it = mempool.mapTx.find(tx.GetId());
     const CTxMemPool::setEntries &setChildren = mempool.GetMemPoolChildren(it);
-    for (const CTxMemPool::txiter &childiter : setChildren)
+    for (const CTxMemPool::TxIdIter &childiter : setChildren)
     {
-        spent.push_back(childiter->GetTx().GetHash().ToString());
+        spent.push_back(childiter->GetTx().GetIdem().ToString());
     }
     info.pushKV("spentby", spent);
 }
 
-UniValue mempoolToJSON(bool fVerbose /* = false */)
+UniValue mempoolToJSON(bool fVerbose /* = false */, bool idem /* = false */)
 {
     if (fVerbose)
     {
@@ -289,7 +305,7 @@ UniValue mempoolToJSON(bool fVerbose /* = false */)
         UniValue o(UniValue::VOBJ);
         for (const CTxMemPoolEntry &e : mempool.mapTx)
         {
-            const uint256 &hash = e.GetTx().GetHash();
+            const uint256 &hash = (idem) ? e.GetTx().GetIdem() : e.GetTx().GetId();
             UniValue info(UniValue::VOBJ);
             entryToJSON(info, e);
             o.pushKV(hash.ToString(), info);
@@ -299,7 +315,10 @@ UniValue mempoolToJSON(bool fVerbose /* = false */)
     else
     {
         vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
+        if (idem)
+            mempool.queryIdems(vtxid);
+        else
+            mempool.queryIds(vtxid);
 
         UniValue a(UniValue::VARR);
         for (const uint256 &hash : vtxid)
@@ -312,7 +331,7 @@ UniValue mempoolToJSON(bool fVerbose /* = false */)
 UniValue orphanpoolToJSON()
 {
     vector<uint256> vHashes;
-    orphanpool.QueryHashes(vHashes);
+    orphanpool.QueryIds(vHashes);
 
     UniValue a(UniValue::VARR);
     for (const uint256 &hash : vHashes)
@@ -320,14 +339,59 @@ UniValue orphanpoolToJSON()
 
     return a;
 }
+
 UniValue getrawmempool(const UniValue &params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+    if (fHelp || params.size() > 2)
         throw runtime_error(
-            "getrawmempool ( verbose )\n"
+            "getrawmempool ( verbose ) (id or idem)\n"
             "\nReturns all transaction ids in memory pool as a json array of string transaction ids.\n"
             "\nArguments:\n"
             "1. verbose           (boolean, optional, default=false) true for a json object, false for array of "
+            "2. id or idem        (string, optional, default=idem) return transaction idem or id"
+            "transaction ids\n"
+            "\nResult: (for verbose = false):\n"
+            "[                     (json array of string)\n"
+            "  \"transactionid\"     (string) The transaction id\n"
+            "  ,...\n"
+            "]\n"
+            "\nResult: (for verbose = true):\n"
+            "{                           (json object)\n"
+            "  \"transactionid\" : {       (json object)\n" +
+            EntryDescriptionString() +
+            "  }, ...\n"
+            "}\n"
+            "\nExamples\n" +
+            HelpExampleCli("getrawmempool", "true") + HelpExampleRpc("getrawmempool", "true"));
+
+    LOCK(cs_main);
+
+    bool idem = true;
+    bool fVerbose = false;
+    if (params.size() > 0)
+        fVerbose = params[0].get_bool();
+    if (params.size() > 1)
+    {
+        std::string s = params[1].get_str();
+        makeLowercase(s);
+        if (s == "id")
+            idem = false;
+        else if (s != "idem")
+            throw JSONRPCError(RPC_INVALID_PARAMS, "2nd parameter must be 'id' or 'idem'");
+    }
+
+    return mempoolToJSON(fVerbose, idem);
+}
+
+UniValue getrawmempoolbyid(const UniValue &params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getrawmempool ( verbose ) ( id or idem)\n"
+            "\nReturns all transaction ids in memory pool as a json array of string transaction ids.\n"
+            "\nArguments:\n"
+            "1. verbose           (boolean, optional, default=false) true for a json object, false for array of "
+            "2. id or idem           (string, optional, default=idem) return transaction idem or id"
             "transaction ids\n"
             "\nResult: (for verbose = false):\n"
             "[                     (json array of string)\n"
@@ -346,10 +410,20 @@ UniValue getrawmempool(const UniValue &params, bool fHelp)
     LOCK(cs_main);
 
     bool fVerbose = false;
+    bool idem = true;
     if (params.size() > 0)
         fVerbose = params[0].get_bool();
+    if (params.size() > 1)
+    {
+        std::string s = params[1].get_str();
+        makeLowercase(s);
+        if (s == "id")
+            idem = false;
+        else if (s != "idem")
+            throw JSONRPCError(RPC_INVALID_PARAMS, "2nd parameter must be 'id' or 'idem'");
+    }
 
-    return mempoolToJSON(fVerbose);
+    return mempoolToJSON(fVerbose, idem);
 }
 
 UniValue getraworphanpool(const UniValue &params, bool fHelp)
@@ -402,7 +476,7 @@ UniValue getmempoolancestors(const UniValue &params, bool fHelp)
 
     READLOCK(mempool.cs_txmempool);
 
-    CTxMemPool::txiter it = mempool.mapTx.find(paramhash);
+    CTxMemPool::TxIdIter it = mempool._getIdIter(paramhash);
     if (it == mempool.mapTx.end())
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not in mempool");
@@ -416,9 +490,9 @@ UniValue getmempoolancestors(const UniValue &params, bool fHelp)
     if (!fVerbose)
     {
         UniValue o(UniValue::VARR);
-        for (CTxMemPool::txiter ancestorIt : setAncestors)
+        for (CTxMemPool::TxIdIter ancestorIt : setAncestors)
         {
-            o.push_back(ancestorIt->GetTx().GetHash().ToString());
+            o.push_back(ancestorIt->GetTx().GetId().ToString());
         }
 
         return o;
@@ -426,10 +500,10 @@ UniValue getmempoolancestors(const UniValue &params, bool fHelp)
     else
     {
         UniValue o(UniValue::VOBJ);
-        for (CTxMemPool::txiter ancestorIt : setAncestors)
+        for (CTxMemPool::TxIdIter ancestorIt : setAncestors)
         {
             const CTxMemPoolEntry &e = *ancestorIt;
-            const uint256 &hash = e.GetTx().GetHash();
+            const uint256 &hash = e.GetTx().GetId();
             UniValue info(UniValue::VOBJ);
             entryToJSON(info, e);
             o.pushKV(hash.ToString(), info);
@@ -473,7 +547,7 @@ UniValue getmempooldescendants(const UniValue &params, bool fHelp)
 
     WRITELOCK(mempool.cs_txmempool);
 
-    CTxMemPool::txiter it = mempool.mapTx.find(paramhash);
+    CTxMemPool::TxIdIter it = mempool._getIdIter(paramhash);
     if (it == mempool.mapTx.end())
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not in mempool");
@@ -487,9 +561,9 @@ UniValue getmempooldescendants(const UniValue &params, bool fHelp)
     if (!fVerbose)
     {
         UniValue o(UniValue::VARR);
-        for (CTxMemPool::txiter descendantIt : setDescendants)
+        for (auto descendantIt : setDescendants)
         {
-            o.push_back(descendantIt->GetTx().GetHash().ToString());
+            o.push_back(descendantIt->GetTx().GetId().ToString());
         }
 
         return o;
@@ -497,10 +571,10 @@ UniValue getmempooldescendants(const UniValue &params, bool fHelp)
     else
     {
         UniValue o(UniValue::VOBJ);
-        for (CTxMemPool::txiter descendantIt : setDescendants)
+        for (auto descendantIt : setDescendants)
         {
             const CTxMemPoolEntry &e = *descendantIt;
-            const uint256 &hash = e.GetTx().GetHash();
+            const uint256 &hash = e.GetTx().GetId();
             UniValue info(UniValue::VOBJ);
             entryToJSON(info, e);
             o.pushKV(hash.ToString(), info);
@@ -530,7 +604,7 @@ UniValue getmempoolentry(const UniValue &params, bool fHelp)
 
     READLOCK(mempool.cs_txmempool);
 
-    CTxMemPool::txiter it = mempool.mapTx.find(hash);
+    CTxMemPool::TxIdIter it = mempool._getIdIter(hash);
     if (it == mempool.mapTx.end())
     {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not in mempool");
@@ -865,25 +939,12 @@ static UniValue getblock(const UniValue &params, bool fHelp)
     return blockToJSON(block, pindex, fVerbose, fListTxns);
 }
 
-static void ApplyStats(CCoinsStats &stats,
-    CHashWriter &ss,
-    const uint256 &hash,
-    const std::map<uint32_t, Coin> &outputs)
+static void ApplyStats(CCoinsStats &stats, CHashWriter &ss, const COutPoint &outpt, const Coin &coin)
 {
-    DbgAssert(!outputs.empty(), throw std::runtime_error(__func__));
-    ss << hash;
-    ss << VARINT(
-        outputs.begin()->second.nHeight * 2 + outputs.begin()->second.fCoinBase, VarIntMode::NONNEGATIVE_SIGNED);
-    stats.nTransactions++;
-    for (const auto output : outputs)
-    {
-        ss << VARINT(output.first + 1);
-        ss << *(const CScriptBase *)(&output.second.out.scriptPubKey);
-        ss << VARINT(output.second.out.nValue, VarIntMode::NONNEGATIVE_SIGNED);
-        stats.nTransactionOutputs++;
-        stats.nTotalAmount += output.second.out.nValue;
-    }
-    ss << VARINT(0u);
+    ss << outpt;
+    ss << coin;
+    stats.nTransactionOutputs++;
+    stats.nTotalAmount += coin.GetValue();
 }
 
 //! Calculate statistics about the unspent transaction output set
@@ -894,12 +955,13 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
 
     CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
     stats.hashBlock = pcursor->GetBestBlock();
+    stats.nTransactionOutputs = 0;
+    stats.nTotalAmount = 0;
 
     CBlockIndex *pindex = LookupBlockIndex(stats.hashBlock);
     stats.nHeight = pindex->height();
     ss << stats.hashBlock;
-    uint256 prevkey;
-    std::map<uint32_t, Coin> outputs;
+    COutPoint prevkey;
     while (pcursor->Valid())
     {
         boost::this_thread::interruption_point();
@@ -907,23 +969,13 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
         Coin coin;
         if (pcursor->GetKey(key) && pcursor->GetValue(coin))
         {
-            if (!outputs.empty() && key.hash != prevkey)
-            {
-                ApplyStats(stats, ss, prevkey, outputs);
-                outputs.clear();
-            }
-            prevkey = key.hash;
-            outputs[key.n] = std::move(coin);
+            ApplyStats(stats, ss, key, coin);
         }
         else
         {
             return error("%s: unable to read value", __func__);
         }
         pcursor->Next();
-    }
-    if (!outputs.empty())
-    {
-        ApplyStats(stats, ss, prevkey, outputs);
     }
     stats.hashSerialized = ss.GetHash();
     stats.nDiskSize = view->EstimateSize();
@@ -941,9 +993,8 @@ UniValue gettxoutsetinfo(const UniValue &params, bool fHelp)
                             "{\n"
                             "  \"height\":n,     (numeric) The current block height (index)\n"
                             "  \"bestblock\": \"hex\",   (string) the best block hash hex\n"
-                            "  \"transactions\": n,      (numeric) The number of transactions\n"
                             "  \"txouts\": n,            (numeric) The number of output transactions\n"
-                            "  \"hash_serialized\": \"hash\",   (string) The serialized hash\n"
+                            "  \"hash_serialized\": \"hash\",   (string) The hash of the serialized UTXO (commitment)\n"
                             "  \"disk_size\": n,         (numeric) The estimated size of the chainstate on disk\n"
                             "  \"total_amount\": x.xxx          (numeric) The total amount\n"
                             "}\n"
@@ -958,9 +1009,8 @@ UniValue gettxoutsetinfo(const UniValue &params, bool fHelp)
     {
         ret.pushKV("height", (int64_t)stats.nHeight);
         ret.pushKV("bestblock", stats.hashBlock.GetHex());
-        ret.pushKV("transactions", (int64_t)stats.nTransactions);
         ret.pushKV("txouts", (int64_t)stats.nTransactionOutputs);
-        ret.pushKV("hash_serialized_2", stats.hashSerialized.GetHex());
+        ret.pushKV("hash_serialized", stats.hashSerialized.GetHex());
         ret.pushKV("disk_size", stats.nDiskSize);
         ret.pushKV("total_amount", ValueFromAmount(stats.nTotalAmount));
     }
@@ -972,17 +1022,17 @@ UniValue evicttransaction(const UniValue &params, bool fHelp)
     if (fHelp || params.size() < 1)
         throw runtime_error(
             "evicttransaction \"txid\"\n"
-            "\nRemove transaction from mempool.  Note that it could be readded quickly if relayed by another node\n"
+            "\nRemove transaction from mempool.  Note that it could be re-added quickly if relayed by another node\n"
             "\nArguments:\n"
             "1. \"txid\"       (string, required) The transaction id\n"
             "\nResult:\n"
+            "The number of transactions removed (children must also be removed)\n"
             "\nExamples:\n" +
             HelpExampleCli("evicttransaction", "\"txid\"") + HelpExampleRpc("evicttransaction", "\"txid\""));
 
     std::string strHash = params[0].get_str();
     uint256 hash(uint256S(strHash));
-    mempool.Remove(hash);
-    return UniValue();
+    return UniValue(mempool.Remove(hash));
 }
 
 UniValue gettxout(const UniValue &params, bool fHelp)
@@ -1296,7 +1346,6 @@ UniValue getblockchaininfo(const UniValue &params, bool fHelp)
     }
 
     const Consensus::Params &consensusParams = Params().GetConsensus();
-    CBlockIndex *tip = chainActive.Tip();
     UniValue softforks(UniValue::VARR);
     UniValue bip9_softforks(UniValue::VOBJ);
     UniValue bip135_forks(UniValue::VOBJ); // bip135 added
@@ -1744,7 +1793,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
     std::string error;
 
     // Find pindex of most work chain regardless of whether is is valid or not.
-    LOCK(cs_main);
+    AssertLockHeld(cs_main);
 
     // Get the set of chaintips
     std::set<CBlockIndex *, CompareBlocksByHeight> setTips;
@@ -1797,7 +1846,7 @@ std::string ReconsiderMostWorkChain(bool fOverride)
         ReconsiderBlock(state, pTipToVerify);
         if (state.IsValid())
         {
-            ActivateBestChain(state, Params());
+            _ActivateBestChain(state, Params());
         }
         if (!state.IsValid())
         {
@@ -1834,7 +1883,11 @@ UniValue reconsidermostworkchain(const UniValue &params, bool fHelp)
     if (params.size() > 0)
         fOverride = params[0].get_bool();
 
-    error = ReconsiderMostWorkChain(fOverride);
+    {
+        TxAdmissionPause txlock;
+        LOCK(cs_main);
+        error = ReconsiderMostWorkChain(fOverride);
+    }
 
     if (error.size() > 0)
         throw runtime_error(error.c_str());
@@ -2059,7 +2112,8 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
     const bool loop_inputs = do_all || do_medianfee || do_feerate_percentiles ||
                              SetHasKeys(stats, "utxo_size_inc", "totalfee", "avgfee", "avgfeerate", "minfee", "maxfee",
                                  "minfeerate", "maxfeerate");
-    const bool loop_outputs = do_all || loop_inputs || stats.count("total_out");
+    const bool loop_outputs = do_all || loop_inputs || stats.count("total_out") || stats.count("num_data_only") ||
+                              stats.count("utxo_increase");
     const bool do_calculate_size =
         do_mediantxsize || SetHasKeys(stats, "total_size", "avgtxsize", "mintxsize", "maxtxsize", "avgfeerate",
                                "feerate_percentiles", "minfeerate", "maxfeerate");
@@ -2074,6 +2128,7 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
     int64_t maxtxsize = 0;
     int64_t mintxsize = std::numeric_limits<int64_t>::max();
     int64_t outputs = 0;
+    int64_t dataOutputs = 0;
     int64_t total_size = 0;
     int64_t utxo_size_inc = 0;
     std::vector<CAmount> fee_array;
@@ -2091,7 +2146,12 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
             for (const CTxOut &out : tx->vout)
             {
                 tx_total_out += out.nValue;
-                utxo_size_inc += GetSerializeSize(out, SER_NETWORK, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                if (out.IsDataOnly())
+                    dataOutputs++;
+                else
+                {
+                    utxo_size_inc += GetSerializeSize(out, SER_NETWORK, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                }
             }
         }
 
@@ -2191,7 +2251,8 @@ static UniValue getblockstats(const UniValue &params, bool fHelp)
     ret_all.pushKV("total_size", total_size);
     ret_all.pushKV("totalfee", ValueFromAmount(totalfee));
     ret_all.pushKV("txs", (int64_t)block.vtx.size());
-    ret_all.pushKV("utxo_increase", outputs - inputs);
+    ret_all.pushKV("num_data_only", dataOutputs);
+    ret_all.pushKV("utxo_increase", outputs - dataOutputs - inputs);
     ret_all.pushKV("utxo_size_inc", utxo_size_inc);
 
     if (do_all)
@@ -2455,12 +2516,11 @@ UniValue scantokens(const UniValue &params, bool fHelp)
             "    \"vout\" : n,                 (numeric) the vout value\n"
             "    \"address\" : \"address\",      (string) the address that received the tokens\n"
             "    \"scriptPubKey\" : \"script\",  (string) the script key\n"
-            "    \"ION_amount\" : x.xxx,       (numeric) The total amount in ION of the unspent output\n"
-            "    \"token_amount\" : xxx,       (numeric) The total token amount of the unspent output\n"
+            "    \"tokenAmount\" : xxx,       (numeric) The total token amount of the unspent output\n"
             "    \"height\" : n,               (numeric) Height of the unspent transaction output\n"
             "   }\n"
             "   ,...], \n"
-            " \"total_amount\" : xxx,          (numeric) The total token amount of all found unspent outputs\n"
+            " \"totalAmount\" : xxx,          (numeric) The total token amount of all found unspent outputs\n"
             "]\n");
 
     RPCTypeCheck(params, {UniValue::VSTR, UniValue::VSTR});
@@ -2525,7 +2585,7 @@ UniValue scantokens(const UniValue &params, bool fHelp)
         }
         bool res = FindGroupTokenID(g_scan_progress, g_should_abort_scan, count, pcursor.get(), needle, coins);
         result.pushKV("success", res);
-        result.pushKV("searched_items", count);
+        result.pushKV("searchedItems", count);
 
         for (const auto &it : coins)
         {
@@ -2540,8 +2600,7 @@ UniValue scantokens(const UniValue &params, bool fHelp)
             total_in += tokenGroupInfo.quantity;
 
             UniValue unspent(UniValue::VOBJ);
-            unspent.pushKV("txid", outpoint.hash.GetHex());
-            unspent.pushKV("vout", (int32_t)outpoint.n);
+            unspent.pushKV("outpoint", outpoint.hash.GetHex());
             if (IsValidDestination(dest))
             {
                 unspent.pushKV("address", EncodeDestination(dest));
@@ -2556,7 +2615,7 @@ UniValue scantokens(const UniValue &params, bool fHelp)
         }
 
         result.pushKV("unspents", unspents);
-        result.pushKV("total_amount", total_in);
+        result.pushKV("totalAmount", total_in);
     }
     else
     {
@@ -2584,6 +2643,7 @@ static const CRPCCommand commands[] = {
     {"blockchain", "getorphanpoolinfo", &getorphanpoolinfo, true},
     {"blockchain", "evicttransaction", &evicttransaction, true},
     {"blockchain", "getrawmempool", &getrawmempool, true},
+    {"blockchain", "getrawmempoolbyid", &getrawmempoolbyid, true},
     {"blockchain", "getraworphanpool", &getraworphanpool, true},
     {"blockchain", "gettxout", &gettxout, true},
     {"blockchain", "gettxoutsetinfo", &gettxoutsetinfo, true},

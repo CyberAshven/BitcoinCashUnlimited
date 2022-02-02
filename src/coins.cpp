@@ -520,15 +520,17 @@ CCoinsViewCursor::~CCoinsViewCursor() {}
 static const size_t nMaxOutputsPerBlock =
     DEFAULT_LARGEST_TRANSACTION / ::GetSerializeSize(CTxOut(), SER_NETWORK, PROTOCOL_VERSION);
 
+/* API searches for the first unspent output from this tx.  This is a very odd API.  Useless?
 CoinAccessor::CoinAccessor(const CCoinsViewCache &view, const uint256 &txid) : cache(&view), lock(cache->csCacheInsert)
 {
     EnterCritical("CCoinsViewCache.cs_utxo", __FILE__, __LINE__, (void *)(&cache->cs_utxo), LockType::SHARED_MUTEX,
         OwnershipType::SHARED);
     cache->cs_utxo.lock_shared();
-    COutPoint iter(txid, 0);
     coin = &emptyCoin;
-    while (iter.n < nMaxOutputsPerBlock)
+    int n=0;
+    while (n < nMaxOutputsPerBlock)
     {
+        COutPoint iter(txid, n);
         const Coin &alternate = view._AccessCoin(iter);
         if (!alternate.IsSpent())
         {
@@ -538,6 +540,7 @@ CoinAccessor::CoinAccessor(const CCoinsViewCache &view, const uint256 &txid) : c
         ++iter.n;
     }
 }
+*/
 
 CoinAccessor::CoinAccessor(const CCoinsViewCache &cacheObj, const COutPoint &output)
     : cache(&cacheObj), lock(cache->csCacheInsert)
@@ -582,7 +585,7 @@ CoinModifier::~CoinModifier()
 void AddCoins(CCoinsViewCache &cache, const CTransaction &tx, int nHeight)
 {
     bool fCoinbase = tx.IsCoinBase();
-    const uint256 &txid = tx.GetHash();
+    const uint256 txid = tx.GetIdem();
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         // Pass fCoinbase as the possible_overwrite flag to AddCoin, in order to correctly

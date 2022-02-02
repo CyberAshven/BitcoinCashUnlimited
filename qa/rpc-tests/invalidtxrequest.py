@@ -1,88 +1,131 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2016 The Bitcoin Core developers
+# Copyright (c) 2015-2018 The Bitcoin Unlimited developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
+""" Test invalid transaction as passed through the p2p and RPC layers
+"""
 import test_framework.loginit
-from test_framework.test_framework import ComparisonTestFramework
-from test_framework.comptool import TestManager, TestInstance, RejectResult
-from test_framework.blocktools import *
-from test_framework.util import findBitcoind, standardFlags
-import time, os
+
+import time
+import sys
+if sys.version_info[0] < 3:
+    raise "Use Python 3"
+import logging
+
+from test_framework.test_framework import BitcoinTestFramework
+from test_framework.util import *
+from test_framework.bunode import *
+from test_framework.script import *
+
+class MyTest (BitcoinTestFramework):
+
+    def setup_chain(self,bitcoinConfDict=None, wallets=None):
+        print("Initializing test directory "+self.options.tmpdir)
+        # pick this one to start from the cached 4 node 100 blocks mined configuration
+        initialize_chain(self.options.tmpdir, bitcoinConfDict, wallets)
+
+    def setup_network(self, split=False):
+        self.nodes = start_nodes(2, self.options.tmpdir)
+        # Nodes to start --------^
+        # Note for this template I readied 4 nodes but only started 2
+
+        # Now interconnect the nodes
+        connect_nodes_full(self.nodes)
+        # Let the framework know if the network is fully connected.
+        # If not, the framework assumes this partition: (0,1) and (2,3)
+        # For more complex partitions, you can't use the self.sync* member functions
+        self.is_network_split=False
+        self.sync_blocks()
+
+    def invGetdata(self, tx):
+        self.pynodeCnxn.send_inv(tx)
+        waitFor(10, lambda: len(self.pynodeCnxn.last_getdata) > 0)
+        msg = self.pynodeCnxn.last_getdata.pop()
+        assert msg.inv[0].hash == tx.GetIdAsInt()
+        self.pynodeCnxn.send_message(msg_tx(tx))
+
+    def tryAtx(self, tx, p2pErr, rpcErr):
+        node = self.node
+        rnode = self.rnode  # node can relay to node 1
+        self.invGetdata(tx)
+        txrpcIdem = util.uint256ToRpcHex(tx.GetIdem())
+        waitFor(10, lambda: len(self.pynodeCnxn.last_reject) > 0)
+        rej = self.pynodeCnxn.last_reject.pop()
+        assert p2pErr in rej.reason
+        assert txrpcIdem not in node.getrawmempool()
+        assert txrpcIdem not in rnode.getrawmempool()  # Verify that the bad tx did not relay
+        # Check RPC interface
+        expectException(lambda: rnode.sendrawtransaction(tx.toHex()), JSONRPCException, rpcErr)
+        ret = rnode.validaterawtransaction(tx.toHex())
+        assert rpcErr in str(ret)  # We don't know exactly where validaterawtransaction will put the error, but it must be in there
+
+    def run_test (self):
+        self.nodes[0].generate(1)  # Kick out of IBD so txes relay (since using cached blocks, it looks like no blocks arrived for a long time)
+
+        # 300 sats
+        fee = decimal.Decimal(300)/COIN
+
+        # Both BUcash and BU should connect to a normal BU node
+        pynode = BasicBUCashNode()
+        pynode.connect(0,'127.0.0.1', p2p_port(0), self.nodes[0])
+        NetworkThread().start()  # Start up network handling in another thread
+        pynode.cnxns[0].wait_for_verack()
+
+        # Pick some roles that are used in various member functions
+        self.node = self.nodes[0]
+        self.rnode = self.nodes[1]  # node can relay to node 1
+        self.pynodeCnxn = pynode.cnxns[0]
+
+        # grab a list of coins to work with
+        utxos = self.node.listunspent()
+
+        # Try a valid tx
+        utxo = utxos.pop()
+        tx1 = CTransaction()
+        tx1.vin.append(CTxIn(utxo))
+        tx1.vout.append(TxOut(0,utxo["amount"]-fee, CScript([OP_1])))
+        # result = node.fundrawtransaction(tx1.toHex())
+        result = self.node.signrawtransaction(tx1.toHex())
+        print(result)
+        tx1 = CTransaction(result)
+        self.invGetdata(tx1)
+        tx1rpcIdem = util.uint256ToRpcHex(tx1.GetIdem())
+        waitFor(10, lambda: tx1rpcIdem in self.node.getrawmempool() )
 
 
-'''
-In this test we connect to one node over p2p, and test tx requests.
-'''
-
-# Use the ComparisonTestFramework with 1 node: only use --testbinary.
-class InvalidTxRequestTest(ComparisonTestFramework):
-
-    ''' Can either run this test as 1 node with expected answers, or two and compare them.
-        Change the "outcome" variable from each TestInstance object to only do the comparison. '''
-    def __init__(self):
-        self.num_nodes = 1
-
-    def run_test(self):
-        test = TestManager(self, self.options.tmpdir)
-        test.add_all_connections(self.nodes)
-        self.tip = None
-        self.block_time = None
-        NetworkThread().start() # Start up network handling in another thread
-        test.run()
-
-    def get_tests(self):
-        if self.tip is None:
-            self.tip = int("0x" + self.nodes[0].getbestblockhash(), 0)
-            self.tipHdr = self.nodes[0].getblock(0)
-            self.work = int(self.tipHdr["chainwork"],16) + 2
-
-        self.block_time = int(time.time())+1
-
-        '''
-        Create a new block with an anyone-can-spend coinbase
-        '''
-        height = 1
-        block = create_block(self.tip, height, self.work, create_coinbase(height), self.block_time)
-        self.block_time += 1
-        block.solve()
-        # Save the coinbase for later
-        self.block1 = block
-        self.tip = block.gethash()
-        height += 1
-        self.work+=2
-        yield TestInstance([[block, True]])
-
-        '''
-        Now we need that block to mature so we can spend the coinbase.
-        '''
-        test = TestInstance(sync_every_block=False)
-        for i in range(100):
-            block = create_block(self.tip, height, self.work, create_coinbase(height), self.block_time)
-            block.solve()
-            self.tip = block.gethash()
-            self.block_time += 1
-            test.blocks_and_transactions.append([block, True])
-            height += 1
-            self.work = block.chainWork + 2  # +2 because regtest
-        yield test
-
+        # Bad TX: A single OP_NOTIF
         # b'\x64' is OP_NOTIF
         # 0x61 is OP_NOP (throw a bunch of nops in so that tx > 100 bytes
         # Transaction will be rejected with code 16 (REJECT_INVALID)
-        tx1 = create_transaction(self.block1.vtx[0], 0, b'\x61'*50 + b'\x64', COINBASE_REWARD * COIN)
-        yield TestInstance([[tx1, RejectResult(16, b'mandatory-script-verify-flag-failed')]])
+        utxo = utxos.pop()
+        tx2 = CTransaction()
+        tx2.vin.append(CTxIn(utxo))
+        tx2.vin[0].scriptSig = b'\x61'*50 + b'\x64'
+        tx2.vout.append(TxOut(0,utxo["amount"]-fee, CScript([OP_1])))
+        self.tryAtx(tx2, b'mandatory-script-verify-flag-failed', 'mandatory-script-verify-flag-failed (Invalid OP_IF construction)')
+
+        # Try undersize transaction
+        tx2.vin[0].scriptSig = b'\x61'
+        tx2.rehash()
+        assert len(tx2.toHex()) == 128, "transaction changed size so this test needs to be reworked"
+        self.tryAtx(tx2, b'txn-undersize', 'txn-undersize')
 
         # TODO: test further transactions...
 
 if __name__ == '__main__':
-    InvalidTxRequestTest().main()
+    MyTest ().main ()
 
-
+# Create a convenient function for an interactive python debugging session
 def Test():
-    t = InvalidTxRequestTest()
+    t = MyTest()
     t.drop_to_pdb = True
+    # install ctrl-c handler
+    #import signal, pdb
+    #signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
     bitcoinConf = {
-        "debug": ["rpc","net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
     }
     flags = standardFlags()
+    # logging.getLogger().setLevel(logging.DEBUG)
     t.main(flags, bitcoinConf, None)

@@ -31,11 +31,13 @@ public:
     }
 
     bool HasSelected() const { return (setSelected.size() > 0); }
+    /* TODO: reenable this API once we are sure its not called with any outpoint hashes
     bool IsSelected(const uint256 &hash, unsigned int n) const
     {
         COutPoint outpt(hash, n);
         return (setSelected.count(outpt) > 0);
-    }
+        } */
+    bool IsSelected(const COutPoint &outpt) const { return (setSelected.count(outpt) > 0); }
 
     void Select(const COutPoint &output) { setSelected.insert(output); }
     void UnSelect(const COutPoint &output) { setSelected.erase(output); }

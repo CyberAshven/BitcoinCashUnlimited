@@ -59,8 +59,8 @@ class CTORMiningTest(BitcoinTestFramework):
                 txin = unspent.pop()
 
                 inputs.append({
-                    'txid': txin['txid'],
-                    'vout': 0,  # This is a coinbase
+                    'outpoint': txin['outpoint'],
+                    'amount': txin["amount"],
 
                     # keep track of coinbase value in extra field that should
                     # otherwise be ignored
@@ -95,7 +95,8 @@ class CTORMiningTest(BitcoinTestFramework):
 
             rawtx = mining_node.createrawtransaction(inputs, outputs)
             signedtx = mining_node.signrawtransaction(rawtx)
-            txid = mining_node.sendrawtransaction(signedtx['hex'])
+            txidem = mining_node.sendrawtransaction(signedtx['hex'])
+            txid = signedtx["txid"]
             # number of outputs is the same as the number of sigchecks in this
             # case
             transactions.update({txid: {'fee': fee, 'sigchecks': len(outputs)}})
@@ -125,3 +126,12 @@ class CTORMiningTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     CTORMiningTest().main()
+
+def Test():
+    t = CTORMiningTest()
+    t.drop_to_pdb = True
+    bitcoinConf = {
+        "debug": ["rpc", "net", "blk", "thin", "mempool", "req", "bench", "evict"],
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

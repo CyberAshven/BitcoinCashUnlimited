@@ -42,6 +42,7 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.nodemessages import *
 
 class MempoolPersistTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -133,26 +134,21 @@ class MempoolPersistTest(BitcoinTestFramework):
         logging.info("Initial sync to %d blocks" % startHeight)
 
         # create a chain of orphans that we can store and resurrect.
-        tx_amount = 0
+        tx_amount = decimal.Decimal("5.0")
+        outpoint = bytes(range(0,32)).hex()  # Begin by referencing a nonexistent tx/outpoint
         for i in range(1, CHAIN_DEPTH + 1):
           try:
               inputs = []
               inputs.append(utxos.pop())
-              if (i == 1):
-                inputs.append({"txid" : self.nodes[0].getbestblockhash(), "vout" : 0})
-              else:
-                inputs.append({ "txid" : txid, "vout" : 0})
+              inputs.append({ "outpoint" : outpoint, "amount" : tx_amount}) # references the prior tx created
 
               outputs = {}
-              if (i == 1):
-                tx_amount = 5 - self.relayfee
-              else:
-                tx_amount = inputs[0]["amount"] + tx_amount - self.relayfee
+              tx_amount = inputs[0]["amount"] + tx_amount - self.relayfee
               outputs[self.nodes[1].getnewaddress()] = tx_amount
               rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
               signed_tx = self.nodes[1].signrawtransaction(rawtx)["hex"]
-              txid = self.nodes[1].sendrawtransaction(signed_tx, False, "standard", True)
-
+              txidem = self.nodes[1].sendrawtransaction(signed_tx, False, "standard", True)
+              outpoint = COutPoint().fromIdemAndIdx(txidem, 0).rpcHex()
               logging.info("tx depth %d" % i) # Keep travis from timing out
           except JSONRPCException as e: # an exception you don't catch is a testing error
               print(str(e))

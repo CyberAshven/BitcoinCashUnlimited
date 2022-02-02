@@ -26,6 +26,7 @@ class TxnDoubleSpendTest(BitcoinTestFramework):
         starting_balance = COINBASE_REWARD*25
         for i in range(4):
             assert_equal(self.nodes[i].getbalance(), starting_balance)
+            assert_equal(self.nodes[i].getbalance("*"), starting_balance)
             self.nodes[i].getnewaddress("")  # bug workaround, coins generated assigned to first getnewaddress!
 
         startHeight = self.nodes[2].getblockcount()
@@ -41,56 +42,42 @@ class TxnDoubleSpendTest(BitcoinTestFramework):
         doublespend_fee = Decimal('-.02')
         doublespend_amt = unspent[0]["amount"] + unspent[1]["amount"] - Decimal("1.0")
         rawtx_input_0 = {}
-        rawtx_input_0["txid"] = unspent[0]["txid"]
-        rawtx_input_0["vout"] = unspent[0]["vout"]
+        rawtx_input_0["outpoint"] = unspent[0]["outpoint"]
+        rawtx_input_0["amount"] = unspent[0]["amount"]
         rawtx_input_1 = {}
-        rawtx_input_1["txid"] = unspent[1]["txid"]
-        rawtx_input_1["vout"] = unspent[1]["vout"]
+        rawtx_input_1["outpoint"] = unspent[1]["outpoint"]
+        rawtx_input_1["amount"] = unspent[1]["amount"]
         inputs = [rawtx_input_0, rawtx_input_1]
         change_address = self.nodes[0].getnewaddress()
         outputs = {}
         outputs[node1_address] = doublespend_amt
         outputs[change_address] = Decimal("1.0") + doublespend_fee
-        rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
-        doublespend = self.nodes[0].signrawtransaction(rawtx)
-        assert_equal(doublespend["complete"], True)
+        rawtx2 = self.nodes[0].createrawtransaction(inputs, outputs)
+        doublespend2 = self.nodes[0].signrawtransaction(rawtx2)
+        assert_equal(doublespend2["complete"], True)
 
-        if True:
-          # Create two spends using 1 coin each
-          txid1 = self.nodes[0].sendfrom("", node1_address, starting_balance + doublespend_fee, 0)
+        # Change how we allocate the coins slightly
+        outputs[node1_address] =  outputs[node1_address] - Decimal("1.0")
+        outputs[change_address] = outputs[change_address] + Decimal("1.0")
+        # And build a doublespend
+        rawtx1 = self.nodes[0].createrawtransaction(inputs, outputs)
+        doublespend1 = self.nodes[0].signrawtransaction(rawtx1)
+        assert_equal(doublespend1["complete"], True)
 
-          # Have node0 mine a block:
-          if (self.options.mine_block):
-              self.nodes[0].generate(1)
-              sync_blocks(self.nodes[0:2])
+        # doublespends will have different idems because they change utxo state
+        # (as opposed to malleated tx, which have same idem, but different id)
+        assert doublespend1["txidem"] != doublespend2["txidem"], "transactions are not different"
 
-          tx1 = self.nodes[0].gettransaction(txid1)
+        # Now give doublespend1 to one side of the network
+        doublespend1_txidem = self.nodes[0].sendrawtransaction(doublespend1["hex"])
+        try: # Check that it did not propagate because the network is split
+            ret = self.nodes[2].gettransaction(doublespend1_txidem)
+            assert(False)
+        except JSONRPCException:
+            pass
 
-        # Node0's balance should be starting balance, plus 10BTC for another
-        # matured block, minus 9, minus 8, and minus transaction fees:
-        if False:
-          expected = starting_balance + fund_foo_tx["fee"] + fund_bar_tx["fee"]
-          if self.options.mine_block: expected += COINBASE_REWARD
-          expected += tx1["amount"] + tx1["fee"]
-          expected += tx2["amount"] + tx2["fee"]
-          assert_equal(self.nodes[0].getbalance(), expected)
-
-          # foo and bar accounts should be debited:
-          assert_equal(self.nodes[0].getbalance("foo", 0), FooAmt+tx1["amount"]+tx1["fee"])
-
-          if self.options.mine_block:
-            assert_equal(tx1["confirmations"], 1)
-            assert_equal(tx2["confirmations"], 1)
-            # Node1's "from0" balance should be both transaction amounts:
-            assert_equal(self.nodes[1].getbalance("from0"), -tx1["amount"])
-          else:
-            assert_equal(tx1["confirmations"], 0)
-
-        assert_equal(self.nodes[2].getmempoolinfo()["size"], 0)
-        assert_equal(startHeight, self.nodes[2].getblockcount())
-
-        # Now give doublespend and its parents to miner:
-        doublespend_txid = self.nodes[2].sendrawtransaction(doublespend["hex"])
+        # Now give doublespend2 to miner:
+        doublespend2_txidem = self.nodes[2].sendrawtransaction(doublespend2["hex"])
         # ... mine a block...
         self.nodes[2].generate(1)
 
@@ -98,15 +85,17 @@ class TxnDoubleSpendTest(BitcoinTestFramework):
         connect_nodes(self.nodes[1], 2)
         self.nodes[2].generate(1)  # Mine another block to make sure we sync
         sync_blocks(self.nodes)
-        assert_equal(self.nodes[0].gettransaction(doublespend_txid)["confirmations"], 2)
+        assert_equal(self.nodes[0].gettransaction(doublespend2_txidem)["confirmations"], 2)
 
         # Re-fetch transaction info:
-        tx1 = self.nodes[0].gettransaction(txid1)
+        tx1byid = self.nodes[0].gettransaction(doublespend1["txid"])
+        tx1 = self.nodes[0].gettransaction(doublespend1_txidem)
 
         # transaction should be conflicted
-        assert_equal(tx1["confirmations"], -2)
+        assert tx1byid["confirmations"] == -2
+        assert tx1["confirmations"] == -2
 
-        # Node0's total balance should be what the doublespend tx paid.  That is,
+        # Node0's total balance should be what the winning doublespend tx (#2) paid.  That is,
         # the starting balance, plus coinbase for two more matured blocks,
         # minus the doublespend send, plus fees (which are negative):
         expected = starting_balance + 2*COINBASE_REWARD - doublespend_amt + doublespend_fee

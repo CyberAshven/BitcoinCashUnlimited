@@ -78,6 +78,12 @@ UniValue validateblocktemplate(const UniValue &params, bool fHelp);
 UniValue validatechainhistory(const UniValue &params, bool fHelp);
 UniValue issuealert(const UniValue &params, bool fHelp);
 
+void makeLowercase(std::string &input)
+{
+    for (auto &c : input)
+        c = ::tolower(c);
+}
+
 std::string OutboundConnectionValidator(const int &value, int *item, bool validate)
 {
     if (validate)
@@ -317,7 +323,7 @@ UniValue pushtx(const UniValue &params, bool fHelp)
 void UnlimitedPushTxns(CNode *dest)
 {
     std::vector<uint256> vtxid;
-    mempool.queryHashes(vtxid);
+    mempool.queryIds(vtxid);
     vector<CInv> vInv;
     unsigned int count = 0;
     for (uint256 &hash : vtxid)
@@ -1115,7 +1121,7 @@ std::vector<uint256> GetMerkleProofBranches(CBlock *pblock)
 
     for (int i = 0; i < len; i++)
     {
-        leaves.push_back(pblock->vtx[i].get()->GetHash());
+        leaves.push_back(pblock->vtx[i].get()->GetId());
     }
 
     ret = ComputeMerkleBranch(leaves, 0);

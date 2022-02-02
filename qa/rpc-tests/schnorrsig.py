@@ -9,6 +9,7 @@
 from test_framework.script import *
 from test_framework.util import *
 from test_framework.nodemessages import *
+from test_framework.blocktools import *
 from test_framework.test_framework import BitcoinTestFramework
 import test_framework.cashlib as cashlib
 import test_framework.schnorr as schnorr
@@ -101,6 +102,103 @@ class SchnorrSigTest (BitcoinTestFramework):
             sigcashlib = cashlib.signHashSchnorr(privkey, hsh)
             assert sigpy == sigcashlib
 
+    def negativeTests(self):
+        n = self.nodes[0]
+        wallet = n.listunspent()
+        inp = wallet[0]
+        privb58 = n.dumpprivkey(inp["address"])
+        privkey = decodeBase58(privb58)[1:-5]
+        pubkey = cashlib.pubkey(privkey)
+
+        destPrivKey = cashlib.randombytes(32)
+        destPubKey = cashlib.pubkey(destPrivKey)
+        destHash = cashlib.addrbin(destPubKey)
+        constraint = CScript([OP_DUP, OP_HASH160, destHash, OP_EQUALVERIFY, OP_CHECKSIG])
+
+        for amt in [inp['amount']-decimal.Decimal(0.00001), inp['amount']+decimal.Decimal(0.0000001)]:
+            tx = CTransaction()
+            # Amount too small
+            amt = inp['amount']-decimal.Decimal(0.00001)
+            tx.vin.append(CTxIn(COutPoint(inp["outpoint"]), amt, b"", 0xffffffff))
+            tx.vout.append(CTxOut(amt, constraint))
+            sighashtype = 0x41
+            idx = 0
+            for i, priv in zip([inp], [privkey]):
+                sig = cashlib.signTxInputSchnorr(tx, idx, i["amount"], i["scriptPubKey"], priv, sighashtype)
+                tx.vin[idx].scriptSig = cashlib.spendscript(sig)  # P2PK
+                idx += 1
+            result = n.validaterawtransaction(tx.toHex())
+            assert result['inputs_flags']['isValid'] == False, "amount is incorrect"
+            assert "input-amount-mismatch" in result['inputs_flags']['inputs'][0]['errors'][0]
+            expectException(lambda: n.sendrawtransaction(tx.toHex()), JSONRPCException,'input-amount-mismatch')
+
+        # Build a bad block with tx with bad amounts
+        height = self.nodes[0].getblockcount()
+        nextheight = height + 1
+        tip = int(self.nodes[0].getblockhash(height), 16)
+        tipHdr = self.nodes[0].getblock(height)
+        work = int(tipHdr["chainwork"],16) + 2
+        coinbase = create_coinbase(nextheight)
+        blkTime = max(tipHdr["time"],int(time.time()))
+
+        block = create_block(tip, nextheight, work, coinbase, blkTime+1, [tx])
+        block.rehash()
+        hexblk = ToHex(block)
+        expectException(lambda: n.validateblocktemplate(hexblk), JSONRPCException,'bad-txns-input-amount-mismatch')
+
+    def testSignChildFirst(self):
+        """This test creates a parent and child tranaction.  It then signs the child and posts it to the node, without signing the parent.
+           The child will end up in the orphan pool of the node.  It then signs the parent and posts it, verifying that both transactions
+           enter the mempool.
+        """
+        n = self.nodes[0]
+        wallet = n.listunspent()
+        inp = wallet[0]
+        privb58 = n.dumpprivkey(inp["address"])
+        privkey = decodeBase58(privb58)[1:-5]
+        pubkey = cashlib.pubkey(privkey)
+
+        destPrivKey = cashlib.randombytes(32)
+        destPubKey = cashlib.pubkey(destPrivKey)
+        destHash = cashlib.addrbin(destPubKey)
+        constraint = CScript([OP_DUP, OP_HASH160, destHash, OP_EQUALVERIFY, OP_CHECKSIG])
+
+        fee = decimal.Decimal("0.00001")
+        # construct parent tx
+        txp = CTransaction()
+        amt = inp['amount']
+        txp.vin.append(CTxIn(COutPoint(inp["outpoint"]), amt, b"", 0xffffffff))
+        txp.vout.append(CTxOut(amt-fee, constraint))
+
+        # construct child tx
+        txc = CTransaction()
+        txc.vin.append(txp.SpendOutput(0))
+        txc.vout.append(CTxOut(decimal.Decimal(txc.vin[0].amount)/COIN-fee, constraint))
+
+        # sign child tx
+        sighashtype = 0x41
+        sig = cashlib.signTxInputSchnorr(txc, 0, txc.vin[0].amount, constraint, destPrivKey, sighashtype)
+        txc.vin[0].scriptSig = CScript([sig, destPubKey])  # P2PKH
+        result = n.validaterawtransaction(txc.toHex())
+        assert("inputs-are-missing" in result["errors"])
+        n.enqueuerawtransaction(txc.toHex())
+        waitFor(10,lambda: n.getorphanpoolinfo()['size'] == 1)
+
+        # sign and post parent tx
+        sighashtype = 0x41
+        sig = cashlib.signTxInputSchnorr(txp, 0, txp.vin[0].amount, inp["scriptPubKey"], privkey, sighashtype)
+        # txc.vin[0].scriptSig = CScript([sig, destPubKey])  # P2PKH
+        txp.vin[0].scriptSig = CScript([sig])  # P2PKH
+        n.sendrawtransaction(txp.toHex())
+        # The child orphan should have been added to the mempool
+        waitFor(10, lambda: n.getorphanpoolinfo()['size'] == 0)
+        waitFor(10, lambda: n.getmempoolinfo()['size'] == 2)
+        mp = n.getrawmempool()
+        assert txp.GetRpcHexIdem() in mp
+        assert txc.GetRpcHexIdem() in mp
+        n.generate(1) # Clean up txs
+
+
 
     def run_test(self):
         self.basicSchnorrSigning()
@@ -113,6 +211,10 @@ class SchnorrSigTest (BitcoinTestFramework):
         self.sync_blocks()
         self.nodes[0].generate(100)
         self.sync_blocks()
+
+        self.negativeTests()
+
+        self.testSignChildFirst()
 
         logging.info("Schnorr signature transaction generation and commitment")
 
@@ -132,7 +234,7 @@ class SchnorrSigTest (BitcoinTestFramework):
             for doubleSpend in range(0, 2):  # Double spend this many times
                 tx = CTransaction()
                 for i in inputs:
-                    tx.vin.append(CTxIn(COutPoint(i["txid"], i["vout"]), b"", 0xffffffff-doubleSpend))  # subtracting doubleSpend changes the tx slightly
+                    tx.vin.append(CTxIn(COutPoint(i["outpoint"]), i['amount'], b"", 0xffffffff-doubleSpend))  # subtracting doubleSpend changes the tx slightly
 
                 destPrivKey = cashlib.randombytes(32)
                 destPubKey = cashlib.pubkey(destPrivKey)
@@ -172,7 +274,7 @@ class SchnorrSigTest (BitcoinTestFramework):
             privb58 = self.nodes[0].dumpprivkey(i["address"])
             privKey = decodeBase58(privb58)[1:-5]
             pubKey = cashlib.pubkey(privKey)
-            resultWallet.append([privKey, pubKey, i["satoshi"], PlaceHolder(i['txid']), i['vout'], CScript(i["scriptPubKey"])])
+            resultWallet.append([privKey, pubKey, i["satoshi"], PlaceHolder(i['txidem']), i["vout"], i['amount'], CScript(i["scriptPubKey"])])
 
         FEEINSAT = 5000
         # now spend all the new utxos again
@@ -184,7 +286,7 @@ class SchnorrSigTest (BitcoinTestFramework):
             for w in incomingWallet:
                 txidHolder = PlaceHolder()
                 tx = CTransaction()
-                tx.vin.append(CTxIn(COutPoint(w[3].data, w[4]), b"", 0xffffffff))
+                tx.vin.append(CTxIn(COutPoint().fromIdemAndIdx(w[3].data, w[4]), w[5], b"", 0xffffffff))
 
                 NOUTS = 10 - spendLoop*2
                 if NOUTS < 0:
@@ -196,13 +298,13 @@ class SchnorrSigTest (BitcoinTestFramework):
                     destHash = cashlib.addrbin(destPubKey)
                     output = CScript([OP_DUP, OP_HASH160, destHash, OP_EQUALVERIFY, OP_CHECKSIG])
                     tx.vout.append(CTxOut(amtPerOut, output))
-                    resultWallet.append([destPrivKey, destPubKey, amtPerOut, txidHolder, outIdx, output])
+                    resultWallet.append([destPrivKey, destPubKey, amtPerOut, txidHolder, outIdx, amtPerOut, output])
 
                 sighashtype = 0x41
                 n = 0
-                sig = cashlib.signTxInputSchnorr(tx, n, w[2], w[5], w[0], sighashtype)
+                sig = cashlib.signTxInputSchnorr(tx, n, w[2], w[6], w[0], sighashtype)
                 # In this test we only have P2PK or P2PKH type constraint scripts so the length can be used to distinguish them
-                if len(w[5]) == 35:
+                if len(w[6]) == 35:
                     tx.vin[n].scriptSig = cashlib.spendscript(sig)  # P2PK
                 else:
                     tx.vin[n].scriptSig = cashlib.spendscript(sig, w[1])  # P2PKH

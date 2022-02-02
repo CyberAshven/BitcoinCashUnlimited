@@ -222,8 +222,8 @@ void CoinControlDialog::showMenu(const QPoint &point)
         if (item->text(COLUMN_TXHASH).length() == 64)
         {
             copyTransactionHashAction->setEnabled(true);
-            if (model->isLockedCoin(
-                    uint256S(item->text(COLUMN_TXHASH).toStdString()), item->text(COLUMN_VOUT_INDEX).toUInt()))
+            if (model->isLockedCoin(COutPoint(
+                    uint256S(item->text(COLUMN_TXHASH).toStdString()), item->text(COLUMN_VOUT_INDEX).toUInt())))
             {
                 lockAction->setEnabled(false);
                 unlockAction->setEnabled(true);
@@ -474,7 +474,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog *dialog)
 
         if (amount > 0)
         {
-            CTxOut txout(amount, (CScript)std::vector<unsigned char>(24, 0));
+            CTxOut txout(CTxOut::LEGACY, amount, (CScript)std::vector<unsigned char>(24, 0));
             txDummy.vout.push_back(txout);
             if (txout.IsDust())
                 fDust = true;
@@ -503,8 +503,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog *dialog)
     {
         // unselect already spent, very unlikely scenario, this could happen
         // when selected are spent elsewhere, like rpc or another computer
-        uint256 txhash = out.tx->GetHash();
-        COutPoint outpt(txhash, out.i);
+        COutPoint outpt = out.GetOutPoint();
         if (model->isSpent(outpt))
         {
             coinControl->UnSelect(outpt);
@@ -515,14 +514,14 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog *dialog)
         nQuantity++;
 
         // Amount
-        nAmount += out.tx->vout[out.i].nValue;
+        nAmount += out.GetValue();
 
         // Priority
-        dPriorityInputs += (double)out.tx->vout[out.i].nValue * (out.nDepth + 1);
+        dPriorityInputs += ((double)nAmount) * (out.GetDepthInMainChain() + 1);
 
         // Bytes
         CTxDestination address;
-        if (ExtractDestination(out.tx->vout[out.i].scriptPubKey, address))
+        if (ExtractDestination(out.GetScriptPubKey(), address))
         {
             CPubKey pubkey;
             CKeyID *keyid = boost::get<CKeyID>(&address);
@@ -582,7 +581,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog *dialog)
             // Never create dust outputs; if we would, just add the dust to the fee.
             if (nChange > 0 && nChange < MIN_CHANGE)
             {
-                CTxOut txout(nChange, (CScript)std::vector<unsigned char>(24, 0));
+                CTxOut txout(CTxOut::LEGACY, nChange, (CScript)std::vector<unsigned char>(24, 0));
                 if (txout.IsDust())
                 {
                     if (CoinControlDialog::fSubtractFeeFromAmount) // dust-change will be raised until no dust
@@ -798,40 +797,41 @@ void CoinControlDialog::updateView()
             itemOutput->setText(COLUMN_DATE_INT64, strPad(QString::number(out.tx->GetTxTime()), 20, " "));
 
             // confirmations
-            itemOutput->setText(COLUMN_CONFIRMATIONS, strPad(QString::number(out.nDepth), 8, " "));
+            int depth = out.GetDepthInMainChain();
+            itemOutput->setText(COLUMN_CONFIRMATIONS, strPad(QString::number(depth), 8, " "));
 
             // priority
             // 78 = 2 * 34 + 10
-            double dPriority = ((double)out.tx->vout[out.i].nValue / (nInputSize + 78)) * (out.nDepth + 1);
+            double dPriority = ((double)out.tx->vout[out.i].nValue / (nInputSize + 78)) * (depth + 1);
 
             itemOutput->setText(COLUMN_PRIORITY, CoinControlDialog::getPriorityLabel(dPriority));
 
             itemOutput->setText(COLUMN_PRIORITY_INT64, strPad(QString::number((int64_t)dPriority), 20, " "));
-            dPrioritySum += (double)out.tx->vout[out.i].nValue * (out.nDepth + 1);
+            dPrioritySum += (double)out.tx->vout[out.i].nValue * (depth + 1);
             nInputSum += nInputSize;
 
             // transaction hash
-            uint256 txhash = out.tx->GetHash();
+            uint256 txhash = out.tx->GetIdem();
+            COutPoint outpt = out.GetOutPoint();
             itemOutput->setText(COLUMN_TXHASH, QString::fromStdString(txhash.GetHex()));
 
             // vout index
             itemOutput->setText(COLUMN_VOUT_INDEX, QString::number(out.i));
 
             // disable locked coins
-            if (model->isLockedCoin(txhash, out.i))
+            if (model->isLockedCoin(outpt))
             {
-                COutPoint outpt(txhash, out.i);
                 coinControl->UnSelect(outpt); // just to be sure
                 itemOutput->setDisabled(true);
                 itemOutput->setIcon(COLUMN_CHECKBOX, platformStyle->SingleColorIcon(":/icons/lock_closed"));
             }
 
             // set checkbox
-            if (coinControl->IsSelected(txhash, out.i))
+            if (coinControl->IsSelected(outpt))
                 itemOutput->setCheckState(COLUMN_CHECKBOX, Qt::Checked);
         }
 
-        // amount
+        // amoutn
         if (treeMode)
         {
             dPrioritySum = dPrioritySum / (nInputSum + 78);

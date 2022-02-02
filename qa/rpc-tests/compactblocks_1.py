@@ -9,7 +9,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
 
-class ThinBlockTest(BitcoinTestFramework):
+class CBTest(BitcoinTestFramework):
     def __init__(self):
         self.rep = False
         BitcoinTestFramework.__init__(self)
@@ -125,4 +125,17 @@ class ThinBlockTest(BitcoinTestFramework):
         #assert tbs['summary'] == '0 inbound and 0 outbound compact blocks have saved 0.00B of bandwidth'
 
 if __name__ == '__main__':
-    ThinBlockTest().main()
+    CBTest().main()
+
+def Test():
+    t = CBTest()
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    #import signal, pdb
+    #signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

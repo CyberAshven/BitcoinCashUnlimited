@@ -47,14 +47,12 @@ static CBlock TestBlock()
     block.nBits = 0x207fffff;
 
     tx.vin[0].prevout.hash = InsecureRand256();
-    tx.vin[0].prevout.n = 0;
     block.vtx[1] = MakeTransactionRef(tx);
 
     tx.vin.resize(10);
     for (size_t i = 0; i < tx.vin.size(); i++)
     {
         tx.vin[i].prevout.hash = InsecureRand256();
-        tx.vin[i].prevout.n = 0;
     }
     block.vtx[2] = MakeTransactionRef(tx);
 

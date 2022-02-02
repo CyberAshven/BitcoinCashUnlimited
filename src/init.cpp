@@ -443,6 +443,8 @@ static void ReconsiderChainOnStartup()
 {
     if (!fReindex && !(avoidReconsiderMostWorkChain.Value()))
     {
+        TxAdmissionPause txlock;
+        LOCK(cs_main);
         try
         {
             bool fOverride = false;
@@ -1385,7 +1387,7 @@ bool AppInit2(Config &config)
                 uiInterface.InitMessage(_("Loading block index..."));
                 if (!LoadBlockIndex())
                 {
-                    strLoadError = _("Error loading block database");
+                    strLoadError = strprintf("Error loading block database from %s", GetDataDir());
                     break;
                 }
 

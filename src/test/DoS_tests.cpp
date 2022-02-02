@@ -349,7 +349,6 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vin[0].prevout.n = 0;
         tx.vin[0].prevout.hash = InsecureRand256();
         tx.vin[0].scriptSig << OP_1;
         tx.vout.resize(1);
@@ -378,7 +377,6 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vin[0].prevout.n = 0;
         tx.vin[0].prevout.hash = InsecureRand256();
         tx.vin[0].scriptSig << OP_1;
         tx.vout.resize(1);
@@ -397,12 +395,11 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vin[0].prevout.n = 0;
-        tx.vin[0].prevout.hash = txPrev.GetHash();
+        tx.vin[0].prevout = txPrev.OutpointAt(0);
         tx.vout.resize(1);
         tx.vout[0].nValue = 1 * CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
-        SignSignature(keystore, txPrev, tx, 0);
+        SignSignature(keystore, ((CTxOut)txPrev.vout[0]), tx, 0);
 
         WRITELOCK(orphanpool.cs_orphanpool);
         CTransaction _tx(tx);
@@ -421,10 +418,11 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vin.resize(500);
         for (unsigned int j = 0; j < tx.vin.size(); j++)
         {
-            tx.vin[j].prevout.n = j;
-            tx.vin[j].prevout.hash = txPrev.GetHash();
+            // Most of these outpoints will point to invalid coins (because txPrev has few outputs), but this does
+            // not matter for this test
+            tx.vin[j].prevout = COutPoint(txPrev.GetIdem(), j);
         }
-        SignSignature(keystore, txPrev, tx, 0);
+        SignSignature(keystore, txPrev.vout[0], tx, 0);
         // Re-use same signature for other inputs
         // (they don't have to be valid for this test)
         for (unsigned int j = 1; j < tx.vin.size(); j++)
@@ -459,7 +457,6 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         {
             CMutableTransaction tx;
             tx.vin.resize(1);
-            tx.vin[0].prevout.n = 0;
             tx.vin[0].prevout.hash = InsecureRand256();
             tx.vin[0].scriptSig << OP_1;
             tx.vout.resize(1);

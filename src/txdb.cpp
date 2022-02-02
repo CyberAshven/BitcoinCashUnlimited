@@ -23,6 +23,8 @@ static const char DB_COIN = 'C';
 static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
+static const char DB_TXIDEM_INDEX = 'i';
+static const char DB_OUTPOINT_INDEX = 'p';
 static const char DB_TXINDEX_BLOCK = 'T';
 static const char DB_BLOCK_INDEX = 'b';
 
@@ -44,7 +46,6 @@ struct CoinEntry
     {
         s << key;
         s << outpoint->hash;
-        s << VARINT(outpoint->n);
     }
 
     template <typename Stream>
@@ -52,7 +53,6 @@ struct CoinEntry
     {
         s >> key;
         s >> outpoint->hash;
-        s >> VARINT(outpoint->n);
     }
 };
 } // namespace
@@ -596,13 +596,12 @@ bool CCoinsViewDB::Upgrade()
             {
                 return error("%s: cannot parse CCoins record", __func__);
             }
-            COutPoint outpoint(key.second, 0);
             for (size_t i = 0; i < old_coins.vout.size(); ++i)
             {
                 if (!old_coins.vout[i].IsNull() && !old_coins.vout[i].scriptPubKey.IsUnspendable())
                 {
                     Coin newcoin(std::move(old_coins.vout[i]), old_coins.nHeight, old_coins.fCoinBase);
-                    outpoint.n = i;
+                    COutPoint outpoint(key.second, i); // FUTURE: Handle script hash outputs
                     CoinEntry entry(&outpoint);
                     batch.Write(entry, newcoin);
                 }
@@ -887,17 +886,38 @@ TxIndexDB::TxIndexDB(size_t n_cache_size, bool f_memory, bool f_wipe)
 {
 }
 
-bool TxIndexDB::ReadTxPos(const uint256 &txid, CDiskTxPos &pos) const
+bool TxIndexDB::ReadTxIdPos(const uint256 &txid, CDiskTxPos &pos) const
 {
     return Read(std::make_pair(DB_TXINDEX, txid), pos);
 }
 
-bool TxIndexDB::WriteTxs(const std::vector<std::pair<uint256, CDiskTxPos> > &v_pos)
+bool TxIndexDB::ReadTxIdemPos(const uint256 &txidem, CDiskTxPos &pos) const
+{
+    return Read(std::make_pair(DB_TXIDEM_INDEX, txidem), pos);
+}
+
+bool TxIndexDB::ReadOutpointPos(const uint256 &outpointid, CDiskTxPos &pos) const
+{
+    return Read(std::make_pair(DB_OUTPOINT_INDEX, outpointid), pos);
+}
+
+
+bool TxIndexDB::WriteTxs(const std::vector<std::pair<uint256, CDiskTxPos> > &v_pos,
+    const std::vector<std::pair<uint256, CDiskTxPos> > &idem_pos,
+    const std::vector<std::pair<uint256, CDiskTxPos> > &prevout_pos)
 {
     CDBBatch batch(*this);
     for (const auto &tuple : v_pos)
     {
         batch.Write(std::make_pair(DB_TXINDEX, tuple.first), tuple.second);
+    }
+    for (const auto &tuple : idem_pos)
+    {
+        batch.Write(std::make_pair(DB_TXIDEM_INDEX, tuple.first), tuple.second);
+    }
+    for (const auto &tuple : prevout_pos)
+    {
+        batch.Write(std::make_pair(DB_OUTPOINT_INDEX, tuple.first), tuple.second);
     }
     return WriteBatch(batch);
 }

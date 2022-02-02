@@ -86,7 +86,7 @@ passOn = ""
 showHelp = False  # if we need to print help
 p = re.compile("^--")
 p_parallel = re.compile('^-parallel=')
-run_parallel = 4
+run_parallel = 2
 
 # some of the single-dash options applicable only to this runner script
 # are also allowed in double-dash format (but are not passed on to the
@@ -196,6 +196,7 @@ if ENABLE_ZMQ:
 
 #Tests
 testScripts = [ RpcTest(t) for t in [
+    'testpynode',
     'grouptokens',
     Disabled('sigchecks_inputstandardness_activation', 'Already activated, and mempool bad sigcheck mempool cleanup removed so test will fail'),
     'command_line_args',
@@ -545,7 +546,9 @@ class RPCTestHandler:
                               log_stdout, log_stderr, got_outputs))
         if not self.jobs:
             raise IndexError('pop from empty list')
+        count = 0
         while True:
+            count+=1
             # Return first proc that finishes
             time.sleep(.5)
             for j in self.jobs:
@@ -661,7 +664,7 @@ class RPCTestHandler:
                     self.num_running -= 1
                     self.jobs.remove(j)
                     return name, returnCode, coreOutput, stdout, stderr, stderr_filtered, passed, int(time.time() - time0)
-            print('.', end='', flush=True)
+            print('.', end=('' if count%160!=0 else '\n'), flush=True)
 
 class RPCCoverage(object):
     """

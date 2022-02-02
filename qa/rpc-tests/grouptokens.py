@@ -55,11 +55,9 @@ class GroupTokensTest (BitcoinTestFramework):
         txjson = node.decoderawtransaction(node.gettransaction(tx)["hex"])
         i = 0
         for txi in txjson["vin"]:
-            txiJson = node.decoderawtransaction(node.gettransaction(txi["txid"])["hex"])
-            prevOut = txiJson["vout"][txi["vout"]]
             if self.verbose:
-              print("prevout %d:\n" % i)
-              pprint.pprint(prevOut, indent=2, width=200)
+              print("input %d:\n" % i)
+              pprint.pprint(txi, indent=2, width=200)
             i += 1
         if self.verbose:
           print("\n")

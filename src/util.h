@@ -76,15 +76,37 @@ inline std::string _(const char *psz)
 // SLAPI int myExportedFunc(unsigned char *buf, int num);
 #define SLAPI extern "C" __attribute__((visibility("default")))
 
+#ifdef DEBUG_PAUSE
+// Stops this thread by taking a semaphore
+// This should not be called as part of a release so during the non --enable-debug build
+// you will get an undefined symbol compilation error.
+void DbgPause();
+// Continue the thread.  Intended to be called manually from gdb
+extern "C" void DbgResume();
+extern bool pauseOnDbgAssert;
+#endif
+
+#define DbgStringify(x) #x
+#define DbgStringifyIntLiteral(x) DbgStringify(x)
 #ifdef DEBUG_ASSERTION
 /// If DEBUG_ASSERTION is enabled this asserts when the predicate is false.
 //  If DEBUG_ASSERTION is disabled and the predicate is false, it executes the execInRelease statements.
 //  Typically, the programmer will error out -- return false, raise an exception, etc in the execInRelease code.
 //  DO NOT USE break or continue inside the DbgAssert!
-#define DbgAssert(pred, execInRelease) assert(pred)
+
+#define DbgAssert(pred, execInRelease)                                                                        \
+    do                                                                                                        \
+    {                                                                                                         \
+        if (!(pred))                                                                                          \
+        {                                                                                                     \
+            LogPrintStr(std::string(                                                                          \
+                __FILE__ "(" DbgStringifyIntLiteral(__LINE__) "): Debug Assertion failed: \"" #pred "\"\n")); \
+            if (pauseOnDbgAssert)                                                                             \
+                DbgPause();                                                                                   \
+            assert(false);                                                                                    \
+        }                                                                                                     \
+    } while (0)
 #else
-#define DbgStringify(x) #x
-#define DbgStringifyIntLiteral(x) DbgStringify(x)
 #define DbgAssert(pred, execInRelease)                                                                        \
     do                                                                                                        \
     {                                                                                                         \
@@ -95,15 +117,6 @@ inline std::string _(const char *psz)
             execInRelease;                                                                                    \
         }                                                                                                     \
     } while (0)
-#endif
-
-#ifdef DEBUG_PAUSE
-// Stops this thread by taking a semaphore
-// This should not be called as part of a release so during the non --enable-debug build
-// you will get an undefined symbol compilation error.
-void DbgPause();
-// Continue the thread.  Intended to be called manually from gdb
-extern "C" void DbgResume();
 #endif
 
 #define UNIQUE2(pfx, LINE) pfx##LINE

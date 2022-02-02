@@ -47,6 +47,17 @@ public:
     }
 
     BigNum(long int i = 0) { mpz_init_set_si(n, i); }
+
+    BigNum(const BigNum &b) { mpz_init_set(n, b.n); }
+
+    ~BigNum() { mpz_clear(n); }
+
+    BigNum &operator=(const BigNum &b)
+    {
+        mpz_set(n, b.n);
+        return *this;
+    }
+
     BigNum checkLimits() const { return *this; }
     /** Modulo where the remainder gets the sign of the dividend */
     BigNum tdiv(const BigNum &d) const

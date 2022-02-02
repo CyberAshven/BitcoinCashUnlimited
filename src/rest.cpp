@@ -11,6 +11,7 @@
 #include "main.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
+#include "rpc/blockchain.h"
 #include "rpc/server.h"
 #include "streams.h"
 #include "sync.h"
@@ -65,12 +66,7 @@ struct CCoin
     }
 };
 
-extern UniValue blockToJSON(const CBlock &block,
-    const CBlockIndex *blockindex,
-    bool txDetails = false,
-    bool listTxns = true);
 extern UniValue mempoolInfoToJSON();
-extern UniValue mempoolToJSON(bool fVerbose = false);
 extern void ScriptPubKeyToJSON(const CScript &scriptPubKey, UniValue &out, bool fIncludeHex);
 extern UniValue blockheaderToJSON(const CBlockIndex *blockindex);
 
@@ -359,7 +355,7 @@ static bool rest_mempool_contents(HTTPRequest *req, const std::string &strURIPar
     {
     case RF_JSON:
     {
-        UniValue mempoolObject = mempoolToJSON(true);
+        UniValue mempoolObject = mempoolToJSON(true, true);
 
         string strJSON = mempoolObject.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");
@@ -471,14 +467,25 @@ static bool rest_getutxos(HTTPRequest *req, const std::string &strURIPart)
         {
             uint256 txid;
             int32_t nOutput;
-            std::string strTxid = uriParts[i].substr(0, uriParts[i].find("-"));
-            std::string strOutput = uriParts[i].substr(uriParts[i].find("-") + 1);
+            // Accept either outpoint or txidem-index format
+            auto dashpt = uriParts[i].find("-");
+            if (dashpt == string::npos)
+            {
+                std::string outpoint = uriParts[i];
+                txid.SetHex(outpoint);
+                vOutPoints.push_back(COutPoint(txid));
+            }
+            else
+            {
+                std::string strTxid = uriParts[i].substr(0, dashpt);
+                std::string strOutput = uriParts[i].substr(dashpt + 1);
 
-            if (!ParseInt32(strOutput, &nOutput) || !IsHex(strTxid))
-                return RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, "Parse error");
+                if (!ParseInt32(strOutput, &nOutput) || !IsHex(strTxid))
+                    return RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, "Parse error");
 
-            txid.SetHex(strTxid);
-            vOutPoints.push_back(COutPoint(txid, (uint32_t)nOutput));
+                txid.SetHex(strTxid);
+                vOutPoints.push_back(COutPoint(txid, (uint32_t)nOutput));
+            }
         }
 
         if (vOutPoints.size() > 0)

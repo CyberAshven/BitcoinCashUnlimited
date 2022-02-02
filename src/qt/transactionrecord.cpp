@@ -39,7 +39,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
     CAmount nCredit = wtx.GetCredit(ISMINE_ALL);
     CAmount nDebit = wtx.GetDebit(ISMINE_ALL);
     CAmount nNet = nCredit - nDebit;
-    uint256 hash = wtx.GetHash();
+    uint256 hash = wtx.GetIdem();
     std::map<std::string, std::string> mapValue = wtx.mapValue;
 
     if (nNet > 0 || wtx.IsCoinBase())
@@ -203,46 +203,46 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
     return parts;
 }
 
-void TransactionRecord::updateStatus(const CWalletTx &wtx)
+void TransactionRecord::updateStatus(const CWalletTxRef &wtx)
 {
     // Determine transaction status
 
     // Find the block the tx is in
-    CBlockIndex *pindex = LookupBlockIndex(wtx.hashBlock);
+    CBlockIndex *pindex = LookupBlockIndex(wtx->hashBlock);
 
     // Sort order, unrecorded transactions sort to the top
     status.sortKey = strprintf("%010d-%01d-%010u-%03d", (pindex ? pindex->height() : std::numeric_limits<int>::max()),
-        (wtx.IsCoinBase() ? 1 : 0), wtx.nTimeReceived, idx);
-    status.countsForBalance = wtx.IsTrusted() && !(wtx.GetBlocksToMaturity() > 0);
-    status.depth = wtx.GetDepthInMainChain();
+        (wtx->IsCoinBase() ? 1 : 0), wtx->nTimeReceived, idx);
+    status.countsForBalance = wtx->IsTrusted() && !(wtx->GetBlocksToMaturity() > 0);
+    status.depth = wtx->GetDepthInMainChain();
     status.cur_num_blocks = chainActive.Height();
 
-    if (!CheckFinalTx(MakeTransactionRef(wtx)))
+    if (!CheckFinalTx(std::static_pointer_cast<const CTransaction>(wtx)))
     {
-        if (wtx.nLockTime < LOCKTIME_THRESHOLD)
+        if (wtx->nLockTime < LOCKTIME_THRESHOLD)
         {
             status.status = TransactionStatus::OpenUntilBlock;
-            status.open_for = wtx.nLockTime - chainActive.Height();
+            status.open_for = wtx->nLockTime - chainActive.Height();
         }
         else
         {
             status.status = TransactionStatus::OpenUntilDate;
-            status.open_for = wtx.nLockTime;
+            status.open_for = wtx->nLockTime;
         }
     }
     // For generated transactions, determine maturity
     else if (type == TransactionRecord::Generated)
     {
-        if (wtx.GetBlocksToMaturity() > 0)
+        if (wtx->GetBlocksToMaturity() > 0)
         {
             status.status = TransactionStatus::Immature;
 
-            if (wtx.IsInMainChain())
+            if (wtx->IsInMainChain())
             {
-                status.matures_in = wtx.GetBlocksToMaturity();
+                status.matures_in = wtx->GetBlocksToMaturity();
 
                 // Check if the block was requested by anyone
-                if (GetAdjustedTime() - wtx.nTimeReceived > 2 * 60 && wtx.GetRequestCount() == 0)
+                if (GetAdjustedTime() - wtx->nTimeReceived > 2 * 60 && wtx->GetRequestCount() == 0)
                     status.status = TransactionStatus::MaturesWarning;
             }
             else
@@ -261,13 +261,13 @@ void TransactionRecord::updateStatus(const CWalletTx &wtx)
         {
             status.status = TransactionStatus::Conflicted;
         }
-        else if (GetAdjustedTime() - wtx.nTimeReceived > 2 * 60 && wtx.GetRequestCount() == 0)
+        else if (GetAdjustedTime() - wtx->nTimeReceived > 2 * 60 && wtx->GetRequestCount() == 0)
         {
             status.status = TransactionStatus::Offline;
         }
         else if (status.depth == 0)
         {
-            if (wtx.fDoubleSpent)
+            if (wtx->fDoubleSpent)
                 status.status = TransactionStatus::DoubleSpent;
             else
                 status.status = TransactionStatus::Unconfirmed;
@@ -275,12 +275,12 @@ void TransactionRecord::updateStatus(const CWalletTx &wtx)
         else if (status.depth < RecommendedNumConfirmations)
         {
             status.status = TransactionStatus::Confirming;
-            wtx.fDoubleSpent = false;
+            wtx->fDoubleSpent = false;
         }
         else
         {
             status.status = TransactionStatus::Confirmed;
-            wtx.fDoubleSpent = false;
+            wtx->fDoubleSpent = false;
         }
     }
 }

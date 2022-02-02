@@ -2185,6 +2185,9 @@ bool TransactionSignatureChecker::CheckSig(const vector<unsigned char> &vchSigIn
 
     uint256 sighash;
     size_t nHashed = 0;
+    if (txTo == nullptr || nIn >= txTo->vin.size())
+        return false;
+    CAmount amount = txTo->vin[nIn].amount;
     // If BCH sighash is possible, check the bit, otherwise ignore the bit.  This is needed because
     // the bit is undefined (can be any value) before the fork. See block 264084 tx 102
     if (nFlags & SCRIPT_ENABLE_SIGHASH_FORKID)
@@ -2413,6 +2416,9 @@ bool VerifyScript(const CScript &scriptSig,
     ScriptError *serror,
     ScriptMachineResourceTracker *tracker)
 {
+    // Verify that flags are consistent, if not just continue in relase
+    if (sis.checker)
+        DbgAssert(flags == sis.checker->flags(), );
     unsigned int maxActualSigops = 0xFFFFFFFF; // TODO add sigop execution limits
     ScriptTemplateError terror;
     CScript::const_iterator constraintStart = scriptPubKey.begin();

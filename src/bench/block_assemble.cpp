@@ -45,7 +45,7 @@ static CTxIn MineBlock(const CScript &coinbase_scriptPubKey, const CChainParams 
     assert(processed);
     assert(state.IsValid());
 
-    return CTxIn{block->vtx[0]->GetHash(), 0};
+    return block->vtx[0]->SpendOutput(0);
 }
 
 
@@ -67,7 +67,7 @@ static void AssembleBlock(benchmark::State &state)
         CMutableTransaction tx;
         tx.vin.push_back(MineBlock(SCRIPT_PUB, chainparams));
         tx.vin.back().scriptSig = scriptSig;
-        tx.vout.emplace_back(9.999 * COIN, SCRIPT_PUB);
+        tx.vout.emplace_back(CTxOut::LEGACY, 9.999 * COIN, SCRIPT_PUB);
         if (NUM_BLOCKS - b >= COINBASE_MATURITY)
         {
             txs.at(b) = MakeTransactionRef(tx);

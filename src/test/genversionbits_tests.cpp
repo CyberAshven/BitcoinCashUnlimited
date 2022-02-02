@@ -5,8 +5,6 @@
 
 
 // Removed since block version is removed
-#if 0
-
 #include "chain.h"
 #include "random.h"
 #include "versionbits.h"
@@ -17,6 +15,15 @@
 #include "consensus/params.h"
 
 #include <boost/test/unit_test.hpp>
+
+#if 1
+BOOST_FIXTURE_TEST_SUITE(genversionbits_tests, BasicTestingSetup)
+
+BOOST_AUTO_TEST_CASE(genversionbits_minblocks_test)
+{
+    BOOST_CHECK(true);
+}
+#else
 
 /* Define a virtual block time, one block per 10 minutes after Nov 14 2014, 0:55:36am */
 int32_t GenVBTestTime(int nHeight) { return 1415926536 + 600 * nHeight; }
@@ -280,9 +287,6 @@ public:
     CBlockIndex * Tip() { return vpblock.size() ? vpblock.back() : nullptr; }
 };
 
-
-BOOST_FIXTURE_TEST_SUITE(genversionbits_tests, BasicTestingSetup)
-
 BOOST_AUTO_TEST_CASE(genversionbits_minblocks_test)
 {
     // NOTE: the index i is not used in this loop. The high number of iterations
@@ -400,6 +404,7 @@ BOOST_AUTO_TEST_CASE(genversionbits_mintime_test)
     }
 }
 
+#endif
 BOOST_AUTO_TEST_SUITE_END()
 
-#endif
+

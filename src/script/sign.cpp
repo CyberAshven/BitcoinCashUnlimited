@@ -13,6 +13,14 @@
 #include "script/standard.h"
 #include "uint256.h"
 
+#ifdef ANDROID // log sighash calculations
+#include <android/log.h>
+#define p(...) __android_log_print(ANDROID_LOG_DEBUG, "bu.sig", __VA_ARGS__)
+#else
+#define p(...)
+// tinyformat::format(std::cout, __VA_ARGS__)
+#endif
+
 using namespace std;
 
 typedef std::vector<unsigned char> valtype;
@@ -23,14 +31,27 @@ TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore *keysto
     const CAmount &amountIn,
     uint32_t nHashTypeIn)
     : BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), amount(amountIn), nHashType(nHashTypeIn),
-      checker(txTo, nIn, amount, (nHashTypeIn & SIGHASH_FORKID) ? SCRIPT_ENABLE_SIGHASH_FORKID : 0)
+      checker(txTo,
+          nIn,
+          amount,
+          STANDARD_SCRIPT_VERIFY_FLAGS | ((nHashTypeIn & SIGHASH_FORKID) ? SCRIPT_ENABLE_SIGHASH_FORKID : 0))
 {
+    for (unsigned int i = 0; i < txToIn->vin.size(); i++) // catch uninitialized amounts
+    {
+        assert(txTo->vin[i].amount != -1);
+    }
 }
 
 bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char> &vchSig,
     const CKeyID &address,
     const CScript &scriptCode) const
 {
+    // Bad tx info
+    if (txTo == nullptr || nIn >= txTo->vin.size())
+        return false;
+    // The transaction input has a different amount than reported by the previous out
+    if (amount != txTo->vin[nIn].amount)
+        return false;
     CKey key;
     if (!keystore->GetKey(address, key))
         return false;
@@ -39,6 +60,9 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char> &vchSig,
     if (!key.SignSchnorr(hash, vchSig))
         return false;
     vchSig.push_back((unsigned char)nHashType);
+
+    CPubKey pub = key.GetPubKey();
+    p("Sign Schnorr: sig: %x, pubkey: %x sighash: %x\n", HexStr(vchSig), HexStr(pub.begin(), pub.end()), hash.GetHex());
     return true;
 }
 
@@ -47,7 +71,7 @@ static bool Sign1(const CKeyID &address,
     const CScript &scriptCode,
     CScript &scriptSigRet)
 {
-    vector<unsigned char> vchSig;
+    std::vector<unsigned char> vchSig;
     if (!creator.CreateSig(vchSig, address, scriptCode))
         return false;
     scriptSigRet << vchSig;
@@ -157,9 +181,8 @@ bool ProduceSignature(const BaseSignatureCreator &creator, const CScript &fromPu
 
     // We don't have the capability of signing with tx context dependent instructions so ScriptImportedState can be
     // degenrate.
-    ScriptImportedState sis(&creator.Checker(), CTransactionRef(nullptr), 0, 0);
-    return VerifyScript(
-        scriptSig, fromPubKey, STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_ENABLE_SIGHASH_FORKID, MAX_OPS_PER_SCRIPT, sis);
+    ScriptImportedState sis(&creator.Checker(), CTransactionRef(nullptr), (unsigned int)-1, 0);
+    return VerifyScript(scriptSig, fromPubKey, sis.checker->flags(), MAX_OPS_PER_SCRIPT, sis);
 }
 
 bool SignSignature(const CKeyStore &keystore,
@@ -179,18 +202,18 @@ bool SignSignature(const CKeyStore &keystore,
 }
 
 bool SignSignature(const CKeyStore &keystore,
-    const CTransaction &txFrom,
+    const CTxOut &spendingThis,
     CMutableTransaction &txTo,
     unsigned int nIn,
     uint32_t nHashType)
 {
     assert(nIn < txTo.vin.size());
     CTxIn &txin = txTo.vin[nIn];
-    assert(txin.prevout.n < txFrom.vout.size());
-    const CTxOut &txout = txFrom.vout[txin.prevout.n];
-
-    return SignSignature(keystore, txout.scriptPubKey, txTo, nIn, txout.nValue, nHashType);
+    if (spendingThis.nValue != txin.amount)
+        return false;
+    return SignSignature(keystore, spendingThis.scriptPubKey, txTo, nIn, txin.amount, nHashType);
 }
+
 
 static CScript PushAll(const Stack &values)
 {

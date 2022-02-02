@@ -7,6 +7,7 @@
 #include "main.h"
 #include "miner.h"
 #include "test/test_bitcoin.h"
+#include "test/testutil.h"
 #include "txadmission.h"
 #include "utilstrencodings.h"
 #include "validation/validation.h"
@@ -60,22 +61,6 @@ CScript breakable_gp2pkh(const CGroupTokenID &group, const CKeyID &dest, CAmount
     return script;
 }
 
-
-// create a pay to public key hash script
-CScript p2pkh(const CKeyID &dest)
-{
-    CScript script = CScript() << OP_DUP << OP_HASH160 << ToByteVector(dest) << OP_EQUALVERIFY << OP_CHECKSIG;
-    return script;
-}
-
-CScript p2sh(const CScriptID &dest)
-{
-    CScript script;
-
-    script.clear();
-    script << OP_HASH160 << ToByteVector(dest) << OP_EQUAL;
-    return script;
-}
 
 CScript gp2sh(const CGroupTokenID &group, const CScriptID &dest, CAmount amt)
 {
@@ -138,10 +123,13 @@ public:
 
 COutPoint AddUtxo(const CScript &script, uint64_t amount, CCoinsViewCache &coins)
 {
+    static arith_uint256 uniquifier;
     // This creates an unbalanced transaction but it doesn't matter because AddCoins doesn't validate the tx
     CMutableTransaction tx;
     tx.vin.resize(1);
-    tx.vin[0].prevout.SetNull();
+    tx.vin[0].prevout.hash = ArithToUint256(uniquifier);
+    tx.vin[0].amount = amount;
+    uniquifier++;
     tx.vout.resize(1);
     tx.vout[0].scriptPubKey = script;
     tx.vout[0].nValue = amount;
@@ -150,199 +138,8 @@ COutPoint AddUtxo(const CScript &script, uint64_t amount, CCoinsViewCache &coins
 
     int height = 1; // doesn't matter for our purposes
     AddCoins(coins, tx, height);
-    return COutPoint(tx.GetHash(), 0);
+    return COutPoint(tx.GetIdem(), 0);
 }
-
-CTransaction tx1x1(const COutPoint &utxo, const CScript &txo, CAmount amt)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = utxo;
-    tx.vout.resize(1);
-    tx.vout[0].scriptPubKey = txo;
-    tx.vout[0].nValue = amt;
-    tx.vin[0].scriptSig = CScript(); // CheckGroupTokens does not validate sig so anything in here
-    tx.nLockTime = 0;
-
-    return tx;
-}
-
-CTransaction tx1x2(const COutPoint &utxo, const CScript &txo, CAmount amt, const CScript &txo2, CAmount amt2)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = utxo;
-    tx.vin[0].scriptSig = CScript(); // CheckGroupTokens does not validate sig so anything in here
-    tx.vout.resize(2);
-    tx.vout[0].scriptPubKey = txo;
-    tx.vout[0].nValue = amt;
-    tx.vout[1].scriptPubKey = txo2;
-    tx.vout[1].nValue = amt2;
-    tx.nLockTime = 0;
-
-    return tx;
-}
-CTransaction tx1x3(const COutPoint &utxo,
-    const CScript &txo,
-    CAmount amt,
-    const CScript &txo2,
-    CAmount amt2,
-    const CScript &txo3,
-    CAmount amt3)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = utxo;
-    tx.vin[0].scriptSig = CScript(); // CheckGroupTokens does not validate sig so anything in here
-    tx.vout.resize(3);
-    tx.vout[0].scriptPubKey = txo;
-    tx.vout[0].nValue = amt;
-    tx.vout[1].scriptPubKey = txo2;
-    tx.vout[1].nValue = amt2;
-    tx.vout[2].scriptPubKey = txo3;
-    tx.vout[2].nValue = amt3;
-    tx.nLockTime = 0;
-    return tx;
-}
-
-
-CTransaction tx1x1(const COutPoint &utxo,
-    const CScript &txo,
-    CAmount amt,
-    const CKey &key,
-    const CScript &prevOutScript,
-    bool p2pkh = true)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = utxo;
-    tx.vout.resize(1);
-    tx.vout[0].scriptPubKey = txo;
-    tx.vout[0].nValue = amt;
-    tx.vin[0].scriptSig = CScript();
-    tx.nLockTime = 0;
-
-    unsigned int sighashType = SIGHASH_ALL | SIGHASH_FORKID;
-    std::vector<unsigned char> vchSig;
-    uint256 hash = SignatureHash(prevOutScript, tx, 0, sighashType, amt, 0);
-    if (!key.SignSchnorr(hash, vchSig))
-    {
-        assert(0);
-    }
-    vchSig.push_back((unsigned char)sighashType);
-    tx.vin[0].scriptSig << vchSig;
-    if (p2pkh)
-    {
-        tx.vin[0].scriptSig << ToByteVector(key.GetPubKey());
-    }
-
-    return tx;
-}
-
-CTransaction tx1x1(const CTransaction &prevtx,
-    int prevout,
-    const CScript &txo,
-    CAmount amt,
-    const CKey &key,
-    bool p2pkh = true)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = COutPoint(prevtx.GetHash(), prevout);
-    tx.vout.resize(1);
-    tx.vout[0].scriptPubKey = txo;
-    tx.vout[0].nValue = amt;
-    tx.vin[0].scriptSig = CScript();
-    tx.nLockTime = 0;
-
-    unsigned int sighashType = SIGHASH_ALL | SIGHASH_FORKID;
-    std::vector<unsigned char> vchSig;
-    uint256 hash = SignatureHash(prevtx.vout[prevout].scriptPubKey, tx, 0, sighashType, prevtx.vout[prevout].nValue, 0);
-    if (!key.SignSchnorr(hash, vchSig))
-    {
-        assert(0);
-    }
-    vchSig.push_back((unsigned char)sighashType);
-    tx.vin[0].scriptSig << vchSig;
-    if (p2pkh)
-    {
-        tx.vin[0].scriptSig << ToByteVector(key.GetPubKey());
-    }
-
-    return tx;
-}
-
-CTransaction tx1x1_p2sh_of_p2pkh(const CTransaction &prevtx,
-    int prevout,
-    const CScript &txo,
-    CAmount amt,
-    const CKey &key,
-    const CScript &redeemScript)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = COutPoint(prevtx.GetHash(), prevout);
-    tx.vout.resize(1);
-    tx.vout[0].scriptPubKey = txo;
-    tx.vout[0].nValue = amt;
-    tx.vin[0].scriptSig = CScript();
-    tx.nLockTime = 0;
-
-    unsigned int sighashType = SIGHASH_ALL | SIGHASH_FORKID;
-    std::vector<unsigned char> vchSig;
-    uint256 hash = SignatureHash(redeemScript, tx, 0, sighashType, prevtx.vout[prevout].nValue, 0);
-    if (!key.SignSchnorr(hash, vchSig))
-    {
-        assert(0);
-    }
-    vchSig.push_back((unsigned char)sighashType);
-    tx.vin[0].scriptSig << vchSig;
-    tx.vin[0].scriptSig << ToByteVector(key.GetPubKey());
-    tx.vin[0].scriptSig << ToByteVector(redeemScript);
-
-    return tx;
-}
-
-
-CTransaction tx1x2(const CTransaction &prevtx,
-    int prevout,
-    const CScript &txo0,
-    CAmount amt0,
-    const CScript &txo1,
-    CAmount amt1,
-    const CKey &key,
-    bool p2pkh = true)
-{
-    CMutableTransaction tx;
-    tx.vin.resize(1);
-    tx.vin[0].prevout = COutPoint(prevtx.GetHash(), prevout);
-    tx.vin[0].scriptSig = CScript();
-
-    tx.vout.resize(2);
-    tx.vout[0].scriptPubKey = txo0;
-    tx.vout[0].nValue = amt0;
-    tx.vout[1].scriptPubKey = txo1;
-    tx.vout[1].nValue = amt1;
-
-    tx.nLockTime = 0;
-
-    unsigned int sighashType = SIGHASH_ALL | SIGHASH_FORKID;
-    std::vector<unsigned char> vchSig;
-    uint256 hash = SignatureHash(prevtx.vout[prevout].scriptPubKey, tx, 0, sighashType, prevtx.vout[prevout].nValue, 0);
-    if (!key.SignSchnorr(hash, vchSig))
-    {
-        assert(0);
-    }
-    vchSig.push_back((unsigned char)sighashType);
-    tx.vin[0].scriptSig << vchSig;
-    if (p2pkh)
-    {
-        tx.vin[0].scriptSig << ToByteVector(key.GetPubKey());
-    }
-
-    return tx;
-}
-
 
 class InputData
 {
@@ -376,8 +173,7 @@ CTransaction tx(const std::vector<InputData> in, const std::vector<OutputData> o
     int idx = 0;
     for (auto i : in)
     {
-        tx.vin[idx].prevout = COutPoint(i.prevtx.GetHash(), i.prevout);
-        tx.vin[idx].scriptSig = CScript();
+        tx.vin[idx] = i.prevtx.SpendOutput(i.prevout);
         idx++;
     }
 
@@ -426,9 +222,9 @@ CTransaction tx2x2(const InputData &in1,
 {
     CMutableTransaction tx;
     tx.vin.resize(2);
-    tx.vin[0].prevout = COutPoint(in1.prevtx.GetHash(), in1.prevout);
+    tx.vin[0].prevout = COutPoint(in1.prevtx.GetIdem(), in1.prevout);
     tx.vin[0].scriptSig = CScript();
-    tx.vin[1].prevout = COutPoint(in2.prevtx.GetHash(), in2.prevout);
+    tx.vin[1].prevout = COutPoint(in2.prevtx.GetIdem(), in2.prevout);
     tx.vin[1].scriptSig = CScript();
 
     tx.vout.resize(2);
@@ -1580,7 +1376,7 @@ BOOST_FIXTURE_TEST_CASE(grouptoken_blockchain, TestChain100Setup)
 
     {
         // Should fail: bad group size
-        uint256 hash = blk1.vtx[0]->GetHash();
+        uint256 hash = blk1.vtx[0]->GetIdem();
         std::vector<unsigned char> fakeGrp(21);
         CScript script = CScript() << fakeGrp << OP_GROUP << OP_DUP << OP_HASH160 << ToByteVector(a1.addr)
                                    << OP_EQUALVERIFY << OP_CHECKSIG;
@@ -1592,11 +1388,14 @@ BOOST_FIXTURE_TEST_CASE(grouptoken_blockchain, TestChain100Setup)
 
     // Create group
     uint64_t nonce = 0;
-    CGroupTokenID gid = findGroupId(COutPoint(coinbaseTxns[0].GetHash(), 0), CScript(), GroupTokenIdFlags::NONE,
+    CGroupTokenID gid = findGroupId(COutPoint(coinbaseTxns[0].GetIdem(), 0), CScript(), GroupTokenIdFlags::NONE,
         GroupAuthorityFlags::ACTIVE_FLAG_BITS, nonce);
-    txns[0] = tx1x1(COutPoint(coinbaseTxns[0].GetHash(), 0), gp2pkh(gid, grp0AllAuth.addr, nonce),
+    txns[0] = tx1x1(COutPoint(coinbaseTxns[0].GetIdem(), 0), gp2pkh(gid, grp0AllAuth.addr, nonce),
         coinbaseTxns[0].vout[0].nValue, coinbaseKey, coinbaseTxns[0].vout[0].scriptPubKey, false);
     ret = tryBlock(txns, p2pkh(a2.addr), tipblk, state);
+    if (!ret)
+        printf("state: %d:%s, %s\n", state.GetRejectCode(), state.GetRejectReason().c_str(),
+            state.GetDebugMessage().c_str());
     BOOST_CHECK(ret);
 
 
@@ -1630,7 +1429,7 @@ BOOST_FIXTURE_TEST_CASE(grouptoken_blockchain, TestChain100Setup)
 
     // Create another group, use different grp as 0 input tx (shouldn't matter)
     nonce = 0xfffffffffff00000ULL; // start anywhere
-    CGroupTokenID gid1 = findGroupId(COutPoint(coinbaseTxns[3].GetHash(), 0), CScript(), GroupTokenIdFlags::NONE,
+    CGroupTokenID gid1 = findGroupId(COutPoint(coinbaseTxns[3].GetIdem(), 0), CScript(), GroupTokenIdFlags::NONE,
         GroupAuthorityFlags::ACTIVE_FLAG_BITS, nonce);
     txns[0] = tx({InputData(coinbaseTxns[3], 0, coinbaseKey, false)},
         {OutputData(gp2pkh(gid1, grp1AllAuth.addr, authorityFlags(GroupAuthorityFlags::ACTIVE_FLAG_BITS, nonce)), 1),
@@ -1706,7 +1505,7 @@ BOOST_FIXTURE_TEST_CASE(grouptoken_blockchain, TestChain100Setup)
     CScriptID sid2 = CScriptID(p2shBaseScript2);
 
     // Spend to a p2sh address so we can tokenify it
-    txns[0] = tx1x1(COutPoint(coinbaseTxns[1].GetHash(), 0), p2sh(sid1), coinbaseTxns[1].vout[0].nValue, coinbaseKey,
+    txns[0] = tx1x1(COutPoint(coinbaseTxns[1].GetIdem(), 0), p2sh(sid1), coinbaseTxns[1].vout[0].nValue, coinbaseKey,
         coinbaseTxns[1].vout[0].scriptPubKey, false);
     ret = tryBlock(txns, p2pkh(a2.addr), tipblk, state);
     BOOST_CHECK(ret);

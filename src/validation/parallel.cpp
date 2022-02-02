@@ -57,7 +57,7 @@ bool CScriptCheck::operator()()
     }
     if (resourceTracker)
     {
-        resourceTracker->Update(ptxTo->GetHash(), checker.GetNumSigops(), checker.GetBytesHashed());
+        resourceTracker->Update(ptxTo->GetId(), checker.GetNumSigops(), checker.GetBytesHashed());
         resourceTracker->UpdateConsensusSigChecks(smRes.consensusSigCheckCount);
     }
     if (nFlags & SCRIPT_VERIFY_INPUT_SIGCHECKS)

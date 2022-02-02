@@ -10,6 +10,8 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.nodemessages import *
+from test_framework.script import *
 import pdb
 import traceback
 
@@ -42,50 +44,33 @@ class TxnCloneTest(BitcoinTestFramework):
         node1_address = self.nodes[1].getnewaddress("from0")
 
         # Send tx1, and another transaction tx2 that won't be cloned
-        txid1 = self.nodes[0].sendfrom("foo", node1_address, 40, 0)
+        txidem1 = self.nodes[0].sendfrom("foo", node1_address, 40, 0)
 
         # Construct a clone of tx1, to be malleated
-        rawtx1 = self.nodes[0].getrawtransaction(txid1,1)
-        clone_inputs = [{"txid":rawtx1["vin"][0]["txid"],"vout":rawtx1["vin"][0]["vout"]}]
-        clone_outputs = {rawtx1["vout"][0]["scriptPubKey"]["addresses"][0]:rawtx1["vout"][0]["value"],
-                         rawtx1["vout"][1]["scriptPubKey"]["addresses"][0]:rawtx1["vout"][1]["value"]}
-        clone_raw = self.nodes[0].createrawtransaction(clone_inputs, clone_outputs)
 
-        # 3 hex manipulations on the clone are required
-
-        # manipulation 1. sequence is at version+#inputs+input+sigstub
-        posseq = 2*(4+1+36+1)
-        seqbe = '%08x' % rawtx1["vin"][0]["sequence"]
-        clone_raw = clone_raw[:posseq] + seqbe[6:8] + seqbe[4:6] + seqbe[2:4] + seqbe[0:2] + clone_raw[posseq + 8:]
-
-        # manipulation 2. createrawtransaction randomizes the order of its outputs, so swap them if necessary.
-        # output 0 is at version+#inputs+input+sigstub+sequence+#outputs
-        # 40 BTC serialized is 00286bee00000000
-        pos0 = 2*(4+1+36+1+4+1)
-        hex40 = "00286bee00000000"
-        output_len = 16 + 2 + 2 * int("0x" + clone_raw[pos0 + 16 : pos0 + 16 + 2], 0)
-        if (rawtx1["vout"][0]["value"] == 40 and clone_raw[pos0 : pos0 + 16] != hex40 or
-            rawtx1["vout"][0]["value"] != 40 and clone_raw[pos0 : pos0 + 16] == hex40):
-            output0 = clone_raw[pos0 : pos0 + output_len]
-            output1 = clone_raw[pos0 + output_len : pos0 + 2 * output_len]
-            clone_raw = clone_raw[:pos0] + output1 + output0 + clone_raw[pos0 + 2 * output_len:]
-
-        # manipulation 3. locktime is after outputs
-        poslt = pos0 + 2 * output_len
-        ltbe = '%08x' % rawtx1["locktime"]
-        clone_raw = clone_raw[:poslt] + ltbe[6:8] + ltbe[4:6] + ltbe[2:4] + ltbe[0:2] + clone_raw[poslt + 8:]
-
+        tx1hex = self.nodes[0].getrawtransaction(txidem1)
+        tx1json = self.nodes[0].gettransaction(txidem1)
+        tx1id = tx1json["txid"]
         # Use a different signature hash type to sign.  This creates an equivalent but malleated clone.
-        # Don't send the clone anywhere yet
-        tx1_clone = self.nodes[0].signrawtransaction(clone_raw, None, None, "ALL|ANYONECANPAY|FORKID")
-        assert_equal(tx1_clone["complete"], True)
+        tx = CTransaction(tx1hex)
+        for v in tx.vin:  # Wipe out the sigs
+            v.scriptSig = CScript()
+        tx1_clone = self.nodes[0].signrawtransaction(tx.toHex(), None, None, "ALL|ANYONECANPAY|FORKID")
+        # Its malleated so the hex representations are different
+        assert(tx1_clone["hex"] != tx1hex)
+        # but Idem is the same
+        assert(txidem1 == tx1_clone["txidem"])
+        assert(txidem1 == tx1json["txidem"])
+        # and Id is different
+        tx1_clone_id = tx1_clone["txid"]
+        assert(tx1_clone_id != tx1json["txid"])
 
         # Have node0 mine a block, if requested:
         if (self.options.mine_block):
             self.nodes[0].generate(1)
             sync_blocks(self.nodes[0:2])
 
-        tx1 = self.nodes[0].gettransaction(txid1)
+        tx1 = tx1json
 
         # Node0's balance should be starting balance, plus 50BTC for another
         # matured block, minus tx1 and tx2 amounts, and minus transaction fees:
@@ -116,12 +101,14 @@ class TxnCloneTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         # Re-fetch transaction info:
-        tx1 = self.nodes[0].gettransaction(txid1)
-        tx1_clone = self.nodes[0].gettransaction(txid1_clone)
+        tx1 = self.nodes[0].gettransaction(tx1id)
+        tx1_idem = self.nodes[0].gettransaction(txidem1)
+        tx1_clone = self.nodes[0].gettransaction(tx1_clone_id)
 
         # Verify expected confirmations
         assert_equal(tx1["confirmations"], -2)
         assert_equal(tx1_clone["confirmations"], 2)
+        assert_equal(tx1_idem["confirmations"], 2)
 
         # Check node0's total balance; should be same as before the clone, + 100 BTC for 2 matured,
         # less possible orphaned matured subsidy

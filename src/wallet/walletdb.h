@@ -29,6 +29,8 @@ class CMasterKey;
 class CScript;
 class CWallet;
 class CWalletTx;
+typedef std::shared_ptr<CWalletTx> CWalletTxRef;
+class COutput;
 class uint160;
 class uint256;
 
@@ -128,8 +130,8 @@ public:
     bool WritePurpose(const CTxDestination &address, const std::string &purpose);
     bool ErasePurpose(const CTxDestination &address);
 
-    bool WriteTx(uint256 hash, const CWalletTx &wtx);
-    bool EraseTx(uint256 hash);
+    bool WriteTx(const CWalletTx &wtx);
+    bool EraseTx(uint256 idem);
 
     bool WriteKey(const CPubKey &vchPubKey, const CPrivKey &vchPrivKey, const CKeyMetadata &keyMeta);
     bool WriteCryptedKey(const CPubKey &vchPubKey,
@@ -170,11 +172,12 @@ public:
     CAmount GetAccountCreditDebit(const std::string &strAccount);
     void ListAccountCreditDebit(const std::string &strAccount, std::list<CAccountingEntry> &acentries);
 
-    DBErrors ReorderTransactions(CWallet *pwallet);
     DBErrors LoadWallet(CWallet *pwallet);
-    DBErrors FindWalletTx(CWallet *pwallet, std::vector<uint256> &vTxHash, std::vector<CWalletTx> &vWtx);
-    DBErrors ZapWalletTx(CWallet *pwallet, std::vector<CWalletTx> &vWtx);
+    // Returns every transaction in the wallet
+    DBErrors FindWalletTx(CWallet *pwallet, std::vector<uint256> &vTxHash, std::vector<CWalletTxRef> &vWtx);
+    DBErrors ZapWalletTx(CWallet *pwallet, std::vector<CWalletTxRef> &vWtx);
     DBErrors ZapSelectTx(CWallet *pwallet, std::vector<uint256> &vHashIn, std::vector<uint256> &vHashOut);
+
     static bool Recover(CDBEnv &dbenv, const std::string &filename, bool fOnlyKeys);
     static bool Recover(CDBEnv &dbenv, const std::string &filename);
 

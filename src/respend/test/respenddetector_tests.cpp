@@ -5,6 +5,7 @@
 #include "DoubleSpendProofStorage.h"
 #include "key.h"
 #include "keystore.h"
+#include "policy/policy.h"
 #include "primitives/transaction.h"
 #include "respend/respendaction.h"
 #include "respend/respenddetector.h"
@@ -14,7 +15,6 @@
 #include "test/test_bitcoin.h"
 #include "test/testutil.h"
 #include "txmempool.h"
-
 #include <boost/test/unit_test.hpp>
 
 using namespace respend;
@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE(not_a_respend)
     }
 
     TestMemPoolEntryHelper entry;
-    mempool.addUnchecked(tx1.GetHash(), entry.FromTx(tx1));
+    mempool.addUnchecked(entry.FromTx(tx1));
 
     // tx2 is not a respend of tx1
     RespendDetector detector(mempool, MakeTransactionRef(tx2), {dummyaction});
@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(only_script_differs)
     tx2.vin[0].scriptSig << OP_DROP << OP_1;
 
     TestMemPoolEntryHelper entry;
-    mempool.addUnchecked(tx1.GetHash(), entry.FromTx(tx1));
+    mempool.addUnchecked(entry.FromTx(tx1));
     RespendDetector detector(mempool, MakeTransactionRef(tx2), {dummyaction});
     BOOST_CHECK(detector.IsRespend());
     // when only the script differs, the isEquivalent flag should be set
@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(seen_before)
     tx2.vout[0].scriptPubKey = CreateRandomTx().vout[0].scriptPubKey;
 
     TestMemPoolEntryHelper entry;
-    mempool.addUnchecked(tx1.GetHash(), entry.FromTx(tx1));
+    mempool.addUnchecked(entry.FromTx(tx1));
 
     {
         RespendDetector detector(mempool, MakeTransactionRef(tx2), {dummyaction});
@@ -231,8 +231,8 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
     CMutableTransaction t1;
     t1.nLockTime = 0;
     t1.vin.resize(1);
-    t1.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t1.vin[0].prevout.n = 0;
+    t1.vin[0].prevout = COutPoint(dummyTransactions[0].GetIdem(), 0);
+    t1.vin[0].amount = dummyTransactions[0].vout[0].nValue;
     t1.vout.resize(1);
     t1.vout[0].nValue = 50 * CENT;
     CKey key;
@@ -250,13 +250,13 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
         BOOST_CHECK(worked);
     }
     CTransaction tx1a(t1);
-    pool.addUnchecked(tx1a.GetHash(), entry.FromTx(tx1a));
+    pool.addUnchecked(entry.FromTx(tx1a));
 
     CMutableTransaction t2;
     t2.nLockTime = 0;
     t2.vin.resize(1);
-    t2.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t2.vin[0].prevout.n = 1;
+    t2.vin[0].prevout = COutPoint(dummyTransactions[0].GetIdem(), 1);
+    t2.vin[0].amount = dummyTransactions[0].vout[1].nValue;
     t2.vout.resize(1);
     t2.vout[0].nValue = 50 * CENT;
     key.MakeNewKey(true);
@@ -272,7 +272,7 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
         BOOST_CHECK(worked);
     }
     CTransaction tx2a(t2);
-    pool.addUnchecked(tx2a.GetHash(), entry.FromTx(tx2a));
+    pool.addUnchecked(entry.FromTx(tx2a));
     BOOST_CHECK(pool.size() == 2);
 
 
@@ -280,8 +280,8 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
     CMutableTransaction s1;
     s1.nLockTime = 0;
     s1.vin.resize(1);
-    s1.vin[0].prevout.hash = tx1a.GetHash();
-    s1.vin[0].prevout.n = 0;
+    s1.vin[0].prevout = COutPoint(tx1a.GetIdem(), 0);
+    s1.vin[0].amount = tx1a.vout[0].nValue;
     s1.vout.resize(1);
     s1.vout[0].nValue = 50 * CENT;
     key.MakeNewKey(true);
@@ -304,8 +304,8 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
     CMutableTransaction s2;
     s2.nLockTime = 0;
     s2.vin.resize(1);
-    s2.vin[0].prevout.hash = tx1a.GetHash();
-    s2.vin[0].prevout.n = 0;
+    s2.vin[0].prevout = COutPoint(tx1a.GetIdem(), 0);
+    s2.vin[0].amount = tx1a.vout[0].nValue;
     s2.vout.resize(1);
     s2.vout[0].nValue = 50 * CENT;
     key.MakeNewKey(true);
@@ -320,6 +320,20 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
         CScript &scriptSigRes = s2.vin[0].scriptSig;
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
         BOOST_CHECK(worked);
+
+        { // Sanity check that the signature is actually correct
+            TransactionSignatureChecker checker1(
+                &spend2, 0, 50 * CENT, STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_ENABLE_SIGHASH_FORKID);
+            // DSPSignatureChecker checker1(this, m_spender1, amount);
+            ScriptImportedState sis1(&checker1, MakeTransactionRef(spend2), 0, 50 * CENT);
+            ScriptError_t error;
+            if (!VerifyScript(scriptSigRes, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_ENABLE_SIGHASH_FORKID,
+                    MAX_OPS_PER_SCRIPT, sis1, &error))
+            {
+                LOG(DSPROOF, "Sanity check signature failed due to: %s\n", ScriptErrorString(error));
+                assert(0);
+            }
+        }
     }
     CTransaction spend2a(s2);
 
@@ -342,17 +356,17 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
     // Check that the orphan is present and can be looked up correctly
     BOOST_CHECK(pool.doubleSpendProofStorage()->exists(dsp_first.GetHash()) == true);
     std::list<std::pair<int, int> > dsp_list1 =
-        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx1a.GetHash(), 0));
+        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx1a.GetIdem(), 0));
     BOOST_CHECK(dsp_list1.size() == 1);
     BOOST_CHECK_EQUAL(size_t(0), node.GetInventoryToSendSize());
 
     // Try looking up orphans that should not exist
     std::list<std::pair<int, int> > dsp_list2 =
-        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx1a.GetHash(), 1));
+        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx1a.GetIdem(), 1));
     BOOST_CHECK(dsp_list2.size() == 0);
 
     std::list<std::pair<int, int> > dsp_list3 =
-        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx2a.GetHash(), 0));
+        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx2a.GetIdem(), 0));
     BOOST_CHECK(dsp_list3.size() == 0);
 
     // do a check for respend to trigger the orphan code with spend1a. The orphan will be removed and the inv
@@ -364,7 +378,7 @@ BOOST_AUTO_TEST_CASE(dsproof_orphan_handling)
     BOOST_CHECK_EQUAL(size_t(1), node.GetInventoryToSendSize());
     BOOST_CHECK(!node.vInventoryToSend.empty() && 7 == node.vInventoryToSend.at(0).type);
     std::list<std::pair<int, int> > dsp_list4 =
-        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx1a.GetHash(), 0));
+        pool.doubleSpendProofStorage()->findOrphans(COutPoint(tx1a.GetIdem(), 0));
     BOOST_CHECK(dsp_list4.size() == 0);
 
 

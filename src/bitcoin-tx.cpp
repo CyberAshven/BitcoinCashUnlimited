@@ -97,7 +97,7 @@ static int AppInitRawTx(int argc, char *argv[])
         strUsage = AllowedArgs::HelpMessageGroup(_("Commands:"));
         strUsage += AllowedArgs::HelpMessageOpt("delin=N", _("Delete input N from TX"));
         strUsage += AllowedArgs::HelpMessageOpt("delout=N", _("Delete output N from TX"));
-        strUsage += AllowedArgs::HelpMessageOpt("in=TXID:VOUT", _("Add input to TX"));
+        strUsage += AllowedArgs::HelpMessageOpt("in=VALUE:OUTPOINT", _("Add input to TX"));
         strUsage += AllowedArgs::HelpMessageOpt("locktime=N", _("Set TX lock time to N"));
         strUsage += AllowedArgs::HelpMessageOpt("nversion=N", _("Set TX version to N"));
         strUsage += AllowedArgs::HelpMessageOpt("outaddr=VALUE:ADDRESS", _("Add address-based output to TX"));
@@ -231,21 +231,18 @@ static void MutateTxAddInput(CMutableTransaction &tx, const string &strInput)
         throw runtime_error("TX input missing separator");
 
     // extract and validate TXID
-    string strTxid = vStrInputParts[0];
-    if ((strTxid.size() != 64) || !IsHex(strTxid))
-        throw runtime_error("invalid TX input txid");
-    uint256 txid(uint256S(strTxid));
+    string strUtxoid = vStrInputParts[1];
+    if ((strUtxoid.size() != 64) || !IsHex(strUtxoid))
+        throw runtime_error("invalid UTXO id");
+    uint256 utxoid(uint256S(strUtxoid));
 
     static const unsigned int minTxOutSz = 9;
-    static const unsigned int maxVout = ONE_MEGABYTE / minTxOutSz;
 
     // extract and validate vout
-    string strVout = vStrInputParts[1];
-    int vout = atoi(strVout);
-    // BU: be strict about what is generated.  TODO: ONE_MEGABYTE should be converted to a cmd line
-    // parameter
-    if ((vout < 0) || (vout > (int)maxVout))
-        throw runtime_error("invalid TX input vout");
+    string strAmount = vStrInputParts[0];
+    CAmount amount = ExtractAndValidateValue(strAmount);
+    if (amount < 0)
+        throw runtime_error("invalid TX input amount");
 
     // extract the optional sequence number
     uint32_t nSequenceIn = std::numeric_limits<unsigned int>::max();
@@ -253,7 +250,7 @@ static void MutateTxAddInput(CMutableTransaction &tx, const string &strInput)
         nSequenceIn = std::stoul(vStrInputParts[2]);
 
     // append to transaction input list
-    CTxIn txin(txid, vout, CScript(), nSequenceIn);
+    CTxIn txin(COutPoint(utxoid), amount, CScript(), nSequenceIn);
     tx.vin.push_back(txin);
 }
 
@@ -288,7 +285,7 @@ static void MutateTxAddOutAddr(CMutableTransaction &tx, const string &strInput)
     CScript scriptPubKey = GetScriptForDestination(destination);
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(CTxOut::LEGACY, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -318,7 +315,7 @@ static void MutateTxAddOutData(CMutableTransaction &tx, const std::string &strIn
 
     std::vector<unsigned char> data = ParseHex(strData);
 
-    CTxOut txout(value, CScript() << OP_RETURN << data);
+    CTxOut txout(CTxOut::LEGACY, value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
 }
 
@@ -351,7 +348,7 @@ static void MutateTxAddOutScript(CMutableTransaction &tx, const string &strInput
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(CTxOut::LEGACY, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -471,9 +468,10 @@ static void MutateTxSign(CMutableTransaction &tx, const string &flagStr)
         if (!keysObj[kidx].isStr())
             throw runtime_error("privatekey not a string");
         CBitcoinSecret vchSecret;
-        bool fGood = vchSecret.SetString(keysObj[kidx].getValStr());
+        auto pks = keysObj[kidx].getValStr();
+        bool fGood = vchSecret.SetString(pks);
         if (!fGood)
-            throw runtime_error("privatekey not valid");
+            throw runtime_error(strprintf("privatekey '%s' not valid", pks));
 
         CKey key = vchSecret.GetKey();
         tempKeystore.AddKey(key);
@@ -490,18 +488,15 @@ static void MutateTxSign(CMutableTransaction &tx, const string &flagStr)
             if (!prevOut.isObject())
                 throw runtime_error("expected prevtxs internal object");
 
-            map<string, UniValue::VType> types = {
-                {"txid", UniValue::VSTR}, {"vout", UniValue::VNUM}, {"scriptPubKey", UniValue::VSTR}};
-            if (!prevOut.checkObject(types))
-                throw runtime_error("prevtxs internal object typecheck fail");
+            // amount can be either string or int so can't run this check
+            // map<string, UniValue::VType> types = {
+            //    {"outpoint", UniValue::VSTR}, {"scriptPubKey", UniValue::VSTR}};
+            // if (!prevOut.checkObject(types))
+            //    throw runtime_error("prevtxs internal object typecheck fail");
 
-            uint256 txid = ParseHashUV(prevOut["txid"], "txid");
+            uint256 outpointhash = ParseHashUV(prevOut["outpoint"], "outpoint");
 
-            int nOut = atoi(prevOut["vout"].getValStr());
-            if (nOut < 0)
-                throw runtime_error("vout must be positive");
-
-            COutPoint out(txid, nOut);
+            COutPoint out(outpointhash);
             std::vector<unsigned char> pkData(ParseHexUV(prevOut["scriptPubKey"], "scriptPubKey"));
             CScript scriptPubKey(pkData.begin(), pkData.end());
 
@@ -559,18 +554,19 @@ static void MutateTxSign(CMutableTransaction &tx, const string &flagStr)
         if (!fHashSingle || (i < mergedTx.vout.size()))
             SignSignature(keystore, prevPubKey, mergedTx, i, amount, nHashType);
 
+        unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID | STANDARD_SCRIPT_VERIFY_FLAGS;
         // ... and merge in other signatures:
         for (const CTransaction &txv : txVariants)
         {
-            txin.scriptSig = CombineSignatures(prevPubKey, MutableTransactionSignatureChecker(&mergedTx, i, amount),
-                txin.scriptSig, txv.vin[i].scriptSig);
+            txin.scriptSig = CombineSignatures(prevPubKey,
+                MutableTransactionSignatureChecker(&mergedTx, i, amount, flags), txin.scriptSig, txv.vin[i].scriptSig);
         }
 
-        MutableTransactionSignatureChecker tsc(&mergedTx, i, amount);
+        MutableTransactionSignatureChecker tsc(&mergedTx, i, amount, flags);
         ScriptImportedState sis(&tsc, MakeTransactionRef(mergedTx), i, amount);
 
         // Nothing we are capable of signing can be more than the original 201 ops so using it is fine.
-        if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, MAX_OPS_PER_SCRIPT, sis))
+        if (!VerifyScript(txin.scriptSig, prevPubKey, flags, MAX_OPS_PER_SCRIPT, sis))
             fComplete = false;
     }
 
@@ -642,7 +638,7 @@ static void OutputTxJSON(const CTransaction &tx)
 
 static void OutputTxHash(const CTransaction &tx)
 {
-    string strHexHash = tx.GetHash().GetHex(); // the hex-encoded transaction hash (aka the transaction id)
+    string strHexHash = tx.GetId().GetHex(); // the hex-encoded transaction hash (aka the transaction id)
 
     fprintf(stdout, "%s\n", strHexHash.c_str());
 }

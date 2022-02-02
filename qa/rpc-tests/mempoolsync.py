@@ -53,3 +53,12 @@ class MempoolSyncTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     MempoolSyncTest().main()
+
+def Test():
+    t = MempoolSyncTest()
+    t.drop_to_pdb = True
+    bitcoinConf = {
+        "debug": ["rpc", "net", "blk", "thin", "mempool", "req", "bench", "evict"],
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

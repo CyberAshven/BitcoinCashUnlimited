@@ -129,8 +129,9 @@ void RespendDetector::CheckForRespend(const CTxMemPool &pool, const CTransaction
 
         conflictingOutpoints.push_back(outpoint);
 
-        CTxMemPool::txiter poolIter = pool.mapTx.find(spendIter->second.ptx->GetHash());
-        if (poolIter == pool.mapTx.end())
+        auto &tainer = pool.mapTx.get<txidem_tag>();
+        auto poolIter = tainer.find(spendIter->second.ptx->GetIdem());
+        if (poolIter == tainer.end())
             continue;
 
         bool collectMore = false;
@@ -144,7 +145,7 @@ void RespendDetector::CheckForRespend(const CTxMemPool &pool, const CTransaction
             // Actions can return true if they want to check more
             // outpoints for conflicts.
             bool m = a->AddOutpointConflict(
-                outpoint, poolIter->GetSharedTx()->GetHash(), ptx, seen, ptx->IsEquivalentTo(poolIter->GetTx()));
+                outpoint, poolIter->GetSharedTx()->GetId(), ptx, seen, ptx->IsEquivalentTo(poolIter->GetTx()));
             collectMore = collectMore || m;
         }
         if (!collectMore)

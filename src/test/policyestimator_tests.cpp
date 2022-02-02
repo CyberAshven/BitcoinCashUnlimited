@@ -60,15 +60,17 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_no_fee_inc)
         for (int j = 0; j < 50; j++)
         {
             // add 50 tx per block, each block will mine 40 of them to slowly add a backlog
-            tx.vin[0].prevout.n = 10000 * blocknum + 100 * j; // make transaction unique
-            uint256 hash = tx.GetHash();
-            mpool.addUnchecked(hash, entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION))
-                                         .Time(GetTime())
-                                         .Priority(basepri) // a junk priority
-                                         .Height(blocknum)
-                                         .FromTx(tx, &mpool));
+            std::vector<unsigned char> vch(32);
+            vch[0] = blocknum;
+            vch[1] = j;
+            tx.vin[0].prevout.hash = uint256(vch); // make transaction unique
+            mpool.addUnchecked(entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION))
+                                   .Time(GetTime())
+                                   .Priority(basepri) // a junk priority
+                                   .Height(blocknum)
+                                   .FromTx(tx, &mpool));
             assert((txHashesSize - 1) >= curfee);
-            txHashes[curfee].push_back(hash);
+            txHashes[curfee].push_back(tx.GetId());
         }
 
         // include 40 transactions into a block
@@ -161,15 +163,17 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_gradual_fee_inc)
         for (int j = 0; j < 100; j++)
         {
             // add 100 tx per block, each block will mine 40 of them to add a backlog
-            tx.vin[0].prevout.n = 10000 * blocknum + 100 * j; // make transaction unique
-            uint256 hash = tx.GetHash();
-            mpool.addUnchecked(hash, entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
-                                         .Time(GetTime())
-                                         .Priority(basepri) // a junk priority
-                                         .Height(blocknum)
-                                         .FromTx(tx, &mpool));
+            std::vector<unsigned char> vch(32);
+            vch[0] = blocknum;
+            vch[1] = j;
+            tx.vin[0].prevout.hash = uint256(vch); // make transaction unique
+            mpool.addUnchecked(entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
+                                   .Time(GetTime())
+                                   .Priority(basepri) // a junk priority
+                                   .Height(blocknum)
+                                   .FromTx(tx, &mpool));
             assert((txHashesSize - 1) >= curfee);
-            txHashes[curfee].push_back(hash);
+            txHashes[curfee].push_back(tx.GetId());
         }
         // include 40 transactions into a block
         while (vtx.size() < 40)
@@ -282,21 +286,23 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_partial_fee_inc)
         for (int j = 0; j < numtxgen; j++)
         {
             // add 100 tx per block, each block will mine 40 of them to add a backlog
-            tx.vin[0].prevout.n = 10000 * blocknum + 100 * j; // make transaction unique
-            uint256 hash = tx.GetHash();
-            mpool.addUnchecked(hash, entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
-                                         .Time(GetTime())
-                                         .Priority(basepri) // a junk priority
-                                         .Height(blocknum)
-                                         .FromTx(tx, &mpool));
+            std::vector<unsigned char> vch(32);
+            vch[0] = blocknum;
+            vch[1] = j;
+            tx.vin[0].prevout.hash = uint256(vch); // make transaction unique
+            mpool.addUnchecked(entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
+                                   .Time(GetTime())
+                                   .Priority(basepri) // a junk priority
+                                   .Height(blocknum)
+                                   .FromTx(tx, &mpool));
             if (highFeeActive)
             {
-                highfeeholder.push_back(hash);
+                highfeeholder.push_back(tx.GetId());
             }
             else
             {
                 assert((txHashesSize - 1) >= curfee);
-                txHashes[curfee].push_back(hash);
+                txHashes[curfee].push_back(tx.GetId());
             }
         }
         // include 40 transactions into a block
@@ -424,13 +430,16 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_short_full_fee_inc)
         for (int j = 0; j < 80; j++)
         {
             // add 80 tx per block, each block will mine 40 of them to add a backlog
-            tx.vin[0].prevout.n = 10000 * blocknum + 100 * j; // make transaction unique
-            uint256 hash = tx.GetHash();
-            mpool.addUnchecked(hash, entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
-                                         .Time(GetTime())
-                                         .Priority(basepri) // a junk priority
-                                         .Height(blocknum)
-                                         .FromTx(tx, &mpool));
+            std::vector<unsigned char> vch(32);
+            vch[0] = blocknum;
+            vch[1] = j;
+            tx.vin[0].prevout.hash = uint256(vch); // make transaction unique
+            mpool.addUnchecked(entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
+                                   .Time(GetTime())
+                                   .Priority(basepri) // a junk priority
+                                   .Height(blocknum)
+                                   .FromTx(tx, &mpool));
+            auto hash = tx.GetId();
             if (highFeeActive)
             {
                 highfeeholder.push_back(hash);
@@ -552,15 +561,17 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates_tx_bell_curve)
         }
         for (int j = 0; j < numtxgen; j++)
         {
-            tx.vin[0].prevout.n = 10000 * blocknum + 100 * j; // make transaction unique
-            uint256 hash = tx.GetHash();
-            mpool.addUnchecked(hash, entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
-                                         .Time(GetTime())
-                                         .Priority(basepri) // a junk priority
-                                         .Height(blocknum)
-                                         .FromTx(tx, &mpool));
+            std::vector<unsigned char> vch(32);
+            vch[0] = blocknum;
+            vch[1] = j;
+            tx.vin[0].prevout.hash = uint256(vch); // make transaction unique
+            mpool.addUnchecked(entry.Fee(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) + feebumper)
+                                   .Time(GetTime())
+                                   .Priority(basepri) // a junk priority
+                                   .Height(blocknum)
+                                   .FromTx(tx, &mpool));
             assert((txHashesSize - 1) >= curfee);
-            txHashes[curfee].push_back(hash);
+            txHashes[curfee].push_back(tx.GetId());
         }
         // include 40 transactions into a block
         int index = curfee;

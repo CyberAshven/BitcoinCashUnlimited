@@ -45,7 +45,7 @@ from test_framework.script import (
     SignatureHashForkId,
 )
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, p2p_port, waitFor
+from test_framework.util import assert_equal, assert_raises_rpc_error, p2p_port, waitFor, uint256ToRpcHex
 import logging
 
 # ECDSA checkmultisig with non-null dummy are invalid since the new mode
@@ -181,7 +181,7 @@ class SchnorrMultisigTest(BitcoinTestFramework):
             txspend.vout.append(
                 CTxOut(value-1000, CScript([OP_TRUE])))
             txspend.vin.append(
-                CTxIn(COutPoint(txfund.sha256, 0), b''))
+                CTxIn(txfund.OutpointAt(0), txfund.vout[0].nValue , b''))
 
             # Sign the transaction
             sighashtype = SIGHASH_ALL | SIGHASH_FORKID
@@ -215,7 +215,7 @@ class SchnorrMultisigTest(BitcoinTestFramework):
         logging.info(
             "Submitting a Schnorr-multisig via net, and mining it in a block")
         self.p2p.send_txs_and_test([schnorr1tx], node)
-        waitFor(10, lambda: set(node.getrawmempool()) == {schnorr1tx.hash})
+        waitFor(10, lambda: set(node.getrawmempool()) == {uint256ToRpcHex(schnorr1tx.GetIdem())})
         tip = self.build_block(tip, [schnorr1tx])
         self.p2p.send_blocks_and_test([tip], node)
         waitFor(10, lambda: node.getrawmempool() == [])

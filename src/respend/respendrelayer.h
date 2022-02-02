@@ -21,7 +21,7 @@ public:
     RespendRelayer();
 
     bool AddOutpointConflict(const COutPoint &,
-        const uint256 hash,
+        const uint256 txId,
         const CTransactionRef pRespendTx,
         bool seenBefore,
         bool isEquivalent) override;
@@ -34,7 +34,7 @@ public:
 private:
     bool interesting;
     bool valid;
-    uint256 spendhash;
+    uint256 spendTxId;
     CTransactionRef pRespend;
 };
 

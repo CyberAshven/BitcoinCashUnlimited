@@ -3,14 +3,17 @@
 # Copyright (c) 2015-2017 The Bitcoin Unlimited developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
+"""Test resurrection of mined transactions when the blockchain is re-organized.
+Several transactions are created and mined and a child for each transaction is created and mined.
+These blocks are rewound, and we verify that all the created transactions are returned to the mempool.
+Next a new block is mined, and we verify that all transactions are in that new block
+"""
 import test_framework.loginit
-#
-# Test resurrection of mined transactions when
-# the blockchain is re-organized.
-#
+
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.blocktools import *
 
 # Create one-input, one-output, no-fee transaction:
 class MempoolCoinbaseTest(BitcoinTestFramework):
@@ -35,33 +38,51 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         # ... make sure all the transactions are confirmed again.
 
         b = [ self.nodes[0].getblockhash(n) for n in range(1, 4) ]
-        coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-        spends1_raw = [ create_tx(self.nodes[0], txid, node0_address, COINBASE_REWARD) for txid in coinbase_txids ]
+        coinbase_txids = [ self.nodes[0].getblock(h)['txidem'][0] for h in b ]
+        spends1_raw = [ spend_coinbase_tx(self.nodes[0], txid, node0_address, COINBASE_REWARD) for txid in coinbase_txids ]
         spends1_id = [ self.nodes[0].sendrawtransaction(tx) for tx in spends1_raw ]
 
         blocks = []
         blocks.extend(self.nodes[0].generate(1))
 
-        spends2_raw = [ create_tx(self.nodes[0], txid, node0_address, COINBASE_REWARD-Decimal("0.01")) for txid in spends1_id ]
+        # Now create children of each spends1
+        spends2_raw = [ spend_coinbase_tx(self.nodes[0], txid, node0_address, COINBASE_REWARD-Decimal("0.01")) for txid in spends1_id ]
         spends2_id = [ self.nodes[0].sendrawtransaction(tx) for tx in spends2_raw ]
+
+        mpi = self.nodes[0].getmempoolinfo()
+        assert mpi['size'] == 3, "Transactions rejected from mempool"
 
         blocks.extend(self.nodes[0].generate(1))
 
         # mempool should be empty, all txns confirmed
+        mpi = self.nodes[0].getmempoolinfo()
+        assert mpi['size'] == 0, "Transactions were not committed to a block"
         assert_equal(set(self.nodes[0].getrawmempool()), set())
         for txid in spends1_id+spends2_id:
             tx = self.nodes[0].gettransaction(txid)
             assert(tx["confirmations"] > 0)
 
+        # Should be 1 chain
+        ct = self.nodes[0].getchaintips()
+        assert len(ct) == 1
+
         # Use invalidateblock to re-org back; all transactions should
         # end up unconfirmed and back in the mempool
         for node in self.nodes:
+            node.logline("Invalidating block %s" % blocks[0])
             node.invalidateblock(blocks[0])
 
         time.sleep(3) # wait for tx processing threads to put them back into the mempool
 
-        # mempool should be empty, all txns confirmed
+        # Should be a fork
+        ct = self.nodes[0].getchaintips()
+        assert len(ct) == 2
+
+        # mempool should be empty, all txns confirmed (check 2 different ways)
+        mpi = self.nodes[0].getmempoolinfo()
+        assert mpi['size'] == 6, "Transactions rejected from mempool"
         assert_equal(set(self.nodes[0].getrawmempool()), set(spends1_id+spends2_id))
+
         for txid in spends1_id+spends2_id:
             tx = self.nodes[0].gettransaction(txid)
             assert(tx["confirmations"] == 0)
