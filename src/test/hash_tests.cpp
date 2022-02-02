@@ -128,7 +128,7 @@ BOOST_AUTO_TEST_CASE(siphash)
     // and the test would be affected by default tx version bumps if not fixed.
     tx.nVersion = 1;
     ss << tx;
-    BOOST_CHECK_EQUAL(SipHashUint256(1, 2, ss.GetHash()), 0x79751e980c2a0a35ULL);
+    BOOST_CHECK_EQUAL(SipHashUint256(1, 2, ss.GetHash()), 7386051868284311319ULL);
 
     // Check consistency between CSipHasher and SipHashUint256[Extra].
     FastRandomContext ctx;
@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(siphash)
 
     CHashWriter ss2(SER_DISK, CLIENT_VERSION);
     ss2 << CTransaction();
-    BOOST_CHECK_EQUAL(SipHashUint256(1, 2, ss2.GetHash()), 0x79751e980c2a0a35ULL);
+    BOOST_CHECK_EQUAL(SipHashUint256(1, 2, ss2.GetHash()), 550891282402092887ULL);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

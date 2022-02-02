@@ -75,10 +75,9 @@ BOOST_AUTO_TEST_CASE(uahf_sighash)
 
     CMutableTransaction t;
     t.vin.resize(1);
-    t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t.vin[0].prevout.n = 1;
+    t.vin[0] = dummyTransactions[0].SpendOutput(1);
     t.vout.resize(1);
-    t.vout[0].nValue = 90 * CENT;
+    t.vout[0].nValue = 40 * CENT;
     CKey key;
     key.MakeNewKey(true);
     t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
@@ -86,7 +85,7 @@ BOOST_AUTO_TEST_CASE(uahf_sighash)
     CTransaction tx(t);
 
     {
-        TransactionSignatureCreator tsc(&keystore, &tx, 0, 90 * CENT, SIGHASH_ALL);
+        TransactionSignatureCreator tsc(&keystore, &tx, 0, tx.vin[0].amount, SIGHASH_ALL);
         const CScript &scriptPubKey = dummyTransactions[0].vout[0].scriptPubKey;
         CScript &scriptSigRes = t.vin[0].scriptSig;
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
@@ -97,7 +96,7 @@ BOOST_AUTO_TEST_CASE(uahf_sighash)
     }
 
     {
-        TransactionSignatureCreator tsc(&keystore, &tx, 0, 90 * CENT, SIGHASH_ALL | SIGHASH_FORKID);
+        TransactionSignatureCreator tsc(&keystore, &tx, 0, tx.vin[0].amount, SIGHASH_ALL | SIGHASH_FORKID);
         const CScript &scriptPubKey = dummyTransactions[0].vout[0].scriptPubKey;
         CScript &scriptSigRes = t.vin[0].scriptSig;
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);

@@ -220,9 +220,9 @@ public:
     bool isSpent(const COutPoint &outpoint) const;
     void listCoins(std::map<QString, std::vector<COutput> > &mapCoins) const;
 
-    bool isLockedCoin(uint256 hash, unsigned int n) const;
-    void lockCoin(COutPoint &output);
-    void unlockCoin(COutPoint &output);
+    bool isLockedCoin(const COutPoint &outpt) const;
+    void lockCoin(const COutPoint &output);
+    void unlockCoin(const COutPoint &output);
     void listLockedCoins(std::vector<COutPoint> &vOutpts);
 
     void loadReceiveRequests(std::vector<std::string> &vReceiveRequests);

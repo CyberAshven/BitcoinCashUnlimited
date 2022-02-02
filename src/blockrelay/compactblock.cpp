@@ -65,14 +65,14 @@ CompactBlock::CompactBlock(const CBlock &block, const CRollingFastFilter<4 * 102
     for (size_t i = 1; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *block.vtx[i];
-        if (inventoryKnown && !inventoryKnown->contains(tx.GetHash()))
+        if (inventoryKnown && !inventoryKnown->contains(tx.GetId()))
         {
             prefilledtxn.push_back(PrefilledTransaction{static_cast<uint32_t>(i - (prevIndex + 1)), tx});
             prevIndex = i;
         }
         else
         {
-            shorttxids.push_back(GetShortID(tx.GetHash()));
+            shorttxids.push_back(GetShortID(tx.GetId()));
         }
     }
 }
@@ -214,7 +214,7 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
         {
             if (prefilled.index == 0)
             {
-                uint64_t shorthash = GetShortID(prefilled.tx.GetHash());
+                uint64_t shorthash = GetShortID(prefilled.tx.GetId());
                 cmpctBlock->vTxHashes.push_back(shorthash);
                 cmpctBlock->mapMissingTx[shorthash] = MakeTransactionRef(prefilled.tx);
                 continue;
@@ -233,8 +233,8 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
             }
 
             // Add the prefilled txn and then get the next one
-            cmpctBlock->vTxHashes.push_back(GetShortID(prefilled.tx.GetHash()));
-            cmpctBlock->mapMissingTx[GetShortID(prefilled.tx.GetHash())] = MakeTransactionRef(prefilled.tx);
+            cmpctBlock->vTxHashes.push_back(GetShortID(prefilled.tx.GetId()));
+            cmpctBlock->mapMissingTx[GetShortID(prefilled.tx.GetId())] = MakeTransactionRef(prefilled.tx);
         }
 
         // Add the remaining shorttxids, if any.
@@ -261,7 +261,7 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
                 mapPartialTxHash[cheapHash] = mi.first;
             }
         }
-        mempool.queryHashes(memPoolHashes);
+        mempool.queryIds(memPoolHashes);
         for (uint64_t i = 0; i < memPoolHashes.size(); i++)
         {
             uint64_t cheapHash = GetShortID(memPoolHashes[i]);
@@ -270,7 +270,7 @@ bool CompactBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock
         for (auto &mi : cmpctBlock->mapMissingTx)
         {
             uint64_t cheapHash = mi.first;
-            mapPartialTxHash[cheapHash] = mi.second->GetHash();
+            mapPartialTxHash[cheapHash] = mi.second->GetId();
         }
 
         // Start gathering the full tx hashes. If some are not available then add them to setHashesToRequest.
@@ -481,7 +481,7 @@ bool CompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
     // Create the mapMissingTx from all the supplied tx's in the compactblock
     for (const CTransaction &tx : compactReReqResponse.txn)
-        cmpctBlock->mapMissingTx[GetShortID(pfrom->shorttxidk0.load(), pfrom->shorttxidk1.load(), tx.GetHash())] =
+        cmpctBlock->mapMissingTx[GetShortID(pfrom->shorttxidk0.load(), pfrom->shorttxidk1.load(), tx.GetId())] =
             MakeTransactionRef(tx);
 
     // Get the full hashes from the compactReReqResponse and add them to the compactBlockHashes vector.  These should
@@ -495,7 +495,7 @@ bool CompactReReqResponse::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             std::map<uint64_t, CTransactionRef>::iterator val = cmpctBlock->mapMissingTx.find(cmpctBlock->vTxHashes[i]);
             if (val != cmpctBlock->mapMissingTx.end())
             {
-                cmpctBlock->vTxHashes256[i] = val->second->GetHash();
+                cmpctBlock->vTxHashes256[i] = val->second->GetId();
             }
             count++;
         }

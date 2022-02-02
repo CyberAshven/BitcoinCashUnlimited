@@ -129,10 +129,6 @@ public:
 bool CheckGroupTokens(const CTransaction &tx, CValidationState &state, const CCoinsViewCache &view)
 {
     std::unordered_map<CGroupTokenID, CBalance> gBalance;
-    // This is an optimization allowing us to skip single-mint hashes if there are no output groups
-    bool anyOutputGroups = false;
-    bool anyOutputControlGroups = false;
-
     CScript firstOpReturn;
 
     // Iterate through all the outputs constructing the final balances of every group.
@@ -161,7 +157,7 @@ bool CheckGroupTokens(const CTransaction &tx, CValidationState &state, const CCo
             {
                 gBalance[tokenGrp.associatedGroup].ctrlOutputPerms |=
                     (GroupAuthorityFlags)tokenGrp.controllingGroupFlags;
-                anyOutputControlGroups = true;
+                // anyOutputControlGroups = true;
             }
             else
             {
@@ -171,7 +167,7 @@ bool CheckGroupTokens(const CTransaction &tx, CValidationState &state, const CCo
                         tokenGrp.quantity)
                         return state.Invalid(false, REJECT_INVALID, "token overflow");
                     gBalance[tokenGrp.associatedGroup].output += tokenGrp.quantity;
-                    anyOutputGroups = true;
+                    // anyOutputGroups = true;
                 }
                 else if (tokenGrp.quantity == 0)
                 {

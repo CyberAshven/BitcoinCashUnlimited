@@ -656,7 +656,7 @@ bool PaymentServer::processPaymentRequest(const PaymentRequestPlus &request, Sen
         }
 
         // Extract and check amounts
-        CTxOut txOut(sendingTo.second, sendingTo.first);
+        CTxOut txOut(CTxOut::LEGACY, sendingTo.second, sendingTo.first);
         if (txOut.IsDust())
         {
             Q_EMIT message(tr("Payment request error"),

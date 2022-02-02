@@ -342,7 +342,7 @@ CBlockPolicyEstimator::CBlockPolicyEstimator(const CFeeRate &_minRelayFee) : nBe
 void CBlockPolicyEstimator::processTransaction(const CTxMemPoolEntry &entry, bool fCurrentEstimate)
 {
     unsigned int txHeight = entry.GetHeight();
-    uint256 hash = entry.GetTx().GetHash();
+    uint256 hash = entry.GetTx().GetId();
     if (mapMemPoolTxs[hash].stats != nullptr)
     {
         LOG(ESTIMATEFEE, "Blockpolicy error mempool tx %s already being tracked\n", hash.ToString().c_str());

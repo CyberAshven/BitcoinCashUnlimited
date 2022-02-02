@@ -16,6 +16,7 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.blocktools import *
 
 # Create one-input, one-output, no-fee transaction:
 class MempoolSpendCoinbaseTest(BitcoinTestFramework):
@@ -35,8 +36,8 @@ class MempoolSpendCoinbaseTest(BitcoinTestFramework):
         # get mined. Coinbase at height chain_height-100+2 is
         # is too immature to spend.
         b = [ self.nodes[0].getblockhash(n) for n in range(101, 103) ]
-        coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-        spends_raw = [ create_tx(self.nodes[0], txid, node0_address, COINBASE_REWARD) for txid in coinbase_txids ]
+        coinbase_txidems = [ self.nodes[0].getblock(h)['txidem'][0] for h in b ]
+        spends_raw = [ spend_coinbase_tx(self.nodes[0], txidem, node0_address, COINBASE_REWARD) for txidem in coinbase_txidems ]
 
         spend_101_id = self.nodes[0].sendrawtransaction(spends_raw[0])
 
@@ -56,3 +57,17 @@ class MempoolSpendCoinbaseTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     MempoolSpendCoinbaseTest().main()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = MempoolSpendCoinbaseTest()
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    import signal, pdb
+    signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

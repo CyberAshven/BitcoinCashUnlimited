@@ -50,7 +50,7 @@ CGrapheneBlock::CGrapheneBlock(const CBlockRef pblock,
     std::vector<uint256> blockHashes;
     for (auto &tx : pblock->vtx)
     {
-        blockHashes.push_back(tx->GetHash());
+        blockHashes.push_back(tx->GetId());
 
         if (tx->IsCoinBase())
             vAdditionalTxs.push_back(tx);
@@ -96,10 +96,10 @@ void CGrapheneBlock::AddNewTransactions(std::vector<CTransaction> vMissingTx, CN
     size_t idx = 0;
     for (const CTransaction &tx : vMissingTx)
     {
-        mapMissingTx[GetShortID(pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(), tx.GetHash(),
+        mapMissingTx[GetShortID(pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(), tx.GetId(),
             NegotiateGrapheneVersion(pfrom))] = MakeTransactionRef(tx);
 
-        uint256 hash = tx.GetHash();
+        uint256 hash = tx.GetId();
         uint64_t cheapHash = GetShortID(
             pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(), hash, NegotiateGrapheneVersion(pfrom));
 
@@ -265,7 +265,7 @@ bool CGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     // Add full transactions included in the block
     for (auto &tx : grapheneBlock->vAdditionalTxs)
     {
-        const uint256 &hash = tx->GetHash();
+        const uint256 &hash = tx->GetId();
         uint64_t cheapHash = grapheneBlock->pGrapheneSet->GetShortID(hash);
         mapPartialTxHash.insert(std::make_pair(cheapHash, tx));
     }
@@ -273,7 +273,7 @@ bool CGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     // Add full transactions collected during failure recovery
     for (auto &tx : grapheneBlock->vRecoveredTxs)
     {
-        const uint256 &hash = tx->GetHash();
+        const uint256 &hash = tx->GetId();
         uint64_t cheapHash = grapheneBlock->pGrapheneSet->GetShortID(hash);
         mapPartialTxHash.insert(std::make_pair(cheapHash, tx));
     }
@@ -282,7 +282,7 @@ bool CGrapheneBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
     for (auto &tx : grapheneBlockTx.vMissingTx)
     {
         CTransactionRef txRef = MakeTransactionRef(tx);
-        const uint256 &hash = tx.GetHash();
+        const uint256 &hash = tx.GetId();
         uint64_t cheapHash = grapheneBlock->pGrapheneSet->GetShortID(hash);
         mapPartialTxHash.insert(std::make_pair(cheapHash, txRef));
     }
@@ -485,7 +485,7 @@ void CGrapheneBlock::FillTxMapFromPools(std::map<uint64_t, CTransactionRef> &map
     }
 
     std::vector<uint256> memPoolHashes;
-    mempool.queryHashes(memPoolHashes);
+    mempool.queryIds(memPoolHashes);
 
     for (const uint256 &hash : memPoolHashes)
     {
@@ -501,10 +501,10 @@ void CGrapheneBlock::SituateCoinbase(std::vector<uint64_t> blockCheapHashes,
     uint64_t grapheneVersion)
 {
     // Ensure coinbase is first
-    if (blockCheapHashes[0] != GetShortID(shorttxidk0, shorttxidk1, coinbase->GetHash(), version))
+    if (blockCheapHashes[0] != GetShortID(shorttxidk0, shorttxidk1, coinbase->GetId(), version))
     {
         auto it = std::find(blockCheapHashes.begin(), blockCheapHashes.end(),
-            GetShortID(shorttxidk0, shorttxidk1, coinbase->GetHash(), version));
+            GetShortID(shorttxidk0, shorttxidk1, coinbase->GetId(), version));
 
         if (it == blockCheapHashes.end())
             throw std::runtime_error("No coinbase transaction found in graphene block");
@@ -512,13 +512,13 @@ void CGrapheneBlock::SituateCoinbase(std::vector<uint64_t> blockCheapHashes,
         auto idx = std::distance(blockCheapHashes.begin(), it);
 
         blockCheapHashes[idx] = blockCheapHashes[0];
-        blockCheapHashes[0] = GetShortID(shorttxidk0, shorttxidk1, coinbase->GetHash(), version);
+        blockCheapHashes[0] = GetShortID(shorttxidk0, shorttxidk1, coinbase->GetId(), version);
     }
 }
 
 void CGrapheneBlock::SituateCoinbase(CTransactionRef coinbase)
 {
-    std::vector<uint256>::iterator it = std::find(vTxHashes256.begin(), vTxHashes256.end(), coinbase->GetHash());
+    std::vector<uint256>::iterator it = std::find(vTxHashes256.begin(), vTxHashes256.end(), coinbase->GetId());
 
     if (it == vTxHashes256.end())
         return;
@@ -542,9 +542,9 @@ std::set<uint64_t> CGrapheneBlock::UpdateResolvedTxsAndIdentifyMissing(
         const auto &elem = mapPartialTxHash.find(cheapHash);
         if ((elem != mapPartialTxHash.end()) && (elem->second != nullptr))
         {
-            const auto repeat = std::find(vTxHashes256.begin(), vTxHashes256.end(), elem->second->GetHash());
+            const auto repeat = std::find(vTxHashes256.begin(), vTxHashes256.end(), elem->second->GetId());
             if (repeat == vTxHashes256.end())
-                vTxHashes256.push_back(elem->second->GetHash());
+                vTxHashes256.push_back(elem->second->GetId());
         }
         else
         {
@@ -591,7 +591,7 @@ bool CGrapheneBlock::process(CNode *pfrom, std::string strCommand, std::shared_p
         CTransactionRef coinbase = nullptr;
         for (auto &tx : vAdditionalTxs)
         {
-            const uint256 &hash = tx->GetHash();
+            const uint256 &hash = tx->GetId();
             uint64_t cheapHash = GetShortID(shorttxidk0, shorttxidk1, hash, version);
             mapPartialTxHash.insert(std::make_pair(cheapHash, tx));
 
@@ -622,11 +622,11 @@ bool CGrapheneBlock::process(CNode *pfrom, std::string strCommand, std::shared_p
                 }
                 else
                 {
-                    if ((grSetComputeOpt && pGrapheneSet->GetFastFilter()->contains(entry.second->GetHash())) ||
-                        (!grSetComputeOpt && pGrapheneSet->GetRegularFilter()->contains(entry.second->GetHash())))
+                    if ((grSetComputeOpt && pGrapheneSet->GetFastFilter()->contains(entry.second->GetId())) ||
+                        (!grSetComputeOpt && pGrapheneSet->GetRegularFilter()->contains(entry.second->GetId())))
                     {
                         setSenderFilterPositiveCheapHashes.insert(entry.first);
-                        vSenderFilterPositiveHahses.push_back(entry.second->GetHash());
+                        vSenderFilterPositiveHahses.push_back(entry.second->GetId());
                     }
                 }
             }
@@ -764,15 +764,15 @@ static bool ReconstructBlock(CNode *pfrom,
     }
     for (auto &tx : grapheneBlock->vAdditionalTxs)
     {
-        toVerify.insert(tx->GetHash());
+        toVerify.insert(tx->GetId());
     }
     for (auto &tx : grapheneBlock->vRecoveredTxs)
     {
-        toVerify.insert(tx->GetHash());
+        toVerify.insert(tx->GetId());
     }
     for (auto &kv : grapheneBlock->mapMissingTx)
     {
-        toVerify.insert(kv.second->GetHash());
+        toVerify.insert(kv.second->GetId());
     }
 
     // Locate each transaction in pre-populated mapTxFromPools.
@@ -1315,7 +1315,7 @@ void SendGrapheneBlock(CBlockRef pblock, CNode *pfrom, const CInv &inv, const CM
                 // First add transaction hashes to local graphene block
                 for (auto &tx : pblock->vtx)
                 {
-                    grapheneBlock.vTxHashes256.push_back(tx->GetHash());
+                    grapheneBlock.vTxHashes256.push_back(tx->GetId());
                 }
                 // Next store graphene block in case receiver attempts failure recovery
                 thinrelay.SetSentGrapheneBlocks(pfrom->GetId(), grapheneBlock);
@@ -1440,7 +1440,7 @@ bool HandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, const
     CTransactionRef coinbase = nullptr;
     for (auto &tx : pblock->grapheneblock->vAdditionalTxs)
     {
-        const uint256 &hash = tx->GetHash();
+        const uint256 &hash = tx->GetId();
         uint64_t cheapHash = pblock->grapheneblock->pGrapheneSet->GetShortID(hash);
 
         mapTxFromPools.insert(std::make_pair(cheapHash, tx));
@@ -1458,7 +1458,7 @@ bool HandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, const
     // Insert latest transactions just sent over
     for (auto &tx : recoveryResponse.vMissingTxs)
     {
-        const uint256 &hash = tx.GetHash();
+        const uint256 &hash = tx.GetId();
         uint64_t cheapHash = pblock->grapheneblock->pGrapheneSet->GetShortID(hash);
 
         CTransactionRef txRef = MakeTransactionRef(tx);
@@ -1473,9 +1473,9 @@ bool HandleGrapheneBlockRecoveryResponse(CDataStream &vRecv, CNode *pfrom, const
     for (auto &pair : mapTxFromPools)
     {
         if ((pblock->grapheneblock->pGrapheneSet->GetComputeOptimized() &&
-                pblock->grapheneblock->pGrapheneSet->GetFastFilter()->contains(pair.second->GetHash())) ||
+                pblock->grapheneblock->pGrapheneSet->GetFastFilter()->contains(pair.second->GetId())) ||
             (!pblock->grapheneblock->pGrapheneSet->GetComputeOptimized() &&
-                pblock->grapheneblock->pGrapheneSet->GetRegularFilter()->contains(pair.second->GetHash())))
+                pblock->grapheneblock->pGrapheneSet->GetRegularFilter()->contains(pair.second->GetId())))
         {
             localIblt.insert(pair.first, IBLT_NULL_VALUE);
             setSenderFilterPositiveCheapHashes.insert(pair.first);
@@ -1681,8 +1681,8 @@ std::vector<CTransaction> TransactionsFromBlockByCheapHash(std::set<uint64_t> &v
         {
             for (auto &tx : pblock->vtx)
             {
-                uint64_t cheapHash = GetShortID(pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(),
-                    tx->GetHash(), NegotiateGrapheneVersion(pfrom));
+                uint64_t cheapHash = GetShortID(pfrom->gr_shorttxidk0.load(), pfrom->gr_shorttxidk1.load(), tx->GetId(),
+                    NegotiateGrapheneVersion(pfrom));
 
                 if (vCheapHashes.count(cheapHash))
                     vTx.push_back(*tx);

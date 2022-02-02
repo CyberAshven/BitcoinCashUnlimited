@@ -120,13 +120,13 @@ class TxStore(object):
         f = BytesIO(serialized_tx)
         ret = CTransaction()
         ret.deserialize(f)
-        ret.calc_sha256()
+        ret.calcIdem()
         return ret
 
     def add_transaction(self, tx):
-        tx.calc_sha256()
+        idem = tx.calcIdem()
         try:
-            self.txDB[repr(tx.sha256)] = bytes(tx.serialize())
+            self.txDB[repr(idem)] = bytes(tx.serialize())
         except TypeError as e:
             print("Unexpected error: ", sys.exc_info()[0], e.args)
 

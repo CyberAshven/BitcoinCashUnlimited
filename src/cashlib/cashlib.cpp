@@ -19,10 +19,10 @@
 #include "random.h"
 #include "script/sign.h"
 #include "streams.h"
+#include "tinyformat.h"
 #include "uint256.h"
 #include "util.h"
 #include "utilstrencodings.h"
-
 #define MAX_SIG_LEN 100 // DER-encoded ECDSA is more like 72 but better to be safe
 
 #ifndef ANDROID
@@ -37,6 +37,30 @@ static bool sigInited = false;
 
 ECCVerifyHandle *verifyContext = nullptr;
 CChainParams *cashlibParams = nullptr;
+#ifdef DEBUG_PAUSE
+bool pauseOnDbgAssert = false;
+std::mutex dbgPauseMutex;
+std::condition_variable dbgPauseCond;
+void DbgPause()
+{
+#ifdef __linux__ // The thread ID returned by gettid is very useful since its shown in gdb
+    printf("\n!!! Process %d, Thread %ld (%lx) paused !!!\n", getpid(), syscall(SYS_gettid), pthread_self());
+#else
+    printf("\n!!! Process %d paused !!!\n", getpid());
+#endif
+    std::unique_lock<std::mutex> lk(dbgPauseMutex);
+    dbgPauseCond.wait(lk);
+}
+
+extern "C" void DbgResume() { dbgPauseCond.notify_all(); }
+#endif
+#ifdef ANDROID // log sighash calculations
+#include <android/log.h>
+#define p(...) __android_log_print(ANDROID_LOG_DEBUG, "bu.sig", __VA_ARGS__)
+#else
+#define p(...)
+// tinyformat::format(std::cout, __VA_ARGS__)
+#endif
 
 // stop the logging
 int LogPrintStr(const std::string &str) { return str.size(); }
@@ -160,7 +184,7 @@ SLAPI int GetPubKey(unsigned char *keyData, unsigned char *result, unsigned int 
 }
 
 /** Sign data (compatible with OP_CHECKDATASIG) */
-SLAPI int SignDataEDCSA(unsigned char *data,
+SLAPI int SignHashEDCSA(unsigned char *data,
     int datalen,
     unsigned char *secret,
     unsigned char *result,
@@ -180,6 +204,40 @@ SLAPI int SignDataEDCSA(unsigned char *data,
         return 0;
     std::copy(sig.begin(), sig.end(), result);
     return sigSize;
+}
+
+SLAPI int txid(unsigned char *txData, int txbuflen, unsigned char *result)
+{
+    CTransaction tx;
+    CDataStream ssData((char *)txData, (char *)txData + txbuflen, SER_NETWORK, PROTOCOL_VERSION);
+    try
+    {
+        ssData >> tx;
+    }
+    catch (const std::exception &)
+    {
+        return 0;
+    }
+    uint256 ret = tx.GetId();
+    memcpy(result, ret.begin(), ret.size());
+    return 1;
+}
+
+SLAPI int txidem(unsigned char *txData, int txbuflen, unsigned char *result)
+{
+    CTransaction tx;
+    CDataStream ssData((char *)txData, (char *)txData + txbuflen, SER_NETWORK, PROTOCOL_VERSION);
+    try
+    {
+        ssData >> tx;
+    }
+    catch (const std::exception &)
+    {
+        return 0;
+    }
+    uint256 ret = tx.GetIdem();
+    memcpy(result, ret.begin(), ret.size());
+    return 1;
 }
 
 /** Sign one input of a transaction
@@ -275,10 +333,12 @@ SLAPI int SignTxSchnorr(unsigned char *txData,
     size_t nHashedOut = 0;
     uint256 sighash = SignatureHash(priorScript, tx, inputIdx, nHashType, inputAmount, &nHashedOut);
     std::vector<unsigned char> sig;
+    CPubKey pub = key.GetPubKey();
     if (!key.SignSchnorr(sighash, sig))
     {
         return 0;
     }
+    p("Sign Schnorr: sig: %s, pubkey: %s sighash: %s\n", HexStr(sig), HexStr(pub.begin(), pub.end()), sighash.GetHex());
     sig.push_back((unsigned char)nHashType);
     unsigned int sigSize = sig.size();
     if (sigSize > resultLen)
@@ -294,7 +354,7 @@ SLAPI int SignTxSchnorr(unsigned char *txData,
 
     The returned signature will not have a sighashtype byte.
 */
-SLAPI int SignDataSchnorr(const unsigned char *hash,
+SLAPI int SignHashSchnorr(const unsigned char *hash,
     unsigned char *keyData,
     unsigned char *result,
     unsigned int resultLen)
@@ -350,7 +410,7 @@ SLAPI void *CreateNoContextScriptMachine(unsigned int flags)
 {
     ScriptMachineData *smd = new ScriptMachineData();
 
-    smd->sis = std::make_shared<ScriptImportedState>(nullptr, smd->tx, 0, 0);
+    smd->sis = std::make_shared<ScriptImportedState>(nullptr, smd->tx, -1, 0);
     smd->sm = new ScriptMachine(flags, *smd->sis, 0xffffffff, 0xffffffff);
     return (void *)smd;
 }
@@ -807,7 +867,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_bitcoinunlimited_libbitcoincash_Wal
         return jbyteArray();
 
     unsigned char result[MAX_SIG_LEN];
-    uint32_t resultLen = SignTx(tx.data, tx.size, inputIdx, inputAmount, prevout.data, prevout.size, sigHashType,
+    uint32_t resultLen = SignTxECDSA(tx.data, tx.size, inputIdx, inputAmount, prevout.data, prevout.size, sigHashType,
         privkey.data, result, MAX_SIG_LEN);
 
     if (resultLen == 0)

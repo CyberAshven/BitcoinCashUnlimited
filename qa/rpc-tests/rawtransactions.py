@@ -64,14 +64,25 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_blocks()
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0)
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
+        txidem = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
+        txjson = self.nodes[0].gettransaction(txidem)
+        txdecode = self.nodes[0].decoderawtransaction(txjson['hex'])
+        # verify some basic stuff about the transaction
+        assert txdecode['spends'] - txdecode['sends'] == txdecode['fee']
+        assert txdecode['txidem'] == txidem
+        assert txjson['txidem'] == txidem
+        assert txdecode['txid'] == txjson['txid']
+        assert len(txdecode['vin']) == 1  # since this test just started up, we have knowledge of the coins so this is what the alg will pick
+        assert len(txdecode['vout']) == 2  # since this test just started up, we have knowledge of the coins so this is what the alg will pick
+        # one of the outputs needs to be our send, but it could be any
+        assert Decimal('5.00000000') in [ x['value'] for x in txdecode['vout']]
         self.nodes[0].generate(5)
         self.sync_blocks()
 
         #########################################
         # sendrawtransaction with missing input #
         #########################################
-        inputs  = [ {'txid' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'vout' : 1}] #won't exists
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : 100}] # won't exist
         outputs = { self.nodes[0].getnewaddress() : 3.998, self.nodes[0].getnewaddress() : 1.0 }
         rawtx   = self.nodes[2].createrawtransaction(inputs, outputs)
         rawtx   = self.nodes[2].signrawtransaction(rawtx)
@@ -93,14 +104,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         # We should be able to get the raw transaction by providing the correct block
         gottx = self.nodes[0].getrawtransaction(tx, True, block1)
-        assert_equal(gottx['txid'], tx)
+        assert_equal(gottx['txidem'], tx)
         assert_equal(gottx['in_active_chain'], True)
         assert_equal(gottx['in_mempool'], False)
         assert_equal(gottx['in_orphanpool'], False)
         assert_equal(gottx['blockhash'], block1)
         # We should not have the 'in_active_chain' flag when we don't provide a block
         gottx = self.nodes[0].getrawtransaction(tx, True)
-        assert_equal(gottx['txid'], tx)
+        assert_equal(gottx['txidem'], tx)
         assert 'in_active_chain' not in gottx
         assert_equal(gottx['in_mempool'], False)
         assert_equal(gottx['in_orphanpool'], False)
@@ -170,7 +181,7 @@ class RawTransactionsTest(BitcoinTestFramework):
                 break
 
         bal = self.nodes[0].getbalance()
-        inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "amount":vout['value'] }]
+        inputs = [{ "outpoint" : vout["outpoint"], "scriptPubKey" : vout['scriptPubKey']['hex'], "amount":str(vout['value']) }]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxPartialSigned = self.nodes[1].signrawtransaction(rawTx, inputs)
@@ -285,7 +296,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # getrawtransaction tests
         # 1. valid parameters - only supply txid
-        txHash = rawTx["txid"]
+        txHash = rawTx["txidem"]
         assert_equal(self.nodes[0].getrawtransaction(txHash), rawTxSigned['hex'])
 
         # 2. valid parameters - supply txid and 0 for non-verbose
@@ -307,11 +318,13 @@ class RawTransactionsTest(BitcoinTestFramework):
         address2 = self.nodes[0].getaddressforms(self.nodes[0].getnewaddress())["legacy"]
         outputs = {address1 : 49, address2 : 1}
         inputs = []
-        inputs.append({ "txid" : unknown_txid, "vout" : 0})
+        inputs.append({ "outpoint" : unknown_txid, "amount" : 51})
         raw_orphan = createrawtransaction(inputs, outputs) # creating an orphan tx
         signedtxn_orphan = self.nodes[0].signrawtransaction(raw_orphan)
-        orphan_txid = self.nodes[0].sendrawtransaction(signedtxn_orphan["hex"], True, "standard", True)
+        orphan_txid = signedtxn_orphan["txid"]
+        orphan_txidem = self.nodes[0].sendrawtransaction(signedtxn_orphan["hex"], True, "standard", True)
 
+        # Have to access via txid to get from the orphan list
         txn_orphan = self.nodes[0].getrawtransaction(orphan_txid, 1)
         assert_equal(txn_orphan["hex"], signedtxn_orphan['hex'])
         assert_equal(txn_orphan['in_mempool'], False)
@@ -329,25 +342,30 @@ class RawTransactionsTest(BitcoinTestFramework):
         # 8. invalid parameters - supply txid and empty dict
         assert_raises_rpc_error(-1,"not a boolean", self.nodes[0].getrawtransaction, txHash, {})
 
-        inputs  = [ {'txid' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'vout' : 1, 'sequence' : 1000}]
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : 1, 'sequence' : 1000}]
         outputs = { self.nodes[0].getnewaddress() : 1 }
         rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
         decrawtx= self.nodes[0].decoderawtransaction(rawtx)
         assert_equal(decrawtx['vin'][0]['sequence'], 1000)
 
-        inputs  = [ {'txid' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'vout' : 1, 'sequence' : -1}]
+
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'sequence' : -1}]
         outputs = { self.nodes[0].getnewaddress() : 1 }
         assert_raises(JSONRPCException, self.nodes[0].createrawtransaction, inputs, outputs)
 
-        inputs  = [ {'txid' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'vout' : 1, 'sequence' : 4294967296}]
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : "1.1", 'sequence' : -1}]
         outputs = { self.nodes[0].getnewaddress() : 1 }
         assert_raises(JSONRPCException, self.nodes[0].createrawtransaction, inputs, outputs)
 
-        inputs  = [ {'txid' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'vout' : 1, 'sequence' : 'notanumber'}]
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : 1, 'sequence' : 4294967296}]
         outputs = { self.nodes[0].getnewaddress() : 1 }
         assert_raises(JSONRPCException, self.nodes[0].createrawtransaction, inputs, outputs)
 
-        inputs  = [ {'txid' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'vout' : 1, 'sequence' : 4294967294}]
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : "1", 'sequence' : 'notanumber'}]
+        outputs = { self.nodes[0].getnewaddress() : 1 }
+        assert_raises(JSONRPCException, self.nodes[0].createrawtransaction, inputs, outputs)
+
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : 1, 'sequence' : 4294967294}]
         outputs = { self.nodes[0].getnewaddress() : 1 }
         rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
         decrawtx= self.nodes[0].decoderawtransaction(rawtx)
@@ -359,7 +377,7 @@ if __name__ == '__main__':
 
 def Test():
     t = RawTransactionsTest()
-    #t.drop_to_pdb = True
+    t.drop_to_pdb = True
     bitcoinConf = {
         "debug": ["rpc","net", "blk", "thin", "mempool", "req", "bench", "evict"],
     }

@@ -58,7 +58,7 @@ CAmount WalletModel::getBalance(const CCoinControl *coinControl) const
         std::vector<COutput> vCoins;
         wallet->AvailableCoins(vCoins, true, coinControl);
         for (const COutput &out : vCoins)
-            if (out.fSpendable)
+            if (out.spendable())
                 nBalance += out.tx->vout[out.i].nValue;
 
         return nBalance;
@@ -545,12 +545,14 @@ void WalletModel::getOutputs(const std::vector<COutPoint> &vOutpoints, std::vect
     LOCK2(cs_main, wallet->cs_wallet);
     for (const COutPoint &outpoint : vOutpoints)
     {
-        if (!wallet->mapWallet.count(outpoint.hash))
+        if (!wallet->mapWallet.count(outpoint))
             continue;
-        int nDepth = wallet->mapWallet[outpoint.hash].GetDepthInMainChain();
+        COutput &out = wallet->mapWallet[outpoint];
+        int nDepth = out.GetDepthInMainChain();
         if (nDepth < 0)
             continue;
-        COutput out(&wallet->mapWallet[outpoint.hash], outpoint.n, nDepth, true);
+        if (!out.spendable())
+            continue;
         vOutputs.push_back(out);
     }
 }
@@ -558,7 +560,7 @@ void WalletModel::getOutputs(const std::vector<COutPoint> &vOutpoints, std::vect
 bool WalletModel::isSpent(const COutPoint &outpoint) const
 {
     LOCK2(cs_main, wallet->cs_wallet);
-    return wallet->IsSpent(outpoint.hash, outpoint.n);
+    return wallet->IsSpent(outpoint);
 }
 
 // AvailableCoins + LockedCoins grouped by wallet address (put change in one group with wallet address)
@@ -574,13 +576,16 @@ void WalletModel::listCoins(std::map<QString, std::vector<COutput> > &mapCoins) 
     // add locked coins
     for (const COutPoint &outpoint : vLockedCoins)
     {
-        if (!wallet->mapWallet.count(outpoint.hash))
+        if (!wallet->mapWallet.count(outpoint))
             continue;
-        int nDepth = wallet->mapWallet[outpoint.hash].GetDepthInMainChain();
+        COutput out = wallet->mapWallet[outpoint];
+        assert(out.tx);
+        if (out.i < 0)
+            continue; // this is a transaction entry, not an outpoint (aka coin).
+        int nDepth = out.tx->GetDepthInMainChain();
         if (nDepth < 0)
             continue;
-        COutput out(&wallet->mapWallet[outpoint.hash], outpoint.n, nDepth, true);
-        if (outpoint.n < out.tx->vout.size() && wallet->IsMine(out.tx->vout[outpoint.n]) == ISMINE_SPENDABLE)
+        if ((out.i < (int)out.tx->vout.size()) && (wallet->IsMine(out.tx->vout[out.i]) == ISMINE_SPENDABLE))
             vCoins.push_back(out);
     }
 
@@ -590,31 +595,31 @@ void WalletModel::listCoins(std::map<QString, std::vector<COutput> > &mapCoins) 
 
         while (wallet->IsChange(cout.tx->vout[cout.i]) && cout.tx->vin.size() > 0 && wallet->IsMine(cout.tx->vin[0]))
         {
-            if (!wallet->mapWallet.count(cout.tx->vin[0].prevout.hash))
+            if (!wallet->mapWallet.count(cout.tx->vin[0].prevout))
                 break;
-            cout = COutput(&wallet->mapWallet[cout.tx->vin[0].prevout.hash], cout.tx->vin[0].prevout.n, 0, true);
+            cout = COutput(wallet->mapWallet[cout.tx->vin[0].prevout].tx, cout.i, isminetype::ISMINE_SPENDABLE);
         }
 
         CTxDestination address;
-        if (!out.fSpendable || !ExtractDestination(cout.tx->vout[cout.i].scriptPubKey, address))
+        if (!out.spendable() || !ExtractDestination(cout.tx->vout[cout.i].scriptPubKey, address))
             continue;
         mapCoins[QString::fromStdString(EncodeDestination(address))].push_back(out);
     }
 }
 
-bool WalletModel::isLockedCoin(uint256 hash, unsigned int n) const
+bool WalletModel::isLockedCoin(const COutPoint &outpt) const
 {
     LOCK2(cs_main, wallet->cs_wallet);
-    return wallet->IsLockedCoin(hash, n);
+    return wallet->IsLockedCoin(outpt);
 }
 
-void WalletModel::lockCoin(COutPoint &output)
+void WalletModel::lockCoin(const COutPoint &output)
 {
     LOCK2(cs_main, wallet->cs_wallet);
     wallet->LockCoin(output);
 }
 
-void WalletModel::unlockCoin(COutPoint &output)
+void WalletModel::unlockCoin(const COutPoint &output)
 {
     LOCK2(cs_main, wallet->cs_wallet);
     wallet->UnlockCoin(output);

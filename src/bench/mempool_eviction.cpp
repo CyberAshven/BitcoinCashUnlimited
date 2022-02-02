@@ -13,8 +13,8 @@ static void AddTx(const CTransactionRef &tx, const CAmount &nFee, CTxMemPool &po
     bool spendsCoinbase = false;
     unsigned int sigOpCost = 4;
     LockPoints lp;
-    pool.addUnchecked(tx->GetHash(), CTxMemPoolEntry(tx, nFee, nTime, dPriority, nHeight, pool.HasNoInputsOf(tx),
-                                         tx->GetValueOut(), spendsCoinbase, sigOpCost, lp));
+    pool.addUnchecked(CTxMemPoolEntry(
+        tx, nFee, nTime, dPriority, nHeight, pool.HasNoInputsOf(tx), tx->GetValueOut(), spendsCoinbase, sigOpCost, lp));
 }
 
 // Right now this is only testing eviction performance in an extremely small
@@ -38,7 +38,7 @@ static void MempoolEviction(benchmark::State &state)
 
     CMutableTransaction tx3 = CMutableTransaction();
     tx3.vin.resize(1);
-    tx3.vin[0].prevout = COutPoint(tx2.GetHash(), 0);
+    tx3.vin[0].prevout = COutPoint(tx2.GetIdem(), 0);
     tx3.vin[0].scriptSig = CScript() << OP_2;
     tx3.vout.resize(1);
     tx3.vout[0].scriptPubKey = CScript() << OP_3 << OP_EQUAL;
@@ -58,7 +58,7 @@ static void MempoolEviction(benchmark::State &state)
 
     CMutableTransaction tx5 = CMutableTransaction();
     tx5.vin.resize(2);
-    tx5.vin[0].prevout = COutPoint(tx4.GetHash(), 0);
+    tx5.vin[0].prevout = COutPoint(tx4.GetIdem(), 0);
     tx5.vin[0].scriptSig = CScript() << OP_4;
     tx5.vin[1].prevout.SetNull();
     tx5.vin[1].scriptSig = CScript() << OP_5;
@@ -70,7 +70,7 @@ static void MempoolEviction(benchmark::State &state)
 
     CMutableTransaction tx6 = CMutableTransaction();
     tx6.vin.resize(2);
-    tx6.vin[0].prevout = COutPoint(tx4.GetHash(), 1);
+    tx6.vin[0].prevout = COutPoint(tx4.GetIdem(), 1);
     tx6.vin[0].scriptSig = CScript() << OP_4;
     tx6.vin[1].prevout.SetNull();
     tx6.vin[1].scriptSig = CScript() << OP_6;
@@ -82,9 +82,9 @@ static void MempoolEviction(benchmark::State &state)
 
     CMutableTransaction tx7 = CMutableTransaction();
     tx7.vin.resize(2);
-    tx7.vin[0].prevout = COutPoint(tx5.GetHash(), 0);
+    tx7.vin[0].prevout = COutPoint(tx5.GetIdem(), 0);
     tx7.vin[0].scriptSig = CScript() << OP_5;
-    tx7.vin[1].prevout = COutPoint(tx6.GetHash(), 0);
+    tx7.vin[1].prevout = COutPoint(tx6.GetIdem(), 0);
     tx7.vin[1].scriptSig = CScript() << OP_6;
     tx7.vout.resize(2);
     tx7.vout[0].scriptPubKey = CScript() << OP_7 << OP_EQUAL;

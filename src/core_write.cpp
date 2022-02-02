@@ -189,7 +189,8 @@ void ScriptPubKeyToUniv(const CScript &scriptPubKey, UniValue &out, bool fInclud
 
 void TxToUniv(const CTransaction &tx, const uint256 &hashBlock, UniValue &entry)
 {
-    entry.pushKV("txid", tx.GetHash().GetHex());
+    entry.pushKV("txid", tx.GetId().GetHex());
+    entry.pushKV("txidem", tx.GetIdem().GetHex());
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
@@ -201,8 +202,7 @@ void TxToUniv(const CTransaction &tx, const uint256 &hashBlock, UniValue &entry)
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
         else
         {
-            in.pushKV("txid", txin.prevout.hash.GetHex());
-            in.pushKV("vout", (int64_t)txin.prevout.n);
+            in.pushKV("outpoint", txin.prevout.GetHex());
             UniValue o(UniValue::VOBJ);
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));

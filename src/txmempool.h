@@ -10,6 +10,7 @@
 
 #include <list>
 #include <set>
+#include <tuple>
 
 #include "amount.h"
 #include "coins.h"
@@ -112,6 +113,7 @@ private:
     bool fDirty;
 
 public:
+    std::string dbgName;
     unsigned char sighashType;
     int dsproof = -1;
     CTxMemPoolEntry();
@@ -244,11 +246,18 @@ private:
     const LockPoints &lp;
 };
 
-// extracts a TxMemPoolEntry's transaction hash
+// extracts a TxMemPoolEntry's transaction idem
+struct mempoolentry_txidem
+{
+    typedef uint256 result_type;
+    result_type operator()(const CTxMemPoolEntry &entry) const { return entry.GetTx().GetIdem(); }
+};
+
+// extracts a TxMemPoolEntry's transaction id
 struct mempoolentry_txid
 {
     typedef uint256 result_type;
-    result_type operator()(const CTxMemPoolEntry &entry) const { return entry.GetTx().GetHash(); }
+    result_type operator()(const CTxMemPoolEntry &entry) const { return entry.GetTx().GetId(); }
 };
 
 class CompareTxMemPoolEntryByEntryTime
@@ -296,6 +305,9 @@ struct entry_time
 struct ancestor_score
 {
 };
+struct txidem_tag
+{
+};
 
 class CBlockPolicyEstimator;
 
@@ -321,11 +333,11 @@ struct TxMempoolInfo
 class CInPoint
 {
 public:
-    const CTransaction *ptx;
+    CTransactionRef ptx;
     uint32_t n;
 
     CInPoint() { SetNull(); }
-    CInPoint(const CTransaction *ptxIn, uint32_t nIn)
+    CInPoint(const CTransactionRef ptxIn, uint32_t nIn)
     {
         ptx = ptxIn;
         n = nIn;
@@ -337,6 +349,36 @@ public:
     }
     bool IsNull() const { return (ptx == nullptr && n == (uint32_t)-1); }
     size_t DynamicMemoryUsage() const { return 0; }
+
+    /** returns the outpoint associated with this object */
+    COutPoint GetOutPoint() const
+    {
+        assert(ptx);
+        assert(n < ptx->vout.size()); // otherwise its a nonexistent outpoint
+        return COutPoint(ptx->GetIdem(), n);
+    }
+
+    /** returns the value of this output in satoshis */
+    CAmount GetValue() const
+    {
+        assert(ptx);
+        assert(n < ptx->vout.size());
+        return ptx->vout[n].nValue;
+    }
+    /** returns the constraint script */
+    CScript GetConstraintScript() const
+    {
+        assert(ptx);
+        assert(n < ptx->vout.size());
+        return ptx->vout[n].scriptPubKey;
+    }
+    /** returns the full txout */
+    const CTxOut &GetTxOut() const
+    {
+        assert(ptx);
+        assert(n < ptx->vout.size());
+        return ptx->vout[n];
+    }
 };
 
 class SaltedTxidHasher
@@ -430,10 +472,15 @@ private:
 public:
     static const int ROLLING_FEE_HALFLIFE = 60 * 60 * 12; // public only for testing
 
+    static const int TXID_CONTAINER_IDX = 0;
+    static const int TXIDEM_CONTAINER_IDX = 1;
+
     typedef boost::multi_index_container<CTxMemPoolEntry,
         boost::multi_index::indexed_by<
             // sorted by txid
             boost::multi_index::ordered_unique<mempoolentry_txid>,
+            // sorted by txidem -- 2 tx with same idem but different id necessarily conflict so must not both be in
+            boost::multi_index::ordered_unique<boost::multi_index::tag<txidem_tag>, mempoolentry_txidem>,
             // sorted by entry time
             boost::multi_index::ordered_non_unique<boost::multi_index::tag<entry_time>,
                 boost::multi_index::identity<CTxMemPoolEntry>,
@@ -446,19 +493,20 @@ public:
 
     mutable CSharedCriticalSection cs_txmempool;
     indexed_transaction_set mapTx;
-    typedef indexed_transaction_set::nth_index<0>::type::iterator txiter;
-    struct CompareIteratorByHash
+    typedef indexed_transaction_set::nth_index<TXID_CONTAINER_IDX>::type::iterator TxIdIter;
+    typedef indexed_transaction_set::nth_index<TXIDEM_CONTAINER_IDX>::type::iterator TxIdemIter;
+    struct CompareIteratorById
     {
-        bool operator()(const txiter &a, const txiter &b) const { return a->GetTx().GetHash() < b->GetTx().GetHash(); }
+        bool operator()(const TxIdIter &a, const TxIdIter &b) const { return a->GetTx().GetId() < b->GetTx().GetId(); }
     };
-    typedef std::set<txiter, CompareIteratorByHash> setEntries;
-    typedef std::map<txiter, ancestor_state, CTxMemPool::CompareIteratorByHash> mapEntryHistory;
+    typedef std::set<TxIdIter, CompareIteratorById> setEntries;
+    typedef std::map<TxIdIter, ancestor_state, CTxMemPool::CompareIteratorById> mapEntryHistory;
 
     /** Return the set of mempool parents for this entry */
-    const setEntries &GetMemPoolParents(txiter entry) const;
+    const setEntries &GetMemPoolParents(TxIdIter entry) const;
     const setEntries GetMemPoolParents(const CTransaction &tx) const;
     /** Return the set of mempool children for this entry */
-    const setEntries &GetMemPoolChildren(txiter entry) const;
+    const setEntries &GetMemPoolChildren(TxIdIter entry) const;
 
     /**
      * Add a double spend proof we received elsewhere to an existing mempool-entry.
@@ -469,7 +517,7 @@ public:
     DoubleSpendProofStorage *doubleSpendProofStorage() const;
 
 private:
-    typedef std::map<txiter, setEntries, CompareIteratorByHash> cacheMap;
+    typedef std::map<TxIdIter, setEntries, CompareIteratorById> cacheMap;
 
     struct TxLinks
     {
@@ -477,16 +525,22 @@ private:
         setEntries children;
     };
 
-    typedef std::map<txiter, TxLinks, CompareIteratorByHash> txlinksMap;
+    typedef std::map<TxIdIter, TxLinks, CompareIteratorById> txlinksMap;
     txlinksMap mapLinks;
 
-    void _UpdateParent(txiter entry, txiter parent, bool add);
-    void _UpdateChild(txiter entry, txiter child, bool add);
+    void _UpdateParent(TxIdIter entry, TxIdIter parent, bool add);
+    void _UpdateChild(TxIdIter entry, TxIdIter child, bool add);
 
 public:
     // Connects an output to the transaction that spends it.
     std::map<COutPoint, CInPoint> mapNextTx;
-    std::map<uint256, std::pair<double, CAmount> > mapDeltas;
+    std::map<uint256, std::pair<double, CAmount> > mapDeltas; // uint256 is txId
+
+    // Map an outpoint to the transaction that created it
+    typedef std::map<COutPoint, std::pair<uint256, size_t> > OutpointMap;
+
+    OutpointMap outpointMap;
+
 
     // Transaction chain tips for dirty chains of transactions
     std::set<uint256> setDirtyTxnChainTips;
@@ -542,8 +596,11 @@ public:
     void setSanityCheck(double dFrequency = 1.0) { nCheckFrequency = dFrequency * 4294967295.0; }
     // addUnchecked must updated state for all ancestors of a given transaction,
     // to track size/count of descendant transactions
-    bool addUnchecked(const uint256 &hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
-    bool _addUnchecked(const uint256 &hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
+    // bool addUnchecked(const uint256 &hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
+    // bool _addUnchecked(const uint256 &hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
+
+    bool addUnchecked(const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
+    bool _addUnchecked(const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
 
     void removeRecursive(const CTransaction &tx, std::list<CTransactionRef> &removed);
     void _removeRecursive(const CTransaction &tx, std::list<CTransactionRef> &removed);
@@ -557,9 +614,17 @@ public:
     void clear();
     void _clear(); // lock free
     /** Return the transaction ids for every transaction in the mempool */
-    void queryHashes(std::vector<uint256> &vtxid) const;
+    void queryIds(std::vector<uint256> &vtxid) const;
     /** Nonlocking: Return the transaction ids for every transaction in the mempool */
-    void _queryHashes(std::vector<uint256> &vtxid) const;
+    void _queryIds(std::vector<uint256> &vtxid) const;
+    /** Return the transaction ids for every transaction in the mempool */
+    void queryIdems(std::vector<uint256> &vtxid) const;
+    /** Nonlocking: Return the transaction ids for every transaction in the mempool */
+    void _queryIdems(std::vector<uint256> &vtx) const;
+    /** Return transaction references for every transaction in the mempool */
+    void queryTxs(std::vector<CTransactionRef> &vtxid) const;
+    /** Nonlocking: Return the transaction references for every transaction in the mempool */
+    void _queryTxs(std::vector<CTransactionRef> &vtx) const;
     bool isSpent(const COutPoint &outpoint);
     unsigned int GetTransactionsUpdated() const;
     void AddTransactionsUpdated(unsigned int n);
@@ -570,10 +635,11 @@ public:
     bool HasNoInputsOf(const CTransactionRef &tx) const;
 
     /** Affect CreateNewBlock prioritisation of transactions */
-    void PrioritiseTransaction(const uint256 hash,
+    bool PrioritiseTransaction(const uint256 hash,
         const std::string strHash,
         double dPriorityDelta,
         const CAmount &nFeeDelta);
+    /** These functions don't actually APPLY the deltas.  They just look them up */
     void ApplyDeltas(const uint256 hash, double &dPriorityDelta, CAmount &nFeeDelta) const;
     void _ApplyDeltas(const uint256 hash, double &dPriorityDelta, CAmount &nFeeDelta) const;
     void ClearPrioritisation(const uint256 hash);
@@ -632,12 +698,12 @@ public:
 
     /** Populate setDescendants with all in-mempool descendants of hash.  Assumes that setDescendants includes
      *  all in-mempool descendants of anything already in it.  */
-    void _CalculateDescendants(txiter it, setEntries &setDescendants, mapEntryHistory *mapTxnChainTips = nullptr);
+    void _CalculateDescendants(TxIdIter it, setEntries &setDescendants, mapEntryHistory *mapTxnChainTips = nullptr);
 
     /** For a given transaction, which may be part of a chain of unconfirmed transactions, find all
      *  the associated transaction chaintips, if any.
      */
-    void CalculateTxnChainTips(txiter it, mapEntryHistory &mapTxnChainTips);
+    void CalculateTxnChainTips(TxIdIter it, mapEntryHistory &mapTxnChainTips);
 
     /** Update the ancestor state for the set of supplied transaction chains. This step is done after
      *  a block has finished processing and we have already removed the transactions from the mempool
@@ -648,7 +714,7 @@ public:
      *  there are times when we need to ensure they are not dirty, such as, when we do an rpc call
      *  or prioritise a transaction.
      */
-    void UpdateTxnChainState(txiter it);
+    void UpdateTxnChainState(TxIdIter it);
 
     /** Remove transactions from the mempool until its dynamic size is <= sizelimit.
      *  pvNoSpendsRemaining, if set, will be populated with the list of outpoints
@@ -664,7 +730,7 @@ public:
 
     /** Remove a transaction from the mempool.  Returns the number of tx removed, 0 if the passed tx is not in the
         mempool, 1, or > 1 if this tx had dependent tx that also had to be removed */
-    int Remove(const uint256 &txhash, std::vector<COutPoint> *vCoinsToUncache = nullptr);
+    int Remove(const uint256 &txidOrIdem, std::vector<COutPoint> *vCoinsToUncache = nullptr);
 
     /** BU: Every transaction that is accepted into the mempool will call this method to update the current value*/
     void UpdateTransactionsPerSecond();
@@ -701,15 +767,36 @@ public:
         return (mapTx.count(hash) != 0);
     }
     bool _exists(const uint256 &hash) const { return (mapTx.count(hash) != 0); }
-    bool exists(const COutPoint &outpoint) const
+
+    bool idemExists(const uint256 &hash) const
     {
         READLOCK(cs_txmempool);
-        auto it = mapTx.find(outpoint.hash);
-        return (it != mapTx.end() && outpoint.n < it->GetTx().vout.size());
+        auto &tainer = mapTx.get<txidem_tag>();
+        TxIdemIter idemit = tainer.find(hash);
+        if (idemit != tainer.end())
+            return true;
+        return false;
     }
+
+    bool exists(const COutPoint &outpoint) const;
 
     CTransactionRef get(const uint256 &hash) const;
     CTransactionRef _get(const uint256 &hash) const;
+
+    // Since this returns an entry, caller must lock, so only _ version is available
+    // Checks both Id and Idem
+    TxIdIter _getIdIter(const uint256 &hash) const;
+    TxIdIter _getIdIter(const COutPoint &outpoint) const;
+
+    // Since this returns an entry, caller must lock, so only _ version is available
+    // Checks both Id and Idem
+    const CTxMemPoolEntry *_getEntry(const uint256 &hash);
+
+    /** Given a prevout hash, return the transaction and output offset */
+    // std::tuple<CTransactionRef, size_t> _getTxIdx(const uint256 &hash) const;
+    CInPoint _getTxIdx(const COutPoint &outpoint) const;
+    CTxOut _get(const COutPoint &outpoint) const;
+
     TxMempoolInfo info(const uint256 &hash) const;
     std::vector<TxMempoolInfo> AllTxMempoolInfo() const;
 
@@ -725,17 +812,17 @@ public:
 
 private:
     /** Update ancestors of hash to add/remove it as a descendant transaction. */
-    void _UpdateAncestorsOf(bool add, txiter hash);
+    void _UpdateAncestorsOf(bool add, TxIdIter hash);
     /** Set ancestor state for an entry */
-    void _UpdateEntryForAncestors(txiter it);
+    void _UpdateEntryForAncestors(TxIdIter it);
     /** For each transaction being removed, update ancestors and any direct children. */
     void _UpdateForRemoveFromMempool(const setEntries &entriesToRemove);
     /** Sever link between specified transaction and direct children. */
-    void UpdateChildrenForRemoval(txiter entry);
+    void UpdateChildrenForRemoval(TxIdIter entry);
 
     /** Remove a transaction from the mempool
      */
-    void removeUnchecked(txiter entry);
+    void removeUnchecked(TxIdIter entry);
 
     /** Temporary storage for double spend proofs */
     std::unique_ptr<DoubleSpendProofStorage> m_dspStorage;
@@ -757,7 +844,7 @@ public:
 };
 
 // We want to sort transactions by coin age priority
-typedef std::pair<double, CTxMemPool::txiter> TxCoinAgePriority;
+typedef std::pair<double, CTxMemPool::TxIdIter> TxCoinAgePriority;
 
 struct TxCoinAgePriorityCompare
 {

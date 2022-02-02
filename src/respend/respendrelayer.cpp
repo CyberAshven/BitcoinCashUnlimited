@@ -62,7 +62,7 @@ private:
 
 RespendRelayer::RespendRelayer() : interesting(false), valid(false) {}
 bool RespendRelayer::AddOutpointConflict(const COutPoint &,
-    const uint256 hash,
+    const uint256 txId,
     const CTransactionRef pRespendTx,
     bool seenBefore,
     bool isEquivalent)
@@ -79,7 +79,7 @@ bool RespendRelayer::AddOutpointConflict(const COutPoint &,
         return false;
     }
 
-    spendhash = hash;
+    spendTxId = txId;
     pRespend = pRespendTx;
     interesting = true;
     return false;
@@ -101,7 +101,7 @@ void RespendRelayer::Trigger(CTxMemPool &pool)
     // no DS proof exists, lets make one.
     {
         WRITELOCK(pool.cs_txmempool);
-        auto originalTxIter = pool.mapTx.find(spendhash);
+        auto originalTxIter = pool.mapTx.find(spendTxId);
         if (originalTxIter == pool.mapTx.end())
             return; // if original tx is no longer in mempool then there is nothing to do.
 
@@ -115,7 +115,7 @@ void RespendRelayer::Trigger(CTxMemPool &pool)
                 LOG(DSPROOF, "Double spend found, creating double spend proof %d\n", item.dsproof);
                 pool.mapTx.replace(originalTxIter, item);
 
-                ptx = pool._get(originalTxIter->GetTx().GetHash());
+                ptx = pool._get(originalTxIter->GetTx().GetId());
 
                 DoubleSpendProof::Validity validity;
                 validity = dsp.validate(pool);

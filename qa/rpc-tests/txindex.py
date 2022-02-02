@@ -37,7 +37,7 @@ class TxIndexTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[0].getinfo()["txindex"] == "not ready")
         for i in range(1, self.nodes[0].getblockcount()):
             blockhash = self.nodes[0].getblockhash(i)
-            txns = self.nodes[0].getblock(blockhash)['tx']
+            txns = self.nodes[0].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[0].getrawtransaction(tx)
@@ -49,7 +49,7 @@ class TxIndexTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[1].getinfo()["txindex"] == "synced")
         for i in range(self.nodes[1].getblockcount()):
             blockhash = self.nodes[1].getblockhash(i)
-            txns = self.nodes[1].getblock(blockhash)['tx']
+            txns = self.nodes[1].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[1].getrawtransaction(tx)
@@ -76,7 +76,7 @@ class TxIndexTest(BitcoinTestFramework):
             self.nodes[0].getrawtransaction(txid)
         except JSONRPCException as e:
             print(str(e.error['message']))
-            raise AssertionError("getrawtransaction failed")
+            raise AssertionError("getrawtransaction failed (1)")
 
         logging.info("Checking mined tx...")
         self.nodes[0].generate(1)
@@ -85,12 +85,12 @@ class TxIndexTest(BitcoinTestFramework):
             self.nodes[0].getrawtransaction(txid)
         except JSONRPCException as e:
             print(str(e.error['message']))
-            raise AssertionError("getrawtransaction failed")
+            raise AssertionError("getrawtransaction failed (2)")
         try:
             self.nodes[1].getrawtransaction(txid)
         except JSONRPCException as e:
             print(str(e.error['message']))
-            raise AssertionError("getrawtransaction failed")
+            raise AssertionError("getrawtransaction failed (3)")
 
         # Mine a few more blocks and see that they are reflected in the txindex correctly
         logging.info("Mining blocks...")
@@ -101,12 +101,12 @@ class TxIndexTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[1].getinfo()["txindex"] == "synced")
         for i in range(self.nodes[1].getblockcount()):
             blockhash = self.nodes[1].getblockhash(i)
-            txns = self.nodes[1].getblock(blockhash)['tx']
+            txns = self.nodes[1].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[1].getrawtransaction(tx)
                 except JSONRPCException as e:
-                    raise AssertionError("getrawtransaction failed")
+                    raise AssertionError("getrawtransaction failed (4)")
 
         #### Restart with txindex turned off, mine some blocks and then restart with txindex on.
         #    The txindex should automatically catch up and the new entries should be acessible.
@@ -141,7 +141,7 @@ class TxIndexTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[0].getinfo()["txindex"] == "not ready")
         for i in range(self.nodes[0].getblockcount()):
             blockhash = self.nodes[0].getblockhash(i)
-            txns = self.nodes[0].getblock(blockhash)['tx']
+            txns = self.nodes[0].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[0].getrawtransaction(tx)
@@ -153,7 +153,7 @@ class TxIndexTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[1].getinfo()["txindex"] == "synced")
         for i in range(self.nodes[1].getblockcount()):
             blockhash = self.nodes[1].getblockhash(i)
-            txns = self.nodes[1].getblock(blockhash)['tx']
+            txns = self.nodes[1].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[1].getrawtransaction(tx)
@@ -177,25 +177,39 @@ class TxIndexTest(BitcoinTestFramework):
         waitFor(30, lambda: self.nodes[0].getinfo()["txindex"] == "synced")
         for i in range(self.nodes[0].getblockcount()):
             blockhash = self.nodes[0].getblockhash(i)
-            txns = self.nodes[0].getblock(blockhash)['tx']
+            txns = self.nodes[0].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[0].getrawtransaction(tx)
                 except JSONRPCException as e:
-                    raise AssertionError("getrawtransaction failed")
+                    raise AssertionError("getrawtransaction failed (5)")
 
         # Check node1 can find all blockchain txns in the txindex
         logging.info("Checking txindex on node1...")
         waitFor(30, lambda: self.nodes[1].getinfo()["txindex"] == "synced")
         for i in range(self.nodes[1].getblockcount()):
             blockhash = self.nodes[1].getblockhash(i)
-            txns = self.nodes[1].getblock(blockhash)['tx']
+            txns = self.nodes[1].getblock(blockhash)['txid']
             for tx in txns:
                 try:
                     self.nodes[1].getrawtransaction(tx)
                 except JSONRPCException as e:
-                    raise AssertionError("getrawtransaction failed")
+                    raise AssertionError("getrawtransaction failed (6)")
 
 
 if __name__ == '__main__':
     TxIndexTest().main()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = TxIndexTest()
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    #import signal, pdb
+    #signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

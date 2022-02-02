@@ -35,7 +35,13 @@ static bool ToMemPool(CMutableTransaction &tx, std::string rejectReason = "")
     ret = AcceptToMemoryPool(mempool, state, MakeTransactionRef(tx), false, &fMissingInputs, false);
 
     if (rejectReason != "")
+    {
+        if (rejectReason != state.GetRejectReason())
+        {
+            printf("oops\n");
+        }
         BOOST_CHECK_EQUAL(rejectReason, state.GetRejectReason());
+    }
     return ret;
 }
 
@@ -56,8 +62,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
     for (int i = 0; i < 2; i++)
     {
         spends[i].vin.resize(1);
-        spends[i].vin[0].prevout.hash = coinbaseTxns[0].GetHash();
-        spends[i].vin[0].prevout.n = 0;
+        spends[i].vin[0] = coinbaseTxns[0].SpendOutput(0);
         spends[i].vout.resize(1);
         spends[i].vout[0].nValue = 11 * CENT;
         spends[i].vout[0].scriptPubKey = scriptPubKey;
@@ -179,8 +184,7 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     // Add valid txns to the memory pool.  The coins should be present in the coins cache.
     spends.resize(1);
     spends[0].vin.resize(1);
-    spends[0].vin[0].prevout.hash = coinbaseTxns[0].GetHash();
-    spends[0].vin[0].prevout.n = 0;
+    spends[0].vin[0] = coinbaseTxns[0].SpendOutput(0);
     spends[0].vout.resize(1);
     spends[0].vout[0].nValue = 11 * CENT;
     spends[0].vout[0].scriptPubKey = scriptPubKey;
@@ -206,8 +210,7 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     // still be present and but the coins from the rejected txn should not be present.
     spends.resize(2);
     spends[1].vin.resize(1);
-    spends[1].vin[0].prevout.hash = coinbaseTxns[1].GetHash();
-    spends[1].vin[0].prevout.n = 0;
+    spends[1].vin[0] = coinbaseTxns[1].SpendOutput(0);
     spends[1].vout.resize(1);
     spends[1].vout[0].nValue = 11 * CENT;
     spends[1].vout[0].scriptPubKey = scriptPubKey;
@@ -230,11 +233,10 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     spends.resize(3);
     spends[2].vin.resize(3);
     spends[2].vin[2].prevout.hash = InsecureRand256();
-    spends[2].vin[2].prevout.n = 0;
+    spends[2].vin[2].amount = 10000000; // Arbitrary amount for this fake input
     spends[2].vin[1].prevout.hash = InsecureRand256();
-    spends[2].vin[1].prevout.n = 0;
-    spends[2].vin[0].prevout.hash = coinbaseTxns[2].GetHash();
-    spends[2].vin[0].prevout.n = 0;
+    spends[2].vin[1].amount = 10000000; // Arbitrary amount for this fake input
+    spends[2].vin[0] = coinbaseTxns[2].SpendOutput(0);
     spends[2].vout.resize(1);
     spends[2].vout[0].nValue = 799999999;
     spends[2].vout[0].scriptPubKey = scriptPubKey;
@@ -306,8 +308,7 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     // Add a tx to the memory pool.  The valid inputs should be present in the coins cache.
     spends.resize(4);
     spends[3].vin.resize(1);
-    spends[3].vin[0].prevout.hash = coinbaseTxns[0].GetHash();
-    spends[3].vin[0].prevout.n = 0;
+    spends[3].vin[0] = coinbaseTxns[0].SpendOutput(0);
     spends[3].vout.resize(1);
     spends[3].vout[0].nValue = 11 * CENT;
     spends[3].vout[0].scriptPubKey = scriptPubKey;
@@ -353,11 +354,10 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     spends.resize(5);
     spends[4].vin.resize(3);
     spends[4].vin[2].prevout.hash = InsecureRand256();
-    spends[4].vin[2].prevout.n = 0;
+    spends[4].vin[2].amount = 10000000; // Arbitrary amount for this fake input
     spends[4].vin[1].prevout.hash = InsecureRand256();
-    spends[4].vin[1].prevout.n = 0;
-    spends[4].vin[0].prevout.hash = coinbaseTxns[5].GetHash();
-    spends[4].vin[0].prevout.n = 0;
+    spends[4].vin[1].amount = 10000000; // Arbitrary amount for this fake input
+    spends[4].vin[0] = coinbaseTxns[5].SpendOutput(0);
     spends[4].vout.resize(1);
     spends[4].vout[0].nValue = 799999999;
     spends[4].vout[0].scriptPubKey = scriptPubKey;
@@ -385,7 +385,7 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
     // Result: All the coins should still be remaining in the coins cache.
     {
         WRITELOCK(orphanpool.cs_orphanpool);
-        orphanpool.EraseOrphanTx(spends[4].GetHash());
+        orphanpool.EraseOrphanTx(spends[4].GetId());
     }
     BOOST_CHECK(pcoinsTip->HaveCoinInCache(spends[4].vin[0].prevout, fSpent));
     BOOST_CHECK(fSpent == false);
@@ -415,7 +415,7 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
 
     unsigned int sighashType = SIGHASH_ALL | SIGHASH_FORKID;
 
-    uint256 prevout = coinbaseTxns[0].GetHash();
+    auto prevout = coinbaseTxns[0].SpendOutput(0);
     uint256 hash;
 
     // Create a chain of 50 unconfirmed transactions
@@ -423,8 +423,7 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vin[0].prevout.hash = prevout;
-        tx.vin[0].prevout.n = 0;
+        tx.vin[0] = prevout;
         tx.vout.resize(1);
         tx.vout[0].nValue = 11 * CENT;
         tx.vout[0].scriptPubKey = scriptPubKey;
@@ -445,15 +444,14 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
         tx.vin[0].scriptSig << vchSig;
         BOOST_CHECK(ToMemPool(tx));
 
-        prevout = tx.GetHash();
+        prevout = tx.SpendOutput(0);
     }
 
     // Add one more which should should work because the limit is now 52
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vin[0].prevout.hash = prevout;
-        tx.vin[0].prevout.n = 0;
+        tx.vin[0] = prevout;
         tx.vout.resize(1);
         tx.vout[0].nValue = 11 * CENT;
         tx.vout[0].scriptPubKey = scriptPubKey;
@@ -466,24 +464,22 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
         vchSig.push_back((unsigned char)sighashType);
         tx.vin[0].scriptSig << vchSig;
         BOOST_CHECK(ToMemPool(tx));
-        prevout = tx.GetHash();
+        prevout = tx.SpendOutput(0);
     }
 
     // Now try to add a tx with multiple inputs.  It should pass
     {
         CMutableTransaction tx;
         tx.vin.resize(2);
-        tx.vin[0].prevout.hash = prevout;
-        tx.vin[0].prevout.n = 0;
-        tx.vin[1].prevout.hash = coinbaseTxns[1].GetHash();
-        tx.vin[1].prevout.n = 0;
+        tx.vin[0] = prevout;
+        tx.vin[1] = coinbaseTxns[1].SpendOutput(0);
         tx.vout.resize(1);
         tx.vout[0].nValue = 11 * CENT;
         tx.vout[0].scriptPubKey = scriptPubKey;
 
         // Sign:
         std::vector<unsigned char> vchSig;
-        hash = SignatureHash(scriptPubKey, tx, 0, sighashType, 11 * CENT, 0);
+        hash = SignatureHash(scriptPubKey, tx, 0, sighashType, coinbaseTxns[1].vout[0].nValue, 0);
         BOOST_CHECK(hash != SIGNATURE_HASH_ERROR);
         BOOST_CHECK(coinbaseKey.SignSchnorr(hash, vchSig));
         vchSig.push_back((unsigned char)sighashType);
@@ -497,15 +493,14 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
         tx.vin[1].scriptSig << vchSig1;
 
         BOOST_CHECK(ToMemPool(tx));
-        prevout = tx.GetHash();
+        prevout = tx.SpendOutput(0);
     }
 
     // Now try to add a tx with only one input. It should succeed.
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vin[0].prevout.hash = prevout;
-        tx.vin[0].prevout.n = 0;
+        tx.vin[0] = prevout;
         tx.vout.resize(1);
         tx.vout[0].nValue = 11 * CENT;
         tx.vout[0].scriptPubKey = scriptPubKey;
@@ -519,7 +514,7 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
         tx.vin[0].scriptSig << vchSig;
         BOOST_CHECK(ToMemPool(tx));
 
-        prevout = tx.GetHash();
+        prevout = tx.SpendOutput(0);
     }
 
     dMinLimiterTxFee.Set(nTempFee);
@@ -548,8 +543,7 @@ BOOST_FIXTURE_TEST_CASE(limitfreerelay, TestChain100Setup)
     // Try to add a transaction with that is considered free (the fee is less than the minrelaytxfee)
     spends.resize(1);
     spends[0].vin.resize(1);
-    spends[0].vin[0].prevout.hash = coinbaseTxns[0].GetHash();
-    spends[0].vin[0].prevout.n = 0;
+    spends[0].vin[0] = coinbaseTxns[0].SpendOutput(0);
     spends[0].vout.resize(1);
     spends[0].vout[0].nValue = coinbaseTxns[0].vout[0].nValue;
     spends[0].vout[0].scriptPubKey = scriptPubKey;
@@ -570,8 +564,7 @@ BOOST_FIXTURE_TEST_CASE(limitfreerelay, TestChain100Setup)
     // The coins should be present in the coins cache.
     spends.resize(2);
     spends[1].vin.resize(1);
-    spends[1].vin[0].prevout.hash = coinbaseTxns[0].GetHash();
-    spends[1].vin[0].prevout.n = 0;
+    spends[1].vin[0] = coinbaseTxns[0].SpendOutput(0);
     spends[1].vout.resize(1);
     spends[1].vout[0].nValue = 11 * CENT;
     spends[1].vout[0].scriptPubKey = scriptPubKey;
@@ -594,8 +587,7 @@ BOOST_FIXTURE_TEST_CASE(limitfreerelay, TestChain100Setup)
 
     spends.resize(3);
     spends[2].vin.resize(1);
-    spends[2].vin[0].prevout.hash = coinbaseTxns[0].GetHash();
-    spends[2].vin[0].prevout.n = 0;
+    spends[2].vin[0] = coinbaseTxns[0].SpendOutput(0);
     spends[2].vout.resize(1);
     spends[2].vout[0].nValue = coinbaseTxns[0].vout[0].nValue;
     spends[2].vout[0].scriptPubKey = scriptPubKey;

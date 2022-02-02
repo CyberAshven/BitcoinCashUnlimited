@@ -285,10 +285,10 @@ UniValue prioritisetransaction(const UniValue &params, bool fHelp)
 {
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "prioritisetransaction <txid> <priority delta> <fee delta>\n"
+            "prioritisetransaction <tx id or idem> <priority delta> <fee delta>\n"
             "Accepts the transaction into mined blocks at a higher (or lower) priority\n"
             "\nArguments:\n"
-            "1. \"txid\"       (string, required) The transaction id.\n"
+            "1. \"tx id or idem\"       (string, required) The transaction id or idem.\n"
             "2. priority delta (numeric, required) The priority to add or subtract.\n"
             "                  The transaction selection algorithm considers the tx as it would have a higher "
             "priority.\n"
@@ -303,10 +303,9 @@ UniValue prioritisetransaction(const UniValue &params, bool fHelp)
             HelpExampleCli("prioritisetransaction", "\"txid\" 0.0 10000") +
             HelpExampleRpc("prioritisetransaction", "\"txid\", 0.0, 10000"));
 
-    uint256 hash = ParseHashStr(params[0].get_str(), "txid");
+    uint256 hash = ParseHashStr(params[0].get_str(), "tx id or idem");
     CAmount nAmount = params[2].get_int64();
-    mempool.PrioritiseTransaction(hash, params[0].get_str(), params[1].get_real(), nAmount);
-    return true;
+    return mempool.PrioritiseTransaction(hash, params[0].get_str(), params[1].get_real(), nAmount);
 }
 
 
@@ -428,7 +427,7 @@ static UniValue MkFullMiningCandidateJson(const std::set<std::string> &setClient
     for (const auto &it : pblock->vtx)
     {
         const CTransaction &tx = *it;
-        uint256 txHash = tx.GetHash();
+        uint256 txHash = tx.GetId();
         setTxIndex[txHash] = i++;
 
         if (tx.IsCoinBase())

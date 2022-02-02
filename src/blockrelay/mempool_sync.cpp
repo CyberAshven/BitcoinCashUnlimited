@@ -110,7 +110,7 @@ bool HandleMempoolSyncRequest(CDataStream &vRecv, CNode *pfrom)
             if (feeRate.GetFeePerK() < (int)mempoolinfo.nSatoshiPerK)
                 continue;
 
-            mempoolTxHashes.push_back(it->GetTx().GetHash());
+            mempoolTxHashes.push_back(it->GetTx().GetId());
             nRemainingMempoolBytes -= nTxSize;
         }
     }
@@ -386,7 +386,7 @@ void GetMempoolTxHashes(std::vector<uint256> &mempoolTxHashes)
     }
 
     std::vector<uint256> memPoolHashes;
-    mempool.queryHashes(memPoolHashes);
+    mempool.queryIds(memPoolHashes);
 
     for (const uint256 &hash : memPoolHashes)
     {

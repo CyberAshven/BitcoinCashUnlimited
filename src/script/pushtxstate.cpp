@@ -8,38 +8,8 @@
 #include "primitives/transaction.h"
 #include "script/interpreter.h"
 #include "script/script.h"
+#include "script/sign.h"
 #include "uint256.h"
-
-
-uint256 GetPrevoutHash(const CTransaction &txTo)
-{
-    CHashWriter ss(SER_GETHASH, 0);
-    for (unsigned int n = 0; n < txTo.vin.size(); n++)
-    {
-        ss << txTo.vin[n].prevout;
-    }
-    return ss.GetHash();
-}
-
-uint256 GetSequenceHash(const CTransaction &txTo)
-{
-    CHashWriter ss(SER_GETHASH, 0);
-    for (unsigned int n = 0; n < txTo.vin.size(); n++)
-    {
-        ss << txTo.vin[n].nSequence;
-    }
-    return ss.GetHash();
-}
-
-uint256 GetOutputsHash(const CTransaction &txTo)
-{
-    CHashWriter ss(SER_GETHASH, 0);
-    for (unsigned int n = 0; n < txTo.vout.size(); n++)
-    {
-        ss << txTo.vout[n];
-    }
-    return ss.GetHash();
-}
 
 
 uint256 PushTxStateSigHash(uint32_t flavor, const ScriptImportedState &sis)
@@ -128,7 +98,13 @@ ScriptError EvalPushTxState(const VchType &specifier, const ScriptImportedState 
             break;
         case PushTxStateSpecifier::TX_ID:
         {
-            uint256 hash = sis.tx->GetHash();
+            uint256 hash = sis.tx->GetId();
+            stack.push_back(StackItem(hash.begin(), hash.end()));
+        }
+        break;
+        case PushTxStateSpecifier::TX_IDEM:
+        {
+            uint256 hash = sis.tx->GetIdem();
             stack.push_back(StackItem(hash.begin(), hash.end()));
         }
         break;

@@ -41,9 +41,8 @@ public:
     Validity validate(const CTxMemPool &pool, const CTransactionRef ptx = nullptr) const;
 
     /** Returns the hash of the input transaction (UTXO) that is being doublespent */
-    const uint256 &prevTxId() const { return m_prevTxId; }
-    /** Returns the index of the output that is being doublespent */
-    int32_t prevOutIndex() const { return m_prevOutIndex; }
+    const COutPoint &Outpoint() const { return m_prevOutpoint; }
+
     /** get the hash of this doublespend proof */
     uint256 GetHash() const;
 
@@ -51,13 +50,13 @@ public:
     struct Spender
     {
         uint32_t txVersion = 0, outSequence = 0, lockTime = 0;
-        uint256 hashPrevOutputs, hashSequence, hashOutputs;
+        uint256 hashPrevOutputs, hashSequence, hashOutputs, hashInAmounts;
         std::vector<std::vector<uint8_t> > pushData;
         bool operator==(const Spender &o) const
         {
             return txVersion == o.txVersion && outSequence == o.outSequence && lockTime == o.lockTime &&
                    hashPrevOutputs == o.hashPrevOutputs && hashSequence == o.hashSequence &&
-                   hashOutputs == o.hashOutputs && pushData == o.pushData;
+                   hashOutputs == o.hashOutputs && hashInAmounts == o.hashInAmounts && pushData == o.pushData;
         }
         bool operator!=(const Spender &o) const { return !(*this == o); }
     };
@@ -70,14 +69,14 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
-        READWRITE(m_prevTxId);
-        READWRITE(m_prevOutIndex);
+        READWRITE(m_prevOutpoint);
 
         READWRITE(m_spender1.txVersion);
         READWRITE(m_spender1.outSequence);
         READWRITE(m_spender1.lockTime);
         READWRITE(m_spender1.hashPrevOutputs);
         READWRITE(m_spender1.hashSequence);
+        READWRITE(m_spender1.hashInAmounts);
         READWRITE(m_spender1.hashOutputs);
         READWRITE(m_spender1.pushData);
 
@@ -86,6 +85,7 @@ public:
         READWRITE(m_spender2.lockTime);
         READWRITE(m_spender2.hashPrevOutputs);
         READWRITE(m_spender2.hashSequence);
+        READWRITE(m_spender1.hashInAmounts);
         READWRITE(m_spender2.hashOutputs);
         READWRITE(m_spender2.pushData);
 
@@ -115,8 +115,7 @@ public:
     }
 
 private:
-    uint256 m_prevTxId;
-    int32_t m_prevOutIndex = -1;
+    COutPoint m_prevOutpoint;
 
     Spender m_spender1, m_spender2;
 };

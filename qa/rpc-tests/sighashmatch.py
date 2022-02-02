@@ -78,12 +78,13 @@ class SigHashMatchTest(BitcoinTestFramework):
         key.set_compressed(True)
         pub = key.get_pubkey()
 
-        sighashcode = CScript([pub, OP_CHECKSIG])
-        sighash = txn.SignatureHash(0, bytes(sighashcode),
-                                    int((amt)*100000000))
+        scriptcode = CScript([pub, OP_CHECKSIG])
+        hashcode = SIGHASH_ALL | SIGHASH_FORKID
+        sighash = txn.SignatureHash(0, bytes(scriptcode),
+                                    int((amt)*100000000), hashcode, debug=False)
         txn_mansig = unhexlify(self.nodes[0].signdata(addr, "hash",
                                             hexlify(sighash).decode("ascii")))
-        fullsig = txn_mansig+b"\x41"
+        fullsig = txn_mansig+bytes([hashcode])
         txn.vin[0].scriptSig = CScript([fullsig])
         txid = self.nodes[0].sendrawtransaction(txn.toHex())
         assert len(txid) == 64
@@ -96,17 +97,11 @@ if __name__ == '__main__':
 
 def Test():
     t = SigHashMatchTest()
+    t.drop_to_pdb = True
     bitcoinConf = {
         "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
         "blockprioritysize": 2000000,  # we don't want any transactions rejected due to insufficient fees...
-        "usecashaddr" : False
+        "usecashaddr" : 0
     }
-
-    # you may want these additional flags:
-    # "--srcdir=<out-of-source-build-dir>/debug/src"
-    # "--tmppfx=/ramdisk/test"
-    flags = []  # "--nocleanup", "--noshutdown"
-    if os.path.isdir("/ramdisk/test"):  # execution is much faster if a ramdisk is used
-        flags.append("--tmppfx=/ramdisk/test")
-
+    flags = standardFlags()
     t.main(flags, bitcoinConf, None)

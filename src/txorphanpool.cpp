@@ -29,7 +29,7 @@ bool CTxOrphanPool::AddOrphanTx(const CTransactionRef ptx, NodeId peer)
     if (mapOrphanTransactions.empty())
         DbgAssert(nBytesOrphanPool == 0, nBytesOrphanPool = 0);
 
-    uint256 hash = ptx->GetHash();
+    uint256 hash = ptx->GetId();
     if (mapOrphanTransactions.count(hash))
         return false;
 
@@ -69,7 +69,7 @@ bool CTxOrphanPool::EraseOrphanTx(uint256 hash)
     }
 
     nBytesOrphanPool -= it->second.nOrphanTxSize;
-    LOG(MEMPOOL, "Erased orphan tx %s of size %ld bytes, orphan pool bytes:%ld\n", it->second.ptx->GetHash().ToString(),
+    LOG(MEMPOOL, "Erased orphan tx %s of size %ld bytes, orphan pool bytes:%ld\n", it->second.ptx->GetId().ToString(),
         it->second.nOrphanTxSize, nBytesOrphanPool);
     mapOrphanTransactions.erase(it);
     return true;
@@ -91,7 +91,7 @@ void CTxOrphanPool::EraseOrphansByTime()
         int64_t nEntryTime = mi->second.nEntryTime;
         if (nEntryTime < nOrphanTxCutoffTime)
         {
-            uint256 txHash = mi->second.ptx->GetHash();
+            uint256 txHash = mi->second.ptx->GetId();
 
             // Uncache any coins that may exist for orphans that will be erased
             pcoinsTip->UncacheTx(*mi->second.ptx);
@@ -129,7 +129,7 @@ unsigned int CTxOrphanPool::LimitOrphanTxSize(unsigned int nMaxOrphans, uint64_t
     return nEvicted;
 }
 
-void CTxOrphanPool::QueryHashes(std::vector<uint256> &vHashes)
+void CTxOrphanPool::QueryIds(std::vector<uint256> &vHashes)
 {
     READLOCK(cs_orphanpool);
     for (auto &it : mapOrphanTransactions)
@@ -150,7 +150,7 @@ void CTxOrphanPool::RemoveForBlock(const std::vector<CTransactionRef> &vtx)
     // Erase orphans from the current block that were already received.
     for (auto &tx : vtx)
     {
-        const uint256 &hash = tx->GetHash();
+        const uint256 &hash = tx->GetId();
         vPreviousBlock.push_back(hash);
         EraseOrphanTx(hash);
     }

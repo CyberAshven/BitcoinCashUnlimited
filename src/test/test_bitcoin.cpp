@@ -167,6 +167,8 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(const CTransaction &txn, CTxMemPo
 
     CTxMemPoolEntry ret(MakeTransactionRef(txn), nFee, nTime, dPriority, nHeight, hasNoDependencies, inChainValue,
         spendsCoinbase, sigOpCount, lp);
+    ret.dbgName = dbgName;
+    dbgName = ""; // Reset to no name every time we pull a new entry from this object
     ret.sighashType = SIGHASH_ALL; // For testing, give the transaction any valid sighashtype
     return ret;
 }

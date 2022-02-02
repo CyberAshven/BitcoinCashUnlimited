@@ -136,12 +136,14 @@ CTransactionRef BlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _n
 {
     CMutableTransaction tx;
 
-    tx.vin.resize(1);
-    tx.vin[0].prevout.SetNull();
-    tx.vout.resize(1);
+    tx.vin.resize(0);
+    tx.vout.resize(2);
+    // Coinbase uniquification must be stored in a vout because idem does not cover scriptSig
+    const int dataIdx = 1;
+    tx.vout[dataIdx].scriptPubKey = CScript() << OP_RETURN << _nHeight;
+    tx.vout[dataIdx].nValue = 0;
     tx.vout[0].scriptPubKey = scriptPubKeyIn;
     tx.vout[0].nValue = nValue;
-    tx.vin[0].scriptSig = CScript() << _nHeight << OP_0;
 
     // BU005 add block size settings to the coinbase
     std::string cbmsg = FormatCoinbaseMessage(BUComments, minerComment);
@@ -152,19 +154,19 @@ CTransactionRef BlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _n
         COINBASE_FLAGS = CScript() << vec;
         // Chop off any extra data in the COINBASE_FLAGS so the sig does not exceed the max.
         // we can do this because the coinbase is not a "real" script...
-        if (tx.vin[0].scriptSig.size() + COINBASE_FLAGS.size() > MAX_COINBASE_SCRIPTSIG_SIZE)
+        if (tx.vout[dataIdx].scriptPubKey.size() + COINBASE_FLAGS.size() > nMaxDatacarrierBytes)
         {
-            COINBASE_FLAGS.resize(MAX_COINBASE_SCRIPTSIG_SIZE - tx.vin[0].scriptSig.size());
+            COINBASE_FLAGS.resize(nMaxDatacarrierBytes - tx.vout[dataIdx].scriptPubKey.size());
         }
 
-        tx.vin[0].scriptSig = tx.vin[0].scriptSig + COINBASE_FLAGS;
+        tx.vout[dataIdx].scriptPubKey = tx.vout[dataIdx].scriptPubKey + COINBASE_FLAGS;
     }
 
     // Make sure the coinbase is big enough.
     uint64_t nCoinbaseSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
     if (nCoinbaseSize < MIN_TX_SIZE)
     {
-        tx.vin[0].scriptSig << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
+        tx.vout[dataIdx].scriptPubKey << std::vector<uint8_t>(MIN_TX_SIZE - nCoinbaseSize - 1);
     }
 
     return MakeTransactionRef(std::move(tx));
@@ -175,7 +177,7 @@ struct NumericallyLessTxHashComparator
 public:
     bool operator()(const CTxMemPoolEntry *a, const CTxMemPoolEntry *b) const
     {
-        return a->GetTx().GetHash() < b->GetTx().GetHash();
+        return a->GetTx().GetId() < b->GetTx().GetId();
     }
 };
 
@@ -282,9 +284,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript &sc
     return pblocktemplate;
 }
 
-bool BlockAssembler::isStillDependent(CTxMemPool::txiter iter)
+bool BlockAssembler::isStillDependent(CTxMemPool::TxIdIter iter)
 {
-    for (CTxMemPool::txiter parent : mempool.GetMemPoolParents(iter))
+    for (CTxMemPool::TxIdIter parent : mempool.GetMemPoolParents(iter))
     {
         if (!inBlock.count(parent))
         {
@@ -305,7 +307,7 @@ bool BlockAssembler::TestPackageSigOps(uint64_t packageSize, unsigned int packag
 // are final.
 bool BlockAssembler::TestPackageFinality(const CTxMemPool::setEntries &package)
 {
-    for (const CTxMemPool::txiter it : package)
+    for (const CTxMemPool::TxIdIter it : package)
     {
         if (!IsFinalTx(it->GetSharedTx(), nHeight, nLockTimeCutoff))
             return false;
@@ -348,7 +350,7 @@ bool BlockAssembler::IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtr
     return true;
 }
 
-bool BlockAssembler::TestForBlock(CTxMemPool::txiter iter)
+bool BlockAssembler::TestForBlock(CTxMemPool::TxIdIter iter)
 {
     if (!IsIncrementallyGood(iter->GetTxSize(), iter->GetSigOpCount()))
         return false;
@@ -356,7 +358,7 @@ bool BlockAssembler::TestForBlock(CTxMemPool::txiter iter)
     return true;
 }
 
-void BlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter)
+void BlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::TxIdIter iter)
 {
     const CTxMemPoolEntry &tmp = *iter;
     vtxe->push_back(&tmp);
@@ -371,14 +373,16 @@ void BlockAssembler::AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxM
     {
         double dPriority = iter->GetPriority(nHeight);
         CAmount dummy;
-        mempool._ApplyDeltas(iter->GetTx().GetHash(), dPriority, dummy);
+        mempool._ApplyDeltas(iter->GetTx().GetId(), dPriority, dummy);
+        mempool._ApplyDeltas(iter->GetTx().GetIdem(), dPriority, dummy);
         LOGA("priority %.1f fee %s txid %s\n", dPriority,
             CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString().c_str(),
-            iter->GetTx().GetHash().ToString().c_str());
+            iter->GetTx().GetId().ToString().c_str());
     }
 }
 
-void BlockAssembler::SortForBlock(const CTxMemPool::setEntries &package, std::vector<CTxMemPool::txiter> &sortedEntries)
+void BlockAssembler::SortForBlock(const CTxMemPool::setEntries &package,
+    std::vector<CTxMemPool::TxIdIter> &sortedEntries)
 {
     // Sort package by ancestor count
     // If a transaction A depends on transaction B, then A's ancestor count
@@ -386,7 +390,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries &package, std::ve
     // transactions for block inclusion.
     sortedEntries.clear();
     sortedEntries.insert(sortedEntries.begin(), package.begin(), package.end());
-    std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
+    std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIdIterByAncestorCount());
 }
 
 // This transaction selection algorithm orders the mempool based
@@ -421,7 +425,7 @@ void BlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, b
 {
     AssertLockHeld(mempool.cs_txmempool);
 
-    CTxMemPool::txiter iter;
+    CTxMemPool::TxIdIter iter;
     uint64_t nPackageFailures = 0;
     for (auto mi = mempool.mapTx.get<ancestor_score>().begin(); mi != mempool.mapTx.get<ancestor_score>().end(); mi++)
     {
@@ -461,11 +465,11 @@ void BlockAssembler::addPackageTxs(std::vector<const CTxMemPoolEntry *> *vtxe, b
         }
 
         LOGA("Consider mining TX %s priority %f, package size %d, fee %d, ancestor count %d\n",
-            iter->GetSharedTx()->GetHash().GetHex(), iter->GetPriority(nHeight), packageSize, packageFees,
+            iter->GetSharedTx()->GetId().GetHex(), iter->GetPriority(nHeight), packageSize, packageFees,
             ancestors.size());
         if (packageFees < ::minRelayTxFee.GetFee(packageSize))
         {
-            LOGA("Treating Tx %s as free because fee %d < %d \n", iter->GetSharedTx()->GetHash().GetHex(), packageFees,
+            LOGA("Treating Tx %s as free because fee %d < %d \n", iter->GetSharedTx()->GetId().GetHex(), packageFees,
                 ::minRelayTxFee.GetFee(packageSize));
 
             if (nBlockSize >= nBlockMinSize)
@@ -527,8 +531,8 @@ void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
     // This vector will be sorted into a priority queue:
     vector<TxCoinAgePriority> vecPriority;
     TxCoinAgePriorityCompare pricomparer;
-    std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash> waitPriMap;
-    typedef std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash>::iterator waitPriIter;
+    std::map<CTxMemPool::TxIdIter, double, CTxMemPool::CompareIteratorById> waitPriMap;
+    typedef std::map<CTxMemPool::TxIdIter, double, CTxMemPool::CompareIteratorById>::iterator waitPriIter;
     double actualPriority = -1;
 
     vecPriority.reserve(mempool.mapTx.size());
@@ -536,14 +540,16 @@ void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
     {
         double dPriority = mi->GetPriority(nHeight);
         CAmount dummy;
-        mempool._ApplyDeltas(mi->GetTx().GetHash(), dPriority, dummy);
+        // Check both id and idem for a stored priority adjustment
+        mempool._ApplyDeltas(mi->GetTx().GetId(), dPriority, dummy);
+        mempool._ApplyDeltas(mi->GetTx().GetIdem(), dPriority, dummy);
         vecPriority.push_back(TxCoinAgePriority(dPriority, mi));
     }
     std::make_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
 
 
     // Try to add a txns from the priority queue to fill the blockprioritysize
-    CTxMemPool::txiter iter;
+    CTxMemPool::TxIdIter iter;
     while (!vecPriority.empty() && !blockFinished)
     {
         iter = vecPriority.front().second;
@@ -580,7 +586,7 @@ void BlockAssembler::addPriorityTxs(std::vector<const CTxMemPoolEntry *> *vtxe)
 
             // This tx was successfully added, so
             // add transactions that depend on this one to the priority queue to try again
-            for (CTxMemPool::txiter child : mempool.GetMemPoolChildren(iter))
+            for (CTxMemPool::TxIdIter child : mempool.GetMemPoolChildren(iter))
             {
                 waitPriIter wpiter = waitPriMap.find(child);
                 if (wpiter != waitPriMap.end())

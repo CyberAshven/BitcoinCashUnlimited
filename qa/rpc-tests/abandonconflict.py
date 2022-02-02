@@ -7,6 +7,7 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.nodemessages import *
 import urllib.parse
 
 class AbandonConflictTest(BitcoinTestFramework):
@@ -42,8 +43,8 @@ class AbandonConflictTest(BitcoinTestFramework):
 
         inputs =[]
         # spend 1btc outputs from txA and txB
-        inputs.append({"txid":txA, "vout":nA})
-        inputs.append({"txid":txB, "vout":nB})
+        inputs.append({"outpoint":COutPoint().fromIdemAndIdx(txA, nA).rpcHex(), "amount": Decimal("1")})
+        inputs.append({"outpoint":COutPoint().fromIdemAndIdx(txB, nB).rpcHex(), "amount": Decimal("1")})
         outputs = {}
 
         outputs[self.nodes[0].getnewaddress()] = Decimal("1.499998")
@@ -56,8 +57,8 @@ class AbandonConflictTest(BitcoinTestFramework):
 
         #Create a child tx spending AB1 and C
         inputs = []
-        inputs.append({"txid":txAB1, "vout":nAB})
-        inputs.append({"txid":txC, "vout":nC})
+        inputs.append({"outpoint":COutPoint().fromIdemAndIdx(txAB1, nAB).rpcHex(), "amount": Decimal("1.499998")})
+        inputs.append({"outpoint":COutPoint().fromIdemAndIdx(txC, nC).rpcHex(), "amount": Decimal("1")})
         outputs = {}
         outputs[self.nodes[0].getnewaddress()] = Decimal("2.49996")
         signed2 = self.nodes[0].signrawtransaction(self.nodes[0].createrawtransaction(inputs, outputs))
@@ -127,17 +128,20 @@ class AbandonConflictTest(BitcoinTestFramework):
         # Create a double spend of AB1 by spending again from only A's 10 output
         # Mine double spend from node 1
         inputs =[]
-        inputs.append({"txid":txA, "vout":nA})
+        inputs.append({"outpoint":COutPoint().fromIdemAndIdx(txA, nA).rpcHex(), "amount": Decimal("1")})
         outputs = {}
         outputs[self.nodes[1].getnewaddress()] = Decimal(".99999")
         tx = self.nodes[0].createrawtransaction(inputs, outputs)
         signed = self.nodes[0].signrawtransaction(tx)
         self.nodes[1].enqueuerawtransaction(signed["hex"],"flush")
-        self.nodes[1].generate(1)
+        blkhash = self.nodes[1].generate(1)[0]
+        blk = self.nodes[1].getblock(blkhash)
+        assert signed["txid"] in blk["txid"]
 
         connect_nodes(self.nodes[0], 1)
         sync_blocks(self.nodes)
 
+        assert self.nodes[0].getbestblockhash() == blkhash
         # Verify that B and C's 1 BTC outputs are available for spending again because AB1 is now conflicted
         newbalance = self.nodes[0].getbalance()
         assert(newbalance == balance + Decimal("2.0"))

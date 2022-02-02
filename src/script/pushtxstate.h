@@ -13,9 +13,10 @@ enum PushTxStateSpecifier
 {
     TX_VERSION = 0x1,
     TX_ID = 0x2,
-    TX_SIGHASH = 0x3,
-    GROUP_TOKEN_SUPPLY = 0x4,
-    GROUP_BCH_SUPPLY = 0x5,
+    TX_IDEM = 0x3,
+    TX_SIGHASH = 0x4,
+    GROUP_TOKEN_SUPPLY = 0x5,
+    GROUP_BCH_SUPPLY = 0x6,
 };
 
 enum SigHashFlavors

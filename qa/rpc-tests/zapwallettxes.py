@@ -39,16 +39,16 @@ class ZapWalletTXesTest (BitcoinTestFramework):
         txid3 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 2)
 
         tx0 = self.nodes[0].gettransaction(txid0)
-        assert_equal(tx0['txid'], txid0) #tx0 must be available (confirmed)
+        assert_equal(tx0['txidem'], txid0) #tx0 must be available (confirmed)
 
         tx1 = self.nodes[0].gettransaction(txid1)
-        assert_equal(tx1['txid'], txid1) #tx1 must be available (confirmed)
+        assert_equal(tx1['txidem'], txid1) #tx1 must be available (confirmed)
 
         tx2 = self.nodes[0].gettransaction(txid2)
-        assert_equal(tx2['txid'], txid2) #tx2 must be available (unconfirmed)
+        assert_equal(tx2['txidem'], txid2) #tx2 must be available (unconfirmed)
 
         tx3 = self.nodes[0].gettransaction(txid3)
-        assert_equal(tx3['txid'], txid3) #tx3 must be available (unconfirmed)
+        assert_equal(tx3['txidem'], txid3) #tx3 must be available (unconfirmed)
 
         #restart bitcoind
         self.nodes[0].stop()
@@ -56,7 +56,7 @@ class ZapWalletTXesTest (BitcoinTestFramework):
         self.nodes[0] = start_node(0,self.options.tmpdir)
 
         tx3 = self.nodes[0].gettransaction(txid3)
-        assert_equal(tx3['txid'], txid3) #tx must be available (unconfirmed)
+        assert_equal(tx3['txidem'], txid3) #tx must be available (unconfirmed)
 
         self.nodes[0].stop()
         bitcoind_processes[0].wait()
@@ -68,7 +68,7 @@ class ZapWalletTXesTest (BitcoinTestFramework):
         #there must be an exception because the unconfirmed wallettx0 must be gone by now
 
         tx0 = self.nodes[0].gettransaction(txid0)
-        assert_equal(tx0['txid'], txid0) #tx0 (confirmed) must still be available because it was confirmed
+        assert_equal(tx0['txidem'], txid0) #tx0 (confirmed) must still be available because it was confirmed
 
 
 if __name__ == '__main__':

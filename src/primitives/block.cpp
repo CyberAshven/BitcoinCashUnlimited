@@ -75,15 +75,17 @@ std::string CBlock::ToString() const
 {
     std::stringstream s;
     s << strprintf("CBlock(hash=%s, height=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, txCount=%u "
-                   "size=%d(%d), maxSize=%d, feePool=%d, nonce=%s, utxo=%s)\n",
-        GetHash().ToString(), height, hashPrevBlock.ToString(), hashMerkleRoot.ToString(), nTime, nBits, size,
-        vtx.size(), maxSize, feePoolAmt, HexStr(nonce), HexStr(utxoCommitment));
+                   "size=%d(of %d), feePool=%d, nonce=%s, utxo=%s)\n",
+        GetHash().ToString(), height, hashPrevBlock.ToString(), hashMerkleRoot.ToString(), nTime, nBits, vtx.size(),
+        size, maxSize, feePoolAmt, HexStr(nonce), HexStr(utxoCommitment));
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
         s << "  " << vtx[i]->ToString() << "\n";
     }
     return s.str();
 }
+
+void dbgPrintBlock(CBlock &blk) { printf("%s\n", blk.ToString().c_str()); }
 
 std::string CBlock::GetHex() const
 {

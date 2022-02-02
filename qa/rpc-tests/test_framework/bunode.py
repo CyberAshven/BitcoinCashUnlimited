@@ -28,6 +28,7 @@ class BUProtocolHandler(NodeConnCB):
         self.pong_counter = 0
         self.last_pong = msg_pong(0)
         self.last_getdata = []
+        self.last_reject = []
         self.sleep_time = 0.05
         self.block_announced = False
         self.last_getheaders = None
@@ -88,6 +89,11 @@ class BUProtocolHandler(NodeConnCB):
         msg.inv = [CInv(2, blockhash)]
         self.connection.send_message(msg)
 
+    def send_inv(self, obj):
+        mtype = 2 if isinstance(obj, CBlock) else 1
+        hsh = obj.gethash() if isinstance(obj, CBlock) else obj.GetIdAsInt()
+        self.connection.send_message(msg_inv([CInv(mtype, hsh)]))
+
     # Wrapper for the NodeConn's send_message function
     def send_message(self, message, pushbuf = False):
         self.connection.send_message(message, pushbuf)
@@ -133,7 +139,12 @@ class BUProtocolHandler(NodeConnCB):
             self.parent.on_xthinblock(self, message)
 
     def on_getdata(self, conn, message):
+        print("on_getdata")
         self.last_getdata.append(message)
+
+    def on_reject(self, conn, message):
+        print("on_reject")
+        self.last_reject.append(message)
 
     def on_pong(self, conn, message):
         self.last_pong = message

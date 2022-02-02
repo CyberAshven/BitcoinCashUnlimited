@@ -54,27 +54,27 @@ struct CBlockTemplate
 };
 
 
-/** Comparator for CTxMemPool::txiter objects.
+/** Comparator for CTxMemPool::TxIdIter objects.
  *  It simply compares the internal memory address of the CTxMemPoolEntry object
  *  pointed to. This means it has no meaning, and is only useful for using them
  *  as key in other indexes.
  */
 struct CompareCTxMemPoolIter
 {
-    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const { return &(*a) < &(*b); }
+    bool operator()(const CTxMemPool::TxIdIter &a, const CTxMemPool::TxIdIter &b) const { return &(*a) < &(*b); }
 };
 
 /** A comparator that sorts transactions based on number of ancestors.
  * This is sufficient to sort an ancestor package in an order that is valid
  * to appear in a block.
  */
-struct CompareTxIterByAncestorCount
+struct CompareTxIdIterByAncestorCount
 {
-    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b)
+    bool operator()(const CTxMemPool::TxIdIter &a, const CTxMemPool::TxIdIter &b)
     {
         if (a->GetCountWithAncestors() != b->GetCountWithAncestors())
             return a->GetCountWithAncestors() < b->GetCountWithAncestors();
-        return CTxMemPool::CompareIteratorByHash()(a, b);
+        return CTxMemPool::CompareIteratorById()(a, b);
     }
 };
 
@@ -116,7 +116,7 @@ private:
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
     /** Add a tx to the block */
-    void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::txiter iter);
+    void AddToBlock(std::vector<const CTxMemPoolEntry *> *vtxe, CTxMemPool::TxIdIter iter);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on tx "priority" */
@@ -128,9 +128,9 @@ private:
     // helper function for addPriorityTxs
     bool IsIncrementallyGood(uint64_t nExtraSize, unsigned int nExtraSigOps);
     /** Test if tx will still "fit" in the block */
-    bool TestForBlock(CTxMemPool::txiter iter);
+    bool TestForBlock(CTxMemPool::TxIdIter iter);
     /** Test if tx still has unconfirmed parents not yet in block */
-    bool isStillDependent(CTxMemPool::txiter iter);
+    bool isStillDependent(CTxMemPool::TxIdIter iter);
 
     /** Bytes to reserve for coinbase and block header */
     uint64_t reserveBlockSize(const CScript &scriptPubKeyIn, int64_t coinbaseSize = -1);
@@ -144,7 +144,7 @@ private:
     /** Test if a set of transactions are all final */
     bool TestPackageFinality(const CTxMemPool::setEntries &package);
     /** Sort the package in an order that is valid to appear in a block */
-    void SortForBlock(const CTxMemPool::setEntries &package, std::vector<CTxMemPool::txiter> &sortedEntries);
+    void SortForBlock(const CTxMemPool::setEntries &package, std::vector<CTxMemPool::TxIdIter> &sortedEntries);
 };
 
 /** Modify the extranonce in a block */

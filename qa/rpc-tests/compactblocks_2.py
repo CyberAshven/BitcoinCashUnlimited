@@ -121,11 +121,12 @@ class TestNode(SingleNodeConnCB):
        success = False
        while success is False:
            success = True
-           mempool = peer.getrawmempool()
+           mempool = peer.getrawmempool(False, "id")
            orphanpool = peer.getraworphanpool()
 
            for tx in tx_list:
-                if tx.hash not in mempool and tx.hash not in orphanpool:
+               txid = tx.GetRpcHexId()
+               if txid not in mempool and txid not in orphanpool:
                     success = False
 
            time.sleep(self.sleep_time)
@@ -140,10 +141,10 @@ class TestNode(SingleNodeConnCB):
        success = False
        while success is False:
            success = True
-           mempool = peer.getrawmempool()
+           mempool = peer.getrawmempool(False, "id")
 
            for tx in tx_list:
-                if tx.hash not in mempool:
+                if tx.GetRpcHexId() not in mempool:
                     success = False
 
            time.sleep(self.sleep_time)
@@ -193,11 +194,11 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.nodes[0].generate(100)
 
         total_value = block.vtx[0].vout[0].nValue
-        out_value = total_value / 100
+        out_value = decimal.Decimal(total_value) / (COIN*100)
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(block.vtx[0].sha256, 0), CScript([OP_TRUE])))
+        tx.vin.append(block.vtx[0].SpendOutput(0, CScript([OP_TRUE])))
         for i in range(100):
-            tx.vout.append(CTxOut(out_value, CScript([OP_TRUE])))
+            tx.vout.append(TxOut(0,out_value, CScript([OP_TRUE])))
         tx.rehash()
 
         block2 = self.build_block_on_tip()
@@ -208,7 +209,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         self.test_node.send_and_ping(msg_block(block2))
 
         waitFor(SYNC_TIMEOUT, lambda: self.nodes[0].getbestblockhash() == block2.hash)
-        self.utxos.extend([[tx.sha256, i, out_value] for i in range(10)])
+        self.utxos.extend([tx.SpendOutput(i) for i in range(10)])
         return
 
     # Test "sendcmpct":
@@ -311,7 +312,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # Store the raw block in our internal format.
         block = FromHex(CBlock(), self.nodes[0].getblock("%02x" % block_hash, False))
-        [tx.calc_sha256() for tx in block.vtx]
+        [tx.rehash() for tx in block.vtx]
         block.rehash()
 
         # Don't care which type of announcement came back for this test; just
@@ -343,8 +344,8 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # Check that all prefilled_txn entries match what's in the block.
         for entry in header_and_shortids.prefilled_txn:
-            entry.tx.calc_sha256()
-            assert_equal(entry.tx.sha256, block.vtx[entry.index].sha256)
+            entry.tx.rehash()
+            assert_equal(entry.tx.GetId(), block.vtx[entry.index].GetId())
 
         # Check that the cmpctblock message announced all the transactions.
         assert_equal(len(header_and_shortids.prefilled_txn) + len(header_and_shortids.shortids), len(block.vtx))
@@ -360,7 +361,7 @@ class CompactBlocksTest(BitcoinTestFramework):
                 # Already checked prefilled transactions above
                 header_and_shortids.prefilled_txn.pop(0)
             else:
-                shortid = calculate_shortid(k0, k1, block.vtx[index].sha256)
+                shortid = calculate_shortid(k0, k1, block.vtx[index].GetIdAsInt())
                 assert_equal(shortid, header_and_shortids.shortids[0])
                 header_and_shortids.shortids.pop(0)
             index += 1
@@ -392,7 +393,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             comp_block.header = CBlockHeader(block)
             comp_block.nonce = 0
             [k0, k1] = comp_block.get_siphash_keys()
-            coinbase_hash = block.vtx[0].sha256
+            coinbase_hash = block.vtx[0].GetIdAsInt()
             comp_block.shortids = [calculate_shortid(k0, k1, coinbase_hash)]
             self.test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
             waitFor(30, lambda: int(self.nodes[0].getbestblockhash(), 16), block.hashPrevBlock)
@@ -415,16 +416,16 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         for i in range(num_transactions):
             tx = CTransaction()
-            tx.vin.append(CTxIn(COutPoint(utxo[0], utxo[1]), b''))
-            tx.vout.append(CTxOut(utxo[2] - 1000, CScript([OP_TRUE])))
+            tx.vin.append(utxo)
+            tx.vout.append(CTxOut(utxo.amount - 1000, CScript([OP_TRUE])))
             padding = 1 << 8 * 100
             tx.vout.append(CTxOut(0, CScript([padding, OP_RETURN])))
             tx.rehash()
-            utxo = [tx.sha256, 0, tx.vout[0].nValue]
+            utxo = tx.SpendOutput(0)
             block.vtx.append(tx)
 
         ordered_txs = block.vtx
-        block.vtx = [block.vtx[0]] + sorted(block.vtx[1:], key=lambda tx: tx.hash)
+        block.vtx = [block.vtx[0]] + sorted(block.vtx[1:], key=lambda tx: tx.GetRpcHexId())
         block.update_fields()
         block.solve()
         block.rehash()
@@ -449,7 +450,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         block, ordered_txs = self.build_block_with_transactions(utxo, 5)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
 
         comp_block = HeaderAndShortIDs()
         comp_block.initialize_from_block(block)
@@ -472,7 +473,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         utxo = self.utxos.pop(0)
         block, ordered_txs = self.build_block_with_transactions(utxo, 5)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
 
         # Now try interspersing the prefilled transactions
         comp_block.initialize_from_block(block, prefill_list=[0, 1, 5])
@@ -490,7 +491,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         utxo = self.utxos.pop(0)
         block, ordered_txs = self.build_block_with_transactions(utxo, 10)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
         self.test_node.send_and_ping(msg_tx(block.vtx[1]))
         self.test_node.send_and_ping(msg_tx(block.vtx[7]))
         self.test_node.check_mempools([block.vtx[1], block.vtx[7]], self.nodes[0], timeout=SYNC_TIMEOUT)
@@ -515,7 +516,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         utxo = self.utxos.pop(0)
         block, ordered_txs = self.build_block_with_transactions(utxo, 10)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
         for tx in ordered_txs[1:]:
             self.test_node.send_and_ping(msg_tx(tx))
 
@@ -541,7 +542,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         utxo = self.utxos.pop(0)
         block, ordered_txs = self.build_block_with_transactions(utxo, 10)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
 
         # Clear out last request.
         with mininode_lock:
@@ -562,7 +563,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         utxo = self.utxos.pop(0)
         block, ordered_txs = self.build_block_with_transactions(utxo, 3)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
 
         # Clear out last request.
         with mininode_lock:
@@ -593,7 +594,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         block, ordered_txs = self.build_block_with_transactions(utxo, 10)
         self.announce_new_block(block)
-        self.utxos.append([ordered_txs[-1].sha256, 0, ordered_txs[-1].vout[0].nValue])
+        self.utxos.append([ordered_txs[-1].GetId(), 0, ordered_txs[-1].vout[0].nValue])
         # Relay the first 5 transactions from the block in advance
         for tx in ordered_txs[1:6]:
             self.test_node.send_message(msg_tx(tx))

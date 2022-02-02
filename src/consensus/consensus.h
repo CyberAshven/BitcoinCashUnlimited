@@ -42,7 +42,7 @@ static const unsigned int MAX_TX_SIGCHECK_COUNT = 3000;
 /** The maximum suggested length of a transaction */
 static const unsigned int DEFAULT_LARGEST_TRANSACTION = ONE_MEGABYTE;
 /** The minimum allowed size for a transaction, in bytes */
-static const unsigned int MIN_TX_SIZE = 100;
+static const unsigned int MIN_TX_SIZE = 65;
 
 /** This is the default max bloom filter size allowed on the bitcoin network.  In Bitcoin Unlimited we have the ability
  *  to communicate to our peer what max bloom filter size we will accept but still observe this value as a default.
@@ -97,7 +97,8 @@ inline uint64_t GetMaxBlockSigOpsCount(uint64_t nBlockSize)
  */
 inline uint64_t GetMaxBlockSigChecks(uint64_t nBlockSize)
 {
-    static_assert(DEFAULT_NEXT_MAX_BLOCK_SIZE / BLOCK_SIGCHECKS_RATIO >= COINBASE_RESERVED_SIGOPS);
+    static_assert(
+        DEFAULT_NEXT_MAX_BLOCK_SIZE / BLOCK_SIGCHECKS_RATIO >= COINBASE_RESERVED_SIGOPS, "enough sigops for coinbase");
 
     if (maxSigChecks.Value() > 0)
         return maxSigChecks.Value();

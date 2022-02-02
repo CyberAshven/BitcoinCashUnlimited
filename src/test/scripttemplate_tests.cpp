@@ -23,10 +23,12 @@ BOOST_FIXTURE_TEST_SUITE(scripttemplate_tests, BasicTestingSetup)
 
 class AlwaysGoodSignatureChecker : public BaseSignatureChecker
 {
-protected:
-    unsigned int nFlags = SCRIPT_ENABLE_SIGHASH_FORKID;
-
 public:
+    AlwaysGoodSignatureChecker(unsigned int flags=SCRIPT_ENABLE_SIGHASH_FORKID)
+    {
+        nFlags = flags;
+    }
+
     //! Verifies a signature given the pubkey, signature and sighash
     virtual bool VerifySignature(const std::vector<uint8_t> &vchSig,
         const CPubKey &vchPubKey,
@@ -65,11 +67,11 @@ std::vector<unsigned char> vch(const CScript& script)
 
 BOOST_AUTO_TEST_CASE(verifytemplate)
 {
-    AlwaysGoodSignatureChecker ck;
-    ScriptImportedState sis(&ck, MakeTransactionRef(), 0, 0);
+    auto flags = MANDATORY_SCRIPT_VERIFY_FLAGS;
+    AlwaysGoodSignatureChecker ck(flags);
+    ScriptImportedState sis(&ck, MakeTransactionRef(), (unsigned int)-1, 0);
     ScriptError error;
     ScriptMachineResourceTracker tracker;
-    auto flags = MANDATORY_SCRIPT_VERIFY_FLAGS;
     CScript templat = CScript() << OP_FROMALTSTACK << OP_SUB;
     CScript templat2 = CScript() << OP_FROMALTSTACK << OP_ADD;
     CScript constraint = CScript() << OP_9;
@@ -108,11 +110,11 @@ BOOST_AUTO_TEST_CASE(verifytemplate)
 
 BOOST_AUTO_TEST_CASE(opexec)
 {
-    AlwaysGoodSignatureChecker ck;
-    ScriptImportedState sis(&ck, MakeTransactionRef(), 0, 0);
+    auto flags = MANDATORY_SCRIPT_VERIFY_FLAGS;
+    AlwaysGoodSignatureChecker ck(flags);
+    ScriptImportedState sis(&ck, MakeTransactionRef(), (unsigned int)-1,0);
     ScriptError error;
     ScriptMachineResourceTracker tracker;
-    auto flags = MANDATORY_SCRIPT_VERIFY_FLAGS;
     bool ret;
 
     {

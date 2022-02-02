@@ -140,7 +140,7 @@ public:
 
     /** Update status from core wallet tx.
      */
-    void updateStatus(const CWalletTx &wtx);
+    void updateStatus(const CWalletTxRef &wtx);
 
     /** Return whether a status update is needed.
      */

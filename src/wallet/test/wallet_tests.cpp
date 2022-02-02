@@ -23,9 +23,7 @@
 
 using namespace std;
 
-std::vector<std::unique_ptr<CWalletTx>> wtxn;
-
-typedef set<pair<const CWalletTx*,unsigned int> > CoinSet;
+typedef set<COutput> CoinSet;
 
 BOOST_FIXTURE_TEST_SUITE(wallet_tests, WalletTestingSetup)
 
@@ -45,21 +43,21 @@ static void add_coin(CWallet& wallet, const CAmount& nValue, int nAge = 6*24, bo
         tx.vin.resize(1);
     }
 
-    std::unique_ptr<CWalletTx> wtx(new CWalletTx(&wallet, tx));
+    CWalletTxRef wtx = std::make_shared<CWalletTx>(&wallet, tx);
+    wtx->mainChainHeightCached = chainActive.Height() - (nAge-1) ; // fake a height
+    wtx->nIndex = 1234567; // fake but not used
     if (fIsFromMe)
     {
         wtx->fDebitCached = true;
         wtx->nDebitCached = 1;
     }
-    COutput output(wtx.get(), nInput, nAge, true);
+    COutput output(wtx, nInput, isminetype::ISMINE_SPENDABLE);
     vCoins.push_back(output);
-    wtxn.emplace_back(std::move(wtx));
 }
 
 static void empty_wallet(void)
 {
     vCoins.clear();
-    wtxn.clear();
 }
 
 static bool equal_sets(CoinSet a, CoinSet b)

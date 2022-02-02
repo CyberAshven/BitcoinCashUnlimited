@@ -45,16 +45,16 @@ SLAPI int SignTxSchnorr(unsigned char *txData,
     unsigned char *result,
                       unsigned int resultLen);
 
-/* Sign some data using an ECDSA signature */
-SLAPI int SignDataECDSA(const unsigned char *hash,
+/* Sign a hash (presumably the hash of some data) using an ECDSA signature */
+SLAPI int SignHashECDSA(const unsigned char *hash,
     unsigned char *keyData,
     unsigned char *result,
     unsigned int resultLen);
 
 
 
-/* Sign some data using a Shnorr signature */
-SLAPI int SignDataSchnorr(const unsigned char *hash,
+/* Sign a hash (presumably the hash of some data) using a Schnorr signature */
+SLAPI int SignHashSchnorr(const unsigned char *hash,
     unsigned char *keyData,
     unsigned char *result,
     unsigned int resultLen);
@@ -69,6 +69,11 @@ SLAPI void hash256(const unsigned char* data, unsigned char len, unsigned char* 
 /** Calculates the RIPEMD160 of the SHA256 of data and places it in result. Result must be 20 bytes */
 SLAPI void hash160(const unsigned char* data, unsigned char len, unsigned char* result);
 
+/** Calculates the id of the passed serialized transaction.  Result must be 32 bytes */
+SLAPI int txid(unsigned char *txData, int txbuflen, unsigned char *result);
+
+/** Calculates the idem of the passed serialized transaction.  Result must be 32 bytes */
+SLAPI int txidem(unsigned char *txData, int txbuflen, unsigned char *result);
 
 /** Return random bytes from cryptographically acceptable random sources */
 SLAPI int RandomBytes(unsigned char *buf, int num);

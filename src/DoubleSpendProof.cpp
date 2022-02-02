@@ -20,6 +20,14 @@
 #include "wallet/walletdb.h"
 #endif
 
+#ifdef ANDROID // log sighash calculations
+#include <android/log.h>
+#define p(...) __android_log_print(ANDROID_LOG_DEBUG, "bu.sig", __VA_ARGS__)
+#else
+#define p(...)
+// tinyformat::format(std::cout, __VA_ARGS__)
+#endif
+
 namespace
 {
 enum ScriptType
@@ -54,36 +62,27 @@ void hashTx(DoubleSpendProof::Spender &spender, const CTransaction &tx, int inpu
     auto hashType = spender.pushData.front().back();
     if (!(hashType & SIGHASH_ANYONECANPAY))
     {
-        CHashWriter ss(SER_GETHASH, 0);
-        for (size_t n = 0; n < tx.vin.size(); ++n)
-        {
-            ss << tx.vin[n].prevout;
-        }
-        spender.hashPrevOutputs = ss.GetHash();
+        spender.hashPrevOutputs = GetPrevoutHash(tx);
+        spender.hashInAmounts = GetInputAmountHash(tx);
     }
+    p("Hashing prevouts to: %s\n", spender.hashPrevOutputs.GetHex().c_str());
+    p("Hashing input amounts to: %s\n", spender.hashInAmounts.GetHex().c_str());
     if (!(hashType & SIGHASH_ANYONECANPAY) && (hashType & 0x1f) != SIGHASH_SINGLE && (hashType & 0x1f) != SIGHASH_NONE)
     {
-        CHashWriter ss(SER_GETHASH, 0);
-        for (size_t n = 0; n < tx.vin.size(); ++n)
-        {
-            ss << tx.vin[n].nSequence;
-        }
-        spender.hashSequence = ss.GetHash();
+        spender.hashSequence = GetSequenceHash(tx);
+        p("Hashing input sequence numbers to: %s\n", spender.hashSequence.GetHex().c_str());
     }
     if ((hashType & 0x1f) != SIGHASH_SINGLE && (hashType & 0x1f) != SIGHASH_NONE)
     {
-        CHashWriter ss(SER_GETHASH, 0);
-        for (size_t n = 0; n < tx.vout.size(); ++n)
-        {
-            ss << tx.vout[n];
-        }
-        spender.hashOutputs = ss.GetHash();
+        spender.hashOutputs = GetOutputsHash(tx);
+        p("Hashing every output to: %s\n", spender.hashOutputs.GetHex().c_str());
     }
     else if ((hashType & 0x1f) == SIGHASH_SINGLE && (size_t)inputIndex < tx.vout.size())
     {
         CHashWriter ss(SER_GETHASH, 0);
         ss << tx.vout[inputIndex];
         spender.hashOutputs = ss.GetHash();
+        p("Hashing just output %d to: %s\n", inputIndex, spender.hashOutputs.GetHex().c_str());
     }
 }
 
@@ -108,12 +107,25 @@ public:
             return false;
         vchSig.pop_back(); // drop the hashtype byte tacked on to the end of the signature
 
+        p("DSP construct hash:\n");
         CHashWriter ss(SER_GETHASH, 0);
-        ss << m_spender.txVersion << m_spender.hashPrevOutputs << m_spender.hashSequence;
-        ss << COutPoint(m_proof->prevTxId(), m_proof->prevOutIndex());
+        ss << ((uint8_t)m_spender.txVersion) << m_spender.hashPrevOutputs << m_spender.hashInAmounts
+           << m_spender.hashSequence;
+        p("txversion: %x\n", m_spender.txVersion);
+        p("prevouts: %s\n", m_spender.hashPrevOutputs.GetHex().c_str());
+        p("input amounts: %s\n", m_spender.hashInAmounts.GetHex().c_str());
+        p("input sequence numbers: %s\n", m_spender.hashSequence.GetHex().c_str());
+        ss << m_proof->Outpoint();
+        p("outpoint: %s\n", m_proof->Outpoint().GetHex().c_str());
         ss << static_cast<const CScriptBase &>(scriptCode);
+        p("ScriptCode: %s\n", scriptCode.GetHex().c_str());
         ss << m_amount << m_spender.outSequence << m_spender.hashOutputs;
+        p("Amount: %ld\n", (long int)m_amount);
+        p("This input sequence: %d\n", m_spender.outSequence);
+        p("hashOutputs: %s\n", m_spender.hashOutputs.GetHex().c_str());
         ss << m_spender.lockTime << (int)m_spender.pushData.front().back();
+        p("Locktime: %d\n", m_spender.lockTime);
+        p("hashtype: %x\n", (int)m_spender.pushData.front().back());
         const uint256 sighash = ss.GetHash();
 
         return pubkey.VerifySchnorr(sighash, vchSig);
@@ -131,7 +143,7 @@ DoubleSpendProof DoubleSpendProof::create(const CTransaction &t1, const CTransac
 {
     AssertLockHeld(pool.cs_txmempool);
 
-    if (t1.GetHash() == t2.GetHash())
+    if (t1.GetId() == t2.GetId())
         throw std::runtime_error("Can not create dsproof from identical transactions");
 
     DoubleSpendProof answer;
@@ -160,8 +172,7 @@ DoubleSpendProof DoubleSpendProof::create(const CTransaction &t1, const CTransac
                 if (!IsPayToPubKeyHash(coin.out.scriptPubKey))
                     throw std::runtime_error("Can not create dsproof: Transaction was not P2PKH");
 
-                answer.m_prevOutIndex = in1.prevout.n;
-                answer.m_prevTxId = in1.prevout.hash;
+                answer.m_prevOutpoint = in1.prevout;
 
                 s1.outSequence = in1.nSequence;
                 s2.outSequence = in2.nSequence;
@@ -188,7 +199,7 @@ DoubleSpendProof DoubleSpendProof::create(const CTransaction &t1, const CTransac
         }
     }
 
-    if (answer.m_prevOutIndex == -1)
+    if (answer.m_prevOutpoint.IsNull())
         throw std::runtime_error("Transactions do not double spend each other");
 
     s1.txVersion = t1.nVersion;
@@ -210,12 +221,12 @@ DoubleSpendProof DoubleSpendProof::create(const CTransaction &t1, const CTransac
 }
 
 DoubleSpendProof::DoubleSpendProof() {}
-bool DoubleSpendProof::isEmpty() const { return m_prevOutIndex == -1 || m_prevTxId.IsNull(); }
+bool DoubleSpendProof::isEmpty() const { return m_prevOutpoint.IsNull(); }
 DoubleSpendProof::Validity DoubleSpendProof::validate(const CTxMemPool &pool, const CTransactionRef ptx) const
 {
     AssertLockHeld(pool.cs_txmempool);
 
-    if (m_prevTxId.IsNull() || m_prevOutIndex < 0)
+    if (m_prevOutpoint.IsNull())
     {
         LOG(DSPROOF, "WARNING: Previous transaction id or or output index for dsproof is either null or invalid\n");
         return Invalid;
@@ -246,32 +257,26 @@ DoubleSpendProof::Validity DoubleSpendProof::validate(const CTxMemPool &pool, co
     // Get the previous output we are spending.
     int64_t amount;
     CScript prevOutScript;
-    auto prevTx = pool._get(m_prevTxId);
-    if (prevTx.get())
     {
-        if (prevTx->vout.size() <= (size_t)m_prevOutIndex)
+        auto prev = pool._getTxIdx(m_prevOutpoint);
+        if (prev.ptx.get())
         {
-            LOG(DSPROOF, "WARNING: The transaction we are spending the output size is not greater than "
-                         "output index\n");
-            return Invalid;
+            amount = prev.GetValue();
+            prevOutScript = prev.GetConstraintScript();
         }
-
-        auto output = prevTx->vout.at(m_prevOutIndex);
-        amount = output.nValue;
-        prevOutScript = output.scriptPubKey;
-    }
-    else // tx is not found in our mempool, look in the UTXO.
-    {
-        Coin coin;
-        if (!pcoinsTip->GetCoin({m_prevTxId, (uint32_t)m_prevOutIndex}, coin))
+        else // tx is not found in our mempool, look in the UTXO.
         {
-            /* if the output we spend is missing then either the tx just got mined
-             * or, more likely, our mempool just doesn't have it.
-             */
-            return MissingUTXO;
+            Coin coin;
+            if (!pcoinsTip->GetCoin(m_prevOutpoint, coin))
+            {
+                /* if the output we spend is missing then either the tx just got mined
+                 * or, more likely, our mempool just doesn't have it.
+                 */
+                return MissingUTXO;
+            }
+            amount = coin.GetValue();
+            prevOutScript = coin.GetConstraintScript();
         }
-        amount = coin.out.nValue;
-        prevOutScript = coin.out.scriptPubKey;
     }
 
     /*
@@ -282,7 +287,7 @@ DoubleSpendProof::Validity DoubleSpendProof::validate(const CTxMemPool &pool, co
     CTransaction tx;
     if (ptx == nullptr)
     {
-        auto it = pool.mapNextTx.find({m_prevTxId, (uint32_t)m_prevOutIndex});
+        auto it = pool.mapNextTx.find(m_prevOutpoint);
         if (it == pool.mapNextTx.end())
         {
             return MissingTransaction;
@@ -304,7 +309,7 @@ DoubleSpendProof::Validity DoubleSpendProof::validate(const CTxMemPool &pool, co
     StackItem pubkeyStk;
     for (size_t i = 0; i < tx.vin.size(); ++i)
     {
-        if (tx.vin[i].prevout.n == (size_t)m_prevOutIndex && tx.vin[i].prevout.hash == m_prevTxId)
+        if (tx.vin[i].prevout == m_prevOutpoint)
         {
             // Found the input script we need!
             CScript inScript = tx.vin[i].scriptSig;
@@ -346,15 +351,15 @@ DoubleSpendProof::Validity DoubleSpendProof::validate(const CTxMemPool &pool, co
     }
 
     // DS proofs won't work for complex scripts (non P2PKH), which is good because we aren't storing the tx associated
-    // with the Spender right now anyway.  So giving an empty tx to the verifier is ok,
+    // with the Spender right now anyway.  So giving an empty tx and invalid input index to the verifier is ok,
     // since OP_PUSH_TX_DATA won't be used.
     CTransaction noTx;
     CTransactionRef noTxRef = MakeTransactionRef(noTx);
 
     DSPSignatureChecker checker1(this, m_spender1, amount);
-    ScriptImportedState sis1(&checker1, noTxRef, m_prevOutIndex, amount);
+    ScriptImportedState sis1(&checker1, noTxRef, -1, amount);
     ScriptError_t error;
-    if (!VerifyScript(inScript, prevOutScript, 0 /*flags*/, MAX_OPS_PER_SCRIPT, sis1, &error))
+    if (!VerifyScript(inScript, prevOutScript, checker1.flags(), MAX_OPS_PER_SCRIPT, sis1, &error))
     {
         LOG(DSPROOF, "DoubleSpendProof failed validating first tx due to %s\n", ScriptErrorString(error));
         return Invalid;
@@ -367,8 +372,8 @@ DoubleSpendProof::Validity DoubleSpendProof::validate(const CTxMemPool &pool, co
         inScript << pubkey;
     }
     DSPSignatureChecker checker2(this, m_spender2, amount);
-    ScriptImportedState sis2(&checker2, noTxRef, m_prevOutIndex, amount);
-    if (!VerifyScript(inScript, prevOutScript, 0 /*flags*/, MAX_OPS_PER_SCRIPT, sis2, &error))
+    ScriptImportedState sis2(&checker2, noTxRef, -1, amount);
+    if (!VerifyScript(inScript, prevOutScript, checker2.flags(), MAX_OPS_PER_SCRIPT, sis2, &error))
     {
         LOG(DSPROOF, "DoubleSpendProof failed validating second tx due to %s\n", ScriptErrorString(error));
         return Invalid;
@@ -381,7 +386,7 @@ void broadcastDspInv(const CTransactionRef &dspTx, const uint256 &hash, CTxMemPo
 #ifdef ENABLE_WALLET
     // If this transaction is in the wallet then mark it as doublespent
     if (pwalletMain)
-        pwalletMain->MarkDoubleSpent(dspTx->GetHash());
+        pwalletMain->MarkDoubleSpent(dspTx->GetId());
 #endif
 
     // Notify zmq

@@ -29,17 +29,23 @@ def ZmqReceive(socket, timeout=30):
             time.sleep(0.05)
 
 
-
 class ZMQTest (BitcoinTestFramework):
 
     port = 28340 # ZMQ ports of these test must be unique so multiple tests can be run simultaneously
 
     def setup_nodes(self):
         self.zmqContext = zmq.Context()
+        self.zmqBlock = self.zmqContext.socket(zmq.SUB)
+        self.zmqBlock.setsockopt(zmq.SUBSCRIBE, b"hashblock")
+        self.zmqBlock.RCVTIMEO = 30000
+        self.zmqBlock.linger = 500
+        self.zmqBlock.connect("tcp://127.0.0.1:%i" % self.port)
+
         self.zmqSubSocket = self.zmqContext.socket(zmq.SUB)
-        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"hashblock")
-        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"hashtx")
-        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"hashds")
+        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"txid")
+        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"txidem")
+        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"dsid")
+        self.zmqSubSocket.setsockopt(zmq.SUBSCRIBE, b"dsidem")
         self.zmqSubSocket.RCVTIMEO = 30000
         self.zmqSubSocket.linger = 500
         self.zmqSubSocket.connect("tcp://127.0.0.1:%i" % self.port)
@@ -58,44 +64,54 @@ class ZMQTest (BitcoinTestFramework):
             self.sync_all()
 
             print("listen...")
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
+            # Look for the coinbase announcements (id and idem)
+            for i in range(0,2):
+                msg = ZmqReceive(self.zmqSubSocket)
+                topic = msg[0]
+                body = msg[1]
+                assert(topic == b"txid" or topic == b"txidem")
 
-            msg = ZmqReceive(self.zmqSubSocket)
+            # Look for the block announcement
+            msg = ZmqReceive(self.zmqBlock)
             topic = msg[0]
-            body = msg[1]
-            if topic == b"hashblock":
-                blkhash = bytes_to_hex_str(body)
-            assert_equal(genhashes[0], blkhash) #blockhash from generate must be equal to the hash received over zmq
+            body = bytes_to_hex_str(msg[1])
+            assert_equal(topic,b"hashblock")
+            assert_equal(genhashes[0], body) #blockhash from generate must be equal to the hash received over zmq
+
 
             n = 10
             genhashes = self.nodes[1].generate(n)
             self.sync_all()
 
             zmqHashes = []
+            for x in range(0,n):
+                msg = ZmqReceive(self.zmqBlock)
+                topic = msg[0]
+                body = msg[1]
+                assert(topic == b"hashblock")
+                zmqHashes.append(bytes_to_hex_str(body))
+            
+            # get the coinbase tx announcements
             for x in range(0,n*2):
                 msg = ZmqReceive(self.zmqSubSocket)
                 topic = msg[0]
-                body = msg[1]
-                if topic == b"hashblock":
-                    zmqHashes.append(bytes_to_hex_str(body))
+                assert(topic == b"txid" or topic == b"txidem")
 
             for x in range(0,n):
-                assert_equal(genhashes[x], zmqHashes[x]) #blockhash from generate must be equal to the hash received over zmq
+                assert_equal(genhashes[x], zmqHashes[x]) # blockhash from generate must be equal to the hash received over zmq
 
             #test tx from a second node
             hashRPC = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
             self.sync_all()
 
             # now we should receive a zmq msg because the tx was broadcast
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            hashZMQ = ""
-            if topic == b"hashtx":
-                hashZMQ = bytes_to_hex_str(body)
-            assert_equal(hashRPC, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
+            for x in range(0,2):
+                msg = ZmqReceive(self.zmqSubSocket)
+                topic = msg[0]
+                body = msg[1]
+                if topic == b"txidem":
+                    hashZMQ = bytes_to_hex_str(body)
+                    assert_equal(hashRPC, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
 
             # Send all coins to a single new address so that we can be sure that we
             # try double spending a p2pkh output in the subsequent step.
@@ -103,11 +119,12 @@ class ZMQTest (BitcoinTestFramework):
             inputs = []
             num_coins = 0
             for t in wallet:
-                inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
+                inputs.append({ "outpoint" : t["outpoint"], "amount" : t["amount"]})
                 num_coins += 1
             outputs = { self.nodes[0].getnewaddress() : num_coins * COINBASE_REWARD-Decimal("0.05") }
             rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
             rawtx   = self.nodes[0].signrawtransaction(rawtx)
+            idRPC = rawtx["txid"]
             try:
                 hashRPC   = self.nodes[0].sendrawtransaction(rawtx['hex'])
             except JSONRPCException as e:
@@ -115,32 +132,29 @@ class ZMQTest (BitcoinTestFramework):
                 assert(False)
             self.sync_all()
 
-            #check we received zmq notification
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            hashZMQ = ""
-            if topic == b"hashtx":
-                hashZMQ = bytes_to_hex_str(body)
-            assert_equal(hashRPC, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
+            for i in range(0,2):
+                #check we received zmq notification
+                msg = ZmqReceive(self.zmqSubSocket)
+                topic = msg[0]
+                body = msg[1]
+                if topic == b"txidem":
+                    hashZMQ = bytes_to_hex_str(body)
+                    assert_equal(hashRPC, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
+                elif topic == b"txid":
+                    hashZMQ = bytes_to_hex_str(body)
+                    assert_equal(idRPC, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
+                else:
+                    print("unexpected topic: ", topic)
+
 
             hashRPC = self.nodes[1].generate(1)
             self.sync_all()
 
             #check we received zmq notification
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            msg = ZmqReceive(self.zmqSubSocket)
+            for i in range(8):
+                msg = ZmqReceive(self.zmqSubSocket)
+
+            msg = ZmqReceive(self.zmqBlock)
             topic = msg[0]
             body = msg[1]
 
@@ -154,11 +168,12 @@ class ZMQTest (BitcoinTestFramework):
             walletp2pkh = list(filter(lambda x : len(x["scriptPubKey"]) != 70, wallet))  # Find an input that is not P2PK
             t = walletp2pkh.pop()
             inputs = []
-            inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
+            inputs.append({ "outpoint" : t["outpoint"], "amount" : t["amount"]})
             outputs = { self.nodes[1].getnewaddress() : t["amount"] }
 
             rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
             rawtx   = self.nodes[0].signrawtransaction(rawtx)
+            idDoubleSpendTx = rawtx["txid"]
             try:
                 hashTxToDoubleSpend   = self.nodes[1].sendrawtransaction(rawtx['hex'])
             except JSONRPCException as e:
@@ -167,19 +182,21 @@ class ZMQTest (BitcoinTestFramework):
             self.sync_all()
 
             #check we received zmq notification
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            hashZMQ = ""
-            if topic == b"hashtx":
-                hashZMQ = bytes_to_hex_str(body)
-            assert_equal(hashTxToDoubleSpend, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
+            for i in range(0,2):
+                msg = ZmqReceive(self.zmqSubSocket)
+                topic = msg[0]
+                body = msg[1]
+                hashZMQ = ""
+                if topic == b"txidem":
+                    hashZMQ = bytes_to_hex_str(body)
+                    assert_equal(hashTxToDoubleSpend, hashZMQ) #tx hash from generate must be equal to the hash received over zmq
 
             outputs = { self.nodes[1].getnewaddress() : t["amount"] }
             rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
             rawtx   = self.nodes[0].signrawtransaction(rawtx)
+            idtx = rawtx["txid"]
             try:
-                hashtx   = self.nodes[0].sendrawtransaction(rawtx['hex'])
+                idemtx   = self.nodes[0].sendrawtransaction(rawtx['hex'])
             except JSONRPCException as e:
                 assert("txn-mempool-conflict" in e.error['message'])
             else:
@@ -187,13 +204,17 @@ class ZMQTest (BitcoinTestFramework):
             self.sync_all()
 
             # now we should receive a zmq ds msg because the tx was broadcast
-            msg = ZmqReceive(self.zmqSubSocket)
-            topic = msg[0]
-            body = msg[1]
-            hashZMQ = ""
-            if topic == b"hashds":
-                hashZMQ = bytes_to_hex_str(body)
-            assert_equal(hashTxToDoubleSpend, hashZMQ) #double spent tx hash from generate must be equal to the hash received over zmq
+            for i in range(0,2):
+                msg = ZmqReceive(self.zmqSubSocket)
+                topic = msg[0]
+                body = msg[1]
+                hashZMQ = ""
+                if topic == b"dsidem":
+                    hashZMQ = bytes_to_hex_str(body)
+                    assert_equal(hashTxToDoubleSpend, hashZMQ) #double spent tx hash from generate must be equal to the hash received over zmq
+                if topic == b"dsid":
+                    hashZMQ = bytes_to_hex_str(body)
+                    assert_equal(idDoubleSpendTx, hashZMQ) #double spent tx hash from generate must be equal to the hash received over zmq
 
         finally:
             self.zmqSubSocket.close()

@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(mempool_sync_can_serde)
     stream >> tx;
     std::vector<uint256> senderMempoolTxHashes;
     std::vector<uint256> receiverMempoolTxHashes;
-    senderMempoolTxHashes.push_back(tx.GetHash());
+    senderMempoolTxHashes.push_back(tx.GetId());
     CMempoolSync senderMempoolSync(
         senderMempoolTxHashes, nReceiverMemPoolTx, nSenderMempoolPlusBlock, shorttxidk0, shorttxidk1, sync_version);
     CMempoolSync receiverMempoolSync(sync_version);

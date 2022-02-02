@@ -290,7 +290,7 @@ class BitcoinTestFramework(object):
             bitcoinConfDict = {}
 
         bitcoinConfDict.update(baseConf)
-
+        self.confDict = bitcoinConfDict
         success = False
         try:
             try:

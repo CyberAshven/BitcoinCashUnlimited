@@ -16,7 +16,7 @@ bool RespendLogger::AddOutpointConflict(const COutPoint &,
     bool isEquivalent)
 {
     orig = hash.ToString();
-    respend = pRespendTx->GetHash().ToString();
+    respend = pRespendTx->GetId().ToString();
     equivalent = isEquivalent;
     newConflict = newConflict || !seen;
 

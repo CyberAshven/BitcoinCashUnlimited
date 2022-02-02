@@ -100,8 +100,7 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
     // to create the spend and respend transactions.
     CMutableTransaction t1;
     t1.vin.resize(1);
-    t1.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t1.vin[0].prevout.n = 0;
+    t1.vin[0] = dummyTransactions[0].SpendOutput(0);
     t1.vout.resize(1);
     t1.vout[0].nValue = 50 * CENT;
     CKey key;
@@ -116,12 +115,11 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
         BOOST_CHECK(worked);
     }
-    pool.addUnchecked(tx1.GetHash(), entry.FromTx(tx1));
+    pool.addUnchecked(entry.FromTx(tx1));
 
     CMutableTransaction t2;
     t2.vin.resize(1);
-    t2.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t2.vin[0].prevout.n = 1;
+    t2.vin[0] = dummyTransactions[0].SpendOutput(1);
     t2.vout.resize(1);
     t2.vout[0].nValue = 50 * CENT;
     key.MakeNewKey(true);
@@ -135,16 +133,14 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
         bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
         BOOST_CHECK(worked);
     }
-    pool.addUnchecked(tx2.GetHash(), entry.FromTx(tx2));
+    pool.addUnchecked(entry.FromTx(tx2));
 
 
     // Create a spend of tx1 and tx2's output.
     CMutableTransaction s1;
     s1.vin.resize(2);
-    s1.vin[0].prevout.hash = tx1.GetHash();
-    s1.vin[0].prevout.n = 0;
-    s1.vin[1].prevout.hash = tx2.GetHash();
-    s1.vin[1].prevout.n = 0;
+    s1.vin[0] = tx1.SpendOutput(0);
+    s1.vin[1] = tx2.SpendOutput(0);
     s1.vout.resize(1);
     s1.vout[0].nValue = 100 * CENT;
     CKey key1;
@@ -154,27 +150,36 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
 
     CTransaction spend1(s1);
     {
-        TransactionSignatureCreator tsc(&keystore, &spend1, 0, 100 * CENT, SIGHASH_ALL | SIGHASH_FORKID);
-        const CScript &scriptPubKey = tx1.vout[0].scriptPubKey;
-        CScript &scriptSigRes = s1.vin[0].scriptSig;
-        bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
-        BOOST_CHECK(worked);
+        {
+            TransactionSignatureCreator tsc(&keystore, &spend1, 0, 50 * CENT, SIGHASH_ALL | SIGHASH_FORKID);
+            const CScript &scriptPubKey = tx1.vout[0].scriptPubKey;
+            CScript &scriptSigRes = s1.vin[0].scriptSig;
+            bool worked = ProduceSignature(tsc, scriptPubKey, scriptSigRes);
+            BOOST_CHECK(worked);
+        }
 
-        const CScript &scriptPubKey2 = tx2.vout[0].scriptPubKey;
-        CScript &scriptSigRes2 = s1.vin[1].scriptSig;
-        worked = ProduceSignature(tsc, scriptPubKey2, scriptSigRes2);
-        BOOST_CHECK(worked);
+        {
+            TransactionSignatureCreator tsc(&keystore, &spend1, 1, 50 * CENT, SIGHASH_ALL | SIGHASH_FORKID);
+            const CScript &scriptPubKey2 = tx2.vout[0].scriptPubKey;
+            CScript &scriptSigRes2 = s1.vin[1].scriptSig;
+            bool worked = ProduceSignature(tsc, scriptPubKey2, scriptSigRes2);
+            BOOST_CHECK(worked);
+        }
     }
     CTransaction spend1a(s1);
-    pool.addUnchecked(spend1a.GetHash(), entry.FromTx(spend1a));
-    CTxMemPool::txiter iter = pool.mapTx.find(spend1a.GetHash());
+    pool.addUnchecked(entry.FromTx(spend1a));
+    CTxMemPool::TxIdIter iter;
+
+    { // Cheating because iter lasts beyond the lock, but this is a single threaded test
+        READLOCK(pool.cs_txmempool);
+        iter = pool._getIdIter(spend1a.GetIdem());
+    }
 
 
     // Create a respend s1's output.
     CMutableTransaction s2;
     s2.vin.resize(1);
-    s2.vin[0].prevout.hash = tx1.GetHash();
-    s2.vin[0].prevout.n = 0;
+    s2.vin[0] = tx1.SpendOutput(0);
     s2.vout.resize(1);
     s2.vout[0].nValue = 50 * CENT;
     key.MakeNewKey(true);
@@ -199,7 +204,7 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
     // Create a "not interesting" respend
     RespendRelayer r;
     ClearInventory(&node);
-    r.AddOutpointConflict(COutPoint{}, iter->GetSharedTx()->GetHash(), MakeTransactionRef(spend2a), true, false);
+    r.AddOutpointConflict(COutPoint{}, iter->GetSharedTx()->GetId(), MakeTransactionRef(spend2a), true, false);
     r.Trigger(pool);
     BOOST_CHECK_EQUAL(size_t(0), node.GetInventoryToSendSize());
     r.SetValid(true);
@@ -209,7 +214,7 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
 
     // Create an interesting, but invalid respend
     ClearInventory(&node);
-    r.AddOutpointConflict(COutPoint{}, iter->GetSharedTx()->GetHash(), MakeTransactionRef(spend2a), false, false);
+    r.AddOutpointConflict(COutPoint{}, iter->GetSharedTx()->GetId(), MakeTransactionRef(spend2a), false, false);
     BOOST_CHECK(r.IsInteresting());
     r.SetValid(false);
     r.Trigger(pool);
@@ -235,7 +240,7 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
     }
     CTransaction spend2b(s2);
     ClearInventory(&node);
-    r.AddOutpointConflict(COutPoint{}, iter->GetSharedTx()->GetHash(), MakeTransactionRef(spend2b), false, false);
+    r.AddOutpointConflict(COutPoint{}, iter->GetSharedTx()->GetId(), MakeTransactionRef(spend2b), false, false);
     // make valid
     r.SetValid(true);
     r.Trigger(pool);
@@ -370,8 +375,7 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
     //    be possible. Create t3 which double spends t1's coinbase.
     CMutableTransaction t3;
     t3.vin.resize(1);
-    t3.vin[0].prevout.hash = dummyTransactions[0].GetHash();
-    t3.vin[0].prevout.n = 0;
+    t3.vin[0] = dummyTransactions[0].SpendOutput(0);
     t3.vout.resize(1);
     t3.vout[0].nValue = 50 * CENT;
     key.MakeNewKey(true);
@@ -387,8 +391,8 @@ BOOST_FIXTURE_TEST_CASE(triggers_correctly, TestChain100Setup)
     }
     CTransaction spendt1(t1);
     CTransaction spendt3(t3);
-    pool.addUnchecked(spendt3.GetHash(), entry.FromTx(spendt3));
-    pool.addUnchecked(spendt1.GetHash(), entry.FromTx(spendt1));
+    pool.addUnchecked(entry.FromTx(spendt3));
+    pool.addUnchecked(entry.FromTx(spendt1));
     try
     {
         // both spendt3 and spendt1 are P2PK.

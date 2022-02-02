@@ -28,10 +28,11 @@ def create_broken_transaction(prevtx, n, sig, value, out=PADDED_ANY_SPEND):
     if not type(value) is list:
         value = [value]
     tx = CTransaction()
-    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), sig, 0xffffffff))
+    amt = 1000 if len(prevtx.vout) <= n else prevtx.vout[n].nValue  # make up a fake amt if n is bad
+    tx.vin.append(CTxIn(COutPoint().fromIdemAndIdx(prevtx.GetIdem(), n), amt, sig, 0xffffffff))
     for v in value:
         tx.vout.append(CTxOut(v, out))
-    tx.calc_sha256()
+    tx.calcId()
     return tx
 
 class ValidateblocktemplateTest(BitcoinTestFramework):
@@ -203,7 +204,7 @@ class ValidateblocktemplateTest(BitcoinTestFramework):
         op1 = OP_1.toBin()
 
         logging.info("inputs below outputs")
-        tx6 = create_transaction(prev_block.vtx[0], 0, op1, [out_value + COINBASE_REWARD*COIN])
+        tx6 = create_transaction(prev_block.vtx[0], 0, op1, [out_value + int(COINBASE_REWARD*COIN)])
         block = create_block(tip, nextheight, work, coinbase, next_time, [tx6])
         block.rehash()
         hexblk = ToHex(block)
@@ -253,7 +254,7 @@ class ValidateblocktemplateTest(BitcoinTestFramework):
                         JSONRPCException, "invalid block: bad-txns-inputs-missingorspent")
 
         txes = [tx3, tx4]
-        txes.sort(key=lambda x: x.hash, reverse=True)
+        txes.sort(key=lambda x: x.GetId(), reverse=True)
         logging.info("bad tx ordering")
         block = create_block(tip, nextheight, work, coinbase, next_time, txes, ctor=False)
         block.rehash()
@@ -325,12 +326,12 @@ class ValidateblocktemplateTest(BitcoinTestFramework):
         next_time = next_time + 600
         prev_block = block
         txl = []
-        for tx in prev_block.vtx:
+        for tx in prev_block.vtx[0:1]:
             for outp in range(0, len(tx.vout)):
                 ov = tx.vout[outp].nValue
-                txl.append(create_transaction(tx, outp, CScript([OP_CHECKSIG] * 100), [int(ov / 2)] * 2))
+                if ov > 0:  # not data
+                    txl.append(create_transaction(tx, outp, CScript([OP_CHECKSIG] * 100), [int(ov / 2)] * 2))
         block = create_block(tip, nextheight, work, coinbase, next_time, txl)
-        block.rehash()
         block.solve()
         hexblk = ToHex(block)
         for n in self.nodes:
@@ -377,3 +378,12 @@ if __name__ == '__main__':
     if "--no-ipv6-rpc-listen":
         args.append("--no-ipv6-rpc-listen")
     ValidateblocktemplateTest().main(args,bitcoinConf)
+
+def Test():
+    t = ValidateblocktemplateTest()
+    t.drop_to_pdb = True
+    bitcoinConf = {
+        "debug": ["rpc", "net", "blk", "thin", "mempool", "req", "bench", "evict"],
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

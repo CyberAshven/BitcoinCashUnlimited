@@ -51,11 +51,11 @@ class ReceivedByTest(BitcoinTestFramework):
         self.sync_all()
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                            {"address":addr},
-                           {"address":addr, "account":"", "amount":Decimal("0.1"), "confirmations":10, "txids":[txid,]})
+                           {"address":addr, "account":"", "amount":Decimal("0.1"), "confirmations":10, "txidems":[txid,]})
         #With min confidence < 10
         assert_array_result(self.nodes[1].listreceivedbyaddress(5),
                            {"address":addr},
-                           {"address":addr, "account":"", "amount":Decimal("0.1"), "confirmations":10, "txids":[txid,]})
+                           {"address":addr, "account":"", "amount":Decimal("0.1"), "confirmations":10, "txidems":[txid,]})
         #With min confidence > 10, should not find Tx
         assert_array_result(self.nodes[1].listreceivedbyaddress(11),{"address":addr},{ },True)
 
@@ -63,7 +63,7 @@ class ReceivedByTest(BitcoinTestFramework):
         addr = self.nodes[1].getnewaddress()
         assert_array_result(self.nodes[1].listreceivedbyaddress(0,True),
                            {"address":addr},
-                           {"address":addr, "account":"", "amount":0, "confirmations":0, "txids":[]})
+                           {"address":addr, "account":"", "amount":0, "confirmations":0, "txidems":[]})
 
         '''
             getreceivedbyaddress Test
@@ -143,3 +143,17 @@ class ReceivedByTest(BitcoinTestFramework):
 
 if __name__ == '__main__':
     ReceivedByTest().main()
+
+# Create a convenient function for an interactive python debugging session
+def Test():
+    t = ReceivedByTest()
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    import signal, pdb
+    signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
+    bitcoinConf = {
+        "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
+        "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
+    }
+    flags = standardFlags()
+    t.main(flags, bitcoinConf, None)

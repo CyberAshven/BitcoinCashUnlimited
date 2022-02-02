@@ -65,7 +65,7 @@ void DoubleSpendProofStorage::addOrphan(const DoubleSpendProof &proof, NodeId pe
 
     const int32_t id = res.second;
     m_orphans.emplace(id, std::make_pair(peerId, GetTime()));
-    m_prevTxIdLookupTable[proof.prevTxId().GetCheapHash()].push_back(id);
+    m_prevTxIdLookupTable[proof.Outpoint().hash.GetCheapHash()].push_back(id);
 }
 
 std::list<std::pair<int, int> > DoubleSpendProofStorage::findOrphans(const COutPoint &prevOut)
@@ -83,9 +83,7 @@ std::list<std::pair<int, int> > DoubleSpendProofStorage::findOrphans(const COutP
         DbgAssert(proofIter != m_proofs.end(), );
         if (proofIter != m_proofs.end())
         {
-            if (proofIter->second.prevOutIndex() != int(prevOut.n))
-                continue;
-            if (proofIter->second.prevTxId() == prevOut.hash)
+            if (proofIter->second.Outpoint() == prevOut)
             {
                 auto orphanIter = m_orphans.find(*proofId);
                 if (orphanIter != m_orphans.end())
@@ -137,7 +135,7 @@ void DoubleSpendProofStorage::remove(int proof)
     if (orphan != m_orphans.end())
     {
         m_orphans.erase(orphan);
-        auto orphanLookup = m_prevTxIdLookupTable.find(iter->second.prevTxId().GetCheapHash());
+        auto orphanLookup = m_prevTxIdLookupTable.find(iter->second.Outpoint().hash.GetCheapHash());
         if (orphanLookup != m_prevTxIdLookupTable.end())
         {
             std::deque<int> &queue = orphanLookup->second;

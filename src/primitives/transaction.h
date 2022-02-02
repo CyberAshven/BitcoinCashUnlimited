@@ -8,28 +8,33 @@
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
 #include "amount.h"
+#include "crypto/sha256.h"
+#include "hashwrapper.h"
+#include "satoshiTransaction.h"
 #include "script/script.h"
 #include "serialize.h"
 #include "tweak.h"
-#include "uint256.h"
+#include "util.h"
 
 #include <atomic>
 #include <memory>
 
 extern CTweak<unsigned int> nDustThreshold;
 
-/** An outpoint - a combination of a transaction hash and an index n into its vout */
+
 class COutPoint
 {
 public:
     uint256 hash;
-    uint32_t n;
 
     COutPoint() { SetNull(); }
-    COutPoint(uint256 hashIn, uint32_t nIn)
+    explicit COutPoint(uint256 outpointHashIn) { hash = outpointHashIn; }
+
+    COutPoint(uint256 txIdemIn, uint32_t outIdx)
     {
-        hash = hashIn;
-        n = nIn;
+        CSHA256Writer sha;
+        sha << txIdemIn << outIdx;
+        hash = sha.GetHash();
     }
 
     ADD_SERIALIZE_METHODS;
@@ -38,24 +43,22 @@ public:
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
         READWRITE(hash);
-        READWRITE(n);
     }
 
-    void SetNull()
-    {
-        hash.SetNull();
-        n = (uint32_t)-1;
-    }
-    bool IsNull() const { return (hash.IsNull() && n == (uint32_t)-1); }
-    friend bool operator<(const COutPoint &a, const COutPoint &b)
-    {
-        return (a.hash < b.hash || (a.hash == b.hash && a.n < b.n));
-    }
+    void SetNull() { hash.SetNull(); }
+    bool IsNull() const { return hash.IsNull(); }
+    friend bool operator<(const COutPoint &a, const COutPoint &b) { return (a.hash < b.hash); }
 
-    friend bool operator==(const COutPoint &a, const COutPoint &b) { return (a.hash == b.hash && a.n == b.n); }
+    friend bool operator==(const COutPoint &a, const COutPoint &b) { return (a.hash == b.hash); }
     friend bool operator!=(const COutPoint &a, const COutPoint &b) { return !(a == b); }
     std::string ToString() const;
+
+    /** Returns an ascii-hex representation of a binary serialization of this object
+        this representation can also be used to deserialize the same object
+     */
+    std::string GetHex() const;
 };
+
 
 /** An input of a transaction.  It contains the location of the previous
  * transaction's output that it claims and a signature that matches the
@@ -67,6 +70,7 @@ public:
     COutPoint prevout;
     CScript scriptSig;
     uint32_t nSequence;
+    CAmount amount = -1; // Must == nValue in the corresponding prevout
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -96,8 +100,15 @@ public:
     static const int SEQUENCE_LOCKTIME_GRANULARITY = 9;
 
     CTxIn() { nSequence = SEQUENCE_FINAL; }
-    explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn = CScript(), uint32_t nSequenceIn = SEQUENCE_FINAL);
-    CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn = CScript(), uint32_t nSequenceIn = SEQUENCE_FINAL);
+    explicit CTxIn(COutPoint prevoutIn,
+        CAmount amountIn,
+        CScript scriptSigIn = CScript(),
+        uint32_t nSequenceIn = SEQUENCE_FINAL);
+    CTxIn(uint256 hashPrevTx,
+        uint32_t nOut,
+        CAmount amountIn,
+        CScript scriptSigIn = CScript(),
+        uint32_t nSequenceIn = SEQUENCE_FINAL);
 
     ADD_SERIALIZE_METHODS;
 
@@ -105,13 +116,16 @@ public:
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
         READWRITE(prevout);
-        READWRITE(*(CScriptBase *)(&scriptSig));
+        if (!(s.GetType() & SER_GETIDEM))
+            READWRITE(*(CScriptBase *)(&scriptSig));
         READWRITE(nSequence);
+        READWRITE(amount);
     }
 
     friend bool operator==(const CTxIn &a, const CTxIn &b)
     {
-        return (a.prevout == b.prevout && a.scriptSig == b.scriptSig && a.nSequence == b.nSequence);
+        return (
+            a.prevout == b.prevout && a.scriptSig == b.scriptSig && a.nSequence == b.nSequence && a.amount == b.amount);
     }
 
     friend bool operator!=(const CTxIn &a, const CTxIn &b) { return !(a == b); }
@@ -120,27 +134,42 @@ public:
 
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
+ * If you have a transaction, use tx.OutpointAt(...) to get the corresponding Outpoint.  This cannot be a member
+ * function since the outpoint may rely on the transaction idem.
  */
 class CTxOut
 {
 public:
+    uint8_t type; // Can also be used as versioning
+    enum
+    {
+        LEGACY = 0,
+        GENERAL = 1,
+
+        HASH_UNIQUE = 0, // UTXO index is H(Hidem(tx), idx)
+        HASH_ACCOUNT = 1 << 5,
+    };
+    // version 0 is legacy mode: behave like BCH
+    // version 1 is a general form: CScript is type/value data: Group, constraintScriptHash, argsHash, indexed data...
     CAmount nValue;
     CScript scriptPubKey;
 
     CTxOut() { SetNull(); }
-    CTxOut(const CAmount &nValueIn, CScript scriptPubKeyIn);
+    CTxOut(uint8_t version, const CAmount &nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
+        READWRITE(type);
         READWRITE(nValue);
         READWRITE(*(CScriptBase *)(&scriptPubKey));
     }
 
     void SetNull()
     {
+        type = 0;
         nValue = -1;
         scriptPubKey.clear();
     }
@@ -161,11 +190,50 @@ public:
         return (a.nValue == b.nValue && a.scriptPubKey == b.scriptPubKey);
     }
 
+    /** If true, this TxOut will not be added to the UTXO set */
+    bool IsDataOnly() const { return ((nValue == 0) && (scriptPubKey.IsUnspendable())); }
+
     friend bool operator!=(const CTxOut &a, const CTxOut &b) { return !(a == b); }
     std::string ToString() const;
 };
 
+/** Returns the same id if the tx has the same change to the blockchain state.  Used to make all malleated transactions
+    spendable by the same children.  In this case, the satisfier scripts are not part of the hash since they do not
+    affect UTXO state (except in a boolean "is the tx valid or not" fashion).
+*/
+template <class T>
+uint256 GetTxIdem(const T &tx)
+{
+    return SerializeIdem(tx);
+}
+
+
+/** Returns a unique ID for these bytes in the transaction.  Used only in the block's merkle tree to commit to a
+    particular set of transaction bytes.
+*/
+template <class T>
+uint256 GetTxId(const T &tx)
+{
+    uint256 txidem = GetTxIdem(tx);
+    CHashWriter satisfierScriptHash(SER_GETHASH, 0);
+    satisfierScriptHash << (int32_t)tx.vin.size();
+    uint8_t invalidopcode = OP_INVALIDOPCODE;
+    for (const auto &i : tx.vin)
+    {
+        satisfierScriptHash.write((const char *)i.scriptSig.data(), i.scriptSig.size());
+        satisfierScriptHash.write((const char *)&invalidopcode, 1);
+    }
+    CHashWriter ret;
+    // auto num = satisfierScriptHash.GetNumBytesHashed();
+    uint256 satHash = satisfierScriptHash.GetHash();
+    // LOGA("tx idem %s sat hash %s (%d bytes hashed)", txidem.GetHex(), satHash.GetHex(), num);
+    ret << txidem << satHash;
+    return ret.GetHash();
+}
+
+
 struct CMutableTransaction;
+
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
@@ -174,27 +242,28 @@ class CTransaction
 {
 private:
     /** Memory only. */
-    const uint256 hash;
+    const uint256 id;
+    const uint256 idem;
     void UpdateHash() const;
     mutable std::atomic<size_t> nTxSize; // Serialized transaction size in bytes.
 
 
 public:
     // Default transaction version.
-    static const int32_t CURRENT_VERSION = 1;
+    static const uint8_t CURRENT_VERSION = 0;
 
     // Changing the default transaction version requires a two step process: first
     // adapting relay policy by bumping MAX_STANDARD_VERSION, and then later date
     // bumping the default CURRENT_VERSION at which point both CURRENT_VERSION and
     // MAX_STANDARD_VERSION will be equal.
-    static const int32_t MAX_STANDARD_VERSION = 2;
+    static const uint32_t MAX_STANDARD_VERSION = 1;
 
     // The local variables are made const to prevent unintended modification
     // without updating the cached hash value. However, CTransaction is not
     // actually immutable; deserialization and assignment are implemented,
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
-    const int32_t nVersion;
+    const uint8_t nVersion;
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
@@ -214,7 +283,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
-        READWRITE(*const_cast<int32_t *>(&this->nVersion));
+        READWRITE(*const_cast<uint8_t *>(&this->nVersion));
         READWRITE(*const_cast<std::vector<CTxIn> *>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut> *>(&vout));
         READWRITE(*const_cast<uint32_t *>(&nLockTime));
@@ -228,7 +297,6 @@ public:
     }
 
     bool IsNull() const { return vin.empty() && vout.empty(); }
-    const uint256 &GetHash() const { return hash; }
     // True if only scriptSigs are different
     bool IsEquivalentTo(const CTransaction &tx) const;
 
@@ -249,21 +317,99 @@ public:
     // Compute modified tx size for priority calculation (optionally given tx size)
     unsigned int CalculateModifiedSize(unsigned int nSize = 0) const;
 
-    bool IsCoinBase() const { return (vin.size() == 1 && vin[0].prevout.IsNull()); }
-    friend bool operator==(const CTransaction &a, const CTransaction &b) { return a.hash == b.hash; }
-    friend bool operator!=(const CTransaction &a, const CTransaction &b) { return a.hash != b.hash; }
+    bool IsCoinBase() const { return (vin.size() == 0); }
+    friend bool operator==(const CTransaction &a, const CTransaction &b) { return a.id == b.id; }
+    friend bool operator!=(const CTransaction &a, const CTransaction &b) { return a.id != b.id; }
     std::string ToString() const;
 
     // Return the size of the transaction in bytes.
     size_t GetTxSize() const;
     /** return this transaction as a hex string.  Useful for debugging and display */
-    // std::string HexStr() const;
+    std::string HexStr() const;
+
+    // Uses ID:
+    // Block merkle tree
+    // Tx Introspection (TX_ID)
+    // Tx ordering in block
+    // Block compression protocols
+    // mempool access
+    // walletdb id
+    uint256 GetId() const
+    {
+#ifdef DEBUG // inefficient to check every time
+        //    assert(id == GetTxId(*this));
+#endif
+        return id;
+    }
+
+    /** Returns the same id if the tx has the same change to the blockchain state (idem is latin for the same).
+    Transactions are identified in outpoints (that is, how a transaction identifies how it is spent) with an idem.
+    Used to make all malleated transactions spendable by the same children.  In this case, the satisfier scripts are
+    not part of the hash since they do not affect UTXO state (except in a boolean "is the tx valid or not" fashion).
+
+    Uses Idem:
+    tx DAG (COutPoint)
+    Network Bloom filters
+    Tx Introspection (TX_IDEM)
+    orphan pool
+    wallet RPCs (tokens and native): when part of a dictionary, both are provided.  When the return value is a single
+      hash, the idem is provided.  This is because wallet users do not generally care about malleation status.  They
+      simply care whether money was sent or received.
+    wallet notify calls
+    walletdb tx storage
+    */
+    uint256 GetIdem() const
+    {
+#ifdef DEBUG // inefficient to check every time
+        // assert(idem == GetTxIdem(*this));
+#endif
+        return idem;
+    }
+
+    /** Returns the outpoint that references the output at offset idx */
+    COutPoint OutpointAt(size_t idx) const
+    {
+        DbgAssert(idx < vout.size(), return COutPoint());
+        return COutPoint(GetIdem(), idx);
+    }
+
+    /** Returns the unsigned CTxIn required to spend an output */
+    CTxIn SpendOutput(size_t idx, const CScript &satisfier = CScript()) const
+    {
+        DbgAssert(idx < vout.size(), return CTxIn());
+        return CTxIn(OutpointAt(idx), vout[idx].nValue, satisfier);
+    }
+
+    /** Returns the output corresponding to the passed OutPoint.
+        Inefficient because it does a search through all outputs.  */
+    int PrevOutIdx(const COutPoint &prevout) const
+    {
+#ifdef DEBUG // inefficient to check every time
+        assert(idem == GetTxIdem(*this));
+#endif
+        for (unsigned int i = 0; i < vout.size(); i++)
+        {
+            if (prevout == COutPoint(idem, i))
+                return i;
+        }
+        return -1;
+    }
+
+    /** Returns the output corresponding to the passed OutPoint.
+        Inefficient because it does a search through all outputs. */
+    const CTxOut *PrevOut(const COutPoint &prevout) const
+    {
+        int idx = PrevOutIdx(prevout);
+        if (idx < 0)
+            return nullptr;
+        return &vout[idx];
+    }
 };
 
 /** A mutable version of CTransaction. */
 struct CMutableTransaction
 {
-    int32_t nVersion;
+    uint8_t nVersion = CTransaction::CURRENT_VERSION;
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     uint32_t nLockTime;
@@ -291,8 +437,59 @@ struct CMutableTransaction
     /** Compute the hash of this CMutableTransaction. This is computed on the
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
-    uint256 GetHash() const;
+    // uint256 GetHash() const;  // GetHash changed to GetId (exact bytes) or GetIdem (same effect).
+    uint256 GetId() { return GetTxId(*this); }
+
+    /** Returns the same id if the tx has the same change to the blockchain state (idem is latin for the same).
+    Transactions are identified in outpoints (that is, how a transaction identifies how it is spent) with an idem.
+    Used to make all malleated transactions spendable by the same children.  In this case, the satisfier scripts are
+    not part of the hash since they do not affect UTXO state (except in a boolean "is the tx valid or not" fashion).
+    */
+    uint256 GetIdem() const { return GetTxIdem(*this); }
+
+    /** Returns the outpoint that references the output at offset idx */
+    COutPoint OutpointAt(size_t idx) const
+    {
+        DbgAssert(idx < vout.size(), return COutPoint());
+        return COutPoint(GetIdem(), idx);
+    }
+
+    /** Returns the output corresponding to the passed OutPoint.
+    Inefficient because it does a search through all outputs.  */
+    int PrevOutIdx(const COutPoint &prevout) const
+    {
+        uint256 idem = GetIdem();
+        for (unsigned int i = 0; i < vout.size(); i++)
+        {
+            if (prevout == COutPoint(idem, i))
+                return i;
+        }
+        return -1;
+    }
+
+    /** Returns the unsigned CTxIn required to spend an output */
+    CTxIn SpendOutput(size_t idx) const
+    {
+        DbgAssert(idx < vout.size(), return CTxIn());
+        return CTxIn(OutpointAt(idx), vout[idx].nValue);
+    }
+
+    /** Returns the output corresponding to the passed OutPoint.
+        Inefficient because it does a search through all outputs. */
+    const CTxOut *PrevOut(const COutPoint &prevout) const
+    {
+        int idx = PrevOutIdx(prevout);
+        if (idx < 0)
+            return nullptr;
+        return &vout[idx];
+    }
+
+    /** return this transaction as a hex string.  Useful for debugging and display */
+    std::string HexStr() const;
+    /** return a human-readable representation */
+    std::string ToString() const;
 };
+
 
 /** Properties of a transaction that are discovered during tx evaluation */
 class CTxProperties

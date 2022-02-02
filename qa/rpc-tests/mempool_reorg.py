@@ -11,6 +11,7 @@ import test_framework.loginit
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
+from test_framework.blocktools import *
 
 # Create one-input, one-output, no-fee transaction:
 class MempoolCoinbaseTest(BitcoinTestFramework):
@@ -47,12 +48,12 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         # Use invalidatblock to make all of the above coinbase spends invalid (immature coinbase),
         # and make sure the mempool code behaves correctly.
         b = [ self.nodes[0].getblockhash(n) for n in range(more_blocks+101, more_blocks+105) ]
-        coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-        spend_101_raw = create_tx(self.nodes[0], coinbase_txids[1], node1_address, COINBASE_REWARD)
-        spend_102_raw = create_tx(self.nodes[0], coinbase_txids[2], node0_address, COINBASE_REWARD)
-        spend_103_raw = create_tx(self.nodes[0], coinbase_txids[3], node0_address, COINBASE_REWARD)
+        coinbase_txids = [ self.nodes[0].getblock(h)['txidem'][0] for h in b ]
+        spend_101_raw = spend_coinbase_tx(self.nodes[0], coinbase_txids[1], node1_address, COINBASE_REWARD)
+        spend_102_raw = spend_coinbase_tx(self.nodes[0], coinbase_txids[2], node0_address, COINBASE_REWARD)
+        spend_103_raw = spend_coinbase_tx(self.nodes[0], coinbase_txids[3], node0_address, COINBASE_REWARD)
         # Create a block-height-locked transaction which will be invalid after reorg
-        timelock_tx = self.nodes[0].createrawtransaction([{"txid": coinbase_txids[0], "vout": 0}], {node0_address: COINBASE_REWARD})
+        timelock_tx = self.nodes[0].createrawtransaction([{"outpoint": COutPoint().fromIdemAndIdx(coinbase_txids[0],0).rpcHex(), "amount": COINBASE_REWARD}], {node0_address: COINBASE_REWARD})
         # Set the time lock
         timelock_tx = timelock_tx.replace("ffffffff", "11111111", 1)
         timelock_tx = timelock_tx[:-8] + hex(self.nodes[0].getblockcount() + 2)[2:] + "000000"
@@ -67,8 +68,8 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         self.sync_all()
 
         # Create 102_1 and 103_1:
-        spend_102_1_raw = create_tx(self.nodes[0], spend_102_id, node1_address, COINBASE_REWARD)
-        spend_103_1_raw = create_tx(self.nodes[0], spend_103_id, node1_address, COINBASE_REWARD)
+        spend_102_1_raw = spend_coinbase_tx(self.nodes[0], spend_102_id, node1_address, COINBASE_REWARD)
+        spend_103_1_raw = spend_coinbase_tx(self.nodes[0], spend_103_id, node1_address, COINBASE_REWARD)
 
         # Broadcast and mine 103_1:
         spend_103_1_id = self.nodes[0].sendrawtransaction(spend_103_1_raw)
@@ -102,7 +103,8 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         # test abandontransaction and evicttransaction
         abandonTx = self.nodes[0].sendtoaddress(node1_address, 1.0)
         waitFor(10, lambda: abandonTx in self.nodes[1].getrawmempool())
-        self.nodes[1].evicttransaction(abandonTx)
+        result = self.nodes[1].evicttransaction(abandonTx)
+        assert result == 1
         assert not abandonTx in self.nodes[1].getrawmempool()
         self.nodes[0].abandontransaction(abandonTx)
         assert not abandonTx in self.nodes[0].getrawmempool()
@@ -110,7 +112,8 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         # negative tests of abandontransaction and evicttransaction
 
         # evict nonexistant tx
-        self.nodes[1].evicttransaction(abandonTx)
+        result = self.nodes[1].evicttransaction(abandonTx)
+        assert result == 0
         # abandon tx 2x
         self.nodes[0].abandontransaction(abandonTx)
         # abandon tx not in our wallet

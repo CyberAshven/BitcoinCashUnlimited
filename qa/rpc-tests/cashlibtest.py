@@ -139,6 +139,20 @@ class MyTest (BitcoinTestFramework):
             pass
         assert faulted, "not signing with bitcoin cash forkid"
 
+        # Sanity check id and idem for an empty transaction
+        tx = CTransaction()
+        ret = cashlib.txid(tx)
+        assert ret.hex() == 'c8e6c337c4fce20c6fc5861225591e1104c559c038fcf6f7429837f664209c7e'
+        ret = cashlib.txidem(tx)
+        assert ret.hex() == 'df297c043efd84657387d675de57f8c8d69ac2290644aff12ac5ad66555a0980'
+
+        try:
+            ret = cashlib.txid(bytes([0,1,2,3]))  # bad tx decode
+            assert False
+        except AssertionError:
+            pass
+
+
         # grab inputs from 2 different full nodes and sign a single tx that spends them both
         wallets = [self.nodes[0].listunspent(), self.nodes[1].listunspent()]
         inputs = [x[0] for x in wallets]
@@ -149,7 +163,7 @@ class MyTest (BitcoinTestFramework):
 
         tx = CTransaction()
         for i in inputs:
-            tx.vin.append(CTxIn(COutPoint(i["txid"], i["vout"]), b"", 0xffffffff))
+            tx.vin.append(CTxIn(COutPoint(i["outpoint"]), i["amount"], b"", 0xffffffff))
 
         destPrivKey = cashlib.randombytes(32)
         destPubKey = cashlib.pubkey(destPrivKey)
@@ -168,13 +182,12 @@ class MyTest (BitcoinTestFramework):
             n += 1
 
         txhex = hexlify(tx.serialize()).decode("utf-8")
-        txid = self.nodes[0].enqueuerawtransaction(txhex)
-
-        assert txid == hexlify(cashlib.txid(txhex)[::-1]).decode("utf-8")
+        txidem = self.nodes[0].enqueuerawtransaction(txhex)
+        assert txidem == hexlify(cashlib.txidem(txhex)[::-1]).decode("utf-8")
 
         # Now spend the created output to an anyone can spend address
         tx2 = CTransaction()
-        tx2.vin.append(CTxIn(COutPoint(cashlib.txid(txhex), 0), b"", 0xffffffff))
+        tx2.vin.append(CTxIn(COutPoint().fromIdemAndIdx(txidem, 0), amt, b"", 0xffffffff))
         tx2.vout.append(CTxOut(amt, CScript([OP_1])))
         sig2 = cashlib.signTxInput(tx2, 0, amt, output, destPrivKey, sighashtype)
         tx2.vin[0].scriptSig = cashlib.spendscript(sig2, destPubKey)
@@ -231,13 +244,15 @@ if __name__ == '__main__':
 
 def Test():
     t = MyTest()
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    #import signal, pdb
+    #signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
     bitcoinConf = {
         "debug": ["rpc", "net", "blk", "thin", "mempool", "req", "bench", "evict"],
     }
-
-    flags = [] # ["--nocleanup", "--noshutdown"]
-    if os.path.isdir("/ramdisk/test"):
-        flags.append("--tmpdir=/ramdisk/test/cashlibtest")
+    logging.getLogger().setLevel(logging.INFO)
+    flags = standardFlags() # ["--nocleanup", "--noshutdown"]
     binpath = findBitcoind()
     flags.append("--srcdir=%s" % binpath)
     cashlib.init(binpath + os.sep + ".libs" + os.sep + "libbitcoincash.so")

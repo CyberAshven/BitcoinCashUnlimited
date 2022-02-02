@@ -153,7 +153,7 @@ class MinimaldataTest(BitcoinTestFramework):
             txspend.vout.append(
                 CTxOut(value-1000, CScript([OP_TRUE])))
             txspend.vin.append(
-                CTxIn(COutPoint(txfund.sha256, 0), b''))
+                CTxIn(txfund.OutpointAt(0), txfund.vout[0].nValue , b''))
 
             # Sign the transaction
             txspend.vin[0].scriptSig = CScript(

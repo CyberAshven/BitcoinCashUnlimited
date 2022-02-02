@@ -66,7 +66,7 @@ public:
     /// Is the transaction index is caught up to the current state of the block chain.
     bool IsSynced();
 
-    /// Look up the on-disk location of a transaction by hash.
+    /// Look up the on-disk location of a transaction by id or idem.
     /// @returns A reference to the transaction, and the epoch time it was confirmed
     bool FindTx(const uint256 &txhash, uint256 &blockhash, CTransactionRef &ptx, int32_t &time) const;
 

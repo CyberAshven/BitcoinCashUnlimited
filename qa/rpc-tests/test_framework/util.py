@@ -14,6 +14,7 @@ import os
 import sys
 import math
 import binascii
+import struct
 from binascii import hexlify, unhexlify
 from base64 import b64encode
 from decimal import Decimal, ROUND_DOWN
@@ -32,6 +33,7 @@ import urllib.parse as urlparse
 import errno
 import logging
 import traceback
+import io
 from . import test_node
 from .portseed import (
         PORT_RANGE,
@@ -92,6 +94,27 @@ def hash160(msg):
     h.update(hashlib.sha256(msg).digest())
     return h.digest()
 
+def deser_uint256(f):
+    if isinstance(f, bytes):
+        f = io.BytesIO(f)
+    r = 0
+    for i in range(8):
+        t = struct.unpack("<I", f.read(4))[0]
+        r += t << (i * 32)
+    return r
+
+def ser_uint256(u):
+    rs = b""
+    for i in range(8):
+        rs += struct.pack("<I", u & 0xFFFFFFFF)
+        u >>= 32
+    return rs
+
+def uint256ToRpcHex(b):
+    """RPC (bitcoind) hex is reversed"""
+    if type(b) is int:
+        b = ser_uint256(b)
+    return b[::-1].hex();
 
 class TimeoutException(Exception):
     pass
@@ -391,7 +414,7 @@ def initialize_datadir(dirname, n, bitcoinConfDict=None, wallet=None, bins=None)
                 "port":p2p_port(n),"rpcport":str(rpc_port(n)),"listenonion":0,"maxlimitertxfee":0,"usecashaddr":1,
                 "rpcuser":rpc_u, "rpcpassword":rpc_p, "bindallorfail" : 1, "minlimitertxfee":0, "limitfreerelay":15,
                 "electrum.port": electrum_rpc_port(n),
-                "electrum.ws.port": electrum_ws_port(n),
+#                "electrum.ws.port": electrum_ws_port(n),
                 "electrum.monitoring.port": electrum_monitoring_port(n)
                 }
 
@@ -453,18 +476,21 @@ def rpc_url(i, rpchost=None):
     rpc_u, rpc_p = rpc_auth_pair(i)
     return "http://%s:%s@%s:%d" % (rpc_u, rpc_p, rpchost or '127.0.0.1', rpc_port(i))
 
-def wait_for_bitcoind_start(process, url, i):
+def wait_for_bitcoind_start(process, url, i, timeout=120):
     '''
     Wait for bitcoind to start. This means that RPC is accessible and fully initialized.
     Raise an exception if bitcoind exits during initialization.
     '''
     rpc = None
-    while True:
+    endTime = time.time() + timeout
+    worked = False
+    while time.time() < endTime:
         if process.poll() is not None:
             raise Exception('bitcoind exited with status %i during initialization' % process.returncode)
         try:
             rpc = get_rpc_proxy(url, i)
             blocks = rpc.getblockcount()
+            worked = True
             break # break out of loop on success
         except IOError as e:
             if e.errno != errno.ECONNREFUSED: # Port not yet open?
@@ -473,6 +499,8 @@ def wait_for_bitcoind_start(process, url, i):
             if e.error['code'] != -28: # RPC in warmup?
                 raise # unkown JSON RPC exception
         time.sleep(0.25)
+    if not worked:
+        raise TimeoutException("bitcoind (pid %d) did not fully come up" % process.pid)
     return rpc
 
 def initialize_chain(test_dir,bitcoinConfDict=None,wallets=None, bins=None):
@@ -712,7 +740,8 @@ def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, binary=None,t
                 do_and_ignore_failure(lambda x: bitcoind_processes[workingOn].kill())
                 # commented out because looks like an error: traceback.print_exc(file=sys.stdout)
                 remap_ports(workingOn)
-                del bitcoind_processes[workingOn]
+                if workingOn in bitcoind_processes:
+                    del bitcoind_processes[workingOn]
 
     if retry == 4:
         stop_nodes(rpcs)
@@ -846,7 +875,7 @@ def gather_inputs(from_node, amount_needed, confirmations_required=1):
     while total_in < amount_needed and len(utxo) > 0:
         t = utxo.pop()
         total_in += t["amount"]
-        inputs.append({ "txid" : t["txid"], "vout" : t["vout"], "address" : t["address"] } )
+        inputs.append({ "outpoint" : t["outpoint"], "amount" : t["amount"], "address" : t["address"] } )
     if total_in < amount_needed:
         raise RuntimeError("Insufficient funds: need %d, have %d"%(amount_needed, total_in))
     return (total_in, inputs)
@@ -889,7 +918,7 @@ def send_zeropri_transaction(from_node, to_node, amount, fee):
     vout = find_output(from_node, self_txid, amount+fee)
     # Now immediately spend the output to create a 1-input, 1-output
     # zero-priority transaction:
-    inputs = [ { "txid" : self_txid, "vout" : vout } ]
+    inputs = [ { "outpoint" : COutPoint().fromIdemandIdx(self_txid, vout).hash, "amount" : amount+fee } ]
     outputs = { to_node.getnewaddress() : float(amount) }
 
     rawtx = from_node.createrawtransaction(inputs, outputs)
@@ -948,7 +977,7 @@ def split_transaction(node, prevouts, toAddrs, txfeePer=DEFAULT_TX_FEE_PER_BYTE,
       iamount = 0
       count = 0
       for tx in prevouts:
-        inp.append({"txid":str(tx["txid"]),"vout":tx["vout"]})
+        inp.append({"outpoint":str(tx["outpoint"]),"vout":tx["vout"]})
         amount += tx["amount"]*Decimal(BTC)
         iamount += int(tx["amount"]*Decimal(BTC))
         count += 1
@@ -1151,13 +1180,9 @@ def satoshi_round(amount):
 # Pass in a fee that is sufficient for relay and mining new transactions.
 def create_confirmed_utxos(fee, node, count):
     utxos = node.listunspent()
-    if len(utxos) == 0:  # make sure we have a utxo
-        node.generate(1)
-    lengthen = 101 - node.getblockcount()
-    if lengthen > 0:  # make sure the chain has matured
-        node.generate(lengthen)
-
-    utxos = node.listunspent()
+    while len(utxos) < 5:  # make sure we have a utxo
+        node.generate(10)
+        utxos = node.listunspent()
 
     nUtxos = len(utxos)
     if nUtxos >= count:  # We have enough
@@ -1166,6 +1191,7 @@ def create_confirmed_utxos(fee, node, count):
 
     SPLIT_WIDTH = 25
     addr = [ node.getnewaddress() for x in range(0,SPLIT_WIDTH)]
+    outpoints = set()
     while nUtxos < count:
         while len(utxos) == 0:  # Reload if needed
             utxos = node.listunspent()
@@ -1174,7 +1200,8 @@ def create_confirmed_utxos(fee, node, count):
 
         t = utxos.pop()
         inputs = []
-        inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
+        inputs.append({ "outpoint" : t["outpoint"], "amount" : t["amount"]})
+        outpoints.add(t["outpoint"])
         outputs = {}
         send_value = t['amount'] - fee
         splits = min(SPLIT_WIDTH-1, count - nUtxos) + 1  # + 1 because the tx consumes 1
@@ -1183,66 +1210,33 @@ def create_confirmed_utxos(fee, node, count):
         for i in range(0, splits):
             outputs[addr[i]] = satoshi_round(send_value/splits)
         raw_tx = node.createrawtransaction(inputs, outputs)
+        if len(raw_tx) > 1024:  # exceeded allocated fee, fixup.
+            if decimal.getcontext().prec < 16:
+                decimal.getcontext().prec = 16
+            txfee = (decimal.Decimal(len(raw_tx)/2000.0) * fee) + decimal.Decimal(0.00001)
+            send_value = t['amount'] - txfee
+            for i in range(0, splits):
+                outputs[addr[i]] = satoshi_round(send_value/splits)
+            raw_tx = node.createrawtransaction(inputs, outputs)
+
         signed_tx = node.signrawtransaction(raw_tx)["hex"]
         txid = node.sendrawtransaction(signed_tx)
         nUtxos += splits - 1  # consumed 1, created splits utxos
 
 
-    while (node.getmempoolinfo()['size'] > 0):
-        node.generate(1)
+    priorMempoolSize = node.getmempoolinfo()['size']
+    while (priorMempoolSize > 0):
+        nhash = node.generate(1)
+        newSz = node.getmempoolinfo()['size']
+        assert newSz != priorMempoolSize, "Block generation made no progress"  # no progress made
+        # print("blk: ", nhash, " mempool size: ", newSz, " from: ",  priorMempoolSize)
+        priorMempoolSize = newSz
+
 
     utxos = node.listunspent()
     assert(len(utxos) >= count)
     return utxos
 
-# Create large OP_RETURN txouts that can be appended to a transaction
-# to make it large (helper for constructing large transactions).
-def gen_return_txouts():
-    # Some pre-processing to create a bunch of OP_RETURN txouts to insert into transactions we create
-    # So we have big transactions (and therefore can't fit very many into each block)
-    # create one script_pubkey
-    script_pubkey = "6a4d0200" #OP_RETURN OP_PUSH2 512 bytes
-    for i in range (512):
-        script_pubkey = script_pubkey + "01"
-    # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
-    txouts = "81"
-    for k in range(128):
-        # add txout value
-        txouts = txouts + "0000000000000000"
-        # add length of script_pubkey
-        txouts = txouts + "fd0402"
-        # add script_pubkey
-        txouts = txouts + script_pubkey
-    return txouts
-
-def create_tx(node, coinbase, to_address, amount):
-    inputs = [{ "txid" : coinbase, "vout" : 0}]
-    outputs = { to_address : amount }
-    rawtx = node.createrawtransaction(inputs, outputs)
-    signresult = node.signrawtransaction(rawtx)
-    assert_equal(signresult["complete"], True)
-    return signresult["hex"]
-
-# Create a spend of each passed-in utxo, splicing in "txouts" to each raw
-# transaction to make it large.  See gen_return_txouts() above.
-def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
-    addr = node.getnewaddress()
-    txids = []
-    for i in range(num):
-        t = utxos.pop()
-        inputs = []
-        inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
-        outputs = {}
-        send_value = t['amount'] - fee
-        outputs[addr] = satoshi_round(send_value)
-        rawtx = node.createrawtransaction(inputs, outputs)
-        newtx = rawtx[0:92]
-        newtx = newtx + txouts
-        newtx = newtx + rawtx[94:]
-        signresult = node.signrawtransaction(newtx, None, None, "FORKID")
-        txid = node.sendrawtransaction(signresult["hex"], True)
-        txids.append(txid)
-    return txids
 
 def mine_large_block(node, utxos=None):
     # generate a 66k transaction,
@@ -1294,7 +1288,7 @@ def findBitcoind():
 def waitForBlockInChainTips(node, blockHash, timeout=30):
     """Waits for a block to appear in the chaintip list.  Returns None if timeout or that block's chaintip data"""
     start = time.time()
-    while time.time < start+timeout:
+    while time.time() < start+timeout:
         gct = node.getchaintips()
         for t in gct:
             if t["hash"] == blockHash:

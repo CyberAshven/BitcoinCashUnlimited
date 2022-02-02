@@ -46,7 +46,7 @@ std::string RollBackChain(int nRollBackHeight, bool fOverride);
 std::string ReconsiderMostWorkChain(bool fOverride);
 std::set<CBlockIndex *, CompareBlocksByHeight> GetChainTips();
 
-UniValue mempoolToJSON(bool fVerbose = false);
+UniValue mempoolToJSON(bool fVerbose = false, bool idem = false);
 UniValue blockToJSON(const CBlock &block, const CBlockIndex *blockindex, bool txDetails = false, bool listTxns = true);
 
 #endif

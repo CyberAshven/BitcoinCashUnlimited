@@ -44,7 +44,7 @@ CThinBlock::CThinBlock(const CBlock &block, const CBloomFilter &filter) : nSize(
     vTxHashes.reserve(nTx);
     for (unsigned int i = 0; i < nTx; i++)
     {
-        const uint256 &hash = block.vtx[i]->GetHash();
+        const uint256 &hash = block.vtx[i]->GetId();
         vTxHashes.push_back(hash);
 
         // Find the transactions that do not match the filter.
@@ -145,7 +145,7 @@ bool CThinBlock::process(CNode *pfrom, std::shared_ptr<CBlockThinRelay> pblock)
 
     // Create the mapMissingTx from all the supplied tx's in the xthinblock
     for (const CTransaction &tx : vMissingTx)
-        pblock->thinblock->mapMissingTx[tx.GetHash().GetCheapHash()] = MakeTransactionRef(tx);
+        pblock->thinblock->mapMissingTx[tx.GetId().GetCheapHash()] = MakeTransactionRef(tx);
 
     {
         int missingCount = 0;
@@ -208,7 +208,7 @@ CXThinBlock::CXThinBlock(const CBlock &block, const CBloomFilter *filter) : nSiz
     std::set<uint64_t> setPartialTxHash;
     for (unsigned int i = 0; i < nTx; i++)
     {
-        const uint256 hash256 = block.vtx[i]->GetHash();
+        const uint256 hash256 = block.vtx[i]->GetId();
         uint64_t cheapHash = hash256.GetCheapHash();
         vTxHashes.push_back(cheapHash);
 
@@ -237,7 +237,7 @@ CXThinBlock::CXThinBlock(const CBlock &block) : nSize(0), collision(false)
     READLOCK(orphanpool.cs_orphanpool);
     for (unsigned int i = 0; i < nTx; i++)
     {
-        const uint256 hash256 = block.vtx[i]->GetHash();
+        const uint256 hash256 = block.vtx[i]->GetId();
         uint64_t cheapHash = hash256.GetCheapHash();
         vTxHashes.push_back(cheapHash);
 
@@ -312,7 +312,7 @@ bool CXThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
 
     // Create the mapMissingTx from all the supplied tx's in the xthinblock
     for (const CTransaction &tx : thinBlockTx.vMissingTx)
-        thinBlock->mapMissingTx[tx.GetHash().GetCheapHash()] = MakeTransactionRef(tx);
+        thinBlock->mapMissingTx[tx.GetId().GetCheapHash()] = MakeTransactionRef(tx);
 
     // Get the full hashes from the xblocktx and add them to the thinBlockHashes vector.  These should
     // be all the missing or null hashes that we re-requested.
@@ -325,7 +325,7 @@ bool CXThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
             std::map<uint64_t, CTransactionRef>::iterator val = thinBlock->mapMissingTx.find(thinBlock->vTxHashes[i]);
             if (val != thinBlock->mapMissingTx.end())
             {
-                vFullTxHashes[i] = val->second->GetHash();
+                vFullTxHashes[i] = val->second->GetId();
             }
             count++;
         }
@@ -444,7 +444,7 @@ bool CXRequestThinBlockTx::HandleMessage(CDataStream &vRecv, CNode *pfrom)
         {
             for (unsigned int i = 0; i < pblock->vtx.size(); i++)
             {
-                uint64_t cheapHash = pblock->vtx[i]->GetHash().GetCheapHash();
+                uint64_t cheapHash = pblock->vtx[i]->GetId().GetCheapHash();
                 if (thinRequestBlockTx.setCheapHashesToRequest.count(cheapHash))
                     vTx.push_back(*(pblock->vtx[i]));
             }
@@ -601,7 +601,7 @@ bool CXThinBlock::process(CNode *pfrom, std::string strCommand, std::shared_ptr<
 
     // Create the mapMissingTx from all the supplied tx's in the xthinblock
     for (const CTransaction &tx : vMissingTx)
-        thinBlock->mapMissingTx[tx.GetHash().GetCheapHash()] = MakeTransactionRef(tx);
+        thinBlock->mapMissingTx[tx.GetId().GetCheapHash()] = MakeTransactionRef(tx);
 
     // Create a map of all 8 bytes tx hashes pointing to their full tx hash counterpart
     // We need to check all transaction sources (orphan list, mempool, and new (incoming) transactions in this block)
@@ -633,7 +633,7 @@ bool CXThinBlock::process(CNode *pfrom, std::string strCommand, std::shared_ptr<
                 mapPartialTxHash[cheapHash] = mi.first;
             }
 
-            mempool.queryHashes(memPoolHashes);
+            mempool.queryIds(memPoolHashes);
             for (uint64_t i = 0; i < memPoolHashes.size(); i++)
             {
                 uint64_t cheapHash = memPoolHashes[i].GetCheapHash();
@@ -654,12 +654,12 @@ bool CXThinBlock::process(CNode *pfrom, std::string strCommand, std::shared_ptr<
             if (!existingHash.IsNull())
             {
                 // Check if it really is a cheap hash collision and not just the same transaction
-                if (existingHash != mi.second->GetHash())
+                if (existingHash != mi.second->GetId())
                 {
                     _collision = true;
                 }
             }
-            mapPartialTxHash[cheapHash] = mi.second->GetHash();
+            mapPartialTxHash[cheapHash] = mi.second->GetId();
         }
 
         if (!_collision)
@@ -1450,7 +1450,7 @@ void BuildSeededBloomFilter(CBloomFilter &filterMemPool,
     std::vector<uint256> vMempoolHashes;
 
     // Add all the transaction hashes currently in the mempool
-    mempool.queryHashes(vMempoolHashes);
+    mempool.queryIds(vMempoolHashes);
     setHighScoreMemPoolHashes.insert(vMempoolHashes.begin(), vMempoolHashes.end());
 
     // Also add all the transaction hashes currently in the txCommitQ

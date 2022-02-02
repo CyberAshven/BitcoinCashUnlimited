@@ -13,38 +13,60 @@
 #include "utilstrencodings.h"
 
 
-std::string COutPoint::ToString() const { return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0, 10), n); }
-CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
+std::string SatoshiOutPoint::ToString() const
+{
+    return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0, 10), n);
+}
+std::string COutPoint::ToString() const { return strprintf("COutPoint(%s)", hash.GetHex()); }
+std::string COutPoint::GetHex() const { return hash.GetHex(); }
+
+SatoshiTxIn::SatoshiTxIn(SatoshiOutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
 {
     prevout = prevoutIn;
     scriptSig = scriptSigIn;
     nSequence = nSequenceIn;
 }
 
-CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
+SatoshiTxIn::SatoshiTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
+{
+    prevout = SatoshiOutPoint(hashPrevTx, nOut);
+    scriptSig = scriptSigIn;
+    nSequence = nSequenceIn;
+}
+
+
+CTxIn::CTxIn(COutPoint prevoutIn, CAmount amountIn, CScript scriptSigIn, uint32_t nSequenceIn)
+{
+    prevout = prevoutIn;
+    scriptSig = scriptSigIn;
+    nSequence = nSequenceIn;
+    amount = amountIn;
+}
+
+CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CAmount amountIn, CScript scriptSigIn, uint32_t nSequenceIn)
 {
     prevout = COutPoint(hashPrevTx, nOut);
     scriptSig = scriptSigIn;
     nSequence = nSequenceIn;
+    amount = amountIn;
 }
+
 
 std::string CTxIn::ToString() const
 {
     std::string str;
     str += "CTxIn(";
     str += prevout.ToString();
-    if (prevout.IsNull())
-        str += strprintf(", coinbase %s", HexStr(scriptSig));
-    else
-        str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
+    str += strprintf(", scriptSig=%s", HexStr(scriptSig));
     if (nSequence != SEQUENCE_FINAL)
         str += strprintf(", nSequence=%u", nSequence);
     str += ")";
     return str;
 }
 
-CTxOut::CTxOut(const CAmount &nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(uint8_t typeIn, const CAmount &nValueIn, CScript scriptPubKeyIn)
 {
+    type = typeIn;
     nValue = nValueIn;
     scriptPubKey = scriptPubKeyIn;
 }
@@ -52,8 +74,7 @@ CTxOut::CTxOut(const CAmount &nValueIn, CScript scriptPubKeyIn)
 uint256 CTxOut::GetHash() const { return SerializeHash(*this); }
 std::string CTxOut::ToString() const
 {
-    return strprintf(
-        "CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
+    return strprintf("CTxOut(nValue=%d sat, scriptPubKey=%s)", nValue, HexStr(scriptPubKey));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
@@ -62,8 +83,15 @@ CMutableTransaction::CMutableTransaction(const CTransaction &tx)
 {
 }
 
-uint256 CMutableTransaction::GetHash() const { return SerializeHash(*this); }
-void CTransaction::UpdateHash() const { *const_cast<uint256 *>(&hash) = SerializeHash(*this); }
+uint256 MutableSatoshiTransaction::GetHash() const { return SerializeHash(*this); }
+
+std::string CMutableTransaction::ToString() const { return CTransaction(*this).ToString(); }
+
+void CTransaction::UpdateHash() const
+{
+    *const_cast<uint256 *>(&id) = GetTxId(*this);
+    *const_cast<uint256 *>(&idem) = GetTxIdem(*this);
+}
 CTransaction::CTransaction() : nTxSize(0), nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) {}
 CTransaction::CTransaction(const CMutableTransaction &tx)
     : nTxSize(0), nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime)
@@ -86,9 +114,21 @@ CTransaction::CTransaction(const CTransaction &tx)
 CTransaction &CTransaction::operator=(const CTransaction &tx)
 {
     nTxSize.store(tx.nTxSize);
-    *const_cast<int *>(&nVersion) = tx.nVersion;
+    *const_cast<uint8_t *>(&nVersion) = tx.nVersion;
     *const_cast<std::vector<CTxIn> *>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut> *>(&vout) = tx.vout;
+    *const_cast<unsigned int *>(&nLockTime) = tx.nLockTime;
+    *const_cast<uint256 *>(&id) = tx.id;
+    *const_cast<uint256 *>(&idem) = tx.idem;
+    return *this;
+}
+
+SatoshiTransaction &SatoshiTransaction::operator=(const SatoshiTransaction &tx)
+{
+    nTxSize.store(tx.nTxSize);
+    *const_cast<int *>(&nVersion) = tx.nVersion;
+    *const_cast<std::vector<SatoshiTxIn> *>(&vin) = tx.vin;
+    *const_cast<std::vector<SatoshiTxOut> *>(&vout) = tx.vout;
     *const_cast<unsigned int *>(&nLockTime) = tx.nLockTime;
     *const_cast<uint256 *>(&hash) = tx.hash;
     return *this;
@@ -147,12 +187,12 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nSize) const
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
-        GetHash().ToString().substr(0, 10), nVersion, vin.size(), vout.size(), nLockTime);
+    str += strprintf("CTransaction(id=%s, idem=%d, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
+        GetId().GetHex(), GetIdem().GetHex(), nVersion, vin.size(), vout.size(), nLockTime);
     for (unsigned int i = 0; i < vin.size(); i++)
-        str += "    " + vin[i].ToString() + "\n";
+        str += strprintf("   In %d: %s\n", i, vin[i].ToString());
     for (unsigned int i = 0; i < vout.size(); i++)
-        str += "    " + vout[i].ToString() + "\n";
+        str += strprintf("   Out %d %s: %s\n", i, OutpointAt(i).hash.GetHex(), vout[i].ToString());
     return str;
 }
 
@@ -189,7 +229,7 @@ bool CTransaction::HasData(uint32_t dataID) const
     return false;
 }
 
-/*
+
 std::string CMutableTransaction::HexStr(void) const
 {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
@@ -203,4 +243,3 @@ std::string CTransaction::HexStr(void) const
     ssTx << *this;
     return ::HexStr(ssTx.begin(), ssTx.end());
 }
-*/

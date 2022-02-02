@@ -47,7 +47,7 @@ class MyTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_blocks()
 
-        assert_equal(self.nodes[0].getbalance(), 50)
+        assert_equal(self.nodes[0].getbalance(), COINBASE_REWARD)
 
         # Check that only first and second nodes have UTXOs
         assert_equal(len(self.nodes[0].listunspent()), 1)
@@ -77,12 +77,14 @@ if __name__ == '__main__':
 # Create a convenient function for an interactive python debugging session
 def Test():
     t = MyTest()
-    # t.drop_to_pdb = True
+    t.drop_to_pdb = True
+    # install ctrl-c handler
+    #import signal, pdb
+    #signal.signal(signal.SIGINT, lambda sig, stk: pdb.Pdb().set_trace(stk))
     bitcoinConf = {
         "debug": ["net", "blk", "thin", "mempool", "req", "bench", "evict"],
         "blockprioritysize": 2000000  # we don't want any transactions rejected due to insufficient fees...
     }
-
-
+    logging.getLogger().setLevel(logging.INFO)
     flags = standardFlags()
     t.main(flags, bitcoinConf, None)

@@ -192,7 +192,7 @@ bool CBloomFilter::MatchAndInsertOutputs(const CTransactionRef &tx)
         return true;
     if (isEmpty)
         return false;
-    const uint256 &hash = tx->GetHash();
+    const uint256 hash = tx->GetIdem();
     if (contains(hash))
         fFound = true;
 

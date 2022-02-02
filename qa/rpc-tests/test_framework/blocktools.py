@@ -6,10 +6,12 @@
 import pdb
 import binascii
 import random
+import copy
 
 from .mininode import *
 from .script import CScript, OP_TRUE, OP_CHECKSIG, OP_DROP, OP_DUP, OP_HASH160, OP_EQUALVERIFY, OP_CHECKSIG, OP_RETURN, OP_NOP
-from .util import BTC, COINBASE_REWARD
+from .util import BTC, COINBASE_REWARD, uint256ToRpcHex
+import test_framework.cashaddr as cashaddr
 
 # Minimum size a transaction can have.
 MIN_TX_SIZE = 100
@@ -37,7 +39,7 @@ def create_block(hashprev, height, chainwork, coinbase, nTime=None, txns=None, c
         block.vtx.append(coinbase)
     if txns:
         if ctor:
-            txns.sort(key=lambda x: x.hash)
+            txns.sort(key=lambda x: uint256ToRpcHex(x.GetId()))
         block.vtx += txns
     block.txCount = len(block.vtx)
     block.nonce = b""
@@ -47,11 +49,55 @@ def create_block(hashprev, height, chainwork, coinbase, nTime=None, txns=None, c
     block.update_fields()
     return block
 
+# Create large OP_RETURN txouts that can be appended to a transaction
+# to make it large (helper for constructing large transactions).
+def gen_return_txouts():
+    # Some pre-processing to create a bunch of OP_RETURN txouts to insert into transactions we create
+    # So we have big transactions (and therefore can't fit very many into each block)
+    # create one script_pubkey
+    script_pubkey = "6a4d0200" #OP_RETURN OP_PUSH2 512 bytes
+    for i in range (512):
+        script_pubkey = script_pubkey + "01"
+    constraint = bytes.fromhex(script_pubkey) #CScript(script_pubkey)
+    # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
+    txouts = []
+    for k in range(128):
+        tmp = TxOut(0,0,constraint)
+        txouts.append(tmp)
+    return txouts
+
+# Create a spend of each passed-in utxo, splicing in "txouts" to each raw
+# transaction to make it large.  See gen_return_txouts() above.
+def create_lots_of_big_transactions(node, txouts, utxos, num, feePerKb):
+    addr = node.getnewaddress()
+    txidems = []
+    txids = []
+    fee = 0
+    for i in range(num):
+        t = utxos.pop()
+        tx = CTransaction()
+        tx.vin = [ CTxIn(COutPoint(t["outpoint"]), t["amount"])]
+        tx.vout = copy.copy(txouts)
+        send_value = t['amount'] - fee
+        tx.vout.append(TxOut(0,send_value, p2pkh(addr)))
+        newtx = tx.serialize().hex()
+        if fee==0:
+            fee = decimal.Decimal(1)/COIN+(66 + int(len(newtx)/2))*feePerKb/1024  # 66 is approx size of satisfier script for 1 sig
+            send_value = t['amount'] - fee
+            tx.vout[-1].nValue = send_value
+            newtx = tx.serialize().hex()
+
+        signresult = node.signrawtransaction(newtx, None, None, "FORKID")
+        txids.append(signresult["txid"])
+        txidem = node.sendrawtransaction(signresult["hex"], True)
+        txidems.append(txidem)
+    return (txidems, txids)
+
 def make_conform_to_ctor(block):
     for tx in block.vtx:
         tx.rehash()
     block.vtx = [block.vtx[0]] + \
-        sorted(block.vtx[1:], key=lambda tx: tx.getHash())
+        sorted(block.vtx[1:], key=lambda tx: uint256ToRpcHex(tx.GetId()))
 
 def serialize_script_num(value):
     r = bytearray(0)
@@ -74,8 +120,6 @@ def serialize_script_num(value):
 def create_coinbase(height, pubkey = None, scriptPubKey = None):
     assert not (pubkey and scriptPubKey), "cannot both have pubkey and custom scriptPubKey"
     coinbase = CTransaction()
-    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff)))
-    coinbase.vin[0].scriptSig = CScript([height, 0x51])
     coinbaseoutput = CTxOut()
     coinbaseoutput.nValue = int(COINBASE_REWARD) * COIN
     halvings = int(height/150) # regtest
@@ -86,14 +130,16 @@ def create_coinbase(height, pubkey = None, scriptPubKey = None):
         if scriptPubKey is None:
             scriptPubKey = CScript([OP_NOP])
         coinbaseoutput.scriptPubKey = CScript(scriptPubKey)
-    coinbase.vout = [ coinbaseoutput ]
 
-    # Make sure the coinbase is at least 100 bytes
+    uniquifier = TxOut(0, 0, CScript([OP_RETURN, height]))
+    coinbase.vout = [ coinbaseoutput, uniquifier ]
+
+    # Make sure the coinbase is at least 64 bytes
     coinbase_size = len(coinbase.serialize())
-    if coinbase_size < 100:
-        coinbase.vin[0].scriptSig += b'x' * (100 - coinbase_size)
+    if coinbase_size < 65:
+        coinbase.vout[1].scriptPubKey += b'x' * (65 - coinbase_size)
 
-    coinbase.calc_sha256()
+    coinbase.calcId()
     return coinbase
 
 # Create a transaction with an anyone-can-spend output, that spends the
@@ -101,21 +147,32 @@ def create_coinbase(height, pubkey = None, scriptPubKey = None):
 # or a list to create multiple outputs
 PADDED_ANY_SPEND =  b'\x61'*50 # add a bunch of OP_NOPs to make sure this tx is long enough
 def create_transaction(prevtx, n, sig, value, out=PADDED_ANY_SPEND):
-    prevtx.calc_sha256()
+    prevtx.calcIdem()
     if not type(value) is list:
         value = [value]
     tx = CTransaction()
     assert(n < len(prevtx.vout))
-    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), sig, 0xffffffff))
+    outpt = COutPoint().fromIdemAndIdx(prevtx.GetIdem(), n)
+    tx.vin.append(CTxIn(outpt, prevtx.vout[n].nValue, sig, 0xffffffff))
     for v in value:
         tx.vout.append(CTxOut(v, out))
-    tx.calc_sha256()
+    tx.rehash()
     return tx
 
 
 def bitcoinAddress2bin(btcAddress):
     """convert a bitcoin address to binary data capable of being put in a CScript"""
     # chop the version and checksum out of the bytes of the address
+    return decodeBase58(btcAddress)[1:-4]
+
+def address2bin(btcAddress):
+    """convert a bitcoin address to binary data capable of being put in a CScript"""
+    try:
+        addr = cashaddr.decode(btcAddress)
+        return addr[2]
+    except:
+        pass
+    # Try bitcoin address: chop the version and checksum out of the bytes of the address
     return decodeBase58(btcAddress)[1:-4]
 
 
@@ -156,14 +213,24 @@ def createWastefulOutput(btcAddress):
     data = b"""this is junk data. this is junk data. this is junk data. this is junk data. this is junk data.
 this is junk data. this is junk data. this is junk data. this is junk data. this is junk data.
 this is junk data. this is junk data. this is junk data. this is junk data. this is junk data."""
-    ret = CScript([data, OP_DROP, OP_DUP, OP_HASH160, bitcoinAddress2bin(btcAddress), OP_EQUALVERIFY, OP_CHECKSIG])
+    ret = CScript([data, OP_DROP, OP_DUP, OP_HASH160, address2bin(btcAddress), OP_EQUALVERIFY, OP_CHECKSIG])
     return ret
 
 
 def p2pkh(btcAddress):
     """ create a pay-to-public-key-hash script"""
-    ret = CScript([OP_DUP, OP_HASH160, bitcoinAddress2bin(btcAddress), OP_EQUALVERIFY, OP_CHECKSIG])
+    ret = CScript([OP_DUP, OP_HASH160, address2bin(btcAddress), OP_EQUALVERIFY, OP_CHECKSIG])
     return ret
+
+def spend_coinbase_tx(node, coinbase, to_address, amount, in_amount=None):
+    if in_amount is None:
+        in_amount = COINBASE_REWARD
+    inputs = [{ "outpoint" : COutPoint().fromIdemAndIdx(coinbase,0).rpcHex(), "amount" : in_amount}]
+    outputs = { to_address : amount }
+    rawtx = node.createrawtransaction(inputs, outputs)
+    signresult = node.signrawtransaction(rawtx)
+    util.assert_equal(signresult["complete"], True)
+    return signresult["hex"]
 
 
 def createrawtransaction(inputs, outputs, outScriptGenerator=p2pkh):
@@ -183,7 +250,7 @@ def createrawtransaction(inputs, outputs, outScriptGenerator=p2pkh):
     tx = CTransaction()
     for i in inputs:
         sigScript = i.get("sig", b"")
-        tx.vin.append(CTxIn(COutPoint(i["txid"], i["vout"]), sigScript, 0xffffffff))
+        tx.vin.append(CTxIn(COutPoint(i["outpoint"]), int(i["amount"]*COIN), sigScript, 0xffffffff))
     pairs = []
     if type(outputs) is dict:
         for addr, amount in outputs.items():
@@ -193,13 +260,13 @@ def createrawtransaction(inputs, outputs, outScriptGenerator=p2pkh):
 
     for addr, amount in pairs:
         if callable(addr):
-            tx.vout.append(CTxOut(amount * BTC, addr()))
+            tx.vout.append(CTxOut(int(amount * COIN), addr()))
         elif type(addr) is list:
-            tx.vout.append(CTxOut(amount * BTC, CScript(addr)))
+            tx.vout.append(CTxOut(int(amount * COIN), CScript(addr)))
         elif addr == "data":
             tx.vout.append(CTxOut(0, CScript([OP_RETURN, unhexlify(amount)])))
         else:
-            tx.vout.append(CTxOut(amount * BTC, outScriptGenerator(addr)))
+            tx.vout.append(CTxOut(int(amount * COIN), outScriptGenerator(addr)))
     tx.rehash()
     return hexlify(tx.serialize()).decode("utf-8")
 
@@ -276,7 +343,7 @@ def create_tx_with_script(prevtx, n, script_sig=b"",
     """
     tx = CTransaction()
     assert(n < len(prevtx.vout))
-    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), script_sig, 0xffffffff))
+    tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), amount, script_sig, 0xffffffff))
     tx.vout.append(CTxOut(amount, script_pub_key))
     pad_tx(tx)
     tx.calc_sha256()

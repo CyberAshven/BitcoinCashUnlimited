@@ -21,6 +21,11 @@ class CTransaction;
 
 struct CMutableTransaction;
 
+extern uint256 GetPrevoutHash(const CTransaction &txTo);
+extern uint256 GetInputAmountHash(const CTransaction &txTo);
+extern uint256 GetSequenceHash(const CTransaction &txTo);
+extern uint256 GetOutputsHash(const CTransaction &txTo);
+
 /** Virtual base class for signature creators. */
 class BaseSignatureCreator
 {
@@ -78,7 +83,7 @@ bool SignSignature(const CKeyStore &keystore,
     const CAmount &amount,
     uint32_t nHashType = SIGHASH_ALL | SIGHASH_FORKID);
 bool SignSignature(const CKeyStore &keystore,
-    const CTransaction &txFrom,
+    const CTxOut &spendingThis,
     CMutableTransaction &txTo,
     unsigned int nIn,
     uint32_t nHashType = SIGHASH_ALL | SIGHASH_FORKID);

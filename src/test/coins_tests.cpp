@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
             Coin &coin = result[COutPoint(txid, 0)];
             if ((InsecureRandRange(500)) == 0)
             {
-                CoinAccessor entry(*stack.back(), txid);
+                CoinAccessor entry(*stack.back(), COutPoint(txid, 0));
                 BOOST_CHECK(coin == *entry);
             }
             else

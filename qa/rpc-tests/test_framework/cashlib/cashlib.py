@@ -89,7 +89,7 @@ def signData(data, key):
     siglen = cashlib.SignData(data,len(data),key, result, 100)
     return result.raw[0:siglen]
 
-def signTxInput(tx, inputIdx, inputAmount, prevoutScript, key, sigHashType=SIGHASH_FORKID | SIGHASH_ALL):
+def signTxInputECDSA(tx, inputIdx, inputAmount, prevoutScript, key, sigHashType=SIGHASH_FORKID | SIGHASH_ALL):
     """Signs one input of a transaction.  Signature is returned.  You must use this signature to construct the spend script
     Parameters:
     tx: Transaction in object, hex or binary format
@@ -110,11 +110,15 @@ def signTxInput(tx, inputIdx, inputAmount, prevoutScript, key, sigHashType=SIGHA
         inputAmount = int(inputAmount * BCH)
 
     result = create_string_buffer(100)
-    siglen = cashlib.SignTx(tx, len(tx), inputIdx, c_longlong(inputAmount), prevoutScript,
+    siglen = cashlib.SignTxECDSA(tx, len(tx), inputIdx, c_longlong(inputAmount), prevoutScript,
                             len(prevoutScript), sigHashType, key, result, 100)
     if siglen == 0:
         raise Error("cashlib signtx error")
     return result.raw[0:siglen]
+
+def signTxInput(tx, inputIdx, inputAmount, prevoutScript, key, sigHashType=SIGHASH_FORKID | SIGHASH_ALL):
+    """Default signing is now Schnorr"""
+    return signTxInputSchnorr(tx, inputIdx, inputAmount, prevoutScript, key, sigHashType)
 
 def signTxInputSchnorr(tx, inputIdx, inputAmount, prevoutScript, key, sigHashType=SIGHASH_FORKID | SIGHASH_ALL):
     """Signs one input of a transaction.  Schnorr signature is returned.  You must use this signature to construct the spend script
@@ -195,7 +199,29 @@ def txid(txbin):
         txbin = unhexlify(txbin)
     elif type(txbin) != bytes:
         txbin = txbin.serialize()
-    return sha256(sha256(txbin))
+    result = create_string_buffer(32)
+    ret = cashlib.txid(txbin, len(txbin), result)
+    if ret:
+        return bytes(result)
+    assert ret, "transaction decode error"
+
+    # Bitcoin/BitcoinCash
+    # return sha256(sha256(txbin))
+
+def txidem(txbin):
+    """Return a transaction id, given a transaction in hex, object or binary form.
+       The returned binary txid is not reversed.  Do: hexlify(cashlib.txid(txhex)[::-1]).decode("utf-8") to convert to
+       bitcoind's hex format.
+    """
+    if type(txbin) == str:
+        txbin = unhexlify(txbin)
+    elif type(txbin) != bytes:
+        txbin = txbin.serialize()
+    result = create_string_buffer(32)
+    ret = cashlib.txidem(txbin, len(txbin), result)
+    if ret:
+        return bytes(result)
+    assert ret, "transaction decode error"
 
 
 def spendscript(*data):

@@ -102,8 +102,8 @@ ScriptError VerifyWithFlag(const CTransaction &output, const CMutableTransaction
 {
     ScriptError error;
     CTransaction inputi(input);
-    TransactionSignatureChecker tsc(&inputi, 0, output.vout[0].nValue);
-    ScriptImportedState sis(&tsc, nullptr, 0, output.vout[0].nValue);
+    TransactionSignatureChecker tsc(&inputi, 0, input.vout[0].nValue, flags);
+    ScriptImportedState sis(&tsc, nullptr, 0, input.vout[0].nValue);
     bool ret =
         VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, flags, MAX_OPS_PER_SCRIPT, sis, &error);
     BOOST_CHECK_EQUAL((ret == true), (error == SCRIPT_ERR_OK));
@@ -126,13 +126,14 @@ void BuildTxs(CMutableTransaction &spendingTx,
     creationTx.vin.resize(1);
     creationTx.vin[0].prevout = COutPoint();
     creationTx.vin[0].scriptSig = CScript();
+    creationTx.vin[0].amount = CAmount(1);
     creationTx.vout.resize(1);
     creationTx.vout[0].nValue = CAmount(1);
     creationTx.vout[0].scriptPubKey = scriptPubKey;
 
     spendingTx.nVersion = 1;
     spendingTx.vin.resize(1);
-    spendingTx.vin[0].prevout = COutPoint(creationTx.GetHash(), 0);
+    spendingTx.vin[0] = creationTx.SpendOutput(0);
     spendingTx.vin[0].scriptSig = scriptSig;
     spendingTx.vout.resize(1);
     spendingTx.vout[0].nValue = CAmount(1);
@@ -234,10 +235,9 @@ BOOST_AUTO_TEST_CASE(test_consensus_sigops_limit)
 
 class AlwaysGoodSignatureChecker : public BaseSignatureChecker
 {
-protected:
-    unsigned int nFlags = SCRIPT_ENABLE_SIGHASH_FORKID;
-
 public:
+    AlwaysGoodSignatureChecker(unsigned int flags = SCRIPT_ENABLE_SIGHASH_FORKID) { nFlags = flags; }
+
     //! Verifies a signature given the pubkey, signature and sighash
     virtual bool VerifySignature(const std::vector<uint8_t> &vchSig,
         const CPubKey &vchPubKey,
@@ -268,7 +268,7 @@ unsigned int evalForSigChecks(const CScript &scriptSig,
     unsigned int flags,
     BaseSignatureChecker *checker = nullptr)
 {
-    AlwaysGoodSignatureChecker sigChecker;
+    AlwaysGoodSignatureChecker sigChecker(flags);
     ScriptError serror;
     ScriptMachineResourceTracker tracker;
     ScriptImportedState sis(checker ? checker : &sigChecker, nullptr, 0, 0);
@@ -306,8 +306,7 @@ CMutableTransaction BuildSpendingTransaction(const CScript &scriptSig, const CMu
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
     txSpend.vout.resize(1);
-    txSpend.vin[0].prevout.hash = txCredit.GetHash();
-    txSpend.vin[0].prevout.n = 0;
+    txSpend.vin[0].prevout = txCredit.OutpointAt(0);
     txSpend.vin[0].scriptSig = scriptSig;
     txSpend.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
     txSpend.vout[0].scriptPubKey = CScript();

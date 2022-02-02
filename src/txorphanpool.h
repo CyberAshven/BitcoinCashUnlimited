@@ -45,7 +45,7 @@ public:
     CTxOrphanPool();
 
     //! Do we already have this orphan in the orphan pool
-    bool AlreadyHaveOrphan(const uint256 &hash);
+    bool AlreadyHaveOrphan(const uint256 &txid);
 
     //! Add a transaction to the orphan pool
     bool AddOrphanTx(const CTransactionRef ptx, NodeId peer);
@@ -61,7 +61,7 @@ public:
     unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans, uint64_t nMaxBytes);
 
     //! Return all the transaction hashes for transactions currently in the orphan pool.
-    void QueryHashes(std::vector<uint256> &vHashes);
+    void QueryIds(std::vector<uint256> &vHashes);
 
     //! Set the last orphan check time (used primarily in testing)
     void SetLastOrphanCheck(int64_t nTime) { nLastOrphanCheck = nTime; }
@@ -103,5 +103,7 @@ public:
     bool DumpOrphanPool();
 };
 extern CTxOrphanPool orphanpool;
+
+void ProcessOrphans(std::vector<CTransactionRef> &vWorkQueue);
 
 #endif

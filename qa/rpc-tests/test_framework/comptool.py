@@ -102,7 +102,7 @@ class TestNode(NodeConnCB):
 
     def send_inv(self, obj):
         mtype = 2 if isinstance(obj, CBlock) else 1
-        hsh = obj.gethash() if isinstance(obj, CBlock) else obj.sha256
+        hsh = obj.gethash() if isinstance(obj, CBlock) else obj.GetIdAsInt()
         self.conn.send_message(msg_inv([CInv(mtype, hsh)]))
 
     def send_getheaders(self):
@@ -222,6 +222,8 @@ class TestManager(object):
     # Analogous to sync_block (see above)
     def sync_transaction(self, txhash, num_events):
         # Wait for nodes to request transaction (50ms sleep * 20 tries * num_events)
+        if isinstance(txhash, bytes):
+            txhash = ser_uint256(txhash)
         def transaction_requested():
             return all(
                 txhash in node.tx_request_map and node.tx_request_map[txhash]
@@ -317,6 +319,7 @@ class TestManager(object):
                         return False
                 elif isinstance(outcome, RejectResult): # Check that tx was rejected w/ code
                     if txhash in c.cb.lastInv:
+                        print('Tx in lastInv: %064x' % (txhash))
                         return False
                     if txhash not in c.cb.tx_reject_map:
                         print('Tx not in reject map: %064x' % (txhash))
@@ -325,7 +328,7 @@ class TestManager(object):
                         print('Tx rejected with %s instead of expected %s: %064x' % (c.cb.tx_reject_map[txhash], outcome, txhash))
                         return False
                 elif ((txhash in c.cb.lastInv) != outcome):
-                    # print c.rpc.getrawmempool(), c.cb.lastInv
+                    print (c.rpc.getrawmempool(), c.cb.lastInv)
                     return False
             return True
 
@@ -395,15 +398,15 @@ class TestManager(object):
                     with mininode_lock:
                         self.tx_store.add_transaction(tx)
                         for c in self.connections:
-                            c.cb.tx_request_map[tx.sha256] = False
+                            c.cb.tx_request_map[tx.GetIdAsInt()] = False
                     # Again, either inv to all nodes or save for later
                     if (test_instance.sync_every_tx):
                         [ c.cb.send_inv(tx) for c in self.connections ]
-                        self.sync_transaction(tx.sha256, 1)
-                        if (not self.check_mempool(tx.sha256, outcome)):
+                        self.sync_transaction(tx.GetIdAsInt(), 1)
+                        if (not self.check_mempool(tx.GetIdAsInt(), outcome)):
                             raise AssertionError("Test failed at test %d" % test_number)
                     else:
-                        invqueue.append(CInv(1, tx.sha256))
+                        invqueue.append(CInv(1, tx.GetIdAsInt()))
                 # Ensure we're not overflowing the inv queue
                 if len(invqueue) == MAX_INV_SZ:
                     [ c.send_message(msg_inv(invqueue)) for c in self.connections ]
@@ -421,9 +424,9 @@ class TestManager(object):
                 if len(invqueue) > 0:
                     [ c.send_message(msg_inv(invqueue)) for c in self.connections ]
                     invqueue = []
-                self.sync_transaction(tx.sha256, len(test_instance.blocks_and_transactions))
-                if (not self.check_mempool(tx.sha256, tx_outcome)):
-                    val = self.check_mempool(tx.sha256, tx_outcome)
+                self.sync_transaction(tx.GetIdAsInt(), len(test_instance.blocks_and_transactions))
+                if (not self.check_mempool(tx.GetIdAsInt(), tx_outcome)):
+                    val = self.check_mempool(tx.GetIdAsInt(), tx_outcome)
                     raise AssertionError("Mempool test failed at test %d" % test_number)
 
             print("Test %d: PASS" % test_number, [ c.rpc.getblockcount() for c in self.connections ])

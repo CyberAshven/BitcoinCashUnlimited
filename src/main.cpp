@@ -274,10 +274,9 @@ std::string FormatStateMessage(const CValidationState &state)
 
 bool AreFreeTxnsAllowed()
 {
-    if (GetArg("-limitfreerelay", DEFAULT_LIMITFREERELAY) > 0)
-        return true;
-
-    return false;
+    // Only access the param once
+    static bool val = (GetArg("-limitfreerelay", DEFAULT_LIMITFREERELAY) > 0);
+    return val;
 }
 
 bool GetTransaction(const uint256 &hash,
@@ -308,8 +307,8 @@ bool GetTransaction(const uint256 &hash,
     // just in case it's in both pools.
     {
         READLOCK(mempool.cs_txmempool);
-        CTxMemPool::txiter entryPtr = mempool.mapTx.find(hash);
-        if (entryPtr != mempool.mapTx.end())
+        const CTxMemPoolEntry *entryPtr = mempool._getEntry(hash);
+        if (entryPtr != nullptr)
         {
             txTime = entryPtr->GetTime();
             ptx = entryPtr->GetSharedTx();
@@ -338,11 +337,20 @@ bool GetTransaction(const uint256 &hash,
     if (blockIndex == nullptr)
     {
         // attempt to use coin database to locate block that contains transaction, and scan it
+        // just try the first 16 outputs.  If the tx has fewer, its benign.  If the tx has more, then we may miss
+        // finding it with this method... but this method is uncertain anyway -- it won't work if all outputs are
+        // already spent
         if (fAllowSlow)
         {
-            CoinAccessor coin(*pcoinsTip, hash);
-            if (!coin->IsSpent())
-                pindexSlow = chainActive[coin->height()];
+            for (int i = 0; i < 16; i++)
+            {
+                CoinAccessor coin(*pcoinsTip, COutPoint(hash, i));
+                if (!coin->IsSpent())
+                {
+                    pindexSlow = chainActive[coin->height()];
+                    break;
+                }
+            }
         }
     }
 

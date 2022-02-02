@@ -157,13 +157,20 @@ bool ConnectBlock(const CBlock &block,
 /** Disconnect the current chainActive.Tip() */
 bool DisconnectTip(CValidationState &state, const Consensus::Params &consensusParams, const bool fRollBack = false);
 
-/** Find the best known block, and make it the tip of the block chain */
+/** Find the best known block, and make it the tip of the block chain.  Locks cs_main and pauses tx admission. */
 bool ActivateBestChain(CValidationState &state,
     const CChainParams &chainparams,
     const CBlock *pblock = nullptr,
     bool fParallel = false,
     CNode *pfrom = nullptr);
 
+/** Find the best known block, and make it the tip of the block chain.  Expects that cs_main is taken and
+    tx admission is paused. */
+bool _ActivateBestChain(CValidationState &state,
+    const CChainParams &chainparams,
+    const CBlock *pblock = nullptr,
+    bool fParallel = false,
+    CNode *pfrom = nullptr);
 /**
  * Process an incoming block. This only returns after the best known valid
  * block is made active. Note that it does not, however, guarantee that the
