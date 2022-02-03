@@ -164,7 +164,7 @@ class ZMQTest (BitcoinTestFramework):
 
         logging.info("Wait for tx from second node")
         payment_txid = self.nodes[1].sendtoaddress(
-            self.nodes[0].getnewaddress(), 1.0)
+            self.nodes[0].getnewaddress(), 10000000)
         self.sync_all()
 
         # Should receive the broadcasted txid.

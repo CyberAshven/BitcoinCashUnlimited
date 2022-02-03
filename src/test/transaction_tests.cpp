@@ -346,7 +346,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vin[0] = dummyTransactions[0].SpendOutput(1);
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
     t.vout.resize(1);
-    t.vout[0].nValue = 90 * CENT;
+    t.vout[0].nValue = 90 * COIN;
     CKey key;
     key.MakeNewKey(true);
     t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());

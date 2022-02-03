@@ -76,7 +76,7 @@ class MyTest (BitcoinTestFramework):
             vtx = {}
             for j in range(0,i):
                 addr = self.nodes[0].getnewaddress()
-                txhash = self.nodes[0].sendtoaddress(addr,1)
+                txhash = self.nodes[0].sendtoaddress(addr,1000000)
                 txjson = self.nodes[0].gettransaction(txhash)
                 tx = CTransaction()
                 tx.deserialize(txjson["hex"])

@@ -290,7 +290,7 @@ CAmount AmountFromValue(const UniValue &value)
     if (!value.isNum() && !value.isStr())
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
     CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+    if (!ParseFixedPoint(value.getValStr(), 2, &amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
     if (!MoneyRange(amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
@@ -303,7 +303,7 @@ UniValue ValueFromAmount(const CAmount &amount)
     int64_t n_abs = (sign ? -amount : amount);
     int64_t quotient = n_abs / COIN;
     int64_t remainder = n_abs % COIN;
-    return UniValue(UniValue::VNUM, strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
+    return UniValue(UniValue::VNUM, strprintf("%s%d.%02d", sign ? "-" : "", quotient, remainder));
 }
 
 uint256 ParseHashV(const UniValue &v, string strName)

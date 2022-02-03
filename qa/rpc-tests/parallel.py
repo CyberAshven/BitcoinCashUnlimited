@@ -128,13 +128,13 @@ class ParallelTest (BitcoinTestFramework):
         # Send tx's which do not propagate
         addr2 = self.nodes[2].getnewaddress()
         for i in range(50):
-            self.nodes[0].sendtoaddress(addr2, "0.01")
+            self.nodes[0].sendtoaddress(addr2, "10.01")
 
         # Send a few transactions from node2 that will get mined so that we will have at least
         # a few inputs to check when the two competing blocks enter parallel validation.
         addr0 = self.nodes[0].getnewaddress()
         for i in range(5):
-            self.nodes[2].sendtoaddress(addr0, "0.01")
+            self.nodes[2].sendtoaddress(addr0, "10.01")
 
 
         # Have node0 and node2 mine the same block which will compete to advance the chaintip when
@@ -212,7 +212,7 @@ class ParallelTest (BitcoinTestFramework):
         # Send some transactions and Mine a block on node 2.
         # This should cause node0 and node3 to re-org and all chains should now match.
         for i in range(5):
-            self.nodes[2].sendtoaddress(addr2, .01)
+            self.nodes[2].sendtoaddress(addr2, 10.01)
         print ("Mine another block on node2 which causes a reorg on node0 and node3...")
         self.nodes[2].generate(1)
         sync_blocks(self.nodes)
@@ -270,16 +270,16 @@ class ParallelTest (BitcoinTestFramework):
         num_range = 50
         addrs = [ x.getnewaddress() for x in self.nodes]
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(addrs[0], 0.01)
+            self.nodes[0].sendtoaddress(addrs[0], 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(addrs[2], 0.01)
+            self.nodes[2].sendtoaddress(addrs[2], 10.01)
         for i in range(num_range):
-            self.nodes[3].sendtoaddress(addrs[3], 0.01)
+            self.nodes[3].sendtoaddress(addrs[3], 10.01)
         for i in range(num_range):
-            self.nodes[4].sendtoaddress(addrs[4], 0.01)
+            self.nodes[4].sendtoaddress(addrs[4], 10.01)
         for i in range(num_range):
-            self.nodes[5].sendtoaddress(addrs[5], 0.01)
+            self.nodes[5].sendtoaddress(addrs[5], 10.01)
 
         # Mine 5 competing blocks.
         print ("Mine 5 competing blocks...")
@@ -354,11 +354,11 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(addrs[0], 0.01)
+            self.nodes[0].sendtoaddress(addrs[0], 10.01)
         for i in range(num_range):
-            self.nodes[1].sendtoaddress(addrs[1], 0.01)
+            self.nodes[1].sendtoaddress(addrs[1], 10.01)
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(addrs[2], 0.01)
+            self.nodes[2].sendtoaddress(addrs[2], 10.01)
 
         # Mine a block on each node
         print ("Mine a block on each node..")
@@ -436,9 +436,9 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(addrs[0], 0.01)
+            self.nodes[0].sendtoaddress(addrs[0], 10.01)
         for i in range(num_range):
-            self.nodes[1].sendtoaddress(addrs[1], 0.01)
+            self.nodes[1].sendtoaddress(addrs[1], 10.01)
 
         # Mine a block on each node
         print ("Mine a block on each node..")
@@ -520,13 +520,13 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(addrs[0], 0.01)
+            self.nodes[0].sendtoaddress(addrs[0], 10.01)
         for i in range(num_range):
-            self.nodes[1].sendtoaddress(addrs[1], 0.01)
+            self.nodes[1].sendtoaddress(addrs[1], 10.01)
         for i in range(num_range):
-            self.nodes[3].sendtoaddress(addrs[1], 0.01)
+            self.nodes[3].sendtoaddress(addrs[1], 10.01)
         for i in range(num_range):
-            self.nodes[4].sendtoaddress(addrs[1], 0.01)
+            self.nodes[4].sendtoaddress(addrs[1], 10.01)
 
         # Mine a block on each node
         print ("Mine a block on each node..")
@@ -616,13 +616,13 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 10.01)
         for i in range(num_range):
-            self.nodes[1].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
+            self.nodes[1].sendtoaddress(self.nodes[1].getnewaddress(), 10.01)
 
         # in this test we also generate txns on node 2 so that all nodes will validate slowly.
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
+            self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), 10.01)
 
         # Mine a block on each node
         print ("Mine a block on each node..")
@@ -731,16 +731,16 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 10.01)
         num_range = 14
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 0.01)
+            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 10.01)
         num_range = 13
         for i in range(num_range):
-            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 0.01)
+            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 10.01)
         num_range = 2
         for i in range(num_range):
-            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 0.01)
+            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 10.01)
 
         # Mine 4 competing blocks.
         print ("Mine 4 competing blocks...")
@@ -816,19 +816,19 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 10.01)
         num_range = 15
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 0.01)
+            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 10.01)
         num_range = 15
         for i in range(num_range):
-            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 0.01)
+            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 10.01)
         num_range = 15
         for i in range(num_range):
-            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 0.01)
+            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 10.01)
         num_range = 2
         for i in range(num_range):
-            self.nodes[5].sendtoaddress(self.nodes[5].getnewaddress(), 0.01)
+            self.nodes[5].sendtoaddress(self.nodes[5].getnewaddress(), 10.01)
 
         # stop nodes
         stop_nodes(self.nodes)
@@ -902,19 +902,19 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 10
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 0.01)
+            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 0.01)
+            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 0.01)
+            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[5].sendtoaddress(self.nodes[5].getnewaddress(), 0.01)
+            self.nodes[5].sendtoaddress(self.nodes[5].getnewaddress(), 10.01)
 
         # stop nodes
         stop_nodes(self.nodes)
@@ -988,19 +988,19 @@ class ParallelTest (BitcoinTestFramework):
         print ("Send more transactions...")
         num_range = 10
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 0.01)
+            self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 0.01)
+            self.nodes[3].sendtoaddress(self.nodes[3].getnewaddress(), 10.01)
         num_range = 10
         for i in range(num_range):
-            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 0.01)
+            self.nodes[4].sendtoaddress(self.nodes[4].getnewaddress(), 10.01)
         num_range = 20
         for i in range(num_range):
-            self.nodes[5].sendtoaddress(self.nodes[5].getnewaddress(), 0.01)
+            self.nodes[5].sendtoaddress(self.nodes[5].getnewaddress(), 10.01)
 
         # stop nodes
         stop_nodes(self.nodes)

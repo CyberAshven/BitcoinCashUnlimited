@@ -62,16 +62,16 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.nodes[0].generate(101)
 
         subtractfeefromamount = True
-        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1, "", "", subtractfeefromamount)
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 100, "", "", subtractfeefromamount)
         self.nodes[0].generate(1)
         self.sync_all()
 
-        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1, "", "", subtractfeefromamount)
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 100, "", "", subtractfeefromamount)
         subtractfeefromamount = False
-        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1, "", "", subtractfeefromamount)
-        self.nodes[0].settxfee(0.003)
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 100, "", "", subtractfeefromamount)
+        self.nodes[0].settxfee(300)
         subtractfeefromamount = True
-        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.1, "", "", subtractfeefromamount)
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 100.1, "", "", subtractfeefromamount)
         self.sync_all()
         self.nodes[0].generate(1)
 

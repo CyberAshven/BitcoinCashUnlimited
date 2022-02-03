@@ -134,7 +134,7 @@ class MempoolPersistTest(BitcoinTestFramework):
         logging.info("Initial sync to %d blocks" % startHeight)
 
         # create a chain of orphans that we can store and resurrect.
-        tx_amount = decimal.Decimal("5.0")
+        tx_amount = 50000000
         outpoint = bytes(range(0,32)).hex()  # Begin by referencing a nonexistent tx/outpoint
         for i in range(1, CHAIN_DEPTH + 1):
           try:

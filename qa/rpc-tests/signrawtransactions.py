@@ -31,10 +31,10 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         inputs = [
             # Valid pay-to-pubkey script
             {'outpoint': '9b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71',
-             'scriptPubKey': '76a91460baa0f494b38ce3c940dea67f3804dc52d1fb9488ac', 'amount': 1.618}
+             'scriptPubKey': '76a91460baa0f494b38ce3c940dea67f3804dc52d1fb9488ac', 'amount': 100.68}
         ]
 
-        outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}
+        outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 10.1}
 
         rawTx = self.nodes[0].createrawtransaction(inputs, outputs)
         rawTxSigned = self.nodes[0].signrawtransaction(rawTx, inputs, privKeys)
@@ -71,23 +71,23 @@ class SignRawTransactionsTest(BitcoinTestFramework):
 
         inputs = [
             # Valid pay-to-pubkey script
-            {'outpoint': '9b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'amount': 1.618},
+            {'outpoint': '9b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'amount': 100.68},
             # Invalid script
-            {'outpoint': '5b8673686910442c644b1f4993d8f7753c7c8fcb5c87ee40d56eaeef25204547', 'amount': 1.618},
+            {'outpoint': '5b8673686910442c644b1f4993d8f7753c7c8fcb5c87ee40d56eaeef25204547', 'amount': 100.68},
             # Missing scriptPubKey
-            {'outpoint': '8b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'amount': 1.618},
+            {'outpoint': '8b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'amount': 100.68},
         ]
 
         scripts = [
             # Valid pay-to-pubkey script
-            {'outpoint': '9b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'amount':1.618,
+            {'outpoint': '9b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'amount':100.68,
              'scriptPubKey': '76a91460baa0f494b38ce3c940dea67f3804dc52d1fb9488ac'},
             # Invalid script
-            {'outpoint': '5b8673686910442c644b1f4993d8f7753c7c8fcb5c87ee40d56eaeef25204547', 'amount':1.618,
+            {'outpoint': '5b8673686910442c644b1f4993d8f7753c7c8fcb5c87ee40d56eaeef25204547', 'amount':100.68,
              'scriptPubKey': 'badbadbadbad'}
         ]
 
-        outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1}
+        outputs = {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 10.1}
 
         rawTx = self.nodes[0].createrawtransaction(inputs, outputs)
         rawTxSigned = self.nodes[0].signrawtransaction(rawTx, scripts, privKeys)

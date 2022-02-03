@@ -54,10 +54,10 @@ COVERAGE_DIR = None
 
 DEFAULT_TX_FEE_PER_BYTE = 50
 PerfectFractions = True
-COINBASE_REWARD = Decimal('10.00000000')
-BTC = 100000000
-mBTC = 100000
-uBTC = 100
+COINBASE_REWARD = Decimal('10000000.00')
+BTC = 100
+#mBTC = 100000
+#uBTC = 100
 
 def getNodeInfo(node):
     PP_INDENT=2
@@ -260,9 +260,9 @@ def do_and_ignore_failure(fn):
 
 def check_json_precision():
     """Make sure json library being used does not lose precision converting BTC values"""
-    n = Decimal("20000000.00000003")
-    satoshis = int(json.loads(json.dumps(float(n)))*1.0e8)
-    if satoshis != 2000000000000003:
+    n = Decimal("20000000.03")
+    satoshis = int(json.loads(json.dumps(float(n)))*1.0e2)
+    if satoshis != 2000000003:
         raise RuntimeError("JSON encode/decode loses precision")
 
 def count_bytes(hex_string):
@@ -871,7 +871,7 @@ def gather_inputs(from_node, amount_needed, confirmations_required=1):
     utxo = from_node.listunspent(confirmations_required)
     random.shuffle(utxo)
     inputs = []
-    total_in = Decimal("0.00000000")
+    total_in = Decimal("0.00")
     while total_in < amount_needed and len(utxo) > 0:
         t = utxo.pop()
         total_in += t["amount"]
@@ -891,7 +891,7 @@ def make_change(from_node, amount_in, amount_out, fee):
         # Create an extra change output to break up big inputs
         change_address = from_node.getnewaddress()
         # Split change in two, being careful of rounding:
-        outputs[change_address] = Decimal(change/2).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+        outputs[change_address] = Decimal(change/2).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         change = amount_in - amount - outputs[change_address]
     if change > 0:
         outputs[from_node.getnewaddress()] = change
@@ -1174,7 +1174,7 @@ def assert_array_result(object_array, to_match, expected, should_not_find = Fals
         raise AssertionError("Objects were found %s"%(str(to_match)))
 
 def satoshi_round(amount):
-    return Decimal(amount).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+    return Decimal(amount).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
 
 # Helper to create at least "count" utxos
 # Pass in a fee that is sufficient for relay and mining new transactions.
@@ -1213,7 +1213,7 @@ def create_confirmed_utxos(fee, node, count):
         if len(raw_tx) > 1024:  # exceeded allocated fee, fixup.
             if decimal.getcontext().prec < 16:
                 decimal.getcontext().prec = 16
-            txfee = (decimal.Decimal(len(raw_tx)/2000.0) * fee) + decimal.Decimal(0.00001)
+            txfee = (decimal.Decimal(len(raw_tx)/2000.0) * fee) + decimal.Decimal(10.0)
             send_value = t['amount'] - txfee
             for i in range(0, splits):
                 outputs[addr[i]] = satoshi_round(send_value/splits)

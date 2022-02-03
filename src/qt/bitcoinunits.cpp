@@ -12,9 +12,9 @@ BitcoinUnits::BitcoinUnits(QObject *parent) : QAbstractListModel(parent), unitli
 QList<BitcoinUnits::Unit> BitcoinUnits::availableUnits()
 {
     QList<BitcoinUnits::Unit> unitlist;
-    unitlist.append(BCH);
-    unitlist.append(mBCH);
-    unitlist.append(XCH);
+    unitlist.append(NEX);
+    unitlist.append(KEX);
+    unitlist.append(MEX);
     return unitlist;
 }
 
@@ -22,9 +22,9 @@ bool BitcoinUnits::valid(int unit)
 {
     switch (unit)
     {
-    case BCH:
-    case mBCH:
-    case XCH:
+    case NEX:
+    case KEX:
+    case MEX:
         return true;
     default:
         return false;
@@ -35,12 +35,12 @@ QString BitcoinUnits::name(int unit)
 {
     switch (unit)
     {
-    case BCH:
-        return QString("BCH");
-    case mBCH:
-        return QString("mBCH");
-    case XCH:
-        return QString("cash");
+    case NEX:
+        return QString("NEX");
+    case KEX:
+        return QString("KEX");
+    case MEX:
+        return QString("KEX");
     default:
         return QString("???");
     }
@@ -50,12 +50,12 @@ QString BitcoinUnits::description(int unit)
 {
     switch (unit)
     {
-    case BCH:
-        return QString("Bitcoins");
-    case mBCH:
-        return QString("Milli-Bitcoins (1 / 1" THIN_SP_UTF8 "000)");
-    case XCH:
-        return QString("Cash (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
+    case NEX:
+        return QString("Coins");
+    case KEX:
+        return QString("Kilo-Coins (1 / 1" THIN_SP_UTF8 "000)");
+    case MEX:
+        return QString("Mega-Coins (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
     default:
         return QString("???");
     }
@@ -65,14 +65,14 @@ qint64 BitcoinUnits::factor(int unit)
 {
     switch (unit)
     {
-    case BCH:
-        return 100000000;
-    case mBCH:
-        return 100000;
-    case XCH:
+    case NEX:
         return 100;
-    default:
+    case KEX:
+        return 100000;
+    case MEX:
         return 100000000;
+    default:
+        return 100;
     }
 }
 
@@ -80,14 +80,14 @@ int BitcoinUnits::decimals(int unit)
 {
     switch (unit)
     {
-    case BCH:
-        return 8;
-    case mBCH:
-        return 5;
-    case XCH:
+    case NEX:
         return 2;
+    case KEX:
+        return 5;
+    case MEX:
+        return 8;
     default:
-        return 0;
+        return 2;
     }
 }
 

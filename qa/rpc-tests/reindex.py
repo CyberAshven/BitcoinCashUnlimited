@@ -33,19 +33,19 @@ class ReindexTest(BitcoinTestFramework):
         # Generate transactions and mine them so there is a UTXO that is created.
         num_range = 15
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100.01)
         self.nodes[0].generate(1)
         nBlocks += 1
         self.sync_all()
 
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100.01)
         self.nodes[0].generate(1)
         nBlocks += 1
         self.sync_all()
 
         for i in range(num_range):
-            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.01)
+            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100.01)
         self.nodes[0].generate(1)
         nBlocks += 1
         self.sync_all()

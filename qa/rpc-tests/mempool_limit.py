@@ -50,8 +50,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         tries = 0
         i = 2
         while tries < 10:
-            new_txn = create_lots_of_big_transactions(node, self.txouts, utxos[33*i:33*i+33], 1, (i+1)*base_fee + Decimal(0.0000001*tries))[0] # Adding tries to the fee changes the transaction (we are reusing the prev UTXOs)
-            print("newtxns " + str(new_txn[0]))
+            new_txn = create_lots_of_big_transactions(node, self.txouts, utxos[33*i:33*i+33], 1, (i+1)*base_fee/10 + Decimal(0.1*tries))[0] # Adding tries to the fee changes the transaction (we are reusing the prev UTXOs)
             assert(node.getmempoolinfo()["usage"] < node.getmempoolinfo()["maxmempool"])
 
             # make sure the mempool count did not change

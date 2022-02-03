@@ -32,9 +32,9 @@ class TxnCloneTest(BitcoinTestFramework):
             assert_equal(self.nodes[i].getbalance(), starting_balance)
             self.nodes[i].getnewaddress("")  # bug workaround, coins generated assigned to first getnewaddress!
 
-        self.nodes[0].settxfee(.001)
+        self.nodes[0].settxfee(100)
 
-        FooAmt = COINBASE_REWARD*25 - 31
+        FooAmt = COINBASE_REWARD*25 - 31000000
 
         node0_address_foo = self.nodes[0].getnewaddress("foo")
         fund_foo_txid = self.nodes[0].sendfrom("", node0_address_foo, FooAmt)
@@ -120,6 +120,7 @@ class TxnCloneTest(BitcoinTestFramework):
 
         # Check node0's individual account balances.
         # "foo" should have been debited by the equivalent clone of tx1
+        print("foo balance: " + str(self.nodes[0].getbalance("foo")) + " foo amt " + str(FooAmt) + " tx1amt " + str( tx1["amount"]) + " foo fee " + str(tx1["fee"]))
         assert_equal(self.nodes[0].getbalance("foo"), FooAmt + tx1["amount"] + tx1["fee"])
         assert_equal(self.nodes[0].getbalance("", 0), starting_balance
                                                                 - FooAmt

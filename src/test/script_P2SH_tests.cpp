@@ -88,9 +88,9 @@ BOOST_AUTO_TEST_CASE(sign)
     for (int i = 0; i < 4; i++)
     {
         txFrom.vout[i].scriptPubKey = evalScripts[i];
-        txFrom.vout[i].nValue = COIN;
+        txFrom.vout[i].nValue = 10 * COIN;
         txFrom.vout[i + 4].scriptPubKey = standardScripts[i];
-        txFrom.vout[i + 4].nValue = COIN;
+        txFrom.vout[i + 4].nValue = 10 * COIN;
     }
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(txFrom)), reason, false));
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(txFrom)), reason, true));
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(set)
     for (int i = 0; i < 4; i++)
     {
         txFrom.vout[i].scriptPubKey = outer[i];
-        txFrom.vout[i].nValue = CENT;
+        txFrom.vout[i].nValue = 10 * COIN;
     }
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(txFrom)), reason, false));
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(txFrom)), reason, true));
@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_CASE(set)
         txTo[i].vin.resize(1);
         txTo[i].vout.resize(1);
         txTo[i].vin[0] = txFrom.SpendOutput(i);
-        txTo[i].vout[0].nValue = 1 * CENT;
+        txTo[i].vout[0].nValue = 10 * COIN;
         txTo[i].vout[0].scriptPubKey = inner[i];
 #ifdef ENABLE_WALLET
         BOOST_CHECK_MESSAGE(IsMine(keystore, txFrom.vout[i].scriptPubKey, 0), strprintf("IsMine %d", i));

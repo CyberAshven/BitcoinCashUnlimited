@@ -62,9 +62,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_blocks()
         self.nodes[0].generate(101)
         self.sync_blocks()
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5)
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0)
-        txidem = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1500000)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1000000)
+        txidem = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5000000)
         txjson = self.nodes[0].gettransaction(txidem)
         txdecode = self.nodes[0].decoderawtransaction(txjson['hex'])
         # verify some basic stuff about the transaction
@@ -75,15 +75,15 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert len(txdecode['vin']) == 1  # since this test just started up, we have knowledge of the coins so this is what the alg will pick
         assert len(txdecode['vout']) == 2  # since this test just started up, we have knowledge of the coins so this is what the alg will pick
         # one of the outputs needs to be our send, but it could be any
-        assert Decimal('5.00000000') in [ x['value'] for x in txdecode['vout']]
+        assert Decimal('5000000') in [ x['value'] for x in txdecode['vout']]
         self.nodes[0].generate(5)
         self.sync_blocks()
 
         #########################################
         # sendrawtransaction with missing input #
         #########################################
-        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : 100}] # won't exist
-        outputs = { self.nodes[0].getnewaddress() : 3.998, self.nodes[0].getnewaddress() : 1.0 }
+        inputs  = [ {'outpoint' : "1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000", 'amount' : 1000000}] # won't exist
+        outputs = { self.nodes[0].getnewaddress() : 3998000, self.nodes[0].getnewaddress() : 1000000 }
         rawtx   = self.nodes[2].createrawtransaction(inputs, outputs)
         rawtx   = self.nodes[2].signrawtransaction(rawtx)
 
@@ -99,7 +99,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         #####################################
 
         # make a tx by sending then generate 2 blocks; block1 has the tx in it
-        tx = self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), 1)
+        tx = self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), 1000000)
         block1, block2 = self.nodes[2].generate(2)
         self.sync_all()
         # We should be able to get the raw transaction by providing the correct block
@@ -141,11 +141,11 @@ class RawTransactionsTest(BitcoinTestFramework):
         bal = self.nodes[2].getbalance()
 
         # send 1.2 BTC to msig adr
-        txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
+        txId = self.nodes[0].sendtoaddress(mSigObj, 1200000)
         # self.sync_blocks()
         self.nodes[0].generate(1)
         self.sync_blocks()
-        assert_equal(self.nodes[2].getbalance(), bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
+        assert_equal(self.nodes[2].getbalance(), bal+Decimal('1200000.00')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
 
 
         # 2of3 test from different nodes
@@ -161,7 +161,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         mSigObj = self.nodes[2].addmultisigaddress(2, [addr1Obj['pubkey'], addr2Obj['pubkey'], addr3Obj['pubkey']])
         mSigObjValid = self.nodes[2].validateaddress(mSigObj)
 
-        txId = self.nodes[0].sendtoaddress(mSigObj, 2.2)
+        txId = self.nodes[0].sendtoaddress(mSigObj, 2200000)
         decTx = self.nodes[0].gettransaction(txId)
         rawTx = self.nodes[0].decoderawtransaction(decTx['hex'])
         sPK = rawTx['vout'][0]['scriptPubKey']['hex']
@@ -176,13 +176,13 @@ class RawTransactionsTest(BitcoinTestFramework):
         decrawTx = self.nodes[0].decoderawtransaction(txDetails['hex'])
         vout = False
         for outpoint in decrawTx['vout']:
-            if outpoint['value'] == Decimal('2.20000000'):
+            if outpoint['value'] == Decimal('2200000.00'):
                 vout = outpoint
                 break
 
         bal = self.nodes[0].getbalance()
         inputs = [{ "outpoint" : vout["outpoint"], "scriptPubKey" : vout['scriptPubKey']['hex'], "amount":str(vout['value']) }]
-        outputs = { self.nodes[0].getnewaddress() : 2.19 }
+        outputs = { self.nodes[0].getnewaddress() : 2190000 }
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxPartialSigned = self.nodes[1].signrawtransaction(rawTx, inputs)
         assert_equal(rawTxPartialSigned['complete'], False) #node1 only has one key, can't comp. sign the tx
@@ -193,7 +193,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_blocks()
-        assert_equal(self.nodes[0].getbalance(), bal+COINBASE_REWARD+Decimal('2.19000000')) #block reward + tx
+        assert_equal(self.nodes[0].getbalance(), bal+COINBASE_REWARD+Decimal('2190000.00')) #block reward + tx
 
         #########################################
         # standard/nonstandard sendrawtransaction
@@ -204,7 +204,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         utxo = wallet.pop()
         amt = utxo["amount"]
         addr = self.nodes[0].getaddressforms(self.nodes[0].getnewaddress())["legacy"]
-        outp = {addr: amt-decimal.Decimal(.0001)}  # give some fee
+        outp = {addr: amt-decimal.Decimal(100)}  # give some fee
         txn = createrawtransaction([utxo], outp, createWastefulOutput)  # create a nonstandard tx
         signedtxn = self.nodes[0].signrawtransaction(txn)
         mempool = self.nodes[0].getmempoolinfo()
@@ -246,7 +246,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         utxo = wallet.pop()
         amt = utxo["amount"]
         addr = self.nodes[0].getaddressforms(self.nodes[0].getnewaddress())["legacy"]
-        outp = {addr: amt-decimal.Decimal(.0001)}  # give some fee
+        outp = {addr: amt-decimal.Decimal(100)}  # give some fee
         txn = createrawtransaction([utxo], outp, createWastefulOutput)  # create a nonstandard tx
         signedtxn = self.nodes[0].signrawtransaction(txn)
         mempool = self.nodes[0].getmempoolinfo()
@@ -288,7 +288,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         utxo = wallet.pop()
         amt = utxo["amount"]
         addr = self.nodes[0].getaddressforms(self.nodes[0].getnewaddress())["legacy"]
-        outp = {addr: amt-decimal.Decimal(.0001)}  # give some fee
+        outp = {addr: amt-decimal.Decimal(100)}  # give some fee
         txn = createrawtransaction([utxo], outp, p2pkh)  # create a standard tx
         signedtxn = self.nodes[0].signrawtransaction(txn)
         txid = self.nodes[0].sendrawtransaction(signedtxn["hex"], False, "STANDARD")
@@ -316,7 +316,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         unknown_txid = "c5c6ef8d06b90564e6c5451d7650b8dfc44349bee73ad85519bec3d24a680f23"
         address1 = self.nodes[0].getaddressforms(self.nodes[0].getnewaddress())["legacy"]
         address2 = self.nodes[0].getaddressforms(self.nodes[0].getnewaddress())["legacy"]
-        outputs = {address1 : 49, address2 : 1}
+        outputs = {address1 : 49000000, address2 : 1000000}
         inputs = []
         inputs.append({ "outpoint" : unknown_txid, "amount" : 51})
         raw_orphan = createrawtransaction(inputs, outputs) # creating an orphan tx

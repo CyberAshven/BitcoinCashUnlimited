@@ -303,7 +303,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         num_transactions = 25
         address = self.nodes[0].getnewaddress()
         for i in range(num_transactions):
-            self.nodes[0].sendtoaddress(address, 0.1)
+            self.nodes[0].sendtoaddress(address, 100000.01)
         time.sleep(1)
 
         # Now mine a block, and look at the resulting compact block.

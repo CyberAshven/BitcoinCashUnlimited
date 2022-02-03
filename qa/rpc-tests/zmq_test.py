@@ -101,7 +101,7 @@ class ZMQTest (BitcoinTestFramework):
                 assert_equal(genhashes[x], zmqHashes[x]) # blockhash from generate must be equal to the hash received over zmq
 
             #test tx from a second node
-            hashRPC = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
+            hashRPC = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 100000.0)
             self.sync_all()
 
             # now we should receive a zmq msg because the tx was broadcast
@@ -121,7 +121,7 @@ class ZMQTest (BitcoinTestFramework):
             for t in wallet:
                 inputs.append({ "outpoint" : t["outpoint"], "amount" : t["amount"]})
                 num_coins += 1
-            outputs = { self.nodes[0].getnewaddress() : num_coins * COINBASE_REWARD-Decimal("0.05") }
+            outputs = { self.nodes[0].getnewaddress() : num_coins * COINBASE_REWARD-Decimal("9900") }
             rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
             rawtx   = self.nodes[0].signrawtransaction(rawtx)
             idRPC = rawtx["txid"]
