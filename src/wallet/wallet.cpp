@@ -2473,7 +2473,6 @@ bool CWallet::SelectCoinsMinConf(const CAmount &nTargetValue,
     CAmount nTotalLower = 0;
 
     Shuffle(vCoins.begin(), vCoins.end(), FastRandomContext());
-
     for (const COutput &output : vCoins)
     {
         if (!output.spendable())
@@ -2495,7 +2494,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount &nTargetValue,
             nValueRet += coin.first;
             return true;
         }
-        else if (n < nTargetValue + MIN_CHANGE)
+        else if (n < nTargetValue)
         {
             vValue.push_back(coin);
             nTotalLower += n;
@@ -2537,7 +2536,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount &nTargetValue,
     // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
     //                                   or the next bigger coin is closer), return the bigger coin
     if (coinLowestLarger.second.tx &&
-        ((nBest != nTargetValue && nBest < nTargetValue + MIN_CHANGE) || coinLowestLarger.first <= nBest))
+        ((nBest != nTargetValue && nBest < nTargetValue) || coinLowestLarger.first <= nBest))
     {
         setCoinsRet.insert(coinLowestLarger.second);
         nValueRet += coinLowestLarger.first;

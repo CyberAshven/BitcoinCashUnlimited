@@ -101,7 +101,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         assert_equal(set(self.nodes[0].getrawmempool()), set())
 
         # test abandontransaction and evicttransaction
-        abandonTx = self.nodes[0].sendtoaddress(node1_address, 1.0)
+        abandonTx = self.nodes[0].sendtoaddress(node1_address, 1000.0)
         waitFor(10, lambda: abandonTx in self.nodes[1].getrawmempool())
         result = self.nodes[1].evicttransaction(abandonTx)
         assert result == 1

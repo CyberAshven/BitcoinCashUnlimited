@@ -98,10 +98,10 @@ class MiningTest (BitcoinTestFramework):
         # Add a few txns to the mempool and mine them with the default fee
         self.nodes[0].set("minlimitertxfee=0")
         self.nodes[1].set("minlimitertxfee=0")
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
         self.sync_all()
-        assert_equal(str(self.nodes[0].getnetworkinfo()["relayfee"]), "0E-8")
+        assert_equal(str(self.nodes[0].getnetworkinfo()["relayfee"]), "0.00")
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 2)
         assert_equal(self.nodes[0].getmempoolinfo()["mempoolminfee"], 0)
         self.nodes[0].generate(1);
@@ -111,8 +111,8 @@ class MiningTest (BitcoinTestFramework):
 
         # Add a few txns to the mempool, then increase the relayfee beyond what the txns would pay
         # and mine a block. All txns should be mined and removed from the
-        txid1 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
-        txid2 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
+        txid1 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
+        txid2 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
         self.sync_all()
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 2)
         assert_equal(self.nodes[0].getmempoolinfo()["mempoolminfee"], 0)
@@ -124,13 +124,13 @@ class MiningTest (BitcoinTestFramework):
         self.nodes[0].set("minlimitertxfee=1000")
         self.nodes[1].set("minlimitertxfee=1000")
 
-        txid3 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
-        txid4 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
+        txid3 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
+        txid4 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
         self.sync_all()
 
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 4)
         assert_equal(self.nodes[1].getmempoolinfo()["size"], 4)
-        assert_equal(str(self.nodes[0].getnetworkinfo()["relayfee"]), "0.01000000")
+        assert_equal(str(self.nodes[0].getnetworkinfo()["relayfee"]), "10000.00")
 
         #only tx1 and tx2 should have been mined since there is not enough space
         # in the priority area for all 4 free txns.

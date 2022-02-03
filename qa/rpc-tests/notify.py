@@ -98,7 +98,7 @@ class NotifyTest(BitcoinTestFramework):
         logging.info("sync done")
         address = self.nodes[1].getnewaddress("test1")
         logging.info("getnewaddress done")
-        txid = self.nodes[1].sendtoaddress(address, 1, "", "", True)
+        txid = self.nodes[1].sendtoaddress(address, 100, "", "", True)
         sync_mempools(self.nodes)
         logging.info("sync_mempools done")
         waitFor(10, lambda: os.path.isfile(self.touch_filename2) == False)
@@ -108,7 +108,7 @@ class NotifyTest(BitcoinTestFramework):
         # check walletnotify - send a transaction from node1 to node0. Both nodes should have run
         # the walletnotify command.
         address2 = self.nodes[0].getnewaddress("test2")
-        txid = self.nodes[1].sendtoaddress(address2, 1, "", "", True)
+        txid = self.nodes[1].sendtoaddress(address2, 100, "", "", True)
         sync_mempools(self.nodes)
         waitFor(10, lambda: os.path.isfile(self.touch_filename2) == True)
         waitFor(10, lambda: os.path.isfile(self.touch_filename4) == True)

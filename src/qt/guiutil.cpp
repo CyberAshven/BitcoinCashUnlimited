@@ -140,7 +140,7 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
     // We don't want translators to use own addresses in translations
     // and this is the only place, where this address is supplied.
     widget->setPlaceholderText(
-        QObject::tr("Enter a BCH address (e.g. %1)").arg(QString::fromStdString(DummyAddress(params, GetConfig()))));
+        QObject::tr("Enter a NEXA address (e.g. %1)").arg(QString::fromStdString(DummyAddress(params, GetConfig()))));
     widget->setValidator(new BitcoinAddressEntryValidator(params.CashAddrPrefix(), parent));
     widget->setCheckValidator(new BitcoinAddressCheckValidator(parent));
 }
@@ -158,7 +158,7 @@ QString bitcoinURIScheme(const CChainParams &params, bool useCashAddr)
 {
     if (!useCashAddr)
     {
-        return "bitcoincash";
+        return "nexa";
     }
     return QString::fromStdString(params.CashAddrPrefix());
 }
@@ -225,7 +225,7 @@ bool parseBitcoinURI(const QString &scheme, const QUrl &uri, SendCoinsRecipient 
         {
             if (!i->second.isEmpty())
             {
-                if (!BitcoinUnits::parse(BitcoinUnits::BCH, i->second, &rv.amount))
+                if (!BitcoinUnits::parse(BitcoinUnits::NEX, i->second, &rv.amount))
                 {
                     return false;
                 }
@@ -246,8 +246,8 @@ bool parseBitcoinURI(const QString &scheme, const QUrl &uri, SendCoinsRecipient 
 bool parseBitcoinURI(const QString &scheme, QString uri, SendCoinsRecipient *out)
 {
     //
-    //    Cannot handle this later, because bitcoincash://
-    //    will cause Qt to see the part after // as host,
+    //    Cannot handle this later, because nexa
+    //    will cause Qt to see the part after as host,
     //    which will lower-case it (and thus invalidate the address).
     if (uri.startsWith(scheme + "://", Qt::CaseInsensitive))
     {
@@ -270,7 +270,7 @@ QString formatBitcoinURI(const Config &cfg, const SendCoinsRecipient &info)
     if (info.amount)
     {
         ret += QString("?amount=%1")
-                   .arg(BitcoinUnits::format(BitcoinUnits::BCH, info.amount, false, BitcoinUnits::separatorNever));
+                   .arg(BitcoinUnits::format(BitcoinUnits::NEX, info.amount, false, BitcoinUnits::separatorNever));
         paramCount++;
     }
 
@@ -1058,7 +1058,7 @@ QString formatTimeOffset(int64_t nTimeOffset)
     return QString(QObject::tr("%1 s")).arg(QString::number((int)nTimeOffset, 10));
 }
 
-QString uriPrefix() { return "bitcoincash"; }
+QString uriPrefix() { return "nexa"; }
 QString formateNiceTimeOffset(qint64 secs)
 {
     // Represent time from last generated block in human readable text

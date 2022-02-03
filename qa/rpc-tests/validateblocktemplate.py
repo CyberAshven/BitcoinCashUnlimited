@@ -211,7 +211,7 @@ class ValidateblocktemplateTest(BitcoinTestFramework):
         expectException(lambda: self.nodes[0].validateblocktemplate(hexblk),
                         JSONRPCException, "invalid block: bad-txns-in-belowout")
 
-        tx5 = create_transaction(prev_block.vtx[0], 0, op1, [int(21000001 * COIN)])
+        tx5 = create_transaction(prev_block.vtx[0], 0, op1, [int(21000000000001 * COIN)])
         logging.info("money range")
         block = create_block(tip, nextheight, work, coinbase, next_time, [tx5])
         block.rehash()

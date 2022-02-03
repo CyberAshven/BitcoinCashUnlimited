@@ -75,7 +75,7 @@ class ThinBlockTest(BitcoinTestFramework):
         send_to = {}
         self.nodes[0].keypoolrefill(20)
         for i in range(20):
-            send_to[self.nodes[1].getnewaddress()] = Decimal("0.01")
+            send_to[self.nodes[1].getnewaddress()] = Decimal("1000000.01")
         self.nodes[0].sendmany("", send_to)
         self.sync_all()
 
@@ -87,7 +87,7 @@ class ThinBlockTest(BitcoinTestFramework):
         send_to = {}
         self.nodes[0].keypoolrefill(20)
         for i in range(20):
-            send_to[self.nodes[1].getnewaddress()] = Decimal("0.01")
+            send_to[self.nodes[1].getnewaddress()] = Decimal("1000000.01")
         self.nodes[0].sendmany("", send_to)
         self.sync_all()
 

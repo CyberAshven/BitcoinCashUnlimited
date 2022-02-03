@@ -1776,7 +1776,7 @@ UniValue getaddressforms(const UniValue &params, bool fHelp)
                             "\nResult:\n"
                             "{\n"
                             "\"legacy\": \"1 or 3 prefixed address\",\n"
-                            "\"bitcoincash\": \"bitcoincash prefixed address\",\n"
+                            "\"nexa\": \"nexa prefixed address\",\n"
                             "\"bitpay\": \"C or H prefixed address\"\n"
                             "}\n"
                             "\nExamples:\n" +
@@ -1799,7 +1799,7 @@ UniValue getaddressforms(const UniValue &params, bool fHelp)
 
     UniValue node(UniValue::VOBJ);
     node.pushKV("legacy", legacyAddr);
-    node.pushKV("bitcoincash", cashAddr);
+    node.pushKV("nexa", cashAddr);
     node.pushKV("bitpay", bitpayAddr);
     return node;
 }

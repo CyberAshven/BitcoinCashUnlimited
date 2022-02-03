@@ -57,9 +57,9 @@ public:
      */
     enum Unit
     {
-        BCH,
-        mBCH,
-        XCH
+        NEX,
+        KEX,
+        MEX
     };
 
     enum SeparatorStyle

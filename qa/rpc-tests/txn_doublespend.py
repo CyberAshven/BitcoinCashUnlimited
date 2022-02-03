@@ -39,8 +39,8 @@ class TxnDoubleSpendTest(BitcoinTestFramework):
 
         unspent = self.nodes[0].listunspent()
 
-        doublespend_fee = Decimal('-.02')
-        doublespend_amt = unspent[0]["amount"] + unspent[1]["amount"] - Decimal("1.0")
+        doublespend_fee = Decimal('-20000')
+        doublespend_amt = unspent[0]["amount"] + unspent[1]["amount"] - Decimal("10000000.0")
         rawtx_input_0 = {}
         rawtx_input_0["outpoint"] = unspent[0]["outpoint"]
         rawtx_input_0["amount"] = unspent[0]["amount"]
@@ -51,14 +51,14 @@ class TxnDoubleSpendTest(BitcoinTestFramework):
         change_address = self.nodes[0].getnewaddress()
         outputs = {}
         outputs[node1_address] = doublespend_amt
-        outputs[change_address] = Decimal("1.0") + doublespend_fee
+        outputs[change_address] = Decimal("10000000.0") + doublespend_fee
         rawtx2 = self.nodes[0].createrawtransaction(inputs, outputs)
         doublespend2 = self.nodes[0].signrawtransaction(rawtx2)
         assert_equal(doublespend2["complete"], True)
 
         # Change how we allocate the coins slightly
-        outputs[node1_address] =  outputs[node1_address] - Decimal("1.0")
-        outputs[change_address] = outputs[change_address] + Decimal("1.0")
+        outputs[node1_address] =  outputs[node1_address] - Decimal("10000000.0")
+        outputs[change_address] = outputs[change_address] + Decimal("10000000.0")
         # And build a doublespend
         rawtx1 = self.nodes[0].createrawtransaction(inputs, outputs)
         doublespend1 = self.nodes[0].signrawtransaction(rawtx1)

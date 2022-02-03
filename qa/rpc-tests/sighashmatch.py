@@ -65,7 +65,7 @@ class SigHashMatchTest(BitcoinTestFramework):
         utxo = unspents.pop()
         amt = utxo["amount"]
         addr = utxo["address"]
-        outp = {"dummy" : amt - decimal.Decimal(.0001)}  # give some fee
+        outp = {"dummy" : amt - 1000}  # give some fee
         txn = CTransaction().deserialize(createrawtransaction([utxo], outp, p2pkh))
 
         # create signature manually using txn.SignatureHash() calculation
@@ -80,8 +80,7 @@ class SigHashMatchTest(BitcoinTestFramework):
 
         scriptcode = CScript([pub, OP_CHECKSIG])
         hashcode = SIGHASH_ALL | SIGHASH_FORKID
-        sighash = txn.SignatureHash(0, bytes(scriptcode),
-                                    int((amt)*100000000), hashcode, debug=False)
+        sighash = txn.SignatureHash(0, bytes(scriptcode), int(amt*COIN), hashcode, debug=False)
         txn_mansig = unhexlify(self.nodes[0].signdata(addr, "hash",
                                             hexlify(sighash).decode("ascii")))
         fullsig = txn_mansig+bytes([hashcode])

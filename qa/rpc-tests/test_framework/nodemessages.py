@@ -29,7 +29,7 @@ from .constants import SIGHASH_ALL, \
 
 MY_SUBVERSION = b"/python-mininode-tester:0.0.3/"
 
-COIN = 100000000  # 1 btc in satoshis
+COIN = 100  # 1 coin in satoshis
 
 # One lock for synchronizing all data access between the networking thread (see
 # NetworkThread below) and the thread running the test logic.  For simplicity,
@@ -737,7 +737,7 @@ class CTransaction(object):
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
-            if tout.nValue < 0 or tout.nValue > 21000000 * COIN:
+            if tout.nValue < 0 or tout.nValue > 21000000000000 * COIN:
                 return False
         return True
 

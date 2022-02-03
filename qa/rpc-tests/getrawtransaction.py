@@ -43,12 +43,12 @@ class GetRawTransactionTest (BitcoinTestFramework):
         while blocks < 7:
             txids = []
             if blocks == 0:
-                self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.001)
-            oneTxHash = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
+                self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000)
+            oneTxHash = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000000)
             txids.append(oneTxHash)
             timeIssued = time.time()
-            txids.append(self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1))
-            txids.append(self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1))
+            txids.append(self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000000))
+            txids.append(self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000000))
 
             # Test some fields of rawtransaction get getrawtransaction while the tx is unconfirmed
             grt = self.nodes[0].getrawtransaction(oneTxHash, 1);

@@ -127,7 +127,7 @@ class DecodeScriptTest(BitcoinTestFramework):
         node = self.nodes[0]
 
         addr = node.getnewaddress()
-        txidem = node.sendtoaddress(addr, 1)
+        txidem = node.sendtoaddress(addr, 1000000)
         txhex = node.getrawtransaction(txidem)
         decode = node.decoderawtransaction(txhex)
         # standard sighashtype for our signing

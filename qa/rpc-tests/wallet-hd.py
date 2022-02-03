@@ -60,13 +60,13 @@ class WalletHDTest(BitcoinTestFramework):
             hd_info = self.nodes[1].validateaddress(hd_add)
             assert_equal(hd_info["hdkeypath"], "m/0'/0'/"+str(i+1)+"'")
             assert_equal(hd_info["hdmasterkeyid"], masterkeyid)
-            self.nodes[0].sendtoaddress(hd_add, 1)
+            self.nodes[0].sendtoaddress(hd_add, 1000000)
             self.nodes[0].generate(1)
-        self.nodes[0].sendtoaddress(non_hd_add, 1)
+        self.nodes[0].sendtoaddress(non_hd_add, 1000000)
         self.nodes[0].generate(1)
 
         self.sync_blocks()
-        assert_equal(self.nodes[1].getbalance(), num_hd_adds + 1)
+        assert_equal(self.nodes[1].getbalance(), (num_hd_adds * 1000000) + 1000000)
 
         logging.info("Restore backup ...")
         stop_node(self.nodes[1], 1)
@@ -88,7 +88,7 @@ class WalletHDTest(BitcoinTestFramework):
         logging.info("Rescan ...")
         stop_node(self.nodes[1], 1)
         self.nodes[1] = start_node(1, self.options.tmpdir, self.node_args[1] + ['-rescan'])
-        assert_equal(self.nodes[1].getbalance(), num_hd_adds + 1)
+        assert_equal(self.nodes[1].getbalance(), (num_hd_adds * 1000000) + 1000000)
 
         # cleanup backup file
         os.remove(tmpdir + "hd.bak")
