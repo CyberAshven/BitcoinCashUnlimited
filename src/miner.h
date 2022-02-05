@@ -147,8 +147,6 @@ private:
     void SortForBlock(const CTxMemPool::setEntries &package, std::vector<CTxMemPool::TxIdIter> &sortedEntries);
 };
 
-/** Modify the extranonce in a block */
-void IncrementExtraNonce(CBlock *pblock, unsigned int &nExtraNonce);
 int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev);
 
 // TODO: There is no mining.h
