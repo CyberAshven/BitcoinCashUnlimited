@@ -102,10 +102,10 @@ protected:
     bool fReadOnly;
     bool fFlushOnClose;
 
+public:
     explicit CDB(const std::string &strFilename, const char *pszMode = "r+", bool fFlushOnCloseIn = true);
     ~CDB() { Close(); }
 
-public:
     void Flush();
     void Close();
 
@@ -113,7 +113,7 @@ private:
     CDB(const CDB &);
     void operator=(const CDB &);
 
-protected:
+public:
     template <typename K, typename T>
     bool Read(const K &key, T &value)
     {

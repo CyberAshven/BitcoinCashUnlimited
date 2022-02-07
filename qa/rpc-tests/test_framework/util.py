@@ -66,6 +66,9 @@ def getNodeInfo(node):
     ret += "\n** getinfo:\n" + pprint.pformat(node.getinfo(),PP_INDENT,PP_WIDTH)
     ret += "\n** getmempoolinfo:\n" + pprint.pformat(node.getmempoolinfo(),PP_INDENT,PP_WIDTH)
     ret += "\n** getorphanpoolinfo:\n" + pprint.pformat(node.getorphanpoolinfo(),PP_INDENT,PP_WIDTH)
+    ret += "\n** getchaintips:\n" + pprint.pformat(node.getchaintips(),PP_INDENT,PP_WIDTH)
+    ret += "\n** getblockchaininfo:\n" + pprint.pformat(node.getblockchaininfo(),PP_INDENT,PP_WIDTH)
+    ret += "\n** getwalletinfo:\n" + pprint.pformat(node.getwalletinfo(),PP_INDENT,PP_WIDTH)
     v = node.getpeerinfo()
     ret += ("\n** %d peers:\n" % len(v)) + pprint.pformat(v,PP_INDENT,PP_WIDTH)
     return ret
