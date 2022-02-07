@@ -179,7 +179,6 @@ extern bool IsChainNearlySyncd();
 extern bool IsChainSyncd();
 extern void IsChainNearlySyncdInit();
 extern void IsChainNearlySyncdSet(bool fSync);
-extern uint64_t LargestBlockSeen(uint64_t nBlockSize = 0);
 extern int GetBlockchainHeight();
 
 // BUIP010 Xtreme Thinblocks: begin
@@ -229,7 +228,6 @@ extern CStatHistory<uint64_t, MinValMax<uint64_t> > poolSize;
 
 // Configuration variable validators
 std::string OutboundConnectionValidator(const int &value, int *item, bool validate);
-std::string MaxDataCarrierValidator(const unsigned int &value, unsigned int *item, bool validate);
 std::string SubverValidator(const std::string &value, std::string *item, bool validate);
 // validator for the voting tweak
 std::string Bip135VoteValidator(const std::string &value, std::string *item, bool validate);

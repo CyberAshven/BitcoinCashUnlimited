@@ -414,8 +414,10 @@ def initialize_datadir(dirname, n, bitcoinConfDict=None, wallet=None, bins=None)
         os.makedirs(datadir)
     rpc_u, rpc_p = rpc_auth_pair(n)
     defaults = {"server":1, "discover":0, "regtest":1,"rpcuser":"rt","rpcpassword":"rt",
-                "port":p2p_port(n),"rpcport":str(rpc_port(n)),"listenonion":0,"maxlimitertxfee":0,"usecashaddr":1,
-                "rpcuser":rpc_u, "rpcpassword":rpc_p, "bindallorfail" : 1, "minlimitertxfee":0, "limitfreerelay":15,
+                "port":p2p_port(n),"rpcport":str(rpc_port(n)),"listenonion":0,"usecashaddr":1,
+                "rpcuser":rpc_u, "rpcpassword":rpc_p, "bindallorfail" : 1,
+                "relay.minRelayTxFee":0,
+                "relay.limitFreeRelay":15,
                 "electrum.port": electrum_rpc_port(n),
 #                "electrum.ws.port": electrum_ws_port(n),
                 "electrum.monitoring.port": electrum_monitoring_port(n)

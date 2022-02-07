@@ -96,8 +96,8 @@ class MiningTest (BitcoinTestFramework):
         self.sync_all()
 
         # Add a few txns to the mempool and mine them with the default fee
-        self.nodes[0].set("minlimitertxfee=0")
-        self.nodes[1].set("minlimitertxfee=0")
+        self.nodes[0].set("relay.minRelayTxFee=0")
+        self.nodes[1].set("relay.minRelayTxFee=0")
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
         self.sync_all()
@@ -121,8 +121,8 @@ class MiningTest (BitcoinTestFramework):
         # In this case because the -limitfreerelay is set by default in the python scripts
         # the following transactions will be considered free, and as a result should enter the mempool
         # and be mineable.
-        self.nodes[0].set("minlimitertxfee=1000")
-        self.nodes[1].set("minlimitertxfee=1000")
+        self.nodes[0].set("relay.minRelayTxFee=1000")
+        self.nodes[1].set("relay.minRelayTxFee=1000")
 
         txid3 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
         txid4 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 100)
@@ -130,7 +130,7 @@ class MiningTest (BitcoinTestFramework):
 
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 4)
         assert_equal(self.nodes[1].getmempoolinfo()["size"], 4)
-        assert_equal(str(self.nodes[0].getnetworkinfo()["relayfee"]), "10000.00")
+        assert_equal(str(self.nodes[0].getnetworkinfo()["relayfee"]), "10.00")
 
         #only tx1 and tx2 should have been mined since there is not enough space
         # in the priority area for all 4 free txns.

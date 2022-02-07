@@ -600,8 +600,6 @@ void HandleBlockMessageThread(CNodeRef noderef, const string strCommand, CBlockR
 
         if (!state.IsInvalid())
         {
-            LargestBlockSeen(nSizeBlock); // update largest block seen
-
             double nValidationTime = (double)(GetStopwatchMicros() - startTime) / 1000000.0;
             if ((strCommand != NetMsgType::BLOCK) &&
                 (IsThinBlocksEnabled() || IsGrapheneBlockEnabled() || IsCompactBlocksEnabled()))

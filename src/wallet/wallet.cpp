@@ -3147,8 +3147,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient> &vecSend,
                     }
                     if (fSendFreeTransactions && !AreFreeTxnsAllowed())
                     {
-                        strFailReason =
-                            _("You can not send free transactions if you have configured a -limitfreerelay of zero");
+                        strFailReason = _("You can not send free transactions if you have configured a "
+                                          "-relay.limitFreeRelay of zero");
                         return false;
                     }
 

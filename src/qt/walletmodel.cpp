@@ -26,6 +26,9 @@
 #include <QSet>
 #include <QTimer>
 
+extern CTweak<uint32_t> dataCarrierSize;
+extern CTweak<bool> dataCarrier;
+
 WalletModel::WalletModel(const PlatformStyle *platformStyle,
     CWallet *_wallet,
     OptionsModel *_optionsModel,
@@ -228,7 +231,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
                 // Make sure scriptPubKey is within size constraints and that we are configured
                 // to foward OP_RETURN transactions.
-                if (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes)
+                if (!dataCarrier.Value() || scriptPubKey.size() > dataCarrierSize.Value())
                     return LabelPublicExceedsLimits;
             }
 

@@ -13,6 +13,9 @@
 #include "util.h"
 #include "utilstrencodings.h"
 
+extern CTweak<uint32_t> dataCarrierSize;
+extern CTweak<bool> dataCarrier;
+
 /**
  * Check transaction inputs to mitigate two
  * potential denial-of-service attacks:
@@ -56,7 +59,7 @@ bool IsStandard(const CScript &scriptPubKey, txnouttype &whichType)
     }
     else if (whichType == TX_NULL_DATA || whichType == TX_LABELPUBLIC)
     {
-        if (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes)
+        if (!dataCarrier.Value() || scriptPubKey.size() > dataCarrierSize.Value())
             return false;
     }
 
@@ -138,7 +141,7 @@ bool IsStandardTx(const CTransactionRef tx, std::string &reason, bool allowMulti
     }
 
     // total size of all OP_RETURNs combined must be less than maximum allowed size
-    if (nDataSize > nMaxDatacarrierBytes)
+    if (nDataSize > dataCarrierSize.Value())
     {
         reason = "oversize-op-return";
         return false;

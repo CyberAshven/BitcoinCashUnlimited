@@ -41,6 +41,8 @@ FalseScriptImportedState fsis;
 extern bool fPrintToConsole;
 extern void noui_connect();
 
+extern CTweak<uint32_t> limitFreeRelay;
+
 BasicTestingSetup::BasicTestingSetup(const std::string &chainName)
 {
     // Do not place the data created by these unit tests on top of any existing chain,
@@ -77,8 +79,8 @@ TestingSetup::TestingSetup(const std::string &chainName) : BasicTestingSetup(cha
     bool worked = InitBlockIndex(chainparams);
     assert(worked);
 
-    // -limitfreerelay is diabled by default but some tests rely on it so make sure to set it here.
-    SetArg("-limitfreerelay", std::to_string(15));
+    // -relay.limitFreeRelay is diabled by default but some tests rely on it so make sure to set it here.
+    limitFreeRelay.Set(15);
 
     // Initial dbcache settings so that the automatic cache setting don't kick in and allow
     // us to accidentally use up our RAM on Travis, and also so that we are not prevented from flushing the

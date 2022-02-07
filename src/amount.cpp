@@ -8,7 +8,7 @@
 #include "tinyformat.h"
 #include "tweak.h"
 extern CTweak<unsigned int> txWalletDust; // minimum wallet tx output size
-extern CTweak<unsigned int> nDustThreshold; // minimum "standard" tx output size (below this won't relay)
+extern CTweak<uint32_t> dustThreshold; // minimum "standard" tx output size (below this won't relay)
 
 CFeeRate::CFeeRate(const CAmount &nFeePaid, size_t nSize)
 {
@@ -21,7 +21,6 @@ CFeeRate::CFeeRate(const CAmount &nFeePaid, size_t nSize)
 CAmount CFeeRate::GetFee(size_t nSize) const
 {
     CAmount nFee = nSatoshisPerK * nSize / 1000;
-
     if (nFee == 0 && nSatoshisPerK > 0)
         nFee = nSatoshisPerK;
 
@@ -43,5 +42,5 @@ CAmount CFeeRate::GetDust() const
     // A typical spendable txout is 34 bytes big, and will need a CTxIn of at least 148 bytes to spend:
     if (dust == 0)
         dust = 3 * minRelayTxFee.GetFee(TYPICAL_UTXO_LIFECYCLE_SIZE);
-    return std::max(dust, (CAmount)nDustThreshold.Value());
+    return std::max(dust, (CAmount)dustThreshold.Value());
 }

@@ -42,6 +42,7 @@ std::atomic<int64_t> nTotalPackage{0};
 /** Maximum number of failed attempts to insert a package into a block */
 static const unsigned int MAX_PACKAGE_FAILURES = 5;
 extern CTweak<unsigned int> xvalTweak;
+extern CTweak<uint32_t> dataCarrierSize;
 
 using namespace std;
 
@@ -154,9 +155,9 @@ CTransactionRef BlockAssembler::coinbaseTx(const CScript &scriptPubKeyIn, int _n
         COINBASE_FLAGS = CScript() << vec;
         // Chop off any extra data in the COINBASE_FLAGS so the sig does not exceed the max.
         // we can do this because the coinbase is not a "real" script...
-        if (tx.vout[dataIdx].scriptPubKey.size() + COINBASE_FLAGS.size() > nMaxDatacarrierBytes)
+        if (tx.vout[dataIdx].scriptPubKey.size() + COINBASE_FLAGS.size() > dataCarrierSize.Value())
         {
-            COINBASE_FLAGS.resize(nMaxDatacarrierBytes - tx.vout[dataIdx].scriptPubKey.size());
+            COINBASE_FLAGS.resize(dataCarrierSize.Value() - tx.vout[dataIdx].scriptPubKey.size());
         }
 
         tx.vout[dataIdx].scriptPubKey = tx.vout[dataIdx].scriptPubKey + COINBASE_FLAGS;

@@ -1043,12 +1043,6 @@ void CThinBlockData::UpdateInBoundReRequestedTx(int nReRequestedTx)
     updateStats(mapThinBlocksInBoundReRequestedTx, nReRequestedTx);
 }
 
-void CThinBlockData::UpdateMempoolLimiterBytesSaved(unsigned int nBytesSaved)
-{
-    LOCK(cs_thinblockstats);
-    nMempoolLimiterBytesSaved += nBytesSaved;
-}
-
 void CThinBlockData::UpdateThinBlock(uint64_t nThinBlockSize)
 {
     LOCK(cs_thinblockstats);
@@ -1215,15 +1209,6 @@ std::string CThinBlockData::ReRequestedTxToString()
     return ss.str();
 }
 
-std::string CThinBlockData::MempoolLimiterBytesSavedToString()
-{
-    LOCK(cs_thinblockstats);
-    double size = (double)nMempoolLimiterBytesSaved();
-    std::ostringstream ss;
-    ss << "Thinblock mempool limiting has saved " << formatInfoUnit(size) << " of bandwidth";
-    return ss.str();
-}
-
 // Calculate the average xthin block size
 std::string CThinBlockData::ThinBlockToString()
 {
@@ -1252,7 +1237,6 @@ void CThinBlockData::ClearThinBlockStats()
     nThinSize.Clear();
     nInBoundBlocks.Clear();
     nOutBoundBlocks.Clear();
-    nMempoolLimiterBytesSaved.Clear();
     nTotalBloomFilterBytes.Clear();
     nTotalThinBlockBytes.Clear();
     nTotalFullTxBytes.Clear();

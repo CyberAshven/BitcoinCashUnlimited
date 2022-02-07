@@ -282,8 +282,7 @@ void TestPackageSelection(const CChainParams &chainparams, CScript scriptPubKey,
     auto cbAmt = chainparams.GetConsensus().initialSubsidy;
 
     SetArg("-blockprioritysize", std::to_string(0));
-    dMinLimiterTxFee.Set(1.0);
-    dMaxLimiterTxFee.Set(1.0);
+    minRelayFee.Set(1000);
 
     // Test that a medium fee transaction will be selected after a higher fee
     // rate package with a low fee rate parent.
@@ -468,8 +467,7 @@ void PerformanceTest_PackageSelection(const CChainParams &chainparams,
     std::vector<CTransactionRef> &txFirst)
 {
     maxGeneratedBlock = 10000000;
-    dMinLimiterTxFee.Set(1.0);
-    dMaxLimiterTxFee.Set(1.0);
+    minRelayFee.Set(1000);
 
     // Create many chains of transactions with varying fees such that we have many distinct packages within
     // each chain which could be mined as a Child Pays for Parent.

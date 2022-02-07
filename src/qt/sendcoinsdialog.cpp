@@ -28,6 +28,8 @@
 #include <QSettings>
 #include <QTextDocument>
 
+extern CTweak<uint32_t> dataCarrierSize;
+
 SendCoinsDialog::SendCoinsDialog(const PlatformStyle *_platformStyle, QWidget *parent)
     : QDialog(parent), ui(new Ui::SendCoinsDialog), clientModel(0), model(0), fNewRecipientAllowed(true),
       fFeeMinimized(true), platformStyle(_platformStyle)
@@ -600,7 +602,7 @@ void SendCoinsDialog::processSendCoinsReturn(const WalletModel::SendCoinsReturn 
         msgParams.first = tr("Public Label exeeds limit of ");
         // append max byte size. Byte size will be 7 bytes less than max data carrier
         // to account for the other op codes within the scriptPubKey
-        msgParams.first.append(QString::number(nMaxDatacarrierBytes - 7) + " bytes");
+        msgParams.first.append(QString::number(dataCarrierSize.Value() - 7) + " bytes");
         msgParams.second = CClientUIInterface::MSG_ERROR;
         break;
     // included to prevent a compiler warning.

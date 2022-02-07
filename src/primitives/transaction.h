@@ -19,7 +19,7 @@
 #include <atomic>
 #include <memory>
 
-extern CTweak<unsigned int> nDustThreshold;
+extern CTweak<uint32_t> dustThreshold;
 
 
 class COutPoint
@@ -182,7 +182,7 @@ public:
         if (scriptPubKey.IsUnspendable())
             return (CAmount)0;
 
-        return (CAmount)nDustThreshold.Value();
+        return (CAmount)dustThreshold.Value();
     }
     bool IsDust() const { return (nValue < GetDustThreshold()); }
     friend bool operator==(const CTxOut &a, const CTxOut &b)

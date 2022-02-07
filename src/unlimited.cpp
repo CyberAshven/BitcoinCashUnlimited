@@ -62,7 +62,6 @@ extern void AlertNotify(const std::string &strMessage);
 using namespace std;
 
 extern CTxMemPool mempool; // from main.cpp
-static atomic<uint64_t> nLargestBlockSeen{ONE_MEGABYTE}; // track the largest block we've seen
 static atomic<bool> fIsChainNearlySyncd{false};
 
 // We always start with true so that when ActivateBestChain is called during the startup (init.cpp)
@@ -106,22 +105,6 @@ std::string OutboundConnectionValidator(const int &value, int *item, bool valida
                 for (int i = 0; i < diff; i++)
                     semOutboundAddNode->post();
         }
-    }
-    return std::string();
-}
-
-std::string MaxDataCarrierValidator(const unsigned int &value, unsigned int *item, bool validate)
-{
-    if (validate)
-    {
-        if (value < MAX_OP_RETURN_RELAY) // sanity check
-        {
-            return "Invalid Value. Data Carrier minimum size has to be greater of equal to 223 bytes";
-        }
-    }
-    else // Do anything to "take" the new value
-    {
-        // nothing needed
     }
     return std::string();
 }
@@ -791,28 +774,6 @@ bool IsChainSyncd()
 {
     // lock free since both are atomics
     return pindexBestHeader.load() == chainActive.Tip();
-}
-uint64_t LargestBlockSeen(uint64_t nBlockSize)
-{
-    // C++98 lacks the capability to do static initialization properly
-    // so we need a runtime check to make sure it is.
-    // This can be removed when moving to C++11 .
-    if (nBlockSize < ONE_MEGABYTE)
-    {
-        nBlockSize = ONE_MEGABYTE;
-    }
-
-    // Return the largest block size that we have seen since startup
-    uint64_t nSize = nLargestBlockSeen.load();
-    while (nBlockSize > nSize)
-    {
-        if (nLargestBlockSeen.compare_exchange_weak(nSize, nBlockSize))
-        {
-            return nBlockSize;
-        }
-    }
-
-    return nSize;
 }
 
 /** Returns the block height of the current active chain tip. **/

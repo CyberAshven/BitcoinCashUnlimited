@@ -32,6 +32,7 @@
 #include <univalue.h>
 
 extern CTweak<bool> enforceMinTxSize;
+extern CTweak<uint32_t> dataCarrierSize;
 
 using namespace std;
 
@@ -356,18 +357,18 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, true));
 
     // Check dust with default threshold:
-    nDustThreshold.Set(DEFAULT_DUST_THRESHOLD);
+    dustThreshold.Set(DEFAULT_DUST_THRESHOLD);
     // dust:
-    t.vout[0].nValue = nDustThreshold.Value() - 1;
+    t.vout[0].nValue = dustThreshold.Value() - 1;
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, false));
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, true));
     // not dust:
-    t.vout[0].nValue = nDustThreshold.Value();
+    t.vout[0].nValue = dustThreshold.Value();
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, false));
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, true));
 
     // Check dust with odd threshold
-    nDustThreshold.Set(1234);
+    dustThreshold.Set(1234);
     // dust:
     t.vout[0].nValue = 1234 - 1;
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, false));
@@ -376,7 +377,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vout[0].nValue = 1234;
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, false));
     BOOST_CHECK(IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, true));
-    nDustThreshold.Set(DEFAULT_DUST_THRESHOLD);
+    dustThreshold.Set(DEFAULT_DUST_THRESHOLD);
 
     t.vout[0].scriptPubKey = CScript() << OP_1;
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, false));
@@ -384,7 +385,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(CTransaction(t).HasData() == false);
 
     // Check max LabelPublic: MAX_OP_RETURN_RELAY-2 byte TX_NULL_DATA
-    nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
+    dataCarrierSize.Set(MAX_OP_RETURN_RELAY);
     uint64_t someNumber = 17; // serializes to 2 bytes which is important to make the total script the desired len
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << CScriptNum(someNumber)
                                        << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962"
@@ -480,8 +481,8 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, false));
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, true));
 
-    // Check when a custom value is used for -datacarriersize .
-    nMaxDatacarrierBytes = 90;
+    // Check when a custom value is used for -relay.dataCarrierSize .
+    dataCarrierSize.Set(90);
 
     // Max user provided payload size in multiple outputs is standard
     // after the May 2021 Network Upgrade.
@@ -507,11 +508,10 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(!IsStandardTx(MakeTransactionRef(CTransaction(t)), reason, true));
 
     // Reset datacarriersize back to default [standard] size
-    nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
+    dataCarrierSize.Set(MAX_OP_RETURN_RELAY);
     t.vout.resize(1);
 
     // MAX_OP_RETURN_RELAY-byte TX_NULL_DATA (standard)
-    nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
     t.vout[0].scriptPubKey = CScript() << OP_RETURN
                                        << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962"
                                                    "e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a671"
@@ -617,7 +617,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     // Every OP_RETURN output script without data pushes is one byte long,
     // so the maximum number of outputs will be nMaxDatacarrierBytes.
-    t.vout.resize(nMaxDatacarrierBytes + 1);
+    t.vout.resize(dataCarrierSize.Value() + 1);
     for (auto &out : t.vout)
     {
         out.nValue = 0;
