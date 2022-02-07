@@ -57,7 +57,6 @@ BOOST_AUTO_TEST_CASE(test_thinblockdata_stats1)
         tbd.ResponseTimeToString();
         tbd.ValidationTimeToString();
         tbd.ReRequestedTxToString();
-        tbd.MempoolLimiterBytesSavedToString();
     }
 
     {
@@ -112,16 +111,6 @@ BOOST_AUTO_TEST_CASE(test_thinblockdata_stats1)
 
         string res = tbd.ReRequestedTxToString();
         BOOST_CHECK_MESSAGE(res.find(":100") != string::npos, "ReRequestedTxToString() is " << res);
-    }
-
-    {
-        TestTBD tbd(times1);
-
-        for (int64_t i : boost::irange(0, 100))
-            tbd.UpdateMempoolLimiterBytesSaved(1000 * i);
-
-        string res = tbd.MempoolLimiterBytesSavedToString();
-        BOOST_CHECK_MESSAGE(res.find("4.95MB") != string::npos, "MempoolLimiterBytesSavedToString() is " << res);
     }
 }
 

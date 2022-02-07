@@ -72,6 +72,11 @@ static const unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS =
 /** Used as the flags parameter to sequence and nLocktime checks in non-consensus code. */
 static const unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUENCE | LOCKTIME_MEDIAN_TIME_PAST;
 
+/** largest OP_RETURN, in bytes, allowed */
+static const unsigned int MAX_OP_RETURN_RELAY = 223; //! bytes (+1 for OP_RETURN, +2 for the pushdata opcodes)
+/** Do we accept OP_RETURN transactions */
+static const bool DEFAULT_ACCEPT_DATACARRIER = true;
+
 bool IsStandard(const CScript &scriptPubKey, txnouttype &whichType);
 /**
  * Check for standard transaction types

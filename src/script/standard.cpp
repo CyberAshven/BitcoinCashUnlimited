@@ -17,9 +17,6 @@ using namespace std;
 
 typedef vector<uint8_t> valtype;
 
-bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
-unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
-
 CScriptID::CScriptID(const CScript &in) : uint160(Hash160(in.begin(), in.end())) {}
 const char *GetTxnOutputType(txnouttype t)
 {

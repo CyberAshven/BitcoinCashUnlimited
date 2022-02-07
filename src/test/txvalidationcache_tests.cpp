@@ -22,7 +22,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-extern CTweak<double> dMinLimiterTxFee;
+extern CTweak<uint32_t> minRelayFee;
 extern void LimitMempoolSize(CTxMemPool &pool, size_t limit, unsigned long age);
 
 BOOST_AUTO_TEST_SUITE(txvalidationcache_tests) // BU harmonize suite name with filename
@@ -403,8 +403,8 @@ BOOST_FIXTURE_TEST_CASE(uncache_coins, TestChain100Setup)
 
 BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
 {
-    double nTempFee = dMinLimiterTxFee.Value();
-    dMinLimiterTxFee.Set(0.0);
+    double nTempFee = minRelayFee.Value();
+    minRelayFee.Set(0);
 
     CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
 
@@ -517,7 +517,7 @@ BOOST_FIXTURE_TEST_CASE(long_unconfirmed_chains, TestChain100Setup)
         prevout = tx.SpendOutput(0);
     }
 
-    dMinLimiterTxFee.Set(nTempFee);
+    minRelayFee.Set(nTempFee);
 }
 
 BOOST_FIXTURE_TEST_CASE(limitfreerelay, TestChain100Setup)

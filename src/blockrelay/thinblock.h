@@ -221,7 +221,6 @@ private:
     CStatHistory<uint64_t> nThinSize;
     CStatHistory<uint64_t> nInBoundBlocks;
     CStatHistory<uint64_t> nOutBoundBlocks;
-    CStatHistory<uint64_t> nMempoolLimiterBytesSaved;
     CStatHistory<uint64_t> nTotalBloomFilterBytes;
     CStatHistory<uint64_t> nTotalThinBlockBytes;
     CStatHistory<uint64_t> nTotalFullTxBytes;
@@ -294,7 +293,6 @@ public:
     void UpdateResponseTime(double nResponseTime);
     void UpdateValidationTime(double nValidationTime);
     void UpdateInBoundReRequestedTx(int nReRequestedTx);
-    void UpdateMempoolLimiterBytesSaved(unsigned int nBytesSaved);
     void UpdateThinBlock(uint64_t nThinBlockSize);
     void UpdateFullTx(uint64_t nFullTxSize);
     std::string ToString();
@@ -305,7 +303,6 @@ public:
     std::string ResponseTimeToString();
     std::string ValidationTimeToString();
     std::string ReRequestedTxToString();
-    std::string MempoolLimiterBytesSavedToString();
     std::string ThinBlockToString();
     std::string FullTxToString();
 

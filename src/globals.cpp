@@ -31,6 +31,7 @@
 #include "policy/policy.h"
 #include "primitives/block.h"
 #include "requestManager.h"
+#include "respend/respendrelayer.h"
 #include "rpc/server.h"
 #include "script/standard.h"
 #include "stat.h"
@@ -318,10 +319,6 @@ CTweakRef<uint64_t> miningBlockSize("mining.blockSize",
               "value minus mining.coinbaseReserve (default: %d)",
         maxGeneratedBlock),
     &maxGeneratedBlock);
-CTweakRef<unsigned int> maxDataCarrierTweak("mining.dataCarrierSize",
-    strprintf("Maximum size of OP_RETURN data script in bytes (default: %d)", nMaxDatacarrierBytes),
-    &nMaxDatacarrierBytes,
-    &MaxDataCarrierValidator);
 
 CTweakRef<uint64_t> miningForkTime("consensus.forkMay2021Time",
     "Time in seconds since the epoch to initiate the Bitcoin Cash protocol upgraded scheduled on 15th May 2021.  A "
@@ -558,21 +555,44 @@ CTweak<int> maxReorgDepth("blockchain.maxReorgDepth",
 /** Dust Threshold (in satoshis) defines the minimum quantity an output may contain for the
     transaction to be considered standard, and therefore relayable.
  */
-CTweak<unsigned int> nDustThreshold("net.dustThreshold",
+CTweak<uint32_t> dustThreshold("relay.dustThreshold",
     strprintf("Dust Threshold in satoshis (default: %d)", DEFAULT_DUST_THRESHOLD),
     DEFAULT_DUST_THRESHOLD);
 
-/** The maxlimitertxfee (in satoshi's per byte) */
-CTweak<double> dMaxLimiterTxFee("maxlimitertxfee",
-    strprintf("Fees (in satoshi/byte) larger than this are always relayed (default: %.4f)", DEFAULT_MAXLIMITERTXFEE),
-    DEFAULT_MAXLIMITERTXFEE);
+/** The minrelaytxfee (in satoshi's per KB) */
+CTweak<uint32_t> minRelayFee("relay.minRelayTxFee",
+    strprintf("Fees (in satoshi/KB) smaller than this are considered "
+              "zero fee and subject to -relay.limitFreeRelay (default: %ld)",
+        DEFAULT_MINRELAYTXFEE),
+    DEFAULT_MINRELAYTXFEE);
 
-/** The minlimitertxfee (in satoshi's per byte) */
-CTweak<double> dMinLimiterTxFee("minlimitertxfee",
-    strprintf("Fees (in satoshi/byte) smaller than this are considered "
-              "zero fee and subject to -limitfreerelay (default: %.4f)",
-        DEFAULT_MINLIMITERTXFEE),
-    DEFAULT_MINLIMITERTXFEE);
+/** The free relay limit (KB allowed per 1 minute period) */
+CTweak<uint32_t> limitFreeRelay("relay.limitFreeRelay",
+    strprintf("Continuously rate-limit free transactions to <n>*1000 bytes per minute (default: %u)",
+        DEFAULT_LIMITFREERELAY),
+    DEFAULT_LIMITFREERELAY);
+
+/** The respend relay limit (KB allowed per 1 minute period) */
+CTweak<uint32_t> limitRespendRelay("relay.limitRespendRelay",
+    strprintf("Continuously rate-limit double spend transactions to <n>*1000 bytes per minute (default: %u)",
+        respend::DEFAULT_LIMITRESPENDRELAY),
+    respend::DEFAULT_LIMITRESPENDRELAY);
+
+/** Relay priority */
+CTweak<bool> relayPriority("relay.priority",
+    strprintf("Require high priority for relaying free or low-fee transactions (default: %u)", DEFAULT_RELAYPRIORITY),
+    DEFAULT_RELAYPRIORITY);
+
+/** Data Carrier on/off */
+CTweak<bool> dataCarrier("relay.dataCarrier",
+    strprintf("Relay and mine OP_RETURN transactions (default: %d)", DEFAULT_ACCEPT_DATACARRIER),
+    DEFAULT_ACCEPT_DATACARRIER);
+
+/** The data carrier size in bytes */
+CTweak<uint32_t> dataCarrierSize("relay.dataCarrierSize",
+    strprintf("Maximum size of OP_RETURN data script in bytes that we relay and mine (default: %u)",
+        MAX_OP_RETURN_RELAY),
+    MAX_OP_RETURN_RELAY);
 
 /** Disable reconsidermostworkchain during initial bootstrap when chain is not synced.
  * This is for testing purpose only and hence it is disabled by default.

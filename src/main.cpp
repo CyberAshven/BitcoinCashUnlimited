@@ -96,6 +96,7 @@ extern CTxMemPool mempool;
 
 extern CTweak<unsigned int> blockDownloadWindow;
 extern CTweak<uint64_t> reindexTypicalBlockSize;
+extern CTweak<uint32_t> limitFreeRelay;
 
 extern std::map<CNetAddr, ConnectionHistory> mapInboundConnectionTracker;
 extern CCriticalSection cs_mapInboundConnectionTracker;
@@ -274,9 +275,10 @@ std::string FormatStateMessage(const CValidationState &state)
 
 bool AreFreeTxnsAllowed()
 {
-    // Only access the param once
-    static bool val = (GetArg("-limitfreerelay", DEFAULT_LIMITFREERELAY) > 0);
-    return val;
+    if (limitFreeRelay.Value() > 0)
+        return true;
+
+    return false;
 }
 
 bool GetTransaction(const uint256 &hash,

@@ -575,16 +575,6 @@ static void addDebuggingOptions(AllowedArgs &allowedArgs, HelpMessageMode mode)
         .addDebugArg("logtimemicros", optionalBool,
             strprintf("Add microsecond precision to debug timestamps (default: %u)", DEFAULT_LOGTIMEMICROS))
         .addDebugArg("mocktime=<n>", requiredInt, "Replace actual time with <n> seconds since epoch (default: 0)")
-        .addDebugArg("limitfreerelay=<n>", optionalInt,
-            strprintf("Continuously rate-limit free transactions to <n>*1000 bytes per minute (default: %u)",
-                DEFAULT_LIMITFREERELAY))
-        .addDebugArg("limitrespendrelay=<n>", optionalInt,
-            strprintf("Continuously rate-limit relaying of double spend"
-                      " transactions to <n>*1000 bytes per minute (default: %u)",
-                respend::DEFAULT_LIMITRESPENDRELAY))
-        .addDebugArg("relaypriority", optionalBool,
-            strprintf(
-                "Require high priority for relaying free or low-fee transactions (default: %u)", DEFAULT_RELAYPRIORITY))
         .addDebugArg("maxsigcachesize=<n>", requiredInt,
             strprintf("Limit size of signature cache to <n> MiB (default: %u)", DEFAULT_MAX_SIG_CACHE_SIZE))
         .addArg("printtoconsole", optionalBool, _("Send trace/debug info to console instead of debug.log file"))
@@ -613,28 +603,12 @@ static void addNodeRelayOptions(AllowedArgs &allowedArgs)
     allowedArgs.addHeader(_("Node relay options:"))
         .addDebugArg("acceptnonstdtxn", optionalBool,
             strprintf("Relay and mine \"non-standard\" transactions (%sdefault: %u)", "testnet/regtest only; ", true))
-        .addArg("bytespersigop=<n>", requiredInt,
-            strprintf(
-                _("Minimum bytes per sigop in transactions we relay and mine (default: %u)"), DEFAULT_BYTES_PER_SIGOP))
-        .addArg("datacarrier", optionalBool,
-            strprintf(_("Relay and mine data carrier transactions (default: %u)"), DEFAULT_ACCEPT_DATACARRIER))
-        .addArg("datacarriersize=<n>", requiredInt,
-            strprintf(_("Maximum size of data in data carrier transactions we relay and mine (default: %u)"),
-                MAX_OP_RETURN_RELAY))
-        .addArg("dustthreshold=<amt>", requiredAmount,
-            strprintf(_("Dust Threshold (in satoshis) defines the minimum quantity an output may contain for the "
-                        "transaction to be considered standard, and therefore relayable. (default: %s)"),
-                DEFAULT_DUST_THRESHOLD))
         .addArg("expeditedblock=<host>", requiredStr,
             _("Request expedited blocks from this host whenever we are connected to it"))
         .addArg("maxexpeditedblockrecipients=<n>", requiredInt,
             _("The maximum number of nodes this node will forward expedited blocks to"))
         .addArg("maxexpeditedtxrecipients=<n>", requiredInt,
             _("The maximum number of nodes this node will forward expedited transactions to"))
-        .addArg("minrelaytxfee=<amt>", requiredAmount,
-            strprintf(_("Fees (in %s/kB) smaller than this are considered zero fee for relaying, mining and "
-                        "transaction creation (default: %s)"),
-                CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)))
         .addArg("receiveavg-<n>", requiredInt,
             strprintf(_("The average rate that data can be received in kB/s (default: %u)"), DEFAULT_AVE_RECV))
         .addArg("receiveburst=<n>", requiredInt,

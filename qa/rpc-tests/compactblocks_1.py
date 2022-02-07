@@ -107,7 +107,6 @@ class CBTest(BitcoinTestFramework):
 
         assert set(tbs) == {"enabled",
                             "summary",
-                            "mempool_limiter",
                             "inbound_percent",
                             "outbound_percent",
                             "response_time",

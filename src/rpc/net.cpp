@@ -28,8 +28,7 @@
 
 #include <univalue.h>
 
-extern CTweak<double> dMinLimiterTxFee;
-extern CTweak<double> dMaxLimiterTxFee;
+extern CTweak<uint32_t> limitFreeRelay;
 
 using namespace std;
 
@@ -504,7 +503,6 @@ static UniValue GetThinBlockStats()
     if (enabled)
     {
         obj.pushKV("summary", thindata.ToString());
-        obj.pushKV("mempool_limiter", thindata.MempoolLimiterBytesSavedToString());
         obj.pushKV("inbound_percent", thindata.InBoundPercentToString());
         obj.pushKV("outbound_percent", thindata.OutBoundPercentToString());
         obj.pushKV("response_time", thindata.ResponseTimeToString());
@@ -548,7 +546,6 @@ static UniValue GetCompactBlockStats()
     if (enabled)
     {
         obj.pushKV("summary", compactdata.ToString());
-        obj.pushKV("mempool_limiter", compactdata.MempoolLimiterBytesSavedToString());
         obj.pushKV("inbound_percent", compactdata.InBoundPercentToString());
         obj.pushKV("outbound_percent", compactdata.OutBoundPercentToString());
         obj.pushKV("response_time", compactdata.ResponseTimeToString());
@@ -593,10 +590,6 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
             "  \"relayfee\": x.xxxxxxxx,              (numeric) minimum relay fee for non-free transactions in " +
             CURRENCY_UNIT +
             "/kB\n"
-            "  \"minlimitertxfee\": x.xxxx,           (numeric) fee (in satoshi/byte) below which transactions are "
-            "considered free and subject to limitfreerelay\n"
-            "  \"maxlimitertxfee\": x.xxxx,           (numeric) fee (in satoshi/byte) above which transactions are "
-            "always relayed\n"
             "  \"limitfreerelay\": x.xxxx,            (numeric) The maximum number of free transactions (in KB) that "
             "can enter the mempool per minute\n"
             "  \"localaddresses\": [                  (array) list of local addresses\n"
@@ -628,9 +621,7 @@ UniValue getnetworkinfo(const UniValue &params, bool fHelp)
     obj.pushKV("connections", (int)vNodes.size());
     obj.pushKV("networks", GetNetworksInfo());
     obj.pushKV("relayfee", ValueFromAmount(::minRelayTxFee.GetFeePerK()));
-    obj.pushKV("minlimitertxfee", strprintf("%.4f", dMinLimiterTxFee.Value()));
-    obj.pushKV("maxlimitertxfee", strprintf("%.4f", dMaxLimiterTxFee.Value()));
-    obj.pushKV("limitfreerelay", strprintf("%.4f", GetArg("-limitfreerelay", DEFAULT_LIMITFREERELAY)));
+    obj.pushKV("limitfreerelay", strprintf("%ld", limitFreeRelay.Value()));
     UniValue localAddresses(UniValue::VARR);
     {
         LOCK(cs_mapLocalHost);

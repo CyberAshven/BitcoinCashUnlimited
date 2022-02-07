@@ -33,8 +33,7 @@ static const bool DEFAULT_DISABLE_SAFEMODE = false;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 static const bool DEFAULT_PV_TESTMODE = false;
 
-extern CTweak<double> dMinLimiterTxFee;
-extern CTweak<double> dMaxLimiterTxFee;
+extern CTweak<uint32_t> minRelayFee;
 extern CTweak<bool> avoidReconsiderMostWorkChain;
 
 /** Returns licensing information (for -version) */
