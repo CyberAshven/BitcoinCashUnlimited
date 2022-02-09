@@ -1713,25 +1713,24 @@ bool ScriptMachine::Step()
                     {
                         // LEGACY MULTISIG (ECDSA / NULL)
                         // 2020-05-15 sigchecks consensus rule
-                        // Determine whether all signatures are null
-                        bool allNull = true;
-                        for (int32_t i = 0; i < nSigsCount; i++)
-                        {
-                            if (stacktop(-idxTopSig - i).size())
-                            {
-                                allNull = false;
-                                break;
-                            }
-                        }
 
-                        if (!allNull)
-                            stats.consensusSigCheckCount += nKeysCount; // 2020-05-15 sigchecks consensus rule
+                        // Used to determine whether all signatures are null
+                        bool allNull = true;
 
                         // Remove signature for pre-fork scripts
                         for (int32_t k = 0; k < nSigsCount; k++)
                         {
                             valtype &vchSig = stacktop(-idxTopSig - k);
+                            if (vchSig.size())
+                            {
+                                allNull = false;
+                            }
                             CleanupScriptCode(scriptCode, vchSig, flags);
+                        }
+
+                        if (!allNull)
+                        {
+                            stats.consensusSigCheckCount += nKeysCount; // 2020-05-15 sigchecks consensus rule
                         }
 
                         int64_t nSigsRemaining = nSigsCount;
