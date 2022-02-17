@@ -8,7 +8,7 @@ $(package)_dependencies=openssl zlib
 $(package)_linux_dependencies=freetype fontconfig libxcb
 $(package)_build_subdir=qtbase
 $(package)_qt_libs=corelib network widgets gui plugins testlib
-$(package)_patches=mac-qmake.conf fix_qt_pkgconfig.patch fix_qt571_win32_qmake.patch fix_configure_mac.patch fix_no_printer.patch
+$(package)_patches=mac-qmake.conf fix_qt_pkgconfig.patch fix_configure_mac.patch fix_no_printer.patch
 $(package)_patches+= fix_rcc_determinism.patch xkb-default.patch no-xlib.patch dont_hardcode_pwd.patch
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
