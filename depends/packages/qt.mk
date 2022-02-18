@@ -11,7 +11,7 @@ $(package)_patches=fix_qt_pkgconfig.patch mac-qmake.conf fix_no_printer.patch no
 $(package)_patches+= dont_hardcode_pwd.patch drop_lrelease_dependency.patch
 $(package)_patches+= no_sdk_version_check.patch fix_lib_paths.patch
 $(package)_patches+= qtbase-moc-ignore-gcc-macro.patch fix_limits_header.patch
-$(package)_patches+= fix_montery_include.patch
+$(package)_patches+= fix_montery_include.patch dont_hardcode_x86_64.patch
 
 $(package)_qttranslations_file_name=qttranslations-$($(package)_suffix)
 $(package)_qttranslations_sha256_hash=577b0668a777eb2b451c61e8d026d79285371597ce9df06b6dee6c814164b7c3
@@ -197,6 +197,7 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_limits_header.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_montery_include.patch && \
+  patch -p1 -i $($(package)_patch_dir)/dont_hardcode_x86_64.patch && \
   sed -i.old "s|updateqm.commands = \$$$$\$$$$LRELEASE|updateqm.commands = $($(package)_extract_dir)/qttools/bin/lrelease|" qttranslations/translations/translations.pro && \
   mkdir -p qtbase/mkspecs/macx-clang-linux && \
   cp -f qtbase/mkspecs/macx-clang/qplatformdefs.h qtbase/mkspecs/macx-clang-linux/ &&\
