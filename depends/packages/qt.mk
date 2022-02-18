@@ -9,7 +9,7 @@ $(package)_linux_dependencies=freetype fontconfig libxcb libxkbcommon
 $(package)_qt_libs=corelib network widgets gui plugins testlib
 $(package)_patches=fix_qt_pkgconfig.patch mac-qmake.conf fix_no_printer.patch no-xlib.patch
 $(package)_patches+= dont_hardcode_pwd.patch drop_lrelease_dependency.patch
-$(package)_patches+= no_sdk_version_check.patch fix_lib_paths.patch
+$(package)_patches+= fix_lib_paths.patch
 $(package)_patches+= qtbase-moc-ignore-gcc-macro.patch fix_limits_header.patch
 $(package)_patches+= fix_montery_include.patch dont_hardcode_x86_64.patch
 
@@ -194,7 +194,6 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/fix_qt_pkgconfig.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_no_printer.patch && \
   patch -p1 -i $($(package)_patch_dir)/no-xlib.patch && \
-  patch -p1 -i $($(package)_patch_dir)/no_sdk_version_check.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_lib_paths.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase-moc-ignore-gcc-macro.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_limits_header.patch && \
@@ -216,6 +215,7 @@ endef
 define $(package)_config_cmds
   export PKG_CONFIG_SYSROOT_DIR=/ && \
   export PKG_CONFIG_LIBDIR=$(host_prefix)/lib/pkgconfig && \
+  export QT_MAC_SDK_NO_VERSION_CHECK=1 && \
   cd qtbase && \
   ./configure $($(package)_config_opts) && \
   $(MAKE) sub-src-clean && \
