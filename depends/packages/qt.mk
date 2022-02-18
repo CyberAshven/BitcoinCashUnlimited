@@ -8,7 +8,7 @@ $(package)_dependencies= openssl
 $(package)_linux_dependencies=freetype fontconfig libxcb libxkbcommon
 $(package)_qt_libs=corelib network widgets gui plugins testlib
 $(package)_patches=fix_qt_pkgconfig.patch mac-qmake.conf fix_no_printer.patch no-xlib.patch
-$(package)_patches+= dont_hardcode_pwd.patch drop_lrelease_dependency.patch fix_qpainter_non_determinism.patch
+$(package)_patches+= dont_hardcode_pwd.patch drop_lrelease_dependency.patch
 $(package)_patches+= no_sdk_version_check.patch fix_lib_paths.patch fix_bigsur_drawing.patch
 $(package)_patches+= qtbase-moc-ignore-gcc-macro.patch
 
@@ -192,7 +192,6 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/fix_qt_pkgconfig.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_no_printer.patch && \
   patch -p1 -i $($(package)_patch_dir)/no-xlib.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix_qpainter_non_determinism.patch && \
   patch -p1 -i $($(package)_patch_dir)/no_sdk_version_check.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_lib_paths.patch && \
   patch -p1 -i $($(package)_patch_dir)/fix_bigsur_drawing.patch && \
