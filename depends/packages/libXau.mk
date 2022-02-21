@@ -6,7 +6,8 @@ $(package)_sha256_hash=ccf8cbf0dbf676faa2ea0a6d64bcc3b6746064722b606c8c52917ed00
 $(package)_dependencies=xproto
 
 define $(package)_set_vars
-  $(package)_config_opts=--disable-shared --disable-lint-library --without-lint --disable-dependency-tracking
+  $(package)_config_opts=--disable-shared --disable-lint-library --without-lint
+  $(package)_config_opts += --disable-dependency-tracking --enable-option-checking
   $(package)_config_opts_linux=--with-pic
 endef
 
