@@ -468,7 +468,7 @@ build-win-32:
             - ccache/
             - depends/sources
             - depends/built
-            - depends/x86_64-apple-darwin16
+            - depends/x86_64-apple-darwin19
 
 build-osx-depends:
     stage: build_depends
@@ -478,11 +478,11 @@ build-osx-depends:
         - curl --location --fail https://www.bitcoinunlimited.info/sdks/MacOSX10.14.sdk.tar.xz -o ./depends/sdk-sources/MacOSX10.14.sdk.tar.xz
         - tar -C depends/SDKs -xf depends/sdk-sources/MacOSX10.14.sdk.tar.xz
         - cd depends
-        - make HOST=x86_64-apple-darwin16 -j `nproc` NO_RUST=1
+        - make HOST=x86_64-apple-darwin19 -j `nproc` NO_RUST=1
         - ccache --show-stats
     artifacts:
         paths:
-            - depends/x86_64-apple-darwin16
+            - depends/x86_64-apple-darwin19
             - depends/SDKs
 
 build-osx:
@@ -492,7 +492,7 @@ build-osx:
     script:
         - ./autogen.sh
         - mkdir build; cd build
-        - ../configure --enable-reduce-exports --prefix=$PWD/../depends/x86_64-apple-darwin16
+        - ../configure --enable-reduce-exports --prefix=$PWD/../depends/x86_64-apple-darwin19
         - make -j `nproc`
         - ccache --show-stats
     dependencies:
@@ -501,7 +501,7 @@ build-osx:
         when: on_failure
         paths:
             - build/config.log
-            - depends/x86_64-apple-darwin16/share/config.site
+            - depends/x86_64-apple-darwin19/share/config.site
 
 #Linux32-bit
 .cache-debian-32:
