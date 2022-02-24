@@ -25,9 +25,9 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-copy"
 #include <QApplication>
 #include <QCloseEvent>
-#include <QDesktopWidget>
 #include <QPainter>
 #include <QRadialGradient>
+#include <QScreen>
 #pragma GCC diagnostic pop
 
 SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) : QWidget(0, f), curAlignment(0)
@@ -40,12 +40,10 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
     // set reference point, paddings
     float fontFactor = 1.0;
     float devicePixelRatio = 1.0;
-#if QT_VERSION > 0x050100
-    devicePixelRatio = ((QGuiApplication *)QCoreApplication::instance())->devicePixelRatio();
-#endif
+    devicePixelRatio = static_cast<QGuiApplication *>(QCoreApplication::instance())->devicePixelRatio();
 
     // define text to place
-    QString titleText = tr("BCH Unlimited");
+    QString titleText = PACKAGE_NAME;
     // create a bitmap according to device pixelratio
     QPixmap splash(":/images/splash");
     QSize splashPixSize = splash.size();
@@ -56,10 +54,7 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
     QString font = QApplication::font().toString();
     pixmap = QPixmap(splashSize);
 
-#if QT_VERSION > 0x050100
-    // change to HiDPI if it makes sense
     pixmap.setDevicePixelRatio(devicePixelRatio);
-#endif
 
     QPainter pixPaint(&pixmap);
     pixPaint.setPen(QColor(100, 100, 100));
@@ -93,7 +88,7 @@ SplashScreen::SplashScreen(Qt::WindowFlags f, const NetworkStyle *networkStyle) 
     QRect r(QPoint(), QSize(pixmap.size().width() / devicePixelRatio, pixmap.size().height() / devicePixelRatio));
     resize(r.size());
     setFixedSize(r.size());
-    move(QApplication::desktop()->screenGeometry().center() - r.center());
+    move(QGuiApplication::primaryScreen()->geometry().center() - r.center());
 
     subscribeToCoreSignals();
 }
