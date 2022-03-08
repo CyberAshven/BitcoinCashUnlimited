@@ -101,6 +101,7 @@ MACHO_ALLOWED_LIBRARIES = {
 # bitcoin-qt only
 'AppKit', # user interface
 'ApplicationServices', # common application tasks.
+'CFNetwork', # Access network services and handle changes in network configurations (BIP70)
 'Carbon', # deprecated c back-compat API
 'ColorSync',
 'CoreFoundation', # low level func, data types
@@ -109,12 +110,14 @@ MACHO_ALLOWED_LIBRARIES = {
 'CoreText', # interface for laying out text and handling fonts.
 'CoreVideo', # video processing
 'Foundation', # base layer functionality for apps/frameworks
+'GSS', # Conduct secure, authenticated network transactions (needed for BIP70)
 'ImageIO', # read and write image file formats.
 'IOKit', # user-space access to hardware devices and drivers.
 'IOSurface', # cross process image/drawing buffers
 'libobjc.A.dylib', # Objective-C runtime library
 'Metal', # 3D graphics
 'Security', # access control and authentication
+'SystemConfiguration', # needed for BIP70 (payment protocol)
 'QuartzCore', # animation
 }
 
@@ -146,24 +149,6 @@ pixie.EM_X86_64: (2,2,5),
 pixie.EM_ARM:    (2,4),
 pixie.EM_AARCH64:(2,17),
 pixie.EM_RISCV:  (2,27)
-}
-
-MACHO_ALLOWED_LIBRARIES = {
-# bitcoind and bitcoin-qt
-'libc++.1.dylib', # C++ Standard Library
-'libSystem.B.dylib', # libc, libm, libpthread, libinfo
-# bitcoin-qt only
-'AppKit', # user interface
-'ApplicationServices', # common application tasks.
-'Carbon', # deprecated c back-compat API
-'CoreFoundation', # low level func, data types
-'CoreGraphics', # 2D rendering
-'CoreServices', # operating system services
-'CoreText', # interface for laying out text and handling fonts.
-'Foundation', # base layer functionality for apps/frameworks
-'ImageIO', # read and write image file formats.
-'IOKit', # user-space access to hardware devices and drivers.
-'libobjc.A.dylib', # Objective-C runtime library
 }
 
 PE_ALLOWED_LIBRARIES = {
