@@ -84,9 +84,9 @@ AC_DEFUN([BITCOIN_QT_INIT],[
     [use_dbus=$withval],
     [use_dbus=auto])
 
-  dnl Android doesn't support D-Bus and certainly doesn't use it for notifications
+  dnl osx doesn't support D-Bus and certainly doesn't use it for notifications
   case $host in
-    *android*)
+    *darwin*)
       if test "$use_dbus" != "yes"; then
         use_dbus=no
       fi
