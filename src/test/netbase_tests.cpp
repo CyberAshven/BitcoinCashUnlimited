@@ -280,7 +280,7 @@ static const std::vector<CAddress> fixture_addresses({
     ),
     CAddress(
         CService(CNetAddr(in6addr_loopback), 0xf1f2 /* port */),
-        static_cast<ServiceFlags>(NODE_NETWORK_LIMITED),
+        NODE_NETWORK_LIMITED,
         0xffffffffU /* Sun Feb  7 06:28:15 UTC 2106 */
     )
 });
