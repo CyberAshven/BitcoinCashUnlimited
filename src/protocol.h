@@ -380,6 +380,8 @@ const std::vector<std::string> &getAllNetMessageTypes();
 /** nServices flags */
 enum
 {
+    // Nothing
+    NODE_NONE = 0,
     // NODE_NETWORK means that the node is capable of serving the complete block chain. It is currently
     // set by all Bitcoin Unlimited nodes, and is unset by SPV clients or other peers that just want
     // network services but don't provide them.
@@ -440,7 +442,8 @@ class CAddress : public CService
 {
 public:
     CAddress();
-    explicit CAddress(CService ipIn, uint64_t nServicesIn = NODE_NETWORK);
+    CAddress(CService ipIn, uint64_t nServicesIn = NODE_NETWORK);
+    CAddress(CService ipIn, uint64_t nServicesIn, uint32_t nTimeIn);
 
     void Init();
 
@@ -450,12 +453,16 @@ public:
     inline void SerializationOp(Stream &s, Operation ser_action)
     {
         if (ser_action.ForRead())
+        {
             Init();
+        }
         int nVersion = s.GetVersion();
         if (s.GetType() & SER_DISK)
+        {
             READWRITE(nVersion);
         }
-        if ((s.GetType() & SER_DISK) || (nVersion != INIT_PROTO_VERSION && !(s.GetType() & SER_GETHASH))) {
+        if ((s.GetType() & SER_DISK) || (nVersion >= CADDR_TIME_VERSION && !(s.GetType() & SER_GETHASH)))
+        {
             // The only time we serialize a CAddress object without nTime is in
             // the initial VERSION messages which contain two CAddress records.
             // At that point, the serialization version is INIT_PROTO_VERSION.
@@ -468,17 +475,24 @@ public:
             // were to do so in some hypothetical future change, then it should
             // take into account the behavior here, and be sure not to use
             // INIT_PROTO_VERSION if it wished to serialize nTime.
-            READWRITE(obj.nTime);
+            READWRITE(nTime);
         }
-        if (nVersion & ADDRV2_FORMAT) {
-            uint64_t services_tmp;
-            SER_WRITE(obj, services_tmp = obj.nServices);
-            READWRITE(Using<CompactSizeFormatter<false>>(services_tmp));
-            SER_READ(obj, obj.nServices = static_cast<ServiceFlags>(services_tmp));
-        } else {
-            READWRITE(Using<CustomUintFormatter<8>>(obj.nServices));
+        if (nVersion & ADDRV2_FORMAT)
+        {
+            if (ser_action.ForRead()) // reading
+            {
+                nServices = ReadCompactSizeWithLimit(s, std::numeric_limits<uint64_t>::max());
+            }
+            else // writing
+            {
+                WriteCompactSize(s, nServices);
+            }
         }
-        READWRITEAS(CService, obj);
+        else
+        {
+            READWRITE(nServices);
+        }
+        READWRITE(*(CService *)this);
     }
 
     // TODO: make private (improves encapsulation)

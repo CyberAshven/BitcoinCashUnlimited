@@ -205,6 +205,12 @@ CAddress::CAddress(CService ipIn, uint64_t nServicesIn) : CService(ipIn)
     Init();
     nServices = nServicesIn;
 }
+CAddress::CAddress(CService ipIn, uint64_t nServicesIn, uint32_t nTimeIn) : CService(ipIn)
+{
+    Init();
+    nServices = nServicesIn;
+    nTime = nTimeIn;
+}
 
 void CAddress::Init()
 {

@@ -28,6 +28,14 @@ enum
 #endif
 };
 
+
+/**
+ * A flag that is ORed into the protocol version to designate that addresses
+ * should be serialized in (unserialized from) v2 format (BIP155).
+ * Make sure that this does not collide with any of the values in `version.h`.
+ */
+inline constexpr int ADDRV2_FORMAT = 0x20000000;
+
 enum Network
 {
     NET_UNROUTABLE = 0,
