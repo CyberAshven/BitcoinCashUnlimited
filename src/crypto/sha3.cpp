@@ -7,7 +7,6 @@
 
 #include <crypto/common.h>
 #include <crypto/sha3.h>
-#include <span.h>
 
 #include <algorithm>
 #include <array> // For std::begin and std::end.
@@ -15,22 +14,28 @@
 #include <cstdint>
 
 // Internal implementation code.
-namespace {
-uint64_t Rotl(uint64_t x, int n) {
-    return (x << n) | (x >> (64 - n));
-}
+namespace
+{
+    uint64_t Rotl(uint64_t x, int n)
+    {
+        return (x << n) | (x >> (64 - n));
+    }
 } // namespace
 
-void KeccakF(uint64_t (&st)[25]) {
-    static constexpr uint64_t RNDC[24] = {
+void KeccakF(uint64_t (&st)[25])
+{
+    static constexpr uint64_t RNDC[24] =
+    {
         0x0000000000000001, 0x0000000000008082, 0x800000000000808a, 0x8000000080008000, 0x000000000000808b,
         0x0000000080000001, 0x8000000080008081, 0x8000000000008009, 0x000000000000008a, 0x0000000000000088,
         0x0000000080008009, 0x000000008000000a, 0x000000008000808b, 0x800000000000008b, 0x8000000000008089,
         0x8000000000008003, 0x8000000000008002, 0x8000000000000080, 0x000000000000800a, 0x800000008000000a,
-        0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008};
+        0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008
+    };
     static constexpr int ROUNDS = 24;
 
-    for (int round = 0; round < ROUNDS; ++round) {
+    for (int round = 0; round < ROUNDS; ++round)
+    {
         uint64_t bc0, bc1, bc2, bc3, bc4, t;
 
         // Theta
@@ -197,49 +202,66 @@ void KeccakF(uint64_t (&st)[25]) {
     }
 }
 
-SHA3_256 &SHA3_256::Write(Span<const uint8_t> data) {
-    if (m_bufsize && m_bufsize + data.size() >= sizeof(m_buffer)) {
+SHA3_256 &SHA3_256::Write(const uint8_t* _data, const size_t &_len)
+{
+    const uint8_t* data = _data;
+    size_t len = _len;
+    if (m_bufsize && (m_bufsize + len) >= sizeof(m_buffer))
+    {
         // Fill the buffer and process it.
-        std::copy(data.begin(), data.begin() + sizeof(m_buffer) - m_bufsize, m_buffer + m_bufsize);
-        data = data.subspan(sizeof(m_buffer) - m_bufsize);
+        // copy from data array into m_buffer starting at the beginning until the buffer is full
+        std::copy(data, data + sizeof(m_buffer) - m_bufsize, m_buffer + m_bufsize);
+
+        // adjsut data to point to where we left off copying
+        size_t offset = (sizeof(m_buffer) - m_bufsize);
+        data = data + offset;
+        len = len - offset;
+
         m_state[m_pos++] ^= ReadLE64(m_buffer);
         m_bufsize = 0;
-        if (m_pos == RATE_BUFFERS) {
+        if (m_pos == RATE_BUFFERS)
+        {
             KeccakF(m_state);
             m_pos = 0;
         }
     }
-    while (data.size() >= sizeof(m_buffer)) {
+    while (len >= sizeof(m_buffer))
+    {
         // Process chunks directly from the buffer.
-        m_state[m_pos++] ^= ReadLE64(data.data());
-        data = data.subspan(8);
-        if (m_pos == RATE_BUFFERS) {
+        m_state[m_pos++] ^= ReadLE64(data);
+        data = data + 8;
+        len = len - 8;
+        if (m_pos == RATE_BUFFERS)
+        {
             KeccakF(m_state);
             m_pos = 0;
         }
     }
-    if (data.size()) {
+    if (len)
+    {
         // Keep the remainder in the buffer.
-        std::copy(data.begin(), data.end(), m_buffer + m_bufsize);
-        m_bufsize += data.size();
+        std::copy(data, data + len, m_buffer + m_bufsize);
+        m_bufsize += len;
     }
     return *this;
 }
 
-SHA3_256 &SHA3_256::Finalize(Span<uint8_t> output) {
-    assert(output.size() == OUTPUT_SIZE);
+SHA3_256 &SHA3_256::Finalize(unsigned char hash[OUTPUT_SIZE])
+{
     std::fill(m_buffer + m_bufsize, m_buffer + sizeof(m_buffer), 0);
     m_buffer[m_bufsize] ^= 0x06;
     m_state[m_pos] ^= ReadLE64(m_buffer);
     m_state[RATE_BUFFERS - 1] ^= 0x8000000000000000;
     KeccakF(m_state);
-    for (unsigned i = 0; i < 4; ++i) {
-        WriteLE64(output.data() + 8 * i, m_state[i]);
+    for (unsigned i = 0; i < 4; ++i)
+    {
+        WriteLE64(hash + 8 * i, m_state[i]);
     }
     return *this;
 }
 
-SHA3_256 &SHA3_256::Reset() {
+SHA3_256 &SHA3_256::Reset()
+{
     m_bufsize = 0;
     m_pos = 0;
     std::fill(std::begin(m_state), std::end(m_state), 0);
