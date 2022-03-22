@@ -97,13 +97,13 @@ extern const char *ADDR;
  * like the addr message, but is extended to allow gossiping of longer node
  * addresses (see BIP155).
  */
-extern const char *const ADDRV2;
+extern const char *ADDRV2;
 /**
  * The sendaddrv2 message signals support for receiving ADDRV2 messages (BIP155).
  * It also implies that its sender can encode as ADDRV2 and would send ADDRV2
  * instead of ADDR to a peer that has signaled ADDRV2 support by sending SENDADDRV2.
  */
-extern const char *const SENDADDRV2;
+extern const char *SENDADDRV2;
 /**
  * The inv message (inventory message) transmits one or more inventories of
  * objects known to the transmitting peer.
