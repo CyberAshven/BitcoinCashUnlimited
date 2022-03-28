@@ -19,8 +19,9 @@ $(package)_libtapi_download_file=$($(package)_libtapi_version).tar.gz
 $(package)_libtapi_file_name=$($(package)_libtapi_version).tar.gz
 $(package)_libtapi_sha256_hash=62e419c12d1c9fad67cc1cd523132bc00db050998337c734c15bc8d73cc02b61
 
-$(package)_extra_sources=$($(package)_clang_file_name)
-$(package)_extra_sources += $($(package)_libtapi_file_name)
+$(package)_extra_sources= $($(package)_libtapi_file_name)
+$(package)_extra_sources += $($(package)_clang_file_name)
+
 
 define $(package)_fetch_cmds
 $(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash)) && \
@@ -43,8 +44,9 @@ define $(package)_extract_cmds
 endef
 
 define $(package)_set_vars
-  $(package)_config_opts=--target=$(host) --disable-lto-support --with-libtapi=$($(package)_extract_dir)
+  $(package)_config_opts=--target=$(host) --with-libtapi=$($(package)_extract_dir)
   $(package)_ldflags+=-Wl,-rpath=\\$$$$$$$$\$$$$$$$$ORIGIN/../lib
+  $(package)_config_opts+=--enable-lto-support --with-llvm-config=$($(package)_extract_dir)/toolchain/bin/llvm-config
   $(package)_cc=$($(package)_extract_dir)/toolchain/bin/clang
   $(package)_cxx=$($(package)_extract_dir)/toolchain/bin/clang++
 endef
