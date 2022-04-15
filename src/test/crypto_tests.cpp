@@ -549,34 +549,43 @@ BOOST_AUTO_TEST_CASE(sha256d64)
     }
 }
 
-static void TestSHA3_256(const std::string &input, const std::string &output) {
+static void TestSHA3_256(const std::string &input, const std::string &output)
+{
     const auto in_bytes = ParseHex(input);
     const auto out_bytes = ParseHex(output);
 
     SHA3_256 sha;
     // Hash the whole thing.
     uint8_t out[SHA3_256::OUTPUT_SIZE];
-    sha.Write(in_bytes).Finalize(out);
+    sha.Write(in_bytes.data(), in_bytes.size()).Finalize(out);
     assert(out_bytes.size() == sizeof(out));
     BOOST_CHECK(std::equal(std::begin(out_bytes), std::end(out_bytes), out));
 
     // Reset and split randomly in 3
     sha.Reset();
-    int s1 = InsecureRandRange(in_bytes.size() + 1);
-    int s2 = InsecureRandRange(in_bytes.size() + 1 - s1);
-    int s3 = in_bytes.size() - s1 - s2;
-    sha.Write(MakeSpan(in_bytes).first(s1)).Write(MakeSpan(in_bytes).subspan(s1, s2));
-    sha.Write(MakeSpan(in_bytes).last(s3)).Finalize(out);
+    int32_t s1 = InsecureRandRange(in_bytes.size() + 1);
+    int32_t s2 = InsecureRandRange(in_bytes.size() + 1 - s1);
+    int32_t s3 = in_bytes.size() - s1 - s2;
+
+    const uint8_t *s1_bytes = in_bytes.data();
+    const uint8_t *s2_bytes = in_bytes.data() + s1;
+    const uint8_t *s3_bytes = in_bytes.data() + s1 + s2;
+
+    sha.Write(s1_bytes, s1).Write(s2_bytes, s2);
+    sha.Write(s3_bytes, s3).Finalize(out);
     BOOST_CHECK(std::equal(std::begin(out_bytes), std::end(out_bytes), out));
 }
 
-BOOST_AUTO_TEST_CASE(keccak_tests) {
+BOOST_AUTO_TEST_CASE(keccak_tests)
+{
     // Start with the zero state.
     uint64_t state[25] = {0};
     CSHA256 tester;
-    for (int i = 0; i < 262144; ++i) {
+    for (int i = 0; i < 262144; ++i)
+    {
         KeccakF(state);
-        for (int j = 0; j < 25; ++j) {
+        for (int j = 0; j < 25; ++j)
+        {
             std::array<uint8_t, 8> buf;
             WriteLE64(buf.data(), state[j]);
             tester.Write(buf.data(), 8);
@@ -589,7 +598,8 @@ BOOST_AUTO_TEST_CASE(keccak_tests) {
     BOOST_CHECK_EQUAL(out.ToString(), "5f4a7f2eca7d57740ef9f1a077b4fc67328092ec62620447fe27ad8ed5f7e34f");
 }
 
-BOOST_AUTO_TEST_CASE(sha3_256_tests) {
+BOOST_AUTO_TEST_CASE(sha3_256_tests)
+{
     // clang-format off
     // Test vectors from https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/sha-3bytetestvectors.zip
 
