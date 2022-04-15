@@ -1607,7 +1607,8 @@ bool AppInit2(Config &config)
     // -proxy sets a proxy for all outgoing network traffic
     // -noproxy (or -proxy=0) as well as the empty string can be used to not set a proxy, this is the default
     std::string proxyArg = GetArg("-proxy", "");
-    SetLimited(NET_TOR);
+    SetLimited(NET_TOR2);
+    SetLimited(NET_TOR3);
     if (proxyArg != "" && proxyArg != "0")
     {
         proxyType addrProxy = proxyType(CService(proxyArg, 9050), proxyRandomize);
@@ -1616,9 +1617,23 @@ bool AppInit2(Config &config)
 
         SetProxy(NET_IPV4, addrProxy);
         SetProxy(NET_IPV6, addrProxy);
-        SetProxy(NET_TOR, addrProxy);
+        if (addrProxy.proxy.IsTor2())
+        {
+            SetProxy(NET_TOR2, addrProxy);
+        }
+        if (addrProxy.proxy.IsTor3())
+        {
+            SetProxy(NET_TOR3, addrProxy);
+        }
         SetNameProxy(addrProxy);
-        SetLimited(NET_TOR, false); // by default, -proxy sets onion as reachable, unless -noonion later
+        if (addrProxy.proxy.IsTor2())
+        {
+            SetLimited(NET_TOR2, false); // by default, -proxy sets onion as reachable, unless -noonion later
+        }
+        if (addrProxy.proxy.IsTor3())
+        {
+            SetLimited(NET_TOR3, false); // by default, -proxy sets onion as reachable, unless -noonion later
+        }
     }
 
     // -onion can be used to set only a proxy for .onion, or override normal proxy for .onion addresses
@@ -1629,15 +1644,26 @@ bool AppInit2(Config &config)
     {
         if (onionArg == "0")
         { // Handle -noonion/-onion=0
-            SetLimited(NET_TOR); // set onions as unreachable
+            SetLimited(NET_TOR2); // set onions as unreachable
+            SetLimited(NET_TOR3); // set onions as unreachable
         }
         else
         {
             proxyType addrOnion = proxyType(CService(onionArg, 9050), proxyRandomize);
             if (!addrOnion.IsValid())
+            {
                 return InitError(strprintf(_("Invalid -onion address: '%s'"), onionArg));
-            SetProxy(NET_TOR, addrOnion);
-            SetLimited(NET_TOR, false);
+            }
+            if (addrOnion.proxy.IsTor2())
+            {
+                SetProxy(NET_TOR2, addrOnion);
+                SetLimited(NET_TOR2, false);
+            }
+            if (addrOnion.proxy.IsTor3())
+            {
+                SetProxy(NET_TOR3, addrOnion);
+                SetLimited(NET_TOR3, false);
+            }
         }
     }
 
