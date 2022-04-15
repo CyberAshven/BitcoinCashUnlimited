@@ -302,8 +302,9 @@ public:
      * very little in common.
      */
     template <typename Stream>
-    void Serialize(Stream &s_) const {
-        LOCK(cs);
+    void Serialize(Stream &s) const
+    {
+        LOCK(cs_addrman);
 
         // Always serialize in the latest version (currently Format::V3_BIP155).
         s << static_cast<uint8_t>(Format::V3_BIP155); // version
@@ -359,8 +360,8 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream &s_) {
-        LOCK(cs);
+    void Unserialize(Stream &s) {
+        LOCK(cs_addrman);
 
         Clear();
 
