@@ -126,7 +126,8 @@ BOOST_AUTO_TEST_CASE(subnet_test)
     BOOST_CHECK(CSubNet("1.2.2.20/26").Match(CNetAddr("1.2.2.63")));
     // All-Matching IPv6 Matches arbitrary IPv4 and IPv6
     BOOST_CHECK(CSubNet("::/0").Match(CNetAddr("1:2:3:4:5:6:7:1234")));
-    BOOST_CHECK(CSubNet("::/0").Match(CNetAddr("1.2.3.4")));
+    // Can not match from one network type to another (IPV6 to IPV4)
+    BOOST_CHECK(!CSubNet("::/0").Match(CNetAddr("1.2.3.4")));
     // All-Matching IPv4 does not Match IPv6
     BOOST_CHECK(!CSubNet("0.0.0.0/0").Match(CNetAddr("1:2:3:4:5:6:7:1234")));
     // Invalid subnets Match nothing (not even invalid addresses)
@@ -331,14 +332,17 @@ static constexpr const char *stream_addrv2_hex =
     "00000000000000000000000000000001" // address
     "f1f2";                            // port
 
-BOOST_AUTO_TEST_CASE(caddress_serialize_v1) {
+
+BOOST_AUTO_TEST_CASE(caddress_serialize_v1)
+{
     CDataStream s(SER_NETWORK, PROTOCOL_VERSION);
 
     s << fixture_addresses;
     BOOST_CHECK_EQUAL(HexStr(s), stream_addrv1_hex);
 }
 
-BOOST_AUTO_TEST_CASE(caddress_unserialize_v1) {
+BOOST_AUTO_TEST_CASE(caddress_unserialize_v1)
+{
     CDataStream s(ParseHex(stream_addrv1_hex), SER_NETWORK, PROTOCOL_VERSION);
     std::vector<CAddress> addresses_unserialized;
 
@@ -346,14 +350,16 @@ BOOST_AUTO_TEST_CASE(caddress_unserialize_v1) {
     BOOST_CHECK(fixture_addresses == addresses_unserialized);
 }
 
-BOOST_AUTO_TEST_CASE(caddress_serialize_v2) {
+BOOST_AUTO_TEST_CASE(caddress_serialize_v2)
+{
     CDataStream s(SER_NETWORK, PROTOCOL_VERSION | ADDRV2_FORMAT);
 
     s << fixture_addresses;
     BOOST_CHECK_EQUAL(HexStr(s), stream_addrv2_hex);
 }
 
-BOOST_AUTO_TEST_CASE(caddress_unserialize_v2) {
+BOOST_AUTO_TEST_CASE(caddress_unserialize_v2)
+{
     CDataStream s(ParseHex(stream_addrv2_hex), SER_NETWORK, PROTOCOL_VERSION | ADDRV2_FORMAT);
     std::vector<CAddress> addresses_unserialized;
 
