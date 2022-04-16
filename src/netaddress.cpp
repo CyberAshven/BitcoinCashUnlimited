@@ -17,57 +17,56 @@
 /* clang-format off */
 namespace torv3
 {
-    // https://gitweb.torproject.org/torspec.git/tree/rend-spec-v3.txt#n2135
-    inline constexpr size_t CHECKSUM_LEN = 2;
-    inline constexpr std::array<uint8_t, 1> VERSION = {{3}};
-    inline constexpr size_t TOTAL_LEN = ADDR_TORV3_SIZE + CHECKSUM_LEN + VERSION.size();
-    inline constexpr size_t onion_checksum_size = 15;
-    using ChecksumBytes = std::array<uint8_t, CHECKSUM_LEN>;
-    static ChecksumBytes Checksum(const uint8_t* addr_pubkey, const size_t &addr_pubkey_size)
-    {
-        using namespace std::string_view_literals;
-        // TORv3 CHECKSUM = H(".onion checksum" | PUBKEY | VERSION)[:2]
-        SHA3_256 hasher;
+// https://gitweb.torproject.org/torspec.git/tree/rend-spec-v3.txt#n2135
+inline constexpr size_t CHECKSUM_LEN = 2;
+inline constexpr std::array<uint8_t, 1> VERSION = {{3}};
+inline constexpr size_t TOTAL_LEN = ADDR_TORV3_SIZE + CHECKSUM_LEN + VERSION.size();
+inline constexpr size_t onion_checksum_size = 15;
+using ChecksumBytes = std::array<uint8_t, CHECKSUM_LEN>;
+static ChecksumBytes Checksum(const uint8_t *addr_pubkey, const size_t &addr_pubkey_size)
+{
+    using namespace std::string_view_literals;
+    // TORv3 CHECKSUM = H(".onion checksum" | PUBKEY | VERSION)[:2]
+    SHA3_256 hasher;
 
-        auto strChecksum = ".onion checksum"sv;
-        const uint8_t* onion_checksum = reinterpret_cast<const uint8_t*>(strChecksum.data());
+    auto strChecksum = ".onion checksum"sv;
+    const uint8_t *onion_checksum = reinterpret_cast<const uint8_t *>(strChecksum.data());
 
-        hasher.Write(onion_checksum, onion_checksum_size);
-        hasher.Write(addr_pubkey, addr_pubkey_size);
-        hasher.Write(VERSION.data(), 1);
+    hasher.Write(onion_checksum, onion_checksum_size);
+    hasher.Write(addr_pubkey, addr_pubkey_size);
+    hasher.Write(VERSION.data(), 1);
 
-        unsigned char checksum_full[SHA3_256::OUTPUT_SIZE];
-        hasher.Finalize(checksum_full);
+    unsigned char checksum_full[SHA3_256::OUTPUT_SIZE];
+    hasher.Finalize(checksum_full);
 
-        ChecksumBytes ret;
-        static_assert(SHA3_256::OUTPUT_SIZE >= ret.size());
-        std::copy_n(&checksum_full[0], ret.size(), ret.begin());
-        return ret;
-    }
+    ChecksumBytes ret;
+    static_assert(SHA3_256::OUTPUT_SIZE >= ret.size());
+    std::copy_n(&checksum_full[0], ret.size(), ret.begin());
+    return ret;
+}
 }; // namespace torv3
 /* clang-format on */
-
 
 CNetAddr::BIP155Network CNetAddr::GetBIP155Network() const
 {
     switch (_net_type)
     {
-        case NET_IPV4:
-            return BIP155Network::IPV4;
-        case NET_IPV6:
-            return BIP155Network::IPV6;
-        case NET_TOR2:
-            return BIP155Network::TORV2;
-        case NET_TOR3:
-            return BIP155Network::TORV3;
-        case NET_I2P:
-            return BIP155Network::I2P;
-        case NET_CJDNS:
-            return BIP155Network::CJDNS;
-        case NET_INTERNAL:   // should have been handled before calling this function
-        case NET_UNROUTABLE: // _net_type is never and should not be set to NET_UNROUTABLE
-        case NET_MAX:        // _net_type is never and should not be set to NET_MAX
-            assert(false);
+    case NET_IPV4:
+        return BIP155Network::IPV4;
+    case NET_IPV6:
+        return BIP155Network::IPV6;
+    case NET_TOR2:
+        return BIP155Network::TORV2;
+    case NET_TOR3:
+        return BIP155Network::TORV3;
+    case NET_I2P:
+        return BIP155Network::I2P;
+    case NET_CJDNS:
+        return BIP155Network::CJDNS;
+    case NET_INTERNAL: // should have been handled before calling this function
+    case NET_UNROUTABLE: // _net_type is never and should not be set to NET_UNROUTABLE
+    case NET_MAX: // _net_type is never and should not be set to NET_MAX
+        assert(false);
     } // no default case, so the compiler can warn about missing cases
     assert(false);
 }
@@ -76,54 +75,54 @@ bool CNetAddr::SetNetFromBIP155Network(uint8_t possible_bip155_net, uint64_t add
 {
     switch (possible_bip155_net)
     {
-        case BIP155Network::IPV4:
-            if (address_size == ADDR_IPV4_SIZE)
-            {
-                _net_type = NET_IPV4;
-                return true;
-            }
-            throw std::ios_base::failure(
-                strprintf("BIP155 IPv4 address with length %u (should be %u)", address_size, ADDR_IPV4_SIZE));
-        case BIP155Network::IPV6:
-            if (address_size == ADDR_IPV6_SIZE)
-            {
-                _net_type = NET_IPV6;
-                return true;
-            }
-            throw std::ios_base::failure(
-                strprintf("BIP155 IPv6 address with length %u (should be %u)", address_size, ADDR_IPV6_SIZE));
-        case BIP155Network::TORV2:
-            if (address_size == ADDR_TORV2_SIZE)
-            {
-                _net_type = NET_TOR2;
-                return true;
-            }
-            throw std::ios_base::failure(
-                strprintf("BIP155 TORv2 address with length %u (should be %u)", address_size, ADDR_TORV2_SIZE));
-        case BIP155Network::TORV3:
-            if (address_size == ADDR_TORV3_SIZE)
-            {
-                _net_type = NET_TOR3;
-                return true;
-            }
-            throw std::ios_base::failure(
-                strprintf("BIP155 TORv3 address with length %u (should be %u)", address_size, ADDR_TORV3_SIZE));
-        case BIP155Network::I2P:
-            if (address_size == ADDR_I2P_SIZE)
-            {
-                _net_type = NET_I2P;
-                return true;
-            }
-            throw std::ios_base::failure(
-                strprintf("BIP155 I2P address with length %u (should be %u)", address_size, ADDR_I2P_SIZE));
-        case BIP155Network::CJDNS:
-            if (address_size == ADDR_CJDNS_SIZE)
-            {
-                _net_type = NET_CJDNS;
-                return true;
-            }
-            throw std::ios_base::failure(
-                strprintf("BIP155 CJDNS address with length %u (should be %u)", address_size, ADDR_CJDNS_SIZE));
+    case BIP155Network::IPV4:
+        if (address_size == ADDR_IPV4_SIZE)
+        {
+            _net_type = NET_IPV4;
+            return true;
+        }
+        throw std::ios_base::failure(
+            strprintf("BIP155 IPv4 address with length %u (should be %u)", address_size, ADDR_IPV4_SIZE));
+    case BIP155Network::IPV6:
+        if (address_size == ADDR_IPV6_SIZE)
+        {
+            _net_type = NET_IPV6;
+            return true;
+        }
+        throw std::ios_base::failure(
+            strprintf("BIP155 IPv6 address with length %u (should be %u)", address_size, ADDR_IPV6_SIZE));
+    case BIP155Network::TORV2:
+        if (address_size == ADDR_TORV2_SIZE)
+        {
+            _net_type = NET_TOR2;
+            return true;
+        }
+        throw std::ios_base::failure(
+            strprintf("BIP155 TORv2 address with length %u (should be %u)", address_size, ADDR_TORV2_SIZE));
+    case BIP155Network::TORV3:
+        if (address_size == ADDR_TORV3_SIZE)
+        {
+            _net_type = NET_TOR3;
+            return true;
+        }
+        throw std::ios_base::failure(
+            strprintf("BIP155 TORv3 address with length %u (should be %u)", address_size, ADDR_TORV3_SIZE));
+    case BIP155Network::I2P:
+        if (address_size == ADDR_I2P_SIZE)
+        {
+            _net_type = NET_I2P;
+            return true;
+        }
+        throw std::ios_base::failure(
+            strprintf("BIP155 I2P address with length %u (should be %u)", address_size, ADDR_I2P_SIZE));
+    case BIP155Network::CJDNS:
+        if (address_size == ADDR_CJDNS_SIZE)
+        {
+            _net_type = NET_CJDNS;
+            return true;
+        }
+        throw std::ios_base::failure(
+            strprintf("BIP155 CJDNS address with length %u (should be %u)", address_size, ADDR_CJDNS_SIZE));
     }
     // Don't throw on addresses with unknown network ids (maybe from the future).
     // Instead silently drop them and have the unserialization code consume
@@ -248,9 +247,9 @@ bool CNetAddr::SetSpecial(const std::string &strName)
         else if (vchAddr.size() == torv3::TOTAL_LEN) // torv3
         {
             // input_checksum has length torv3::CHECKSUM_LEN (2)
-            uint8_t* input_checksum = vchAddr.data() + ADDR_TORV3_SIZE;
+            uint8_t *input_checksum = vchAddr.data() + ADDR_TORV3_SIZE;
             // input_version has length torv3::VERSION.size() (1)
-            uint8_t* input_version = vchAddr.data() + ADDR_TORV3_SIZE + torv3::CHECKSUM_LEN;
+            uint8_t *input_version = vchAddr.data() + ADDR_TORV3_SIZE + torv3::CHECKSUM_LEN;
             // validate version
             if (std::memcmp(input_version, torv3::VERSION.data(), torv3::VERSION.size()) != 0)
             {
@@ -290,41 +289,35 @@ size_t CNetAddr::GetAddrSize()
 {
     switch (_net_type)
     {
-        case NET_IPV4:
-            return ADDR_IPV4_SIZE;
-        case NET_IPV6:
-            return ADDR_IPV6_SIZE;
-        case NET_TOR2:
-            return ADDR_TORV2_SIZE;
-        case NET_TOR3:
-            return ADDR_TORV3_SIZE;
-        case NET_I2P:
-            return ADDR_I2P_SIZE;
-        case NET_CJDNS:
-            return ADDR_CJDNS_SIZE;
-        case NET_INTERNAL:
-            return ADDR_INTERNAL_SIZE;
-        case NET_UNROUTABLE: // _net_type is never and should not be set to NET_UNROUTABLE
-        case NET_MAX:        // _net_type is never and should not be set to NET_MAX
-            assert(false);
+    case NET_IPV4:
+        return ADDR_IPV4_SIZE;
+    case NET_IPV6:
+        return ADDR_IPV6_SIZE;
+    case NET_TOR2:
+        return ADDR_TORV2_SIZE;
+    case NET_TOR3:
+        return ADDR_TORV3_SIZE;
+    case NET_I2P:
+        return ADDR_I2P_SIZE;
+    case NET_CJDNS:
+        return ADDR_CJDNS_SIZE;
+    case NET_INTERNAL:
+        return ADDR_INTERNAL_SIZE;
+    case NET_UNROUTABLE: // _net_type is never and should not be set to NET_UNROUTABLE
+    case NET_MAX: // _net_type is never and should not be set to NET_MAX
+        assert(false);
     } // no default case, so the compiler can warn about missing cases
     assert(false);
 }
 
-bool CNetAddr::IsIPv4() const
-{
-    return (_net_type == NET_IPV4);
-}
+bool CNetAddr::IsIPv4() const { return (_net_type == NET_IPV4); }
 
-bool CNetAddr::IsIPv6() const
-{
-    return (_net_type == NET_IPV6);
-}
+bool CNetAddr::IsIPv6() const { return (_net_type == NET_IPV6); }
 
 bool CNetAddr::IsRFC1918() const
 {
-    return IsIPv4() && (ip[0] == 10 || (ip[0] == 192 && ip[1] == 168) ||
-                           (ip[0] == 172 && (ip[1] >= 16 && ip[1] <= 31)));
+    return IsIPv4() &&
+           (ip[0] == 10 || (ip[0] == 192 && ip[1] == 168) || (ip[0] == 172 && (ip[1] >= 16 && ip[1] <= 31)));
 }
 
 bool CNetAddr::IsRFC2544() const { return IsIPv4() && ip[0] == 198 && (ip[1] == 18 || ip[1] == 19); }
@@ -332,8 +325,7 @@ bool CNetAddr::IsRFC3927() const { return IsIPv4() && (ip[0] == 169 && ip[1] == 
 bool CNetAddr::IsRFC6598() const { return IsIPv4() && ip[0] == 100 && ip[1] >= 64 && ip[1] <= 127; }
 bool CNetAddr::IsRFC5737() const
 {
-    return IsIPv4() && ((ip[0] == 192 && ip[1] == 0 && ip[2] == 2) ||
-                           (ip[0] == 198 && ip[1] == 51 && ip[2] == 100) ||
+    return IsIPv4() && ((ip[0] == 192 && ip[1] == 0 && ip[2] == 2) || (ip[0] == 198 && ip[1] == 51 && ip[2] == 100) ||
                            (ip[0] == 203 && ip[1] == 0 && ip[2] == 113));
 }
 
@@ -349,15 +341,12 @@ bool CNetAddr::IsRFC6052() const
     return IsIPv6() && (std::memcmp(ip, pchRFC6052, sizeof(pchRFC6052)) == 0);
 }
 
-bool CNetAddr::IsRFC4380() const
-{
-    return IsIPv6() && (ip[0] == 0x20 && ip[1] == 0x01 && ip[2] == 0 && ip[3] == 0);
-}
+bool CNetAddr::IsRFC4380() const { return IsIPv6() && (ip[0] == 0x20 && ip[1] == 0x01 && ip[2] == 0 && ip[3] == 0); }
 
 bool CNetAddr::IsRFC4862() const
 {
     static const unsigned char pchRFC4862[] = {0xFE, 0x80, 0, 0, 0, 0, 0, 0};
-    return IsIPv6() &&  (memcmp(ip, pchRFC4862, sizeof(pchRFC4862)) == 0);
+    return IsIPv6() && (memcmp(ip, pchRFC4862, sizeof(pchRFC4862)) == 0);
 }
 
 bool CNetAddr::IsRFC4193() const { return IsIPv6() && ((ip[0] & 0xFE) == 0xFC); }
@@ -378,20 +367,11 @@ bool CNetAddr::IsTor2() const
     return _net_type == NET_TOR2;
 }
 
-bool CNetAddr::IsTor3() const
-{
-    return _net_type == NET_TOR3;
-}
+bool CNetAddr::IsTor3() const { return _net_type == NET_TOR3; }
 
-bool CNetAddr::IsI2P() const
-{
-    return _net_type == NET_I2P;
-}
+bool CNetAddr::IsI2P() const { return _net_type == NET_I2P; }
 
-bool CNetAddr::IsCJDNS() const
-{
-    return _net_type == NET_CJDNS;
-}
+bool CNetAddr::IsCJDNS() const { return _net_type == NET_CJDNS; }
 
 bool CNetAddr::IsLocal() const
 {
@@ -442,10 +422,7 @@ bool CNetAddr::IsRoutable() const
                             (IsRFC4193() && (!IsTor2() && !IsTor3())) || IsRFC4843() || IsLocal() || IsInternal());
 }
 
-bool CNetAddr::IsInternal() const
-{
-    return _net_type == NET_INTERNAL;
-}
+bool CNetAddr::IsInternal() const { return _net_type == NET_INTERNAL; }
 
 bool CNetAddr::IsAddrV1Compatible() const
 {
@@ -489,19 +466,19 @@ std::string CNetAddr::ToStringIP() const
             if (serv.GetSockAddr((struct sockaddr *)&sockaddr, &socklen))
             {
                 char name[1025] = "";
-                if (!getnameinfo((const struct sockaddr *)&sockaddr, socklen, name, sizeof(name), nullptr, 0, NI_NUMERICHOST))
+                if (!getnameinfo(
+                        (const struct sockaddr *)&sockaddr, socklen, name, sizeof(name), nullptr, 0, NI_NUMERICHOST))
                 {
                     return std::string(name);
                 }
             }
         }
-        return strprintf("%x:%x:%x:%x:%x:%x:%x:%x", ip[0] << 8 | ip[1], ip[2] << 8 | ip[3],
-            ip[4] << 8 | ip[5], ip[6] << 8 | ip[7], ip[8] << 8 | ip[9],
-            ip[10] << 8 | ip[11], ip[12] << 8 | ip[13], ip[14] << 8 | ip[15]);
+        return strprintf("%x:%x:%x:%x:%x:%x:%x:%x", ip[0] << 8 | ip[1], ip[2] << 8 | ip[3], ip[4] << 8 | ip[5],
+            ip[6] << 8 | ip[7], ip[8] << 8 | ip[9], ip[10] << 8 | ip[11], ip[12] << 8 | ip[13], ip[14] << 8 | ip[15]);
     }
     if (IsTor2())
     {
-            return EncodeBase32(ip, ADDR_TORV2_SIZE) + ".onion";
+        return EncodeBase32(ip, ADDR_TORV2_SIZE) + ".onion";
     }
     if (IsTor3())
     {
@@ -524,18 +501,9 @@ std::string CNetAddr::ToStringIP() const
 }
 
 std::string CNetAddr::ToString() const { return ToStringIP(); }
-bool operator==(const CNetAddr &a, const CNetAddr &b)
-{
-    return (memcmp(a.ip, b.ip, LARGEST_ADDR_SIZE) == 0);
-}
-bool operator!=(const CNetAddr &a, const CNetAddr &b)
-{
-    return (memcmp(a.ip, b.ip, LARGEST_ADDR_SIZE) != 0);
-}
-bool operator<(const CNetAddr &a, const CNetAddr &b)
-{
-    return (memcmp(a.ip, b.ip, LARGEST_ADDR_SIZE) < 0);
-}
+bool operator==(const CNetAddr &a, const CNetAddr &b) { return (memcmp(a.ip, b.ip, LARGEST_ADDR_SIZE) == 0); }
+bool operator!=(const CNetAddr &a, const CNetAddr &b) { return (memcmp(a.ip, b.ip, LARGEST_ADDR_SIZE) != 0); }
+bool operator<(const CNetAddr &a, const CNetAddr &b) { return (memcmp(a.ip, b.ip, LARGEST_ADDR_SIZE) < 0); }
 bool CNetAddr::GetInAddr(struct in_addr *pipv4Addr) const
 {
     if (!IsIPv4())
@@ -1080,27 +1048,27 @@ size_t GetAddrSize(const CNetAddr &addr)
     {
         return ADDR_IPV4_SIZE;
     }
-    else if(addr.IsIPv6())
+    else if (addr.IsIPv6())
     {
         return ADDR_IPV6_SIZE;
     }
-    else if(addr.IsTor2())
+    else if (addr.IsTor2())
     {
         return ADDR_TORV2_SIZE;
     }
-    else if(addr.IsTor3())
+    else if (addr.IsTor3())
     {
         return ADDR_TORV3_SIZE;
     }
-    else if(addr.IsI2P())
+    else if (addr.IsI2P())
     {
         return ADDR_I2P_SIZE;
     }
-    else if(addr.IsCJDNS())
+    else if (addr.IsCJDNS())
     {
         return ADDR_CJDNS_SIZE;
     }
-    else if(addr.IsInternal())
+    else if (addr.IsInternal())
     {
         return ADDR_INTERNAL_SIZE;
     }

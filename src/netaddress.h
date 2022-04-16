@@ -256,8 +256,8 @@ public:
                         std::memmove(ip, ip + sizeof(INTERNAL_IN_IPV6_PREFIX), ADDR_INTERNAL_SIZE);
                         return;
                     }
-                    if (std::memcmp(ip, IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX)) != 0
-                    && std::memcmp(ip, TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX)) != 0)
+                    if (std::memcmp(ip, IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX)) != 0 &&
+                        std::memcmp(ip, TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX)) != 0)
                     {
                         return;
                     }
@@ -275,7 +275,6 @@ public:
                 // will not be gossiped, but continue reading next addresses from the stream.
                 _net_type = NET_IPV6;
                 std::memset(ip, 0, LARGEST_ADDR_SIZE);
-
             }
             else // write
             {
@@ -311,41 +310,41 @@ public:
                 uint8_t data[V1_SERIALIZATION_SIZE] = {0};
                 switch (_net_type)
                 {
-                    case NET_UNROUTABLE:
-                    case NET_MAX:
-                    {
-                        assert(false);
-                        break;
-                    }
-                    case NET_IPV4:
-                    {
-                        std::memcpy(data, IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX));
-                        std::memcpy(data + sizeof(IPV4_IN_IPV6_PREFIX), ip, ADDR_IPV4_SIZE);
-                        break;
-                    }
-                    case NET_TOR2:
-                    {
-                        std::memcpy(data, TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX));
-                        std::memcpy(data + sizeof(TORV2_IN_IPV6_PREFIX), ip, ADDR_TORV2_SIZE);
-                        break;
-                    }
-                    case NET_IPV6:
-                    {
-                        std::memcpy(data, ip, V1_SERIALIZATION_SIZE);
-                        break;
-                    }
-                    case NET_INTERNAL:
-                    {
-                        std::memcpy(data, INTERNAL_IN_IPV6_PREFIX, sizeof(INTERNAL_IN_IPV6_PREFIX));
-                        std::memcpy(data + sizeof(INTERNAL_IN_IPV6_PREFIX), ip, ADDR_INTERNAL_SIZE);
-                        break;
-                    }
-                    case NET_TOR3:
-                    case NET_I2P:
-                    case NET_CJDNS:
-                    {
-                        // intentionally do nothing
-                    }
+                case NET_UNROUTABLE:
+                case NET_MAX:
+                {
+                    assert(false);
+                    break;
+                }
+                case NET_IPV4:
+                {
+                    std::memcpy(data, IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX));
+                    std::memcpy(data + sizeof(IPV4_IN_IPV6_PREFIX), ip, ADDR_IPV4_SIZE);
+                    break;
+                }
+                case NET_TOR2:
+                {
+                    std::memcpy(data, TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX));
+                    std::memcpy(data + sizeof(TORV2_IN_IPV6_PREFIX), ip, ADDR_TORV2_SIZE);
+                    break;
+                }
+                case NET_IPV6:
+                {
+                    std::memcpy(data, ip, V1_SERIALIZATION_SIZE);
+                    break;
+                }
+                case NET_INTERNAL:
+                {
+                    std::memcpy(data, INTERNAL_IN_IPV6_PREFIX, sizeof(INTERNAL_IN_IPV6_PREFIX));
+                    std::memcpy(data + sizeof(INTERNAL_IN_IPV6_PREFIX), ip, ADDR_INTERNAL_SIZE);
+                    break;
+                }
+                case NET_TOR3:
+                case NET_I2P:
+                case NET_CJDNS:
+                {
+                    // intentionally do nothing
+                }
                     // no default case to force missing cases compiler warnings
                 }
                 READWRITE(FLATDATA(data));
