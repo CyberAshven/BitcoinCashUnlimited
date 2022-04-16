@@ -230,7 +230,8 @@ BOOST_AUTO_TEST_CASE(cnode_simple_test)
     BOOST_CHECK_EQUAL(pnode1->nRefCount, 0);
 }
 
-BOOST_AUTO_TEST_CASE(cnetaddr_basic) {
+BOOST_AUTO_TEST_CASE(cnetaddr_basic)
+{
     std::vector<CNetAddr> vAddr;
 
     // IPv4, INADDR_ANY
@@ -420,9 +421,9 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
     s.SetVersion(s.GetVersion() | ADDRV2_FORMAT);
 
     // Valid IPv4.
-    std::vector<uint8_t> vHex = ParseHex("01"          // network type (IPv4)
-                           "04"          // address length
-                           "01020304"); // address
+    std::vector<uint8_t> vHex = ParseHex("01" // network type (IPv4)
+                                         "04" // address length
+                                         "01020304"); // address
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsValid());
@@ -432,37 +433,37 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
     BOOST_REQUIRE(s.empty());
 
     // Invalid IPv4, valid length but address itself is shorter.
-    vHex = ParseHex("01"      // network type (IPv4)
-                           "04"      // address length
-                           "0102"); // address
+    vHex = ParseHex("01" // network type (IPv4)
+                    "04" // address length
+                    "0102"); // address
     s << CFlatData(vHex);
     BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure, HasReason("end of data"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Invalid IPv4, with bogus length.
-    vHex = ParseHex("01"          // network type (IPv4)
-                           "05"          // address length
-                           "01020304"); // address
+    vHex = ParseHex("01" // network type (IPv4)
+                    "05" // address length
+                    "01020304"); // address
     s << CFlatData(vHex);
-    BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure,
-                          HasReason("BIP155 IPv4 address with length 5 (should be 4)"));
+    BOOST_CHECK_EXCEPTION(
+        s >> addr, std::ios_base::failure, HasReason("BIP155 IPv4 address with length 5 (should be 4)"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Invalid IPv4, with extreme length.
-    vHex = ParseHex("01"          // network type (IPv4)
-                           "fd0102"      // address length (513 as CompactSize)
-                           "01020304"); // address
+    vHex = ParseHex("01" // network type (IPv4)
+                    "fd0102" // address length (513 as CompactSize)
+                    "01020304"); // address
     s << CFlatData(vHex);
     BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure, HasReason("Address too long: 513 > 512"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Valid IPv6.
-    vHex = ParseHex("02"                                  // network type (IPv6)
-                           "10"                                  // address length
-                           "0102030405060708090a0b0c0d0e0f10"); // address
+    vHex = ParseHex("02" // network type (IPv6)
+                    "10" // address length
+                    "0102030405060708090a0b0c0d0e0f10"); // address
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsValid());
@@ -472,10 +473,10 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
     BOOST_REQUIRE(s.empty());
 
     // Valid IPv6, contains embedded "internal".
-    vHex = ParseHex("02"                                  // network type (IPv6)
-                           "10"                                  // address length
-                           "fd6b88c08724ca978112ca1bbdcafac2"); // address: 0xfd + sha256("bitcoin")[0:5] +
-                                                                 // sha256(name)[0:10]
+    vHex = ParseHex("02" // network type (IPv6)
+                    "10" // address length
+                    "fd6b88c08724ca978112ca1bbdcafac2"); // address: 0xfd + sha256("bitcoin")[0:5] +
+                                                         // sha256(name)[0:10]
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsInternal());
@@ -484,37 +485,37 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
     BOOST_REQUIRE(s.empty());
 
     // Invalid IPv6, with bogus length.
-    vHex = ParseHex("02"    // network type (IPv6)
-                           "04"    // address length
-                           "00"); // address
+    vHex = ParseHex("02" // network type (IPv6)
+                    "04" // address length
+                    "00"); // address
     s << CFlatData(vHex);
-    BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure,
-                          HasReason("BIP155 IPv6 address with length 4 (should be 16)"));
+    BOOST_CHECK_EXCEPTION(
+        s >> addr, std::ios_base::failure, HasReason("BIP155 IPv6 address with length 4 (should be 16)"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Invalid IPv6, contains embedded IPv4.
-    vHex = ParseHex("02"                                  // network type (IPv6)
-                           "10"                                  // address length
-                           "00000000000000000000ffff01020304"); // address
+    vHex = ParseHex("02" // network type (IPv6)
+                    "10" // address length
+                    "00000000000000000000ffff01020304"); // address
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(!addr.IsValid());
     BOOST_REQUIRE(s.empty());
 
     // Invalid IPv6, contains embedded TORv2.
-    vHex = ParseHex("02"                                  // network type (IPv6)
-                           "10"                                  // address length
-                           "fd87d87eeb430102030405060708090a"); // address
+    vHex = ParseHex("02" // network type (IPv6)
+                    "10" // address length
+                    "fd87d87eeb430102030405060708090a"); // address
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(!addr.IsValid());
     BOOST_REQUIRE(s.empty());
 
     // Valid TORv2.
-    vHex = ParseHex("03"                      // network type (TORv2)
-                           "0a"                      // address length
-                           "f1f2f3f4f5f6f7f8f9fa"); // address
+    vHex = ParseHex("03" // network type (TORv2)
+                    "0a" // address length
+                    "f1f2f3f4f5f6f7f8f9fa"); // address
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsValid());
@@ -525,20 +526,20 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
     BOOST_REQUIRE(s.empty());
 
     // Invalid TORv2, with bogus length.
-    vHex = ParseHex("03"    // network type (TORv2)
-                           "07"    // address length
-                           "00"); // address
+    vHex = ParseHex("03" // network type (TORv2)
+                    "07" // address length
+                    "00"); // address
     s << CFlatData(vHex);
-    BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure,
-                          HasReason("BIP155 TORv2 address with length 7 (should be 10)"));
+    BOOST_CHECK_EXCEPTION(
+        s >> addr, std::ios_base::failure, HasReason("BIP155 TORv2 address with length 7 (should be 10)"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Valid TORv3.
-    vHex = ParseHex("04"                               // network type (TORv3)
-                           "20"                               // address length
-                           "79bcc625184b05194975c28b66b66b04" // address
-                           "69f7f6556fb1ac3189a79b40dda32f1f");
+    vHex = ParseHex("04" // network type (TORv3)
+                    "20" // address length
+                    "79bcc625184b05194975c28b66b66b04" // address
+                    "69f7f6556fb1ac3189a79b40dda32f1f");
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsValid());
@@ -550,20 +551,20 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
 
     // Invalid TORv3, with bogus length.
     vHex = ParseHex("04" // network type (TORv3)
-                           "00" // address length
-                           "00" // address
-                           );
+                    "00" // address length
+                    "00" // address
+    );
     s << CFlatData(vHex);
-    BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure,
-                          HasReason("BIP155 TORv3 address with length 0 (should be 32)"));
+    BOOST_CHECK_EXCEPTION(
+        s >> addr, std::ios_base::failure, HasReason("BIP155 TORv3 address with length 0 (should be 32)"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Valid I2P.
-    vHex = ParseHex("05"                               // network type (I2P)
-                           "20"                               // address length
-                           "a2894dabaec08c0051a481a6dac88b64" // address
-                           "f98232ae42d4b6fd2fa81952dfe36a87");
+    vHex = ParseHex("05" // network type (I2P)
+                    "20" // address length
+                    "a2894dabaec08c0051a481a6dac88b64" // address
+                    "f98232ae42d4b6fd2fa81952dfe36a87");
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsValid());
@@ -574,20 +575,20 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
 
     // Invalid I2P, with bogus length.
     vHex = ParseHex("05" // network type (I2P)
-                           "03" // address length
-                           "00" // address
-                           );
+                    "03" // address length
+                    "00" // address
+    );
     s << CFlatData(vHex);
-    BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure,
-                          HasReason("BIP155 I2P address with length 3 (should be 32)"));
+    BOOST_CHECK_EXCEPTION(
+        s >> addr, std::ios_base::failure, HasReason("BIP155 I2P address with length 3 (should be 32)"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Valid CJDNS.
-    vHex = ParseHex("06"                               // network type (CJDNS)
-                           "10"                               // address length
-                           "fc000001000200030004000500060007" // address
-                           );
+    vHex = ParseHex("06" // network type (CJDNS)
+                    "10" // address length
+                    "fc000001000200030004000500060007" // address
+    );
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(addr.IsValid());
@@ -598,30 +599,30 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
 
     // Invalid CJDNS, with bogus length.
     vHex = ParseHex("06" // network type (CJDNS)
-                           "01" // address length
-                           "00" // address
-                           );
+                    "01" // address length
+                    "00" // address
+    );
     s << CFlatData(vHex);
-    BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure,
-                          HasReason("BIP155 CJDNS address with length 1 (should be 16)"));
+    BOOST_CHECK_EXCEPTION(
+        s >> addr, std::ios_base::failure, HasReason("BIP155 CJDNS address with length 1 (should be 16)"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Unknown, with extreme length.
-    vHex = ParseHex("aa"             // network type (unknown)
-                           "fe00000002"     // address length (CompactSize's MAX_SIZE)
-                           "01020304050607" // address
-                           );
+    vHex = ParseHex("aa" // network type (unknown)
+                    "fe00000002" // address length (CompactSize's MAX_SIZE)
+                    "01020304050607" // address
+    );
     s << CFlatData(vHex);
     BOOST_CHECK_EXCEPTION(s >> addr, std::ios_base::failure, HasReason("Address too long: 33554432 > 512"));
     BOOST_REQUIRE(!s.empty()); // The stream is not consumed on invalid input.
     s.clear();
 
     // Unknown, with reasonable length.
-    vHex = ParseHex("aa"       // network type (unknown)
-                           "04"       // address length
-                           "01020304" // address
-                           );
+    vHex = ParseHex("aa" // network type (unknown)
+                    "04" // address length
+                    "01020304" // address
+    );
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(!addr.IsValid());
@@ -629,9 +630,9 @@ BOOST_AUTO_TEST_CASE(cnetaddr_unserialize_v2)
 
     // Unknown, with zero length.
     vHex = ParseHex("aa" // network type (unknown)
-                           "00" // address length
-                           ""   // address
-                           );
+                    "00" // address length
+                    "" // address
+    );
     s << CFlatData(vHex);
     s >> addr;
     BOOST_CHECK(!addr.IsValid());

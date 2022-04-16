@@ -419,7 +419,7 @@ static void PushVerACK(CNode *pfrom)
 {
     // Signal ADDRv2 support (BIP155).
     pfrom->PushMessage(NetMsgType::SENDADDRV2);
-    
+
     // Send VERACK handshake message
     pfrom->PushMessage(NetMsgType::VERACK);
 }

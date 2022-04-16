@@ -601,7 +601,8 @@ BOOST_AUTO_TEST_CASE(keccak_tests)
 BOOST_AUTO_TEST_CASE(sha3_256_tests)
 {
     // clang-format off
-    // Test vectors from https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/sha-3bytetestvectors.zip
+    //csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/sha-3bytetestvectors.zip
+    // Test vectors from https:
 
     // SHA3-256 Short test vectors (SHA3_256ShortMsg.rsp)
     TestSHA3_256("", "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a");

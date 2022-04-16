@@ -266,10 +266,10 @@ public:
     //! Serialization versions.
     enum class Format : uint8_t
     {
-        V0_HISTORICAL = 0,    //!< historic format, before commit e6b343d88
+        V0_HISTORICAL = 0, //!< historic format, before commit e6b343d88
         V1_DETERMINISTIC = 1, //!< for pre-asmap files
-        V2_ASMAP = 2,         //!< for files including asmap version
-        V3_BIP155 = 3,        //!< same as V2_ASMAP plus addresses are in BIP155 format
+        V2_ASMAP = 2, //!< for files including asmap version
+        V3_BIP155 = 3, //!< same as V2_ASMAP plus addresses are in BIP155 format
     };
 
     /**
@@ -360,7 +360,8 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream &s) {
+    void Unserialize(Stream &s)
+    {
         LOCK(cs_addrman);
 
         Clear();
@@ -373,7 +374,9 @@ public:
         static constexpr Format maximum_supported_format = Format::V3_BIP155;
         if (format > maximum_supported_format)
         {
-            throw std::ios_base::failure(strprintf("Unsupported format of addrman database: %u. Maximum supported is %u. Continuing operation without using the saved list of peers.", static_cast<uint8_t>(format), static_cast<uint8_t>(maximum_supported_format)));
+            throw std::ios_base::failure(strprintf("Unsupported format of addrman database: %u. Maximum supported is "
+                                                   "%u. Continuing operation without using the saved list of peers.",
+                static_cast<uint8_t>(format), static_cast<uint8_t>(maximum_supported_format)));
         }
 
         if (format >= Format::V3_BIP155)
@@ -472,8 +475,8 @@ public:
                 {
                     CAddrInfo &info = mapInfo[nIndex];
                     int nUBucketPos = info.GetBucketPosition(nKey, true, bucket);
-                    if (format >= Format::V2_ASMAP && nUBuckets == ADDRMAN_NEW_BUCKET_COUNT && vvNew[bucket][nUBucketPos] == -1 &&
-                        info.nRefCount < ADDRMAN_NEW_BUCKETS_PER_ADDRESS)
+                    if (format >= Format::V2_ASMAP && nUBuckets == ADDRMAN_NEW_BUCKET_COUNT &&
+                        vvNew[bucket][nUBucketPos] == -1 && info.nRefCount < ADDRMAN_NEW_BUCKETS_PER_ADDRESS)
                     {
                         info.nRefCount++;
                         vvNew[bucket][nUBucketPos] = nIndex;
