@@ -14,6 +14,7 @@
 
 #include <string_view>
 
+/* clang-format off */
 namespace torv3
 {
     // https://gitweb.torproject.org/torspec.git/tree/rend-spec-v3.txt#n2135
@@ -44,7 +45,7 @@ namespace torv3
         return ret;
     }
 }; // namespace torv3
-
+/* clang-format on */
 
 
 CNetAddr::BIP155Network CNetAddr::GetBIP155Network() const
