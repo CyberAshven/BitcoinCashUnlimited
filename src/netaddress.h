@@ -132,7 +132,7 @@ protected:
 
 private:
     BIP155Network GetBIP155Network() const;
-    bool SetNetFromBIP155Network(uint8_t possible_bip155_net, size_t address_size);
+    bool SetNetFromBIP155Network(uint8_t possible_bip155_net, uint64_t address_size);
 
 public:
     CNetAddr();
@@ -218,7 +218,7 @@ public:
                 uint8_t bip155_net;
                 s >> bip155_net;
 
-                size_t address_size;
+                uint64_t address_size;
                 s >> COMPACTSIZE(address_size);
 
                 if (address_size > MAX_ADDRV2_SIZE)
@@ -284,7 +284,7 @@ public:
                     // Serialize NET_INTERNAL as embedded in IPv6. We need to
                     // serialize such addresses from addrman.
                     s << static_cast<uint8_t>(BIP155Network::IPV6);
-                    s << COMPACTSIZE(ADDR_IPV6_SIZE);
+                    WriteCompactSize(s, ADDR_IPV6_SIZE);
                     uint8_t data[V1_SERIALIZATION_SIZE] = {0};
                     std::copy(INTERNAL_IN_IPV6_PREFIX, INTERNAL_IN_IPV6_PREFIX + 6, data);
                     std::copy(ip, ip + ADDR_INTERNAL_SIZE, data + 6);
@@ -292,7 +292,7 @@ public:
                     return;
                 }
                 s << static_cast<uint8_t>(GetBIP155Network());
-                const size_t address_size = GetAddrSize();
+                const uint64_t address_size = GetAddrSize();
                 s << COMPACTSIZE(address_size);
                 CFlatData ipdata(ip, ip + address_size);
                 s << ipdata;
