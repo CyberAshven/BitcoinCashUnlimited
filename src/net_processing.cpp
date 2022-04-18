@@ -417,11 +417,11 @@ static void enableCompactBlocks(CNode *pfrom)
 //! - SENDADDRV2 is sent
 static void PushVerACK(CNode *pfrom)
 {
-    // Send VERACK handshake message
-    pfrom->PushMessage(NetMsgType::VERACK);
-
     // Signal ADDRv2 support (BIP155).
     pfrom->PushMessage(NetMsgType::SENDADDRV2);
+    
+    // Send VERACK handshake message
+    pfrom->PushMessage(NetMsgType::VERACK);
 }
 
 bool ProcessMessage(CNode *pfrom, std::string strCommand, CDataStream &vRecv, int64_t nStopwatchTimeReceived)
