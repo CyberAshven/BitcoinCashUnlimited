@@ -72,7 +72,7 @@ CNetAddr::BIP155Network CNetAddr::GetBIP155Network() const
     assert(false);
 }
 
-bool CNetAddr::SetNetFromBIP155Network(uint8_t possible_bip155_net, size_t address_size)
+bool CNetAddr::SetNetFromBIP155Network(uint8_t possible_bip155_net, uint64_t address_size)
 {
     switch (possible_bip155_net)
     {
