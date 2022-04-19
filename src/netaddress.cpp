@@ -18,12 +18,14 @@
 namespace torv3
 {
 // https://gitweb.torproject.org/torspec.git/tree/rend-spec-v3.txt#n2135
+
+// use hardcoded values, no constexpr, no inline for now to fix macos compilation
+/*
 inline constexpr size_t CHECKSUM_LEN = 2;
 inline constexpr std::array<uint8_t, 1> VERSION = {{3}};
 inline constexpr size_t TOTAL_LEN = ADDR_TORV3_SIZE + CHECKSUM_LEN + VERSION.size();
 inline constexpr size_t onion_checksum_size = 15;
-using ChecksumBytes = std::array<uint8_t, CHECKSUM_LEN>;
-static ChecksumBytes Checksum(const uint8_t *addr_pubkey, const size_t &addr_pubkey_size)
+std::array<uint8_t, CHECKSUM_LEN> static Checksum(const uint8_t *addr_pubkey, const size_t &addr_pubkey_size)
 {
     using namespace std::string_view_literals;
     // TORv3 CHECKSUM = H(".onion checksum" | PUBKEY | VERSION)[:2]
@@ -34,14 +36,40 @@ static ChecksumBytes Checksum(const uint8_t *addr_pubkey, const size_t &addr_pub
 
     hasher.Write(onion_checksum, onion_checksum_size);
     hasher.Write(addr_pubkey, addr_pubkey_size);
-    hasher.Write(VERSION.data(), 1);
+    hasher.Write(VERSION.data(), VERSION.size());
 
-    unsigned char checksum_full[SHA3_256::OUTPUT_SIZE];
+    uint8_t checksum_full[SHA3_256::OUTPUT_SIZE];
     hasher.Finalize(checksum_full);
 
-    ChecksumBytes ret;
+    std::array<uint8_t, CHECKSUM_LEN> ret;
     static_assert(SHA3_256::OUTPUT_SIZE >= ret.size());
     std::copy_n(&checksum_full[0], ret.size(), ret.begin());
+    return ret;
+}
+*/
+static const size_t CHECKSUM_LEN = 2;
+static const uint8_t VERSION[1] = {3};
+static const size_t TOTAL_LEN = ADDR_TORV3_SIZE + CHECKSUM_LEN + 1;
+static const size_t onion_checksum_size = 15;
+static uint8_t* Checksum(const uint8_t *addr_pubkey, const size_t &addr_pubkey_size)
+{
+    using namespace std::string_view_literals;
+    // TORv3 CHECKSUM = H(".onion checksum" | PUBKEY | VERSION)[:2]
+    SHA3_256 hasher;
+
+    auto strChecksum = ".onion checksum"sv;
+    const uint8_t *onion_checksum = reinterpret_cast<const uint8_t *>(strChecksum.data());
+
+    hasher.Write(onion_checksum, onion_checksum_size);
+    hasher.Write(addr_pubkey, addr_pubkey_size);
+    hasher.Write(VERSION, 1);
+
+    uint8_t checksum_full[SHA3_256::OUTPUT_SIZE];
+    hasher.Finalize(checksum_full);
+
+    uint8_t* ret = (uint8_t*)std::malloc(sizeof(uint8_t) * CHECKSUM_LEN);
+    // static_assert(SHA3_256::OUTPUT_SIZE >= ret.size());
+    std::copy_n(&checksum_full[0], CHECKSUM_LEN, ret);
     return ret;
 }
 }; // namespace torv3
@@ -251,16 +279,20 @@ bool CNetAddr::SetSpecial(const std::string &strName)
             // input_version has length torv3::VERSION.size() (1)
             uint8_t *input_version = vchAddr.data() + ADDR_TORV3_SIZE + torv3::CHECKSUM_LEN;
             // validate version
-            if (std::memcmp(input_version, torv3::VERSION.data(), torv3::VERSION.size()) != 0)
+            // macos fix
+            // if (std::memcmp(input_version, torv3::VERSION.data(), torv3::VERSION.size()) != 0)
+            if (std::memcmp(input_version, &torv3::VERSION, 1) != 0)
             {
                 return false;
             }
-            const auto calculated_checksum = torv3::Checksum(vchAddr.data(), ADDR_TORV3_SIZE);
+            uint8_t *calculated_checksum = torv3::Checksum(vchAddr.data(), ADDR_TORV3_SIZE);
             // validate checksum
-            if (std::memcmp(input_checksum, calculated_checksum.data(), torv3::CHECKSUM_LEN) != 0)
+            if (std::memcmp(input_checksum, calculated_checksum, torv3::CHECKSUM_LEN) != 0)
             {
+                std::free(calculated_checksum);
                 return false;
             }
+            std::free(calculated_checksum);
             std::memset(ip, 0, LARGEST_ADDR_SIZE);
             std::memcpy(ip, vchAddr.data(), ADDR_TORV3_SIZE);
             _net_type = NET_TOR3;
@@ -482,11 +514,14 @@ std::string CNetAddr::ToStringIP() const
     }
     if (IsTor3())
     {
-        const auto checksum = torv3::Checksum(ip, ADDR_TORV3_SIZE);
+        uint8_t *checksum = torv3::Checksum(ip, ADDR_TORV3_SIZE);
         // TORv3 onion_address = base32(PUBKEY | CHECKSUM | VERSION) + ".onion"
         prevector<torv3::TOTAL_LEN, uint8_t> address{ip, ip + ADDR_TORV3_SIZE};
-        address.insert(address.end(), checksum.begin(), checksum.end());
-        address.insert(address.end(), torv3::VERSION.begin(), torv3::VERSION.end());
+        address.insert(address.end(), checksum, checksum + torv3::CHECKSUM_LEN);
+        // macos fix
+        // address.insert(address.end(), torv3::VERSION.begin(), torv3::VERSION.end());
+        address.push_back(torv3::VERSION[0]);
+        std::free(checksum);
         return EncodeBase32(address.data(), torv3::TOTAL_LEN) + ".onion";
     }
     if (IsInternal())
