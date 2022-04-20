@@ -307,6 +307,10 @@ public:
         LOCK(cs_addrman);
 
         // Always serialize in the latest version (currently Format::V3_BIP155).
+        // Format::V3_BIP155 uses ADDRV2_FORMAT
+        int stream_version = s.GetVersion();
+        stream_version |= ADDRV2_FORMAT;
+        s.SetVersion(stream_version);
         s << static_cast<uint8_t>(Format::V3_BIP155); // version
         s << ((uint8_t)32);
         s << nKey;
