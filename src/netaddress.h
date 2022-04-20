@@ -435,6 +435,6 @@ public:
     }
 };
 
-size_t GetAddrSize(const CNetAddr &addr);
+size_t GetNetAddrSize(const CNetAddr &addr);
 
 #endif

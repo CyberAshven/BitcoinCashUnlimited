@@ -863,11 +863,36 @@ bool CService::GetSockAddr(struct sockaddr *paddr, socklen_t *addrlen) const
 
 std::vector<unsigned char> CService::GetKey() const
 {
-    std::vector<unsigned char> vKey;
-    vKey.resize(18);
-    memcpy(&vKey[0], &ip[0], 16);
-    vKey[16] = port / 0x100;
-    vKey[17] = port & 0x0FF;
+    std::vector<uint8_t> vKey;
+    if (IsIPv4() || IsIPv6() || IsInternal() || IsTor2())
+    {
+        vKey.resize(18);
+        if (IsIPv4())
+        {
+            std::memcpy(&vKey[0], IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX));
+            std::memcpy(&vKey[0] + sizeof(IPV4_IN_IPV6_PREFIX), ip, ADDR_IPV4_SIZE);
+        }
+        else if (IsIPv6())
+        {
+            memcpy(&vKey[0], &ip[0], 16);
+        }
+        else if (IsInternal())
+        {
+            std::memcpy(&vKey[0], INTERNAL_IN_IPV6_PREFIX, sizeof(INTERNAL_IN_IPV6_PREFIX));
+            std::memcpy(&vKey[0] + sizeof(INTERNAL_IN_IPV6_PREFIX), ip, ADDR_INTERNAL_SIZE);
+        }
+        else if (IsTor2())
+        {
+            std::memcpy(&vKey[0], TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX));
+            std::memcpy(&vKey[0] + sizeof(TORV2_IN_IPV6_PREFIX), ip, ADDR_TORV2_SIZE);
+        }
+        vKey[16] = port / 0x100;
+        vKey[17] = port & 0x0FF;
+    }
+    else
+    {
+        std::memcpy(&vKey[0], ip, GetNetAddrSize(*((CNetAddr *)this)));
+    }
     return vKey;
 }
 
@@ -967,7 +992,7 @@ bool CSubNet::Match(const CNetAddr &addr) const
     {
         return false;
     }
-    const size_t addrSize = GetAddrSize(network);
+    const size_t addrSize = GetNetAddrSize(network);
     for (size_t x = 0; x < addrSize; ++x)
     {
         if ((addr.ip[x] & netmask[x]) != network.ip[x])
@@ -1020,7 +1045,7 @@ std::string CSubNet::ToString() const
     /* Parse binary 1{n}0{N-n} to see if mask can be represented as /n */
     int cidr = 0;
     bool valid_cidr = true;
-    const size_t addrSize = GetAddrSize(network);
+    const size_t addrSize = GetNetAddrSize(network);
     uint32_t n = 0;
     for (; n < addrSize && netmask[n] == 0xff; ++n)
     {
@@ -1077,7 +1102,7 @@ bool operator<(const CSubNet &a, const CSubNet &b)
     return (a.network < b.network || (a.network == b.network && memcmp(a.netmask, b.netmask, 16) < 0));
 }
 
-size_t GetAddrSize(const CNetAddr &addr)
+size_t GetNetAddrSize(const CNetAddr &addr)
 {
     if (addr.IsIPv4())
     {
