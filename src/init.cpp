@@ -1617,23 +1617,11 @@ bool AppInit2(Config &config)
 
         SetProxy(NET_IPV4, addrProxy);
         SetProxy(NET_IPV6, addrProxy);
-        if (addrProxy.proxy.IsTor2())
-        {
-            SetProxy(NET_TOR2, addrProxy);
-        }
-        if (addrProxy.proxy.IsTor3())
-        {
-            SetProxy(NET_TOR3, addrProxy);
-        }
+        SetProxy(NET_TOR2, addrProxy);
+        SetProxy(NET_TOR3, addrProxy);
         SetNameProxy(addrProxy);
-        if (addrProxy.proxy.IsTor2())
-        {
-            SetLimited(NET_TOR2, false); // by default, -proxy sets onion as reachable, unless -noonion later
-        }
-        if (addrProxy.proxy.IsTor3())
-        {
-            SetLimited(NET_TOR3, false); // by default, -proxy sets onion as reachable, unless -noonion later
-        }
+        SetLimited(NET_TOR2, false); // by default, -proxy sets onion as reachable, unless -noonion later
+        SetLimited(NET_TOR3, false); // by default, -proxy sets onion as reachable, unless -noonion later
     }
 
     // -onion can be used to set only a proxy for .onion, or override normal proxy for .onion addresses
@@ -1654,16 +1642,10 @@ bool AppInit2(Config &config)
             {
                 return InitError(strprintf(_("Invalid -onion address: '%s'"), onionArg));
             }
-            if (addrOnion.proxy.IsTor2())
-            {
-                SetProxy(NET_TOR2, addrOnion);
-                SetLimited(NET_TOR2, false);
-            }
-            if (addrOnion.proxy.IsTor3())
-            {
-                SetProxy(NET_TOR3, addrOnion);
-                SetLimited(NET_TOR3, false);
-            }
+            SetProxy(NET_TOR2, addrOnion);
+            SetProxy(NET_TOR3, addrOnion);
+            SetLimited(NET_TOR2, false);
+            SetLimited(NET_TOR3, false);
         }
     }
 
