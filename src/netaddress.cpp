@@ -220,20 +220,20 @@ void CNetAddr::SetLegacy(const uint8_t *ip_in)
     // on the network v1 format has addresses in ipv6 but in memory storage we no longer do this
     // for simplicity with v2
     std::memset(ip, 0, LARGEST_ADDR_SIZE);
-    if (std::memcmp(ip_in, IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX)) == 0)
+    if (std::memcmp(ip_in, IPV4_IN_IPV6_PREFIX.data(), IPV4_IN_IPV6_PREFIX.size()) == 0)
     {
         _net_type = NET_IPV4;
-        std::memcpy(ip, ip_in + sizeof(IPV4_IN_IPV6_PREFIX), ADDR_IPV4_SIZE);
+        std::memcpy(ip, ip_in + IPV4_IN_IPV6_PREFIX.size(), ADDR_IPV4_SIZE);
     }
-    else if (std::memcmp(ip_in, TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX)) == 0)
+    else if (std::memcmp(ip_in, TORV2_IN_IPV6_PREFIX.data(), TORV2_IN_IPV6_PREFIX.size()) == 0)
     {
         _net_type = NET_TOR2;
-        std::memcpy(ip, ip_in + sizeof(TORV2_IN_IPV6_PREFIX), ADDR_TORV2_SIZE);
+        std::memcpy(ip, ip_in + TORV2_IN_IPV6_PREFIX.size(), ADDR_TORV2_SIZE);
     }
-    else if (std::memcmp(ip_in, INTERNAL_IN_IPV6_PREFIX, sizeof(INTERNAL_IN_IPV6_PREFIX)) == 0)
+    else if (std::memcmp(ip_in, INTERNAL_IN_IPV6_PREFIX.data(), INTERNAL_IN_IPV6_PREFIX.size()) == 0)
     {
         _net_type = NET_INTERNAL;
-        std::memcpy(ip, ip_in + sizeof(INTERNAL_IN_IPV6_PREFIX), ADDR_INTERNAL_SIZE);
+        std::memcpy(ip, ip_in + INTERNAL_IN_IPV6_PREFIX.size(), ADDR_INTERNAL_SIZE);
     }
     else // IPV6
     {
@@ -259,7 +259,7 @@ bool CNetAddr::SetSpecial(const std::string &strName)
         }
         if (vchAddr.size() == ADDR_TORV2_SIZE) // torv2
         {
-            if (vchAddr.size() != 16 - sizeof(TORV2_IN_IPV6_PREFIX))
+            if (vchAddr.size() != 16 - TORV2_IN_IPV6_PREFIX.size())
             {
                 return false;
             }
@@ -869,8 +869,8 @@ std::vector<unsigned char> CService::GetKey() const
         vKey.resize(18);
         if (IsIPv4())
         {
-            std::memcpy(&vKey[0], IPV4_IN_IPV6_PREFIX, sizeof(IPV4_IN_IPV6_PREFIX));
-            std::memcpy(&vKey[0] + sizeof(IPV4_IN_IPV6_PREFIX), ip, ADDR_IPV4_SIZE);
+            std::memcpy(&vKey[0], IPV4_IN_IPV6_PREFIX.data(), IPV4_IN_IPV6_PREFIX.size());
+            std::memcpy(&vKey[0] + IPV4_IN_IPV6_PREFIX.size(), ip, ADDR_IPV4_SIZE);
         }
         else if (IsIPv6())
         {
@@ -878,13 +878,13 @@ std::vector<unsigned char> CService::GetKey() const
         }
         else if (IsInternal())
         {
-            std::memcpy(&vKey[0], INTERNAL_IN_IPV6_PREFIX, sizeof(INTERNAL_IN_IPV6_PREFIX));
-            std::memcpy(&vKey[0] + sizeof(INTERNAL_IN_IPV6_PREFIX), ip, ADDR_INTERNAL_SIZE);
+            std::memcpy(&vKey[0], INTERNAL_IN_IPV6_PREFIX.data(), INTERNAL_IN_IPV6_PREFIX.size());
+            std::memcpy(&vKey[0] + INTERNAL_IN_IPV6_PREFIX.size(), ip, ADDR_INTERNAL_SIZE);
         }
         else if (IsTor2())
         {
-            std::memcpy(&vKey[0], TORV2_IN_IPV6_PREFIX, sizeof(TORV2_IN_IPV6_PREFIX));
-            std::memcpy(&vKey[0] + sizeof(TORV2_IN_IPV6_PREFIX), ip, ADDR_TORV2_SIZE);
+            std::memcpy(&vKey[0], TORV2_IN_IPV6_PREFIX.data(), TORV2_IN_IPV6_PREFIX.size());
+            std::memcpy(&vKey[0] + TORV2_IN_IPV6_PREFIX.size(), ip, ADDR_TORV2_SIZE);
         }
         vKey[16] = port / 0x100;
         vKey[17] = port & 0x0FF;
