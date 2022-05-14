@@ -127,7 +127,7 @@ private:
     };
 
 protected:
-    uint8_t ip[LARGEST_ADDR_SIZE];
+    std::vector<uint8_t> ip;
     Network _net_type;
     uint32_t scopeId; // for scoped/link-local ipv6 addresses
 
@@ -233,14 +233,14 @@ public:
                 if (address_size > LARGEST_ADDR_SIZE)
                 {
                     _net_type = NET_IPV6;
-                    std::memset(ip, 0, LARGEST_ADDR_SIZE);
+                    ip.assign(ADDR_IPV6_SIZE, 0);
                     return;
                 }
 
                 if (SetNetFromBIP155Network(bip155_net, address_size))
                 {
-                    // m_addr.resize(address_size);
-                    CFlatData ipData(ip, ip + address_size);
+                    ip.resize(address_size);
+                    CFlatData ipData(ip.data(), ip.data() + address_size);
                     s >> ipData;
                     if (_net_type != NET_IPV6)
                     {
@@ -251,14 +251,14 @@ public:
                     // Recognize NET_INTERNAL embedded in IPv6, such addresses are not
                     // gossiped but could be coming from addrman, when unserializing from
                     // disk.
-                    if (std::memcmp(ip, INTERNAL_IN_IPV6_PREFIX.data(), INTERNAL_IN_IPV6_PREFIX.size()) == 0)
+                    if (std::memcmp(ip.data(), INTERNAL_IN_IPV6_PREFIX.data(), INTERNAL_IN_IPV6_PREFIX.size()) == 0)
                     {
                         _net_type = NET_INTERNAL;
-                        std::memmove(ip, ip + INTERNAL_IN_IPV6_PREFIX.size(), ADDR_INTERNAL_SIZE);
+                        ip.erase(ip.begin(), ip.begin() + INTERNAL_IN_IPV6_PREFIX.size());
                         return;
                     }
-                    if (std::memcmp(ip, IPV4_IN_IPV6_PREFIX.data(), IPV4_IN_IPV6_PREFIX.size()) != 0 &&
-                        std::memcmp(ip, TORV2_IN_IPV6_PREFIX.data(), TORV2_IN_IPV6_PREFIX.size()) != 0)
+                    if (std::memcmp(ip.data(), IPV4_IN_IPV6_PREFIX.data(), IPV4_IN_IPV6_PREFIX.size()) != 0 &&
+                        std::memcmp(ip.data(), TORV2_IN_IPV6_PREFIX.data(), TORV2_IN_IPV6_PREFIX.size()) != 0)
                     {
                         return;
                     }
@@ -274,8 +274,8 @@ public:
 
                 // Mimic a default-constructed CNetAddr object which is !IsValid() and thus
                 // will not be gossiped, but continue reading next addresses from the stream.
+                ip.assign(ADDR_IPV6_SIZE, 0);
                 _net_type = NET_IPV6;
-                std::memset(ip, 0, LARGEST_ADDR_SIZE);
             }
             else // write
             {
@@ -287,15 +287,12 @@ public:
                     WriteCompactSize(s, ADDR_IPV6_SIZE);
                     uint8_t data[V1_SERIALIZATION_SIZE] = {0};
                     std::copy(INTERNAL_IN_IPV6_PREFIX.data(), INTERNAL_IN_IPV6_PREFIX.data() + 6, data);
-                    std::copy(ip, ip + ADDR_INTERNAL_SIZE, data + 6);
+                    std::copy(ip.begin(), ip.end(), data + INTERNAL_IN_IPV6_PREFIX.size());
                     READWRITE(FLATDATA(data));
                     return;
                 }
                 s << static_cast<uint8_t>(GetBIP155Network());
-                const uint64_t address_size = GetAddrSize();
-                s << COMPACTSIZE(address_size);
-                CFlatData ipdata(ip, ip + address_size);
-                s << ipdata;
+                s << ip;
             }
         }
         else // version 1
@@ -320,24 +317,24 @@ public:
                 case NET_IPV4:
                 {
                     std::memcpy(data, IPV4_IN_IPV6_PREFIX.data(), IPV4_IN_IPV6_PREFIX.size());
-                    std::memcpy(data + IPV4_IN_IPV6_PREFIX.size(), ip, ADDR_IPV4_SIZE);
+                    std::memcpy(data + IPV4_IN_IPV6_PREFIX.size(), ip.data(), ADDR_IPV4_SIZE);
                     break;
                 }
                 case NET_TOR2:
                 {
                     std::memcpy(data, TORV2_IN_IPV6_PREFIX.data(), TORV2_IN_IPV6_PREFIX.size());
-                    std::memcpy(data + TORV2_IN_IPV6_PREFIX.size(), ip, ADDR_TORV2_SIZE);
+                    std::memcpy(data + TORV2_IN_IPV6_PREFIX.size(), ip.data(), ADDR_TORV2_SIZE);
                     break;
                 }
                 case NET_IPV6:
                 {
-                    std::memcpy(data, ip, V1_SERIALIZATION_SIZE);
+                    std::memcpy(data, ip.data(), V1_SERIALIZATION_SIZE);
                     break;
                 }
                 case NET_INTERNAL:
                 {
                     std::memcpy(data, INTERNAL_IN_IPV6_PREFIX.data(), INTERNAL_IN_IPV6_PREFIX.size());
-                    std::memcpy(data + INTERNAL_IN_IPV6_PREFIX.size(), ip, ADDR_INTERNAL_SIZE);
+                    std::memcpy(data + INTERNAL_IN_IPV6_PREFIX.size(), ip.data(), ADDR_INTERNAL_SIZE);
                     break;
                 }
                 case NET_TOR3:
