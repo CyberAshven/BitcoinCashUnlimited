@@ -76,7 +76,7 @@ inline constexpr size_t ADDR_CJDNS_SIZE = 16;
 /// Size of "internal" (NET_INTERNAL) address (in bytes).
 inline constexpr size_t ADDR_INTERNAL_SIZE = 10;
 
-// Equivalent to the largest sized address as defined above
+// Equivalent to the largest sized address as defined above, currently ADDR_TORV3_SIZE
 inline constexpr size_t LARGEST_ADDR_SIZE = 32;
 
 /// Prefix of an IPv6 address when it contains an embedded IPv4 address.
