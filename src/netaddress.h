@@ -20,8 +20,6 @@
 #include "serialize.h"
 #include "tinyformat.h"
 
-extern const std::vector<uint8_t> pchIPv4;
-
 enum
 {
     IPV6_ADDR_SCOPE_RESERVED = 0x0,
