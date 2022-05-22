@@ -1129,11 +1129,6 @@ bool AppInit2(Config &config)
     if (GetBoolArg("-shrinkdebugfile", !fDebug))
         ShrinkDebugFile();
 
-    if (fPrintToDebugLog.load())
-    {
-        OpenDebugLog();
-    }
-
 #ifdef ENABLE_WALLET
     LOGA("Using BerkeleyDB version %s\n", DbEnv::version(0, 0, 0));
 #endif

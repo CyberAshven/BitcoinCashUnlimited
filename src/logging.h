@@ -15,6 +15,8 @@
 #include "tinyformat.h"
 #include "utiltime.h"
 
+#include <map>
+#include <mutex>
 #include <stdint.h>
 #include <string>
 
@@ -24,15 +26,14 @@ static const bool DEFAULT_LOGTIMEMICROS = false;
 static const bool DEFAULT_LOGIPS = true;
 static const bool DEFAULT_LOGTIMESTAMPS = true;
 
-inline std::atomic<bool> fLogTimestamps { DEFAULT_LOGTIMESTAMPS };
-inline std::atomic<bool> fLogTimeMicros { DEFAULT_LOGTIMEMICROS };
-inline std::atomic<bool> fPrintToConsole {false};
-inline std::atomic<bool> fPrintToDebugLog {false};
-inline std::atomic<bool> fReopenDebugLog {false};
+inline std::atomic<bool> fLogTimestamps{DEFAULT_LOGTIMESTAMPS};
+inline std::atomic<bool> fLogTimeMicros{DEFAULT_LOGTIMEMICROS};
+inline std::atomic<bool> fPrintToConsole{false};
+inline std::atomic<bool> fPrintToDebugLog{false};
+inline std::atomic<bool> fReopenDebugLog{false};
 
-inline std::atomic<std::mutex*> mutexDebugLog {nullptr};
-inline std::list<std::string> *vMsgsBeforeOpenLog = nullptr; // protected by mutexDebugLog
-inline std::atomic<FILE*> logger_fileout  { nullptr };
+inline std::atomic<std::mutex *> mutexDebugLog{nullptr};
+inline std::atomic<FILE *> logger_fileout{nullptr};
 
 /** All logs are automatically CR terminated.  If you want to construct a single-line log out of multiple calls, don't.
     Make your own temporary.  You can make a multi-line log by adding \n in your temporary.
@@ -83,15 +84,6 @@ static void MonitorLogfile()
     }
 }
 
-static void DebugPrintInit()
-{
-    if (mutexDebugLog.load() == nullptr)
-    {
-        mutexDebugLog.store(new std::mutex);
-        vMsgsBeforeOpenLog = new std::list<std::string>;
-    }
-}
-
 static int FileWriteStr(const std::string &str, FILE *fp) { return fwrite(str.data(), 1, str.size(), fp); }
 
 /** Send a string to the log output */
@@ -105,7 +97,7 @@ static int LogPrintStr(const std::string &str)
     {
         return 0;
     }
-    if (fPrintToConsole)
+    if (fPrintToConsole.load())
     {
         // print to console
         ret = fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
@@ -113,15 +105,13 @@ static int LogPrintStr(const std::string &str)
     }
     if (fPrintToDebugLog.load())
     {
-        DebugPrintInit();
         std::scoped_lock scoped_lock(*mutexDebugLog.load());
 
         // buffer if we haven't opened the log yet
         if (logger_fileout == nullptr)
         {
-            assert(vMsgsBeforeOpenLog);
-            ret = strTimestamped.length();
-            vMsgsBeforeOpenLog->push_back(strTimestamped);
+            printf("Logger fileout is null. Did you specify an output file for the logger?\n");
+            assert(logger_fileout != nullptr);
         }
         else
         {
@@ -213,234 +203,270 @@ enum
 
 namespace Logging
 {
-    /*
-    To add a new log category:
-    1) Create a unique 1 bit category mask. (Easiest is to 2* the last enum entry.)
-       Put it at the end of enum above.
-    2) Add an category/string pair to LOGLABELMAP macro below.
-    */
+/*
+To add a new log category:
+1) Create a unique 1 bit category mask. (Easiest is to 2* the last enum entry.)
+   Put it at the end of enum above.
+2) Add an category/string pair to LOGLABELMAP macro below.
+*/
 
-    // Add corresponding lower case string for the category:
-    #define LOGLABELMAP                                                                                             \
-        {                                                                                                           \
-            {NONE, "none"}, {ALL, "all"}, {THIN, "thin"}, {MEMPOOL, "mempool"}, {COINDB, "coindb"}, {TOR, "tor"},   \
-                {NET, "net"}, {ADDRMAN, "addrman"}, {LIBEVENT, "libevent"}, {HTTP, "http"}, {RPC, "rpc"},           \
-                {PARTITIONCHECK, "partitioncheck"}, {BENCH, "bench"}, {PRUNE, "prune"}, {REINDEX, "reindex"},       \
-                {MEMPOOLREJ, "mempoolrej"}, {BLK, "blk"}, {EVICT, "evict"}, {PARALLEL, "parallel"}, {RAND, "rand"}, \
-                {REQ, "req"}, {BLOOM, "bloom"}, {LCK, "lck"}, {PROXY, "proxy"}, {DBASE, "dbase"},                   \
-                {SELECTCOINS, "selectcoins"}, {ESTIMATEFEE, "estimatefee"}, {QT, "qt"}, {IBD, "ibd"},               \
-                {GRAPHENE, "graphene"}, {RESPEND, "respend"}, {WB, "weakblocks"}, {CMPCT, "cmpctblock"},            \
-                {ELECTRUM, "electrum"}, {MPOOLSYNC, "mempoolsync"}, {PRIORITYQ, "priorityq"}, {DSPROOF, "dsproof"}, \
-                {TWEAKS, "tweaks"}, {SCRIPT, "script"}, {ZMQ, "zmq"}, {VALIDATION, "validation"}, {CAPD, "capd"},   \
-                {TOKEN, "token"},                                                                                   \
-        }
+// Add corresponding lower case string for the category:
+#define LOGLABELMAP                                                                                             \
+    {                                                                                                           \
+        {NONE, "none"}, {ALL, "all"}, {THIN, "thin"}, {MEMPOOL, "mempool"}, {COINDB, "coindb"}, {TOR, "tor"},   \
+            {NET, "net"}, {ADDRMAN, "addrman"}, {LIBEVENT, "libevent"}, {HTTP, "http"}, {RPC, "rpc"},           \
+            {PARTITIONCHECK, "partitioncheck"}, {BENCH, "bench"}, {PRUNE, "prune"}, {REINDEX, "reindex"},       \
+            {MEMPOOLREJ, "mempoolrej"}, {BLK, "blk"}, {EVICT, "evict"}, {PARALLEL, "parallel"}, {RAND, "rand"}, \
+            {REQ, "req"}, {BLOOM, "bloom"}, {LCK, "lck"}, {PROXY, "proxy"}, {DBASE, "dbase"},                   \
+            {SELECTCOINS, "selectcoins"}, {ESTIMATEFEE, "estimatefee"}, {QT, "qt"}, {IBD, "ibd"},               \
+            {GRAPHENE, "graphene"}, {RESPEND, "respend"}, {WB, "weakblocks"}, {CMPCT, "cmpctblock"},            \
+            {ELECTRUM, "electrum"}, {MPOOLSYNC, "mempoolsync"}, {PRIORITYQ, "priorityq"}, {DSPROOF, "dsproof"}, \
+            {TWEAKS, "tweaks"}, {SCRIPT, "script"}, {ZMQ, "zmq"}, {VALIDATION, "validation"}, {CAPD, "capd"},   \
+            {TOKEN, "token"},                                                                                   \
+    }
 
-    inline std::map<uint64_t, std::string> logLabelMap = LOGLABELMAP; // Lookup log label from log id.
-    inline std::atomic<uint64_t> categoriesEnabled = 0; // 64 bit log id mask.
+inline std::map<uint64_t, std::string> logLabelMap = LOGLABELMAP; // Lookup log label from log id.
+inline std::atomic<uint64_t> categoriesEnabled = 0; // 64 bit log id mask.
 
-    /**
-     * Check if a category should be logged
-     * @param[in] category
-     * returns true if should be logged
-     */
-    inline bool LogAcceptCategory(uint64_t category) { return (categoriesEnabled & category); }
-    /**
-     * Turn on/off logging for a category
-     * @param[in] category
-     * @param[in] on  True turn on, False turn off.
-     */
-    inline void LogToggleCategory(uint64_t category, bool on)
+/**
+ * Check if a category should be logged
+ * @param[in] category
+ * returns true if should be logged
+ */
+inline bool LogAcceptCategory(uint64_t category) { return (categoriesEnabled & category); }
+/**
+ * Turn on/off logging for a category
+ * @param[in] category
+ * @param[in] on  True turn on, False turn off.
+ */
+inline void LogToggleCategory(uint64_t category, bool on)
+{
+    if (on)
     {
-        if (on)
+        categoriesEnabled |= category;
+    }
+    else
+    {
+        categoriesEnabled &= ~category; // off
+    }
+}
+
+/**
+ * Get a category associated with a string.
+ * @param[in] label string
+ * returns category
+ */
+static uint64_t LogFindCategory(const std::string label)
+{
+    for (const auto &x : logLabelMap)
+    {
+        if ((std::string)x.second == label)
         {
-            categoriesEnabled |= category;
+            return (uint64_t)x.first;
+        }
+    }
+    return NONE;
+}
+
+/**
+ * Get the label / associated string for a category.
+ * @param[in] category
+ * returns label
+ */
+// note: only used in unit tests
+inline std::string LogGetLabel(uint64_t category)
+{
+    std::string label = "none";
+    if (logLabelMap.count(category) != 0)
+    {
+        label = logLabelMap[category];
+    }
+    return label;
+}
+
+/**
+ * Get all categories and their state.
+ * Formatted for display.
+ * returns all categories and states
+ */
+// Return a string rapresentation of all debug categories and their current status,
+// one category per line. If enabled is true it returns only the list of enabled
+// debug categories concatenated in a single line.
+static std::string LogGetAllString(bool fEnabled = false)
+{
+    std::string allCategories = "";
+    std::string enabledCategories = "";
+    for (auto &x : logLabelMap)
+    {
+        if (x.first == ALL || x.first == NONE)
+        {
+            continue;
+        }
+        if (LogAcceptCategory(x.first))
+        {
+            allCategories += "on ";
+            if (fEnabled)
+            {
+                enabledCategories += (std::string)x.second + " ";
+            }
         }
         else
         {
-            categoriesEnabled &= ~category; // off
+            allCategories += "   ";
+        }
+        allCategories += (std::string)x.second + "\n";
+    }
+    // strip last char from enabledCategories if it is eqaul to a blank space
+    if (enabledCategories.length() > 0)
+    {
+        enabledCategories.pop_back();
+    }
+    return fEnabled ? enabledCategories : allCategories;
+}
+
+/**
+ * Log a string
+ * @param[in] All parameters are "printf like args".
+ */
+template <typename T1, typename... Args>
+inline void LogWrite(const char *fmt, const T1 &v1, const Args &...args)
+{
+    try
+    {
+        LogPrintStr(tfm::format(fmt, v1, args...));
+    }
+    catch (...)
+    {
+        // Number of format specifiers (%) do not match argument count, etc
+    }
+}
+
+/**
+ * Log a string
+ * @param[in] str String to log.
+ */
+inline void LogWrite(const std::string &str)
+{
+    LogPrintStr(str); // No formatting for a simple string
+}
+
+/**
+ * LOGA macro: Always log a string.
+ *
+ * @param[in] ... "printf like args".
+ */
+#define LOGA(...) Logging::LogWrite(__VA_ARGS__)
+
+/**
+ * Set the logger output file after logger has been initialised
+ */
+inline void LogSetOutputFile(fs::path pathDebug = GetDataDir() / "debug.log")
+{
+    // if this assert fails, the LogInit was never called
+    assert(mutexDebugLog.load() != nullptr);
+    std::scoped_lock scoped_lock(*mutexDebugLog.load());
+    // fopen returns a FILE*
+    logger_fileout.store(fsbridge::fopen(pathDebug, "a"));
+    if (logger_fileout.load())
+    {
+        setbuf(logger_fileout.load(), nullptr); // unbuffered
+    }
+    fPrintToDebugLog.store(true);
+}
+
+/**
+ * Initialize
+ */
+inline void LogInit(const std::vector<std::string> &categories = {})
+{
+    // mutexDebugLog should always be nullptr before
+    // the logger is initalised
+    assert(mutexDebugLog.load() == nullptr);
+    // make the mutex and the message vector
+    mutexDebugLog.store(new std::mutex);
+    std::scoped_lock scoped_lock(*mutexDebugLog.load());
+    // when initialising the logger, check if we will use the debug log
+    if (fPrintToDebugLog.load())
+    {
+        assert(logger_fileout == nullptr);
+        fs::path pathDebug = GetDataDir() / "debug.log";
+        // fopen returns a FILE*
+        logger_fileout.store(fsbridge::fopen(pathDebug, "a"));
+        if (logger_fileout.load())
+        {
+            setbuf(logger_fileout.load(), nullptr); // unbuffered
         }
     }
 
-    /**
-     * Get a category associated with a string.
-     * @param[in] label string
-     * returns category
-     */
-    static uint64_t LogFindCategory(const std::string label)
+    std::string category = "";
+    uint64_t catg = NONE;
+
+    // enable all when given -debug=1 or -debug
+    if (categories.size() == 1 && (categories[0] == "" || categories[0] == "1"))
     {
-        for (const auto &x : logLabelMap)
+        LogToggleCategory(ALL, true);
+    }
+    else
+    {
+        for (std::string const &cat : categories)
         {
-            if ((std::string)x.second == label)
+            category = boost::algorithm::to_lower_copy(cat);
+
+            // remove the category from the list of enables one
+            // if label is suffixed with a dash
+            bool toggle_flag = true;
+
+            if (category.length() > 0 && category.at(0) == '-')
             {
-                return (uint64_t)x.first;
+                toggle_flag = false;
+                category.erase(0, 1);
             }
-        }
-        return NONE;
-    }
 
-    /**
-     * Get the label / associated string for a category.
-     * @param[in] category
-     * returns label
-     */
-    // note: only used in unit tests
-    inline std::string LogGetLabel(uint64_t category)
-    {
-        std::string label = "none";
-        if (logLabelMap.count(category) != 0)
-        {
-            label = logLabelMap[category];
-        }
-        return label;
-    }
+            if (category == "" || category == "1")
+            {
+                category = "all";
+            }
 
-    /**
-     * Get all categories and their state.
-     * Formatted for display.
-     * returns all categories and states
-     */
-     // Return a string rapresentation of all debug categories and their current status,
-     // one category per line. If enabled is true it returns only the list of enabled
-     // debug categories concatenated in a single line.
-    static std::string LogGetAllString(bool fEnabled = false)
-    {
-        std::string allCategories = "";
-        std::string enabledCategories = "";
-        for (auto &x : logLabelMap)
-        {
-            if (x.first == ALL || x.first == NONE)
+            catg = LogFindCategory(category);
+
+            if (catg == NONE) // Not a valid category
             {
                 continue;
             }
-            if (LogAcceptCategory(x.first))
-            {
-                allCategories += "on ";
-                if (fEnabled)
-                {
-                    enabledCategories += (std::string)x.second + " ";
-                }
-            }
-            else
-            {
-                allCategories += "   ";
-            }
-            allCategories += (std::string)x.second + "\n";
-        }
-        // strip last char from enabledCategories if it is eqaul to a blank space
-        if (enabledCategories.length() > 0)
-        {
-            enabledCategories.pop_back();
-        }
-        return fEnabled ? enabledCategories : allCategories;
-    }
 
-    /**
-     * Log a string
-     * @param[in] All parameters are "printf like args".
-     */
-    template <typename T1, typename... Args>
-    inline void LogWrite(const char *fmt, const T1 &v1, const Args &...args)
+            LogToggleCategory(catg, toggle_flag);
+        }
+    }
+    LOGA("List of enabled categories: %s\n", LogGetAllString(true));
+}
+
+/**
+ * Write log string to console:
+ *
+ * @param[in] All parameters are "printf like".
+ */
+template <typename T1, typename... Args>
+inline void LogStdout(const char *fmt, const T1 &v1, const Args &...args)
+{
+    try
     {
-        try
-        {
-            LogPrintStr(tfm::format(fmt, v1, args...));
-        }
-        catch (...)
-        {
-            // Number of format specifiers (%) do not match argument count, etc
-        }
+        std::string str = tfm::format(fmt, v1, args...);
+        ::fwrite(str.data(), 1, str.size(), stdout);
     }
-
-    /**
-     * Log a string
-     * @param[in] str String to log.
-     */
-    inline void LogWrite(const std::string &str)
+    catch (...)
     {
-        LogPrintStr(str); // No formatting for a simple string
+        // Number of format specifiers (%) do not match argument count, etc
     }
+}
 
-    /**
-     * LOGA macro: Always log a string.
-     *
-     * @param[in] ... "printf like args".
-     */
-    #define LOGA(...) Logging::LogWrite(__VA_ARGS__)
-
-    /**
-     * Initialize
-     */
-    inline void LogInit(const std::vector<std::string> &categories = {})
-    {
-        std::string category = "";
-        uint64_t catg = NONE;
-
-        // enable all when given -debug=1 or -debug
-        if (categories.size() == 1 && (categories[0] == "" || categories[0] == "1"))
-        {
-            LogToggleCategory(ALL, true);
-        }
-        else
-        {
-            for (std::string const &cat : categories)
-            {
-                category = boost::algorithm::to_lower_copy(cat);
-
-                // remove the category from the list of enables one
-                // if label is suffixed with a dash
-                bool toggle_flag = true;
-
-                if (category.length() > 0 && category.at(0) == '-')
-                {
-                    toggle_flag = false;
-                    category.erase(0, 1);
-                }
-
-                if (category == "" || category == "1")
-                {
-                    category = "all";
-                }
-
-                catg = LogFindCategory(category);
-
-                if (catg == NONE) // Not a valid category
-                {
-                    continue;
-                }
-
-                LogToggleCategory(catg, toggle_flag);
-            }
-        }
-        LOGA("List of enabled categories: %s\n", LogGetAllString(true));
-    }
-
-    /**
-     * Write log string to console:
-     *
-     * @param[in] All parameters are "printf like".
-     */
-    template <typename T1, typename... Args>
-    inline void LogStdout(const char *fmt, const T1 &v1, const Args &...args)
-    {
-        try
-        {
-            std::string str = tfm::format(fmt, v1, args...);
-            ::fwrite(str.data(), 1, str.size(), stdout);
-        }
-        catch (...)
-        {
-            // Number of format specifiers (%) do not match argument count, etc
-        }
-    }
-
-    /**
-     * Write log string to console:
-     * @param[in] str String to log.
-     */
-    inline void LogStdout(const std::string &str)
-    {
-        ::fwrite(str.data(), 1, str.size(), stdout); // No formatting for a simple string
-    }
+/**
+ * Write log string to console:
+ * @param[in] str String to log.
+ */
+inline void LogStdout(const std::string &str)
+{
+    ::fwrite(str.data(), 1, str.size(), stdout); // No formatting for a simple string
+}
 } // namespace Logging
 
 // Logging API:
@@ -492,32 +518,6 @@ inline bool error(uint64_t ctgr, const char *fmt, const Args &...args)
     if (Logging::LogAcceptCategory(ctgr))
         LogPrintStr("ERROR: " + tfm::format(fmt, args...) + "\n");
     return false;
-}
-
-// only called from init.cpp
-inline void OpenDebugLog()
-{
-    assert(mutexDebugLog.load() != nullptr);
-    std::scoped_lock scoped_lock(*mutexDebugLog.load());
-
-    assert(logger_fileout == nullptr);
-    assert(vMsgsBeforeOpenLog);
-    fs::path pathDebug = GetDataDir() / "debug.log";
-    // fopen returns a FILE*
-    logger_fileout.store(fsbridge::fopen(pathDebug, "a"));
-    if (logger_fileout.load())
-    {
-        setbuf(logger_fileout.load(), nullptr); // unbuffered
-        // dump buffered messages from before we opened the log
-        while (!vMsgsBeforeOpenLog->empty())
-        {
-            FileWriteStr(vMsgsBeforeOpenLog->front(), logger_fileout.load());
-            vMsgsBeforeOpenLog->pop_front();
-        }
-    }
-
-    delete vMsgsBeforeOpenLog;
-    vMsgsBeforeOpenLog = nullptr;
 }
 
 #endif // BITCOIN_LOGGING_H

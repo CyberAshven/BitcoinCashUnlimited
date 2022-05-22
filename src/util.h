@@ -193,7 +193,6 @@ void ReadConfigFile(std::map<std::string, std::string> &mapSettingsRet,
     std::map<std::string, std::vector<std::string> > &mapMultiSettingsRet,
     const AllowedArgs::AllowedArgs &allowedArgs);
 
-void OpenDebugLog();
 void ShrinkDebugFile();
 void runCommand(const std::string &strCommand);
 
