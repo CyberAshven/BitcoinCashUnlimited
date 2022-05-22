@@ -522,6 +522,7 @@ libnexa_consensus_a_SOURCES = \
   consensus/grouptokens.h \
   hashwrapper.cpp \
   hashwrapper.h \
+  logging.h \
   prevector.h \
   primitives/block.cpp \
   primitives/block.h \
@@ -554,6 +555,8 @@ libnexa_consensus_a_SOURCES = \
   uint256.h \
   utilstrencodings.cpp \
   utilstrencodings.h \
+  utiltime.cpp \
+  utiltime.h \
   version.h
 
 # common: shared between nexad, and nexa-qt and non-server tools

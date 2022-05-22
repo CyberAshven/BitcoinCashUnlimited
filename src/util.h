@@ -138,14 +138,9 @@ static const int DEFAULT_HTTP_CLIENT_TIMEOUT = 900;
 extern std::map<std::string, std::string> mapArgs;
 extern std::map<std::string, std::vector<std::string> > mapMultiArgs;
 extern bool fDebug;
-extern bool fPrintToConsole;
-extern bool fPrintToDebugLog;
 extern bool fServer;
 extern std::string strMiscWarning;
-extern bool fLogTimestamps;
-extern bool fLogTimeMicros;
 extern bool fLogIPs;
-extern volatile bool fReopenDebugLog;
 
 extern const char *const CONF_FILENAME;
 extern const char *const PID_FILENAME;

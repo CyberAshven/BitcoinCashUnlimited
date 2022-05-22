@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "grouptokens.h"
-#include "util.h"
+#include "logging.h"
 
 /** "reject" message codes */
 static const unsigned char REJECT_MALFORMED = 0x01;

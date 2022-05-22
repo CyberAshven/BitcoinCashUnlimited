@@ -40,7 +40,6 @@ FastRandomContext insecure_rand_ctx(insecure_rand_seed);
 
 FalseScriptImportedState fsis;
 
-extern bool fPrintToConsole;
 extern void noui_connect();
 
 extern CTweak<uint32_t> limitFreeRelay;
