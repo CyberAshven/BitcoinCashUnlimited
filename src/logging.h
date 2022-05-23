@@ -35,6 +35,8 @@ inline std::atomic<bool> fReopenDebugLog{false};
 inline std::atomic<std::mutex *> mutexDebugLog{nullptr};
 inline std::atomic<FILE *> logger_fileout{nullptr};
 
+inline fs::path pathDebugLog;
+
 /** All logs are automatically CR terminated.  If you want to construct a single-line log out of multiple calls, don't.
     Make your own temporary.  You can make a multi-line log by adding \n in your temporary.
  */
@@ -72,14 +74,18 @@ static void MonitorLogfile()
     // Check if debug.log has been deleted or moved.
     // If so re-open
     static int existcounter = 1;
-    static fs::path fileName = GetDataDir() / "debug.log";
+    static fs::path fileName = pathDebugLog;
     existcounter++;
-    if (existcounter % 63 == 0) // Check every 64 log msgs
+    // if we are to print
+    if (pathDebugLog.empty())
     {
-        bool exists = fs::exists(fileName);
-        if (!exists)
+        if (existcounter % 63 == 0) // Check every 64 log msgs
         {
-            fReopenDebugLog = true;
+            bool exists = fs::exists(fileName);
+            if (!exists)
+            {
+                fReopenDebugLog = true;
+            }
         }
     }
 }
@@ -116,10 +122,11 @@ static int LogPrintStr(const std::string &str)
         else
         {
             // reopen the log file, if requested
+            // will never be true if pathDebugLog is empty().
             if (fReopenDebugLog)
             {
                 fReopenDebugLog = false;
-                fs::path pathDebug = GetDataDir() / "debug.log";
+                fs::path pathDebug = pathDebugLog;
                 if (fsbridge::freopen(pathDebug, "a", logger_fileout.load()) != nullptr)
                 {
                     setbuf(logger_fileout.load(), nullptr); // unbuffered
@@ -358,23 +365,6 @@ inline void LogWrite(const std::string &str)
 #define LOGA(...) Logging::LogWrite(__VA_ARGS__)
 
 /**
- * Set the logger output file after logger has been initialised
- */
-inline void LogSetOutputFile(fs::path pathDebug = GetDataDir() / "debug.log")
-{
-    // if this assert fails, the LogInit was never called
-    assert(mutexDebugLog.load() != nullptr);
-    std::scoped_lock scoped_lock(*mutexDebugLog.load());
-    // fopen returns a FILE*
-    logger_fileout.store(fsbridge::fopen(pathDebug, "a"));
-    if (logger_fileout.load())
-    {
-        setbuf(logger_fileout.load(), nullptr); // unbuffered
-    }
-    fPrintToDebugLog.store(true);
-}
-
-/**
  * Initialize
  */
 inline void LogInit(const std::vector<std::string> &categories = {})
@@ -384,12 +374,18 @@ inline void LogInit(const std::vector<std::string> &categories = {})
     assert(mutexDebugLog.load() == nullptr);
     // make the mutex and the message vector
     mutexDebugLog.store(new std::mutex);
-    std::scoped_lock scoped_lock(*mutexDebugLog.load());
+    if (pathDebugLog.empty())
+    {
+        // we can not write to a debug log that does not exist
+        // this is safe to do because we always call LogInit after reading the
+        // command line args for a datadir argument
+        fPrintToDebugLog.store(false);
+    }
     // when initialising the logger, check if we will use the debug log
     if (fPrintToDebugLog.load())
     {
         assert(logger_fileout == nullptr);
-        fs::path pathDebug = GetDataDir() / "debug.log";
+        fs::path pathDebug = pathDebugLog;
         // fopen returns a FILE*
         logger_fileout.store(fsbridge::fopen(pathDebug, "a"));
         if (logger_fileout.load())

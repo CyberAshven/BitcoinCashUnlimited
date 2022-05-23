@@ -434,7 +434,13 @@ const fs::path &GetDataDir(bool fNetSpecific)
     {
         LOGA("failed to create directories to (%s): %s\n", path, e.what());
     }
-
+    // if we have the data dir, set the debug log path for use in the logger
+    // this will only be set once because we cache the path and fetch that cache above
+    // if available when calling this function
+    if (pathDebugLog.empty())
+    {
+        pathDebugLog = path / "debug.log";
+    }
     return path;
 }
 
@@ -649,7 +655,7 @@ void AllocateFileRange(FILE *file, uint64_t offset, uint64_t length)
 void ShrinkDebugFile()
 {
     // Scroll debug.log if it's getting too big
-    fs::path pathLog = GetDataDir() / "debug.log";
+    fs::path pathLog = pathDebugLog;
     FILE *file = fsbridge::fopen(pathLog, "r");
     // If debug.log file is more than 10% bigger the RECENT_DEBUG_HISTORY_SIZE
     // trim it down by saving only the last RECENT_DEBUG_HISTORY_SIZE bytes
