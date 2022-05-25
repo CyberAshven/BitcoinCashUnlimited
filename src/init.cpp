@@ -835,7 +835,12 @@ void InitLogging()
     // to always print to log file on regtest.
     const bool regtest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
     fPrintToDebugLog.store(GetBoolArg("-printtologfile", (!fPrintToConsole || regtest)));
-
+    // if we are printing to a debug log, check that the directory for the log file exists
+    // this will also set the path to the log file in the logger
+    if (fPrintToDebugLog.load())
+    {
+        GetDataDir();
+    }
     fLogTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     fLogTimeMicros = GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
     fLogIPs = GetBoolArg("-logips", DEFAULT_LOGIPS);
