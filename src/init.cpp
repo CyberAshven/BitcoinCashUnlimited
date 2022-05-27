@@ -839,7 +839,7 @@ void InitLogging()
     // this will also set the path to the log file in the logger
     if (fPrintToDebugLog.load())
     {
-        GetDataDir();
+        GetDataDir(true);
     }
     fLogTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     fLogTimeMicros = GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);

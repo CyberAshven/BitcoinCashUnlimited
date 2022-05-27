@@ -424,8 +424,15 @@ const fs::path &GetDataDir(bool fNetSpecific)
         path = GetDefaultDataDir();
     }
     if (fNetSpecific)
+    {
         path /= BaseParams().DataDir();
-
+        // InitLogging calls GetDataDir(true) which will set this if something has not
+        // previously done so
+        if (pathDebugLog.empty())
+        {
+            pathDebugLog = path / "debug.log";
+        }
+    }
     try
     {
         fs::create_directories(path);
@@ -433,13 +440,6 @@ const fs::path &GetDataDir(bool fNetSpecific)
     catch (const fs::filesystem_error &e)
     {
         LOGA("failed to create directories to (%s): %s\n", path, e.what());
-    }
-    // if we have the data dir, set the debug log path for use in the logger
-    // this will only be set once because we cache the path and fetch that cache above
-    // if available when calling this function
-    if (pathDebugLog.empty())
-    {
-        pathDebugLog = path / "debug.log";
     }
     return path;
 }
