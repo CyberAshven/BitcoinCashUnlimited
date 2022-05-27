@@ -142,106 +142,6 @@ std::string to_internal(const std::string &);
 
 } // namespace boost
 
-namespace Logging
-{
-// Globals defined here because link fails if in globals.cpp.
-// Keep at top of file so init first:
-uint64_t categoriesEnabled = 0; // 64 bit log id mask.
-static std::map<uint64_t, std::string> logLabelMap = LOGLABELMAP; // Lookup log label from log id.
-
-
-uint64_t LogFindCategory(const std::string label)
-{
-    for (auto &x : logLabelMap)
-    {
-        if ((std::string)x.second == label)
-            return (uint64_t)x.first;
-    }
-    return NONE;
-}
-
-std::string LogGetLabel(uint64_t category)
-{
-    std::string label = "none";
-    if (logLabelMap.count(category) != 0)
-        label = logLabelMap[category];
-
-    return label;
-}
-// Return a string rapresentation of all debug categories and their current status,
-// one category per line. If enabled is true it returns only the list of enabled
-// debug categories concatenated in a single line.
-std::string LogGetAllString(bool fEnabled)
-{
-    std::string allCategories = "";
-    std::string enabledCategories = "";
-    for (auto &x : logLabelMap)
-    {
-        if (x.first == ALL || x.first == NONE)
-            continue;
-
-        if (LogAcceptCategory(x.first))
-        {
-            allCategories += "on ";
-            if (fEnabled)
-                enabledCategories += (std::string)x.second + " ";
-        }
-        else
-            allCategories += "   ";
-
-        allCategories += (std::string)x.second + "\n";
-    }
-    // strip last char from enabledCategories if it is eqaul to a blank space
-    if (enabledCategories.length() > 0)
-        enabledCategories.pop_back();
-
-    return fEnabled ? enabledCategories : allCategories;
-}
-
-void LogInit()
-{
-    std::string category = "";
-    uint64_t catg = NONE;
-    const std::vector<std::string> categories = splitByCommasAndRemoveSpaces(mapMultiArgs["-debug"], true);
-
-    // enable all when given -debug=1 or -debug
-    if (categories.size() == 1 && (categories[0] == "" || categories[0] == "1"))
-    {
-        LogToggleCategory(ALL, true);
-    }
-    else
-    {
-        for (std::string const &cat : categories)
-        {
-            category = boost::algorithm::to_lower_copy(cat);
-
-            // remove the category from the list of enables one
-            // if label is suffixed with a dash
-            bool toggle_flag = true;
-
-            if (category.length() > 0 && category.at(0) == '-')
-            {
-                toggle_flag = false;
-                category.erase(0, 1);
-            }
-
-            if (category == "" || category == "1")
-            {
-                category = "all";
-            }
-
-            catg = LogFindCategory(category);
-
-            if (catg == NONE) // Not a valid category
-                continue;
-
-            LogToggleCategory(catg, toggle_flag);
-        }
-    }
-    LOGA("List of enabled categories: %s\n", LogGetAllString(true));
-}
-} // namespace Logging
-
 const char *const CONF_FILENAME = "nexa.conf";
 const char *const PID_FILENAME = "nexa.pid";
 const char *const FORKS_CSV_FILENAME = "forks.csv"; // bip135 added
@@ -251,15 +151,10 @@ const int64_t nStartupTime = GetTime();
 std::map<std::string, std::string> mapArgs;
 std::map<std::string, std::vector<std::string> > mapMultiArgs;
 bool fDebug = false;
-bool fPrintToConsole = false;
-bool fPrintToDebugLog = true;
 bool fDaemon = false;
 bool fServer = false;
 std::string strMiscWarning;
-bool fLogTimestamps = DEFAULT_LOGTIMESTAMPS;
-bool fLogTimeMicros = DEFAULT_LOGTIMEMICROS;
 bool fLogIPs = DEFAULT_LOGIPS;
-volatile bool fReopenDebugLog = false;
 CTranslationInterface translationInterface;
 
 // None of this is needed with OpenSSL 1.1.0
@@ -330,163 +225,6 @@ public:
 #endif
     }
 } instance_of_cinit;
-
-/**
- * LOGA() has been broken a couple of times now
- * by well-meaning people adding mutexes in the most straightforward way.
- * It breaks because it may be called by global destructors during shutdown.
- * Since the order of destruction of static/global objects is undefined,
- * defining a mutex as a global object doesn't work (the mutex gets
- * destroyed, and then some later destructor calls OutputDebugStringF,
- * maybe indirectly, and you get a core dump at shutdown trying to lock
- * the mutex).
- */
-
-std::once_flag debugPrintInitFlag;
-
-/**
- * We use boost::call_once() to make sure mutexDebugLog and
- * vMsgsBeforeOpenLog are initialized in a thread-safe manner.
- *
- * NOTE: fileout, mutexDebugLog and sometimes vMsgsBeforeOpenLog
- * are leaked on exit. This is ugly, but will be cleaned up by
- * the OS/libc. When the shutdown sequence is fully audited and
- * tested, explicit destruction of these objects can be implemented.
- */
-static FILE *fileout = nullptr;
-static std::mutex *mutexDebugLog = nullptr;
-static std::list<std::string> *vMsgsBeforeOpenLog;
-
-static int FileWriteStr(const std::string &str, FILE *fp) { return fwrite(str.data(), 1, str.size(), fp); }
-static void DebugPrintInit()
-{
-    assert(mutexDebugLog == nullptr);
-    mutexDebugLog = new std::mutex();
-    vMsgsBeforeOpenLog = new std::list<std::string>;
-}
-
-void OpenDebugLog()
-{
-    std::call_once(debugPrintInitFlag, &DebugPrintInit);
-    std::scoped_lock scoped_lock(*mutexDebugLog);
-
-    assert(fileout == nullptr);
-    assert(vMsgsBeforeOpenLog);
-    fs::path pathDebug = GetDataDir() / "debug.log";
-    fileout = fsbridge::fopen(pathDebug, "a");
-    if (fileout)
-    {
-        setbuf(fileout, nullptr); // unbuffered
-        // dump buffered messages from before we opened the log
-        while (!vMsgsBeforeOpenLog->empty())
-        {
-            FileWriteStr(vMsgsBeforeOpenLog->front(), fileout);
-            vMsgsBeforeOpenLog->pop_front();
-        }
-    }
-
-    delete vMsgsBeforeOpenLog;
-    vMsgsBeforeOpenLog = nullptr;
-}
-
-/** All logs are automatically CR terminated.  If you want to construct a single-line log out of multiple calls, don't.
-    Make your own temporary.  You can make a multi-line log by adding \n in your temporary.
- */
-static std::string LogTimestampStr(const std::string &str, std::string &logbuf)
-{
-    if (!logbuf.size())
-    {
-        int64_t nTimeMicros = GetLogTimeMicros();
-        if (fLogTimestamps)
-        {
-            logbuf = FormatISO8601DateTime(nTimeMicros / 1000000);
-            if (fLogTimeMicros)
-                logbuf += strprintf(".%06d", nTimeMicros % 1000000);
-        }
-        logbuf += ' ' + str;
-    }
-    else
-    {
-        logbuf += str;
-    }
-
-    if (logbuf.size() && logbuf[logbuf.size() - 1] != '\n')
-    {
-        logbuf += '\n';
-    }
-
-    std::string result = logbuf;
-    logbuf.clear();
-    return result;
-}
-
-static void MonitorLogfile()
-{
-    // Check if debug.log has been deleted or moved.
-    // If so re-open
-    static int existcounter = 1;
-    static fs::path fileName = GetDataDir() / "debug.log";
-    existcounter++;
-    if (existcounter % 63 == 0) // Check every 64 log msgs
-    {
-        bool exists = fs::exists(fileName);
-        if (!exists)
-            fReopenDebugLog = true;
-    }
-}
-
-void LogFlush()
-{
-    if (fPrintToDebugLog)
-    {
-        fflush(fileout);
-    }
-}
-
-int LogPrintStr(const std::string &str)
-{
-    int ret = 0; // Returns total number of characters written
-    std::string logbuf;
-    std::string strTimestamped = LogTimestampStr(str, logbuf);
-
-    if (!strTimestamped.size())
-        return 0;
-
-    if (fPrintToConsole)
-    {
-        // print to console
-        ret = fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
-        fflush(stdout);
-    }
-    if (fPrintToDebugLog)
-    {
-        std::call_once(debugPrintInitFlag, &DebugPrintInit);
-        std::scoped_lock scoped_lock(*mutexDebugLog);
-
-        // buffer if we haven't opened the log yet
-        if (fileout == nullptr)
-        {
-            assert(vMsgsBeforeOpenLog);
-            ret = strTimestamped.length();
-            vMsgsBeforeOpenLog->push_back(strTimestamped);
-        }
-        else
-        {
-            // reopen the log file, if requested
-            if (fReopenDebugLog)
-            {
-                fReopenDebugLog = false;
-                fs::path pathDebug = GetDataDir() / "debug.log";
-                if (fsbridge::freopen(pathDebug, "a", fileout) != nullptr)
-                    setbuf(fileout, nullptr); // unbuffered
-            }
-
-            ret = FileWriteStr(strTimestamped, fileout);
-            MonitorLogfile();
-        }
-    }
-    return ret;
-}
 
 std::string formatInfoUnit(double value)
 {
@@ -686,8 +424,15 @@ const fs::path &GetDataDir(bool fNetSpecific)
         path = GetDefaultDataDir();
     }
     if (fNetSpecific)
+    {
         path /= BaseParams().DataDir();
-
+        // InitLogging calls GetDataDir(true) which will set this if something has not
+        // previously done so
+        if (pathDebugLog.empty())
+        {
+            pathDebugLog = path / "debug.log";
+        }
+    }
     try
     {
         fs::create_directories(path);
@@ -696,7 +441,6 @@ const fs::path &GetDataDir(bool fNetSpecific)
     {
         LOGA("failed to create directories to (%s): %s\n", path, e.what());
     }
-
     return path;
 }
 
@@ -911,7 +655,7 @@ void AllocateFileRange(FILE *file, uint64_t offset, uint64_t length)
 void ShrinkDebugFile()
 {
     // Scroll debug.log if it's getting too big
-    fs::path pathLog = GetDataDir() / "debug.log";
+    fs::path pathLog = pathDebugLog;
     FILE *file = fsbridge::fopen(pathLog, "r");
     // If debug.log file is more than 10% bigger the RECENT_DEBUG_HISTORY_SIZE
     // trim it down by saving only the last RECENT_DEBUG_HISTORY_SIZE bytes

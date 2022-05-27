@@ -105,13 +105,6 @@ extern "C" void DbgResume() { dbgPauseCond.notify_all(); }
 
 const int CLIENT_VERSION = 0; // 0 because app should report its version, not this lib
 
-// stop the logging
-int LogPrintStr(const std::string &str) { return str.size(); }
-namespace Logging
-{
-uint64_t categoriesEnabled = 0; // 64 bit log id mask.
-};
-
 // I don't want to pull in the args stuff so always pick the defaults
 bool GetBoolArg(const std::string &strArg, bool fDefault) { return fDefault; }
 // cashlib does not support versionbits right now so just supply this which is used in chainparams

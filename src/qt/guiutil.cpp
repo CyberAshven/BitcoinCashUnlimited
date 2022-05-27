@@ -469,7 +469,7 @@ void bringToFront(QWidget *w)
 
 void openDebugLogfile()
 {
-    fs::path pathDebug = GetDataDir() / "debug.log";
+    fs::path pathDebug = pathDebugLog;
 
     /* Open debug.log with the associated application */
     if (fs::exists(pathDebug))

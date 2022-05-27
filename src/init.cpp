@@ -834,12 +834,18 @@ void InitLogging()
     // Some QA tests depend on debug.log being written to, so default
     // to always print to log file on regtest.
     const bool regtest = Params().NetworkIDString() == CBaseChainParams::REGTEST;
-    fPrintToDebugLog = GetBoolArg("-printtologfile", !fPrintToConsole || regtest);
-
+    fPrintToDebugLog.store(GetBoolArg("-printtologfile", (!fPrintToConsole || regtest)));
+    // if we are printing to a debug log, check that the directory for the log file exists
+    // this will also set the path to the log file in the logger
+    if (fPrintToDebugLog.load())
+    {
+        GetDataDir(true);
+    }
     fLogTimestamps = GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     fLogTimeMicros = GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
     fLogIPs = GetBoolArg("-logips", DEFAULT_LOGIPS);
-    Logging::LogInit();
+    const std::vector<std::string> categories = splitByCommasAndRemoveSpaces(mapMultiArgs["-debug"], true);
+    Logging::LogInit(categories);
 
     LOGA("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
     std::string version_string = FormatFullVersion();
@@ -1127,9 +1133,6 @@ bool AppInit2(Config &config)
 #endif
     if (GetBoolArg("-shrinkdebugfile", !fDebug))
         ShrinkDebugFile();
-
-    if (fPrintToDebugLog)
-        OpenDebugLog();
 
 #ifdef ENABLE_WALLET
     LOGA("Using BerkeleyDB version %s\n", DbEnv::version(0, 0, 0));
