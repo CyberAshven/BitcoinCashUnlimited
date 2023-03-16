@@ -531,6 +531,16 @@ bool LoadBlockIndexDB()
                     pindex->nChainTx = 0;
                     mapBlocksUnlinked.insert(std::make_pair(pindex->pprev, pindex));
                 }
+                else
+                {
+                    // This handles a rare condition where someone has previously aborted a sync in progress
+                    // and then tries to restart.
+                    if (pindex->nStatus & BLOCK_HAVE_DATA && pindex->pprev->IsValid(BLOCK_VALID_TREE))
+                    {
+                        mapBlocksUnlinked.insert(std::make_pair(pindex->pprev, pindex));
+                    }
+                    pindex->nStatus &= ~BLOCK_LINKED;
+                }
             }
             else
             {
