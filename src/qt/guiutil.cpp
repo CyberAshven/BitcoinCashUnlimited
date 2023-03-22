@@ -54,14 +54,13 @@
 #include <QFileDialog>
 #include <QFont>
 #include <QLineEdit>
+#include <QScreen>
 #include <QSettings>
 #include <QTextDocument> // for Qt::mightBeRichText
 #include <QThread>
 #include <QUrlQuery>
 
-#if QT_VERSION >= 0x050200
 #include <QFontDatabase>
-#endif
 
 #if defined(Q_OS_MAC)
 #pragma GCC diagnostic push
@@ -93,16 +92,7 @@ QString dateTimeStr(const QDateTime &date)
 }
 
 QString dateTimeStr(qint64 nTime) { return dateTimeStr(QDateTime::fromTime_t((qint32)nTime)); }
-QFont fixedPitchFont()
-{
-#if QT_VERSION >= 0x050200
-    return QFontDatabase::systemFont(QFontDatabase::FixedFont);
-#else
-    QFont font("Monospace");
-    font.setStyleHint(QFont::Monospace);
-    return font;
-#endif
-}
+QFont fixedPitchFont() { return QFontDatabase::systemFont(QFontDatabase::FixedFont); }
 
 static std::string MakeAddrInvalid(std::string addr)
 {
@@ -923,12 +913,12 @@ void restoreWindowGeometry(const QString &strSetting, const QSize &defaultSize, 
     QSettings settings;
     QPoint pos = settings.value(strSetting + "Pos").toPoint();
     QSize size = settings.value(strSetting + "Size", defaultSize).toSize();
-    QRect screen = QApplication::desktop()->screenGeometry();
+    QRect screen = QGuiApplication::primaryScreen()->availableGeometry();
     QPoint posCenter(abs((screen.width() - size.width()) / 2), abs((screen.height() - size.height()) / 2));
 
     if (!pos.x() && !pos.y())
     {
-        QRect _screen = QApplication::desktop()->screenGeometry();
+        QRect _screen = QGuiApplication::primaryScreen()->availableGeometry();
         pos.setX((_screen.width() - size.width()) / 2);
         pos.setY((_screen.height() - size.height()) / 2);
     }

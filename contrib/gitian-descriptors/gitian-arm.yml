@@ -24,6 +24,8 @@ packages:
 - "libtool"
 - "automake"
 - "faketime"
+- "binutils"
+- "bison"
 - "bsdmainutils"
 - "ca-certificates"
 - "python"
@@ -44,8 +46,6 @@ script: |
   HOST_CXXFLAGS="-O2 -g"
   HOST_LDFLAGS=-static-libstdc++
 
-  export QT_RCC_TEST=1
-  export QT_RCC_SOURCE_DATE_OVERRIDE=1
   export GZIP="-9n"
   export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
   export TZ="UTC"
@@ -64,7 +64,7 @@ script: |
     echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
     echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
     echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${prog}
-    echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+    echo "exec \"\$REAL\" \"\$@\"" >> ${WRAP_DIR}/${prog}
     chmod +x ${WRAP_DIR}/${prog}
   done
   }
@@ -77,7 +77,7 @@ script: |
         echo "REAL=\`which -a ${i}-${prog} | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
         echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
         echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${i}-${prog}
-        echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+        echo "exec \"\$REAL\" \"\$@\"" >> ${WRAP_DIR}/${i}-${prog}
         chmod +x ${WRAP_DIR}/${i}-${prog}
     done
   done

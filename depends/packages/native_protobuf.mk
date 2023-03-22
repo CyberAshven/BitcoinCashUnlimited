@@ -1,11 +1,11 @@
 package=native_protobuf
-$(package)_version=2.6.1
-$(package)_download_path=https://github.com/google/protobuf/releases/download/v$($(package)_version)
-$(package)_file_name=protobuf-$($(package)_version).tar.bz2
-$(package)_sha256_hash=ee445612d544d885ae240ffbcbf9267faa9f593b7b101f21d58beceb92661910
+$(package)_version=3.19.4
+$(package)_download_path=https://github.com/protocolbuffers/protobuf/releases/download/v$($(package)_version)/
+$(package)_file_name=protobuf-cpp-$($(package)_version).tar.gz
+$(package)_sha256_hash=89ac31a93832e204db6d73b1e80f39f142d5747b290f17340adce5be5b122f94
 
 define $(package)_set_vars
-$(package)_config_opts=--disable-shared CPPFLAGS="-Wno-deprecated-declarations"
+$(package)_config_opts=--disable-shared
 endef
 
 define $(package)_config_cmds

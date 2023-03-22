@@ -42,7 +42,6 @@
 #include <QAction>
 #include <QApplication>
 #include <QDateTime>
-#include <QDesktopWidget>
 #include <QDragEnterEvent>
 #include <QListWidget>
 #include <QMenuBar>

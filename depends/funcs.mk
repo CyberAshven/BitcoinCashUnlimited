@@ -19,15 +19,19 @@ define int_get_all_dependencies
 $(sort $(foreach dep,$(2),$(2) $(call int_get_all_dependencies,$(1),$($(dep)_dependencies))))
 endef
 
-define fetch_file
-(test -f $$($(1)_source_dir)/$(4) || \
-  ( mkdir -p $$($(1)_download_dir) && echo Fetching $(1)... && \
-  ( $(build_DOWNLOAD) "$$($(1)_download_dir)/$(4).temp" "$(2)/$(3)" || \
-    $(build_DOWNLOAD) "$$($(1)_download_dir)/$(4).temp" "$(FALLBACK_DOWNLOAD_PATH)/$(3)" ) && \
+define fetch_file_inner
+    ( mkdir -p $$($(1)_download_dir) && echo Fetching $(3) from $(2) && \
+    $(build_DOWNLOAD) "$$($(1)_download_dir)/$(4).temp" "$(2)/$(3)" && \
     echo "$(5)  $$($(1)_download_dir)/$(4).temp" > $$($(1)_download_dir)/.$(4).hash && \
     $(build_SHA256SUM) -c $$($(1)_download_dir)/.$(4).hash && \
     mv $$($(1)_download_dir)/$(4).temp $$($(1)_source_dir)/$(4) && \
-    rm -rf $$($(1)_download_dir) ))
+    rm -rf $$($(1)_download_dir) )
+endef
+
+define fetch_file
+    ( test -f $$($(1)_source_dir)/$(4) || \
+    ( $(call fetch_file_inner,$(1),$(2),$(3),$(4),$(5)) || \
+      $(call fetch_file_inner,$(1),$(FALLBACK_DOWNLOAD_PATH),$(3),$(4),$(5))))
 endef
 
 define int_get_build_recipe_hash
@@ -128,7 +132,7 @@ $(1)_config_env+=PKG_CONFIG_PATH=$($($(1)_type)_prefix)/share/pkgconfig
 $(1)_config_env+=PATH=$(build_prefix)/bin:$(PATH)
 $(1)_build_env+=PATH=$(build_prefix)/bin:$(PATH)
 $(1)_stage_env+=PATH=$(build_prefix)/bin:$(PATH)
-$(1)_autoconf=./configure --host=$($($(1)_type)_host) --disable-dependency-tracking --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CXX="$$($(1)_cxx)"
+$(1)_autoconf=./configure --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CXX="$$($(1)_cxx)"
 
 ifneq ($($(1)_nm),)
 $(1)_autoconf += NM="$$($(1)_nm)"
@@ -166,13 +170,13 @@ $($(1)_extracted): | $($(1)_fetched)
 	$(AT)mkdir -p $$(@D)
 	$(AT)cd $$(@D); $(call $(1)_extract_cmds,$(1))
 	$(AT)touch $$@
-$($(1)_preprocessed): | $($(1)_dependencies) $($(1)_extracted)
+$($(1)_preprocessed): | $($(1)_extracted)
 	$(AT)echo Preprocessing $(1)...
 	$(AT)mkdir -p $$(@D) $($(1)_patch_dir)
 	$(AT)$(foreach patch,$($(1)_patches),cd $(PATCHES_PATH)/$(1); cp $(patch) $($(1)_patch_dir) ;)
 	$(AT)cd $$(@D); $(call $(1)_preprocess_cmds, $(1))
 	$(AT)touch $$@
-$($(1)_configured): | $($(1)_preprocessed)
+$($(1)_configured): | $($(1)_dependencies) $($(1)_preprocessed)
 	$(AT)echo Configuring $(1)...
 	$(AT)rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar xf $($(package)_cached); )
 	$(AT)mkdir -p $$(@D)
@@ -207,6 +211,14 @@ $($(1)_cached_checksum): $($(1)_cached)
 $(1): | $($(1)_cached_checksum)
 .SECONDARY: $($(1)_cached) $($(1)_postprocessed) $($(1)_staged) $($(1)_built) $($(1)_configured) $($(1)_preprocessed) $($(1)_extracted) $($(1)_fetched)
 
+endef
+
+stages = fetched extracted preprocessed configured built staged postprocessed cached cached_checksum
+
+define ext_add_stages
+$(foreach stage,$(stages),
+          $(1)_$(stage): $($(1)_$(stage))
+          .PHONY: $(1)_$(stage))
 endef
 
 # These functions create the build targets for each package. They must be

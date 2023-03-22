@@ -55,15 +55,13 @@
 
 #if defined(QT_STATICPLUGIN)
 #include <QtPlugin>
-#if QT_VERSION < 0x050400
-Q_IMPORT_PLUGIN(AccessibleFactory)
-#endif
 #if defined(QT_QPA_PLATFORM_XCB)
 Q_IMPORT_PLUGIN(QXcbIntegrationPlugin);
 #elif defined(QT_QPA_PLATFORM_WINDOWS)
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin);
 #elif defined(QT_QPA_PLATFORM_COCOA)
 Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin);
+Q_IMPORT_PLUGIN(QMacStylePlugin);
 #endif
 #endif
 
@@ -634,24 +632,16 @@ int main(int argc, char *argv[])
     Q_INIT_RESOURCE(bitcoin);
     Q_INIT_RESOURCE(bitcoin_locale);
 
-    BitcoinApplication app(argc, argv);
-#if QT_VERSION > 0x050100
-    // Generate high-dpi pixmaps
-    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-#endif
-#if QT_VERSION >= 0x050600
     QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#endif
+    BitcoinApplication app(argc, argv);
 #ifdef Q_OS_MAC
     QApplication::setAttribute(Qt::AA_DontShowIconsInMenus);
 #endif
-#if QT_VERSION >= 0x050500
     // Because of the POODLE attack it is recommended to disable SSLv3 (https://disablessl3.com/),
     // so set SSL protocols to TLS1.0+.
     QSslConfiguration sslconf = QSslConfiguration::defaultConfiguration();
     sslconf.setProtocol(QSsl::TlsV1_0OrLater);
     QSslConfiguration::setDefaultConfiguration(sslconf);
-#endif
 
     // Register meta types used for QMetaObject::invokeMethod
     qRegisterMetaType<bool *>();

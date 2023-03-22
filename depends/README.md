@@ -22,7 +22,7 @@ Common `host-platform-triplets` for cross compilation are:
 
 - `i686-w64-mingw32` for Win32
 - `x86_64-w64-mingw32` for Win64
-- `x86_64-apple-darwin16` for MacOSX
+- `x86_64-apple-darwin19` for MacOSX
 - `arm-linux-gnueabihf` for Linux ARM 32 bit
 - `aarch64-linux-gnu` for Linux ARM 64 bit
 
@@ -42,7 +42,6 @@ For Win32/Win64 cross compilation:
 For linux (including i386, ARM) cross compilation:
 
     sudo apt-get install curl g++-aarch64-linux-gnu g++-4.8-aarch64-linux-gnu gcc-4.8-aarch64-linux-gnu binutils-aarch64-linux-gnu g++-arm-linux-gnueabihf g++-4.8-arm-linux-gnueabihf gcc-4.8-arm-linux-gnueabihf binutils-arm-linux-gnueabihf g++-4.8-multilib gcc-4.8-multilib binutils-gold bsdmainutils
-
 
 Dependency Options:
 The following can be set when running make: make FOO=bar

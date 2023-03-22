@@ -32,18 +32,16 @@ remotes:
 - "url": "https://github.com/BitcoinUnlimited/BitcoinUnlimited.git"
   "dir": "bitcoin"
 files:
-- "MacOSX10.14.sdk.tar.xz"
+- "MacOSX10.15.sdk.tar.xz"
 script: |
   set -e -o pipefail
 
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-apple-darwin16"
+  HOSTS="x86_64-apple-darwin19"
   CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests GENISOIMAGE=$WRAP_DIR/genisoimage"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="ar ranlib date dmg genisoimage"
 
-  export QT_RCC_TEST=1
-  export QT_RCC_SOURCE_DATE_OVERRIDE=1
   export GZIP="-9n"
   export TAR_OPTIONS="--mtime="$REFERENCE_DATE\\\ $REFERENCE_TIME""
   export TZ="UTC"
@@ -63,7 +61,7 @@ script: |
     echo "REAL=\`which -a ${prog} | grep -v ${WRAP_DIR}/${prog} | head -1\`" >> ${WRAP_DIR}/${prog}
     echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${prog}
     echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/${prog}
-    echo "\$REAL \$@" >> $WRAP_DIR/${prog}
+    echo "exec \"\$REAL\" \"\$@\"" >> ${WRAP_DIR}/${prog}
     chmod +x ${WRAP_DIR}/${prog}
   done
 
@@ -74,7 +72,7 @@ script: |
         echo "REAL=\`which -a ${i}-${prog} | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
         echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
         echo "export FAKETIME=\"${REFERENCE_DATETIME}\"" >> ${WRAP_DIR}/${i}-${prog}
-        echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+        echo "exec \"\$REAL\" \"\$@\"" >> ${WRAP_DIR}/${i}-${prog}
         chmod +x ${WRAP_DIR}/${i}-${prog}
     done
   done
@@ -84,7 +82,7 @@ script: |
   BASEPREFIX=`pwd`/depends
 
   mkdir -p ${BASEPREFIX}/SDKs
-  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.14.sdk.tar.xz
+  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.15.sdk.tar.xz
 
   # Build dependencies for each host
   for i in $HOSTS; do
@@ -117,6 +115,8 @@ script: |
 
     ./configure --prefix=${BASEPREFIX}/${i} --bindir=${INSTALLPATH}/bin --includedir=${INSTALLPATH}/include --libdir=${INSTALLPATH}/lib --disable-ccache --disable-maintainer-mode --disable-dependency-tracking ${CONFIGFLAGS}
     make ${MAKEOPTS}
+    make ${MAKEOPTS} -C src check-security
+    make ${MAKEOPTS} -C src check-symbols
     make install-strip
 
     make osx_volname
