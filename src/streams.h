@@ -24,8 +24,8 @@
 #include <utility>
 #include <vector>
 
-
-/** Double ended buffer combining vector and stream-like interfaces.
+/**
+ * Double ended buffer combining vector and stream-like interfaces.
  *
  * >> and << read and write unformatted data using the above serialization templates.
  * Fills with data in linear time; some stringstream implementations take N^2 time.
