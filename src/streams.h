@@ -235,35 +235,41 @@ public:
 
 using VectorReader = GenericVectorReader<std::vector<uint8_t> >; //! for compat. with existing code
 
-    const int nType;
-    const int nVersion;
+const int nType;
+const int nVersion;
 
 public:
-    OverrideStream(Stream *stream_, int nType_, int nVersion_)
-        : stream(stream_), nType(nType_), nVersion(nVersion_) {}
+OverrideStream(Stream *stream_, int nType_, int nVersion_) : stream(stream_), nType(nType_), nVersion(nVersion_) {}
 
-    template <typename T> OverrideStream<Stream> &operator<<(const T &obj) {
-        // Serialize to this stream
-        ::Serialize(*this, obj);
-        return (*this);
-    }
+template <typename T>
+OverrideStream<Stream> &operator<<(const T &obj)
+{
+    // Serialize to this stream
+    ::Serialize(*this, obj);
+    return (*this);
+}
 
-    template <typename T> OverrideStream<Stream> &operator>>(T &&obj) {
-        // Unserialize from this stream
-        ::Unserialize(*this, obj);
-        return (*this);
-    }
+template <typename T>
+OverrideStream<Stream> &operator>>(T &&obj)
+{
+    // Unserialize from this stream
+    ::Unserialize(*this, obj);
+    return (*this);
+}
 
-    void write(const char *pch, size_t nSize) { stream->write(pch, nSize); }
+void write(const char *pch, size_t nSize) { stream->write(pch, nSize); }
 
-    void read(char *pch, size_t nSize) { stream->read(pch, nSize); }
+void read(char *pch, size_t nSize) { stream->read(pch, nSize); }
 
-    int GetVersion() const { return nVersion; }
-    int GetType() const { return nType; }
-    void ignore(size_t size) { return stream->ignore(size); }
-};
+int GetVersion() const { return nVersion; }
+int GetType() const { return nType; }
+void ignore(size_t size) { return stream->ignore(size); }
+}
+;
 
-template <typename S> OverrideStream<S> WithOrVersion(S *s, int nVersionFlag) {
+template <typename S>
+OverrideStream<S> WithOrVersion(S *s, int nVersionFlag)
+{
     return OverrideStream<S>(s, s->GetType(), s->GetVersion() | nVersionFlag);
 }
 
@@ -272,7 +278,8 @@ template <typename S> OverrideStream<S> WithOrVersion(S *s, int nVersionFlag) {
  *
  * The referenced vector will grow as necessary.
  */
-class CVectorWriter {
+class CVectorWriter
+{
 public:
     /**
      * @param[in]  nTypeIn Serialization Type
@@ -282,11 +289,11 @@ public:
      * start. The vector will initially grow as necessary to  max(nPosIn,
      * vec.size()). So to append, use vec.size().
      */
-    CVectorWriter(int nTypeIn, int nVersionIn, std::vector<uint8_t> &vchDataIn,
-                  size_t nPosIn)
-        : nType(nTypeIn), nVersion(nVersionIn), vchData(vchDataIn),
-          nPos(nPosIn) {
-        if (nPos > vchData.size()) {
+    CVectorWriter(int nTypeIn, int nVersionIn, std::vector<uint8_t> &vchDataIn, size_t nPosIn)
+        : nType(nTypeIn), nVersion(nVersionIn), vchData(vchDataIn), nPos(nPosIn)
+    {
+        if (nPos > vchData.size())
+        {
             vchData.resize(nPos);
         }
     }
@@ -295,26 +302,29 @@ public:
      * @param[in]  args  A list of items to serialize starting at nPosIn.
      */
     template <typename... Args>
-    CVectorWriter(int nTypeIn, int nVersionIn, std::vector<uint8_t> &vchDataIn,
-                  size_t nPosIn, Args &&... args)
-        : CVectorWriter(nTypeIn, nVersionIn, vchDataIn, nPosIn) {
+    CVectorWriter(int nTypeIn, int nVersionIn, std::vector<uint8_t> &vchDataIn, size_t nPosIn, Args &&...args)
+        : CVectorWriter(nTypeIn, nVersionIn, vchDataIn, nPosIn)
+    {
         ::SerializeMany(*this, std::forward<Args>(args)...);
     }
-    void write(const char *pch, size_t nSize) {
+    void write(const char *pch, size_t nSize)
+    {
         assert(nPos <= vchData.size());
         size_t nOverwrite = std::min(nSize, vchData.size() - nPos);
-        if (nOverwrite) {
-            memcpy(vchData.data() + nPos,
-                   reinterpret_cast<const uint8_t *>(pch), nOverwrite);
+        if (nOverwrite)
+        {
+            memcpy(vchData.data() + nPos, reinterpret_cast<const uint8_t *>(pch), nOverwrite);
         }
-        if (nOverwrite < nSize) {
-            vchData.insert(vchData.end(),
-                           reinterpret_cast<const uint8_t *>(pch) + nOverwrite,
-                           reinterpret_cast<const uint8_t *>(pch) + nSize);
+        if (nOverwrite < nSize)
+        {
+            vchData.insert(vchData.end(), reinterpret_cast<const uint8_t *>(pch) + nOverwrite,
+                reinterpret_cast<const uint8_t *>(pch) + nSize);
         }
         nPos += nSize;
     }
-    template <typename T> CVectorWriter &operator<<(const T &obj) {
+    template <typename T>
+    CVectorWriter &operator<<(const T &obj)
+    {
         // Serialize to this stream
         ::Serialize(*this, obj);
         return (*this);
@@ -322,9 +332,11 @@ public:
     int GetVersion() const { return nVersion; }
     int GetType() const { return nType; }
     size_t size() const { return vchData.size(); }
-    void seek(size_t nSize) {
+    void seek(size_t nSize)
+    {
         nPos += nSize;
-        if (nPos > vchData.size()) {
+        if (nPos > vchData.size())
+        {
             vchData.resize(nPos);
         }
     }
@@ -339,7 +351,8 @@ private:
 /**
  * Minimal stream for reading from an existing vector by reference
  */
-class VectorReader {
+class VectorReader
+{
 private:
     const int m_type;
     const int m_version;
@@ -353,12 +366,12 @@ public:
      * @param[in]  data Referenced byte vector to overwrite/append
      * @param[in]  pos Starting position. Vector index where reads should start.
      */
-    VectorReader(int type, int version, const std::vector<uint8_t> &data,
-                 size_t pos)
-        : m_type(type), m_version(version), m_data(data), m_pos(pos) {
-        if (m_pos > m_data.size()) {
-            throw std::ios_base::failure(
-                "VectorReader(...): end of data (m_pos > m_data.size())");
+    VectorReader(int type, int version, const std::vector<uint8_t> &data, size_t pos)
+        : m_type(type), m_version(version), m_data(data), m_pos(pos)
+    {
+        if (m_pos > m_data.size())
+        {
+            throw std::ios_base::failure("VectorReader(...): end of data (m_pos > m_data.size())");
         }
     }
 
@@ -367,13 +380,15 @@ public:
      * @param[in]  args  A list of items to deserialize starting at pos.
      */
     template <typename... Args>
-    VectorReader(int type, int version, const std::vector<uint8_t> &data,
-                 size_t pos, Args &&... args)
-        : VectorReader(type, version, data, pos) {
+    VectorReader(int type, int version, const std::vector<uint8_t> &data, size_t pos, Args &&...args)
+        : VectorReader(type, version, data, pos)
+    {
         ::UnserializeMany(*this, std::forward<Args>(args)...);
     }
 
-    template <typename T> VectorReader &operator>>(T &obj) {
+    template <typename T>
+    VectorReader &operator>>(T &obj)
+    {
         // Unserialize from this stream
         ::Unserialize(*this, obj);
         return (*this);
@@ -385,14 +400,17 @@ public:
     size_t size() const { return m_data.size() - m_pos; }
     bool empty() const { return m_data.size() == m_pos; }
 
-    void read(char *dst, size_t n) {
-        if (n == 0) {
+    void read(char *dst, size_t n)
+    {
+        if (n == 0)
+        {
             return;
         }
 
         // Read from the beginning of the buffer
         size_t pos_next = m_pos + n;
-        if (pos_next > m_data.size()) {
+        if (pos_next > m_data.size())
+        {
             throw std::ios_base::failure("VectorReader::read(): end of data");
         }
         memcpy(dst, m_data.data() + m_pos, n);
