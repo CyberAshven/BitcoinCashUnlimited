@@ -521,8 +521,7 @@ libbitcoin_consensus_a_SOURCES = \
   uint256.h \
   utilstrencodings.cpp \
   utilstrencodings.h \
-  version.h \
-  randomx/randomx.h
+  version.h
 
 
 # common: shared between bitcoind, and bitcoin-qt and non-server tools
@@ -666,7 +665,7 @@ bitcoin_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO_SSE41) \
   $(LIBBITCOIN_CRYPTO_AVX2) \
   $(LIBSECP256K1) \
-  $(LIBRSM)
+  $(LIBRSM) -L/root/bchrx/src/randomx -lrandomx
 
 bitcoin_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 #
