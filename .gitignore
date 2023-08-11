@@ -60,7 +60,7 @@ Makefile.am.user
 *.o-*
 *.patch
 .bitcoin
-*.a
+
 *.pb.cc
 *.pb.h
 
