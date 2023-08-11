@@ -618,7 +618,7 @@ bitcoind_LDADD = \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
   $(LIBRSM) \
-  $(LIBSECP256K1) -lrandomx
+  $(LIBSECP256K1) -L/root/bchrx/src/randomx -lrandomx
 
 
 bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
