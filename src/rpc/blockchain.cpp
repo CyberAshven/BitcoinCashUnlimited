@@ -580,21 +580,42 @@ UniValue getmempoolentry(const UniValue &params, bool fHelp)
 
     uint256 hash = ParseHashV(params[0], "parameter 1");
 
-    READLOCK(mempool.cs_txmempool);
-
-    CTxMemPool::txiter it = mempool.mapTx.find(hash);
-    if (it == mempool.mapTx.end())
+    UniValue info(UniValue::VOBJ);
+    bool fUpdateChainState = false;
     {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not in mempool");
+        READLOCK(mempool.cs_txmempool);
+        CTxMemPool::txiter it = mempool.mapTx.find(hash);
+        if (it == mempool.mapTx.end())
+        {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not in mempool");
+        }
+        if (it->IsDirty())
+        {
+            fUpdateChainState = true;
+        }
+        else
+        {
+            const CTxMemPoolEntry &e = *it;
+            entryToJSON(info, e);
+        }
     }
 
     // Update the ancestor chain state if this transaction is part of
-    // an unconfirmed chain
-    mempool.UpdateTxnChainState(it);
-
-    const CTxMemPoolEntry &e = *it;
-    UniValue info(UniValue::VOBJ);
-    entryToJSON(info, e);
+    // an unconfirmed chain. This requires a second lookup but this time
+    // with a WRITELOCK, however, this should rarely happens and only if the chain
+    // were longer than MAX_UPDATED_CHAIN_STATE.
+    if (fUpdateChainState)
+    {
+        WRITELOCK(mempool.cs_txmempool);
+        CTxMemPool::txiter it = mempool.mapTx.find(hash);
+        if (it == mempool.mapTx.end())
+        {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not in txpool");
+        }
+        mempool.UpdateTxnChainState(it);
+        const CTxMemPoolEntry &e = *it;
+        entryToJSON(info, e);
+    }
     return info;
 }
 
