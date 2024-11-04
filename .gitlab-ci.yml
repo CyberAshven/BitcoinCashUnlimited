@@ -294,8 +294,8 @@ test-ubuntu-qa-rostrum:
 .debian-clang-env:
     extends: .cache-debian-clang
     variables:
-        CC: clang-10
-        CXX: clang++-10
+        CC: clang-15
+        CXX: clang++-15
 
 build-debian-clang:
     stage: build
