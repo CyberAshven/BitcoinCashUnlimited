@@ -162,6 +162,10 @@ public:
     CAmount getWatchBalance() const;
     CAmount getWatchUnconfirmedBalance() const;
     CAmount getWatchImmatureBalance() const;
+    bool havePartialMultisig() const;
+    CAmount getPartialMultisigBalance() const;
+    CAmount getPartialMultisigUnconfirmedBalance() const;
+    CAmount getPartialMultisigImmatureBalance() const;
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
@@ -233,6 +237,7 @@ public:
 private:
     CWallet *wallet;
     bool fHaveWatchOnly;
+    bool fHavePartialMultisig;
     bool fForceCheckBalanceChanged;
 
     // Wallet has an options model for wallet-specific options
@@ -250,6 +255,9 @@ private:
     CAmount cachedWatchOnlyBalance;
     CAmount cachedWatchUnconfBalance;
     CAmount cachedWatchImmatureBalance;
+    CAmount cachedPartialMultisigBalance;
+    CAmount cachedPartialMultisigUnconfBalance;
+    CAmount cachedPartialMultisigImmatureBalance;
     EncryptionStatus cachedEncryptionStatus;
     int cachedNumBlocks;
 
@@ -266,7 +274,10 @@ Q_SIGNALS:
         const CAmount &immatureBalance,
         const CAmount &watchOnlyBalance,
         const CAmount &watchUnconfBalance,
-        const CAmount &watchImmatureBalance);
+        const CAmount &watchImmatureBalance,
+        const CAmount &partialMultisigBalance,
+        const CAmount &partialMultisigUnconfBalance,
+        const CAmount &partialMultisigImmatureBalance);
 
     // Encryption status of wallet changed
     void encryptionStatusChanged(int status);
@@ -288,6 +299,8 @@ Q_SIGNALS:
     // Watch-only address added
     void notifyWatchonlyChanged(bool fHaveWatchonly);
 
+    void notifyPartialMultisigChanged(bool fHavePartialMultisig);
+
 public Q_SLOTS:
     /* Wallet status might have changed */
     void updateStatus();
@@ -301,6 +314,7 @@ public Q_SLOTS:
         int status);
     /* Watch-only added */
     void updateWatchOnlyFlag(bool fHaveWatchonly);
+    void updatePartialMultisigFlag(bool fHavePartialMultisig);
     /* Current, immature or unconfirmed balance might have changed - emit 'balanceChanged' if so */
     void pollBalanceChanged();
 };

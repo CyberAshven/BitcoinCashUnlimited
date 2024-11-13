@@ -35,6 +35,7 @@ WalletModel::WalletModel(const PlatformStyle *platformStyle,
       cachedEncryptionStatus(Unencrypted), cachedNumBlocks(0)
 {
     fHaveWatchOnly = wallet->HaveWatchOnly() || getWatchBalance() > 0;
+    fHavePartialMultisig = getPartialMultisigBalance() > 0;
     fForceCheckBalanceChanged = false;
 
     addressTableModel = new AddressTableModel(wallet, this);
@@ -73,6 +74,10 @@ bool WalletModel::haveWatchOnly() const { return fHaveWatchOnly; }
 CAmount WalletModel::getWatchBalance() const { return wallet->GetWatchOnlyBalance(); }
 CAmount WalletModel::getWatchUnconfirmedBalance() const { return wallet->GetUnconfirmedWatchOnlyBalance(); }
 CAmount WalletModel::getWatchImmatureBalance() const { return wallet->GetImmatureWatchOnlyBalance(); }
+bool WalletModel::havePartialMultisig() const { return fHavePartialMultisig; }
+CAmount WalletModel::getPartialMultisigBalance() const { return wallet->GetPartialMultisigBalance(); }
+CAmount WalletModel::getPartialMultisigUnconfirmedBalance() const { return wallet->GetUnconfirmedPartialMultisigBalance(); }
+CAmount WalletModel::getPartialMultisigImmatureBalance() const { return wallet->GetImmaturePartialMultisigBalance(); }
 void WalletModel::updateStatus()
 {
     EncryptionStatus newEncryptionStatus = getEncryptionStatus();
@@ -114,16 +119,27 @@ void WalletModel::checkBalanceChanged()
     CAmount newWatchOnlyBalance = 0;
     CAmount newWatchUnconfBalance = 0;
     CAmount newWatchImmatureBalance = 0;
+    CAmount newPartialMultisigBalance = 0;
+    CAmount newPartialMultisigUnconfBalance = 0;
+    CAmount newPartialMultisigImmatureBalance = 0;
     if (haveWatchOnly())
     {
         newWatchOnlyBalance = getWatchBalance();
         newWatchUnconfBalance = getWatchUnconfirmedBalance();
         newWatchImmatureBalance = getWatchImmatureBalance();
     }
+    if (havePartialMultisig())
+    {
+        newPartialMultisigBalance = getPartialMultisigBalance();
+        newPartialMultisigUnconfBalance = getPartialMultisigUnconfirmedBalance();
+        newPartialMultisigImmatureBalance = getPartialMultisigImmatureBalance();
+    }
 
     if (cachedBalance != newBalance || cachedUnconfirmedBalance != newUnconfirmedBalance ||
         cachedImmatureBalance != newImmatureBalance || cachedWatchOnlyBalance != newWatchOnlyBalance ||
-        cachedWatchUnconfBalance != newWatchUnconfBalance || cachedWatchImmatureBalance != newWatchImmatureBalance)
+        cachedWatchUnconfBalance != newWatchUnconfBalance || cachedWatchImmatureBalance != newWatchImmatureBalance ||
+        cachedPartialMultisigBalance != newPartialMultisigBalance || cachedPartialMultisigUnconfBalance != newPartialMultisigUnconfBalance ||
+        cachedPartialMultisigImmatureBalance != newPartialMultisigImmatureBalance)
     {
         cachedBalance = newBalance;
         cachedUnconfirmedBalance = newUnconfirmedBalance;
@@ -131,9 +147,12 @@ void WalletModel::checkBalanceChanged()
         cachedWatchOnlyBalance = newWatchOnlyBalance;
         cachedWatchUnconfBalance = newWatchUnconfBalance;
         cachedWatchImmatureBalance = newWatchImmatureBalance;
+        cachedPartialMultisigBalance = newPartialMultisigBalance;
+        cachedPartialMultisigUnconfBalance = newPartialMultisigUnconfBalance;
+        cachedPartialMultisigImmatureBalance = newPartialMultisigImmatureBalance;
 
         Q_EMIT balanceChanged(newBalance, newUnconfirmedBalance, newImmatureBalance, newWatchOnlyBalance,
-            newWatchUnconfBalance, newWatchImmatureBalance);
+            newWatchUnconfBalance, newWatchImmatureBalance, newPartialMultisigBalance, newPartialMultisigUnconfBalance, newPartialMultisigImmatureBalance);
     }
 }
 
@@ -157,6 +176,12 @@ void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
 {
     fHaveWatchOnly = fHaveWatchonly;
     Q_EMIT notifyWatchonlyChanged(fHaveWatchonly);
+}
+
+void WalletModel::updatePartialMultisigFlag(bool _fHavePartialMultisig)
+{
+    fHavePartialMultisig = _fHavePartialMultisig;
+    Q_EMIT notifyPartialMultisigChanged(fHavePartialMultisig);
 }
 
 bool WalletModel::validateAddress(const QString &address) { return IsValidDestinationString(address.toStdString()); }
@@ -474,6 +499,11 @@ static void NotifyWatchonlyChanged(WalletModel *walletmodel, bool fHaveWatchonly
     QMetaObject::invokeMethod(walletmodel, "updateWatchOnlyFlag", Qt::QueuedConnection, Q_ARG(bool, fHaveWatchonly));
 }
 
+static void NotifyPartialMultisigChanged(WalletModel *walletmodel, bool fHavePartialMultisig)
+{
+    QMetaObject::invokeMethod(walletmodel, "updatePartialMultisigFlag", Qt::QueuedConnection, Q_ARG(bool, fHavePartialMultisig));
+}
+
 void WalletModel::subscribeToCoreSignals()
 {
     // Connect signals to wallet
@@ -484,6 +514,7 @@ void WalletModel::subscribeToCoreSignals()
         boost::bind(NotifyTransactionChanged, this, boost::arg<1>(), boost::arg<2>(), boost::arg<3>()));
     wallet->ShowProgress.connect(boost::bind(ShowProgress, this, boost::arg<1>(), boost::arg<2>()));
     wallet->NotifyWatchonlyChanged.connect(boost::bind(NotifyWatchonlyChanged, this, boost::arg<1>()));
+    wallet->NotifyPartialMultisigChanged.connect(boost::bind(NotifyPartialMultisigChanged, this, boost::arg<1>()));
 }
 
 void WalletModel::unsubscribeFromCoreSignals()
@@ -496,6 +527,7 @@ void WalletModel::unsubscribeFromCoreSignals()
         boost::bind(NotifyTransactionChanged, this, boost::arg<1>(), boost::arg<2>(), boost::arg<3>()));
     wallet->ShowProgress.disconnect(boost::bind(ShowProgress, this, boost::arg<1>(), boost::arg<1>()));
     wallet->NotifyWatchonlyChanged.disconnect(boost::bind(NotifyWatchonlyChanged, this, boost::arg<1>()));
+    wallet->NotifyPartialMultisigChanged.disconnect(boost::bind(NotifyPartialMultisigChanged, this, boost::arg<1>()));
 }
 
 // WalletModel::UnlockContext implementation

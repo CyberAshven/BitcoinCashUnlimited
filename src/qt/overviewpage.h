@@ -49,7 +49,10 @@ public Q_SLOTS:
         const CAmount &immatureBalance,
         const CAmount &watchOnlyBalance,
         const CAmount &watchUnconfBalance,
-        const CAmount &watchImmatureBalance);
+        const CAmount &watchImmatureBalance,
+        const CAmount &partialMultisigBalance,
+        const CAmount &partialMultisigUnconfBalance,
+        const CAmount &partialMultisigImmatureBalance);
 
 Q_SIGNALS:
     void transactionClicked(const QModelIndex &index);
@@ -65,6 +68,9 @@ private:
     CAmount currentWatchOnlyBalance;
     CAmount currentWatchUnconfBalance;
     CAmount currentWatchImmatureBalance;
+    CAmount currentPartialMultisigBalance;
+    CAmount currentPartialMultisigUnconfBalance;
+    CAmount currentPartialMultisigImmatureBalance;
 
     TxViewDelegate *txdelegate;
     std::unique_ptr<TransactionFilterProxy> filter;
@@ -74,6 +80,7 @@ private Q_SLOTS:
     void handleTransactionClicked(const QModelIndex &index);
     void updateAlerts(const QString &warnings);
     void updateWatchOnlyLabels(bool showWatchOnly);
+    void updatePartialMultisigLabels(bool showPartialMultisig);
     void handleOutOfSyncWarningClicks();
 };
 

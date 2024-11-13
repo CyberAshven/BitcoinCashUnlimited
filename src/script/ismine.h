@@ -27,7 +27,9 @@ enum isminetype
     ISMINE_WATCH_SOLVABLE = 2,
     ISMINE_WATCH_ONLY = ISMINE_WATCH_SOLVABLE | ISMINE_WATCH_UNSOLVABLE,
     ISMINE_SPENDABLE = 4,
-    ISMINE_ALL = ISMINE_WATCH_ONLY | ISMINE_SPENDABLE
+    ISMINE_ALL = ISMINE_WATCH_ONLY | ISMINE_SPENDABLE,
+    //! Indicates a multisig address that we have at least 1 key for but not all of the keys
+    ISMINE_PARTIAL = 8,
 };
 /** used for bitflags of isminetype */
 typedef uint8_t isminefilter;

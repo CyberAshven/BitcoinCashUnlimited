@@ -358,6 +358,24 @@ bool ExtractDestination(const CScript &scriptPubKey, CTxDestination &addressRet,
         return true;
     }
     // Multisig txns have more than one address...
+    // use the Multisig Address
+    else if (whichType == TX_MULTISIG)
+    {
+        std::vector<CPubKey> pubkeys;
+        int nRequired = vSolutions.front()[0];
+        pubkeys.resize(nRequired);
+        for (unsigned int i = 1; i < vSolutions.size() - 1; i++)
+        {
+            CPubKey pubKey(vSolutions[i]);
+            if (!pubKey.IsValid())
+            {
+                return false;
+            }
+            pubkeys.push_back(pubKey);
+        }
+        CScript multisigScript = GetScriptForMultisig(nRequired, pubkeys);
+        addressRet = CScriptID(multisigScript);
+    }
     return false;
 }
 
